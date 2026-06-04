@@ -1,0 +1,142 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: bigbug-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bigbug}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bigbug}
+      POSTGRES_DB: ${POSTGRES_DB:-bigbug}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bigbug}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: bigbug-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: bigbug-keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bigbug}
+      KC_DB_USERNAME: ${POSTGRES_USER:-bigbug}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-bigbug}
+      KC_HTTP_PORT: 8180
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    ports:
+      - "8180:8180"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: bigbug-gitlab
+    hostname: gitlab.local
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.local:8080'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-GitLabRoot123!}'
+        nginx['listen_port'] = 8080
+        nginx['listen_https'] = false
+        prometheus_monitoring['enable'] = false
+    ports:
+      - "8080:8080"
+      - "8443:443"
+      - "2222:22"
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    shm_size: "256m"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/-/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: bigbug-gitlab-runner
+    volumes:
+      - gitlab_runner_config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - gitlab
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bigbug-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bigbug}:${POSTGRES_PASSWORD:-bigbug}@postgres:5432/${POSTGRES_DB:-bigbug}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-changeme-in-production}
+      KEYCLOAK_URL: http://keycloak:8180
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-bigbug}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-bigbug-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      GITLAB_URL: http://gitlab.local:8080
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bigbug-frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_KEYCLOAK_URL: http://localhost:8180
+      VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-bigbug}
+      VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID_FRONTEND:-bigbug-frontend}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: yarn dev --host
+
+volumes:
+  postgres_data:
+  redis_data:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  gitlab_runner_config:

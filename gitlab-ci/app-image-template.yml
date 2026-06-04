@@ -1,0 +1,253 @@
+# GitLab CI/CD Template: Application Docker Image Build
+# Usage: include this template in your app image project's .gitlab-ci.yml
+#
+# Required CI/CD variables:
+#   REGISTRY_URL         - Docker registry URL (e.g. registry.example.com)
+#   REGISTRY_USER        - Registry username
+#   REGISTRY_PASSWORD    - Registry password
+#   BIGBUG_API_URL       - BigBug backend URL
+#   BIGBUG_WEBHOOK_TOKEN - Shared secret for webhook authentication
+#
+# Optional CI/CD variables:
+#   COSIGN_PRIVATE_KEY   - Cosign private key for image signing
+#   COSIGN_PASSWORD      - Cosign private key password
+#   BUILD_PLATFORMS      - Comma-separated platforms (default: linux/amd64)
+#   GOLD_IMAGE_REF       - Base gold image reference (e.g. registry.example.com/ubuntu-22.04:latest)
+
+stages:
+  - prepare
+  - build
+  - sign
+  - notify
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  BUILD_PLATFORMS: "linux/amd64"
+  IMAGE_NAME: ""          # Override: e.g. myapp
+  IMAGE_TAG: ""           # Override: e.g. 1.2.3
+  DOCKERFILE_PATH: "Dockerfile"
+  BUILD_CONTEXT: "."
+  APP_IMAGE_ID: ""        # BigBug AppImage ID (set by BigBug when triggering)
+  GOLD_IMAGE_REF: ""      # Base gold image (e.g. registry.example.com/python:3.12-slim)
+  BUILD_ARGS: ""          # Additional --build-arg flags
+
+# ─────────────────────────────────────────────
+# Validate gold image availability
+# ─────────────────────────────────────────────
+validate-gold-image:
+  stage: prepare
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  script:
+    - |
+      if [ -z "$GOLD_IMAGE_REF" ]; then
+        echo "WARNING: GOLD_IMAGE_REF not set, using Dockerfile FROM directly"
+        exit 0
+      fi
+
+      docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD" "$REGISTRY_URL"
+      echo "==> Validating gold image: ${GOLD_IMAGE_REF}"
+      docker pull "${GOLD_IMAGE_REF}"
+      echo "==> Gold image validated successfully"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ─────────────────────────────────────────────
+# Build application image
+# ─────────────────────────────────────────────
+build-app-image:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  needs:
+    - validate-gold-image
+  before_script:
+    - docker info
+    - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD" "$REGISTRY_URL"
+    - docker buildx create --use --name multiarch-builder --driver docker-container || true
+    - docker buildx inspect --bootstrap
+  script:
+    - |
+      if [ -z "$IMAGE_NAME" ] || [ -z "$IMAGE_TAG" ]; then
+        echo "ERROR: IMAGE_NAME and IMAGE_TAG must be set"
+        exit 1
+      fi
+
+      FULL_IMAGE="${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
+      FULL_IMAGE_LATEST="${REGISTRY_URL}/${IMAGE_NAME}:latest"
+
+      echo "==> Building app image: ${FULL_IMAGE}"
+      echo "==> Platforms: ${BUILD_PLATFORMS}"
+      echo "==> Base gold image: ${GOLD_IMAGE_REF:-'from Dockerfile'}"
+
+      # Build extra args
+      EXTRA_ARGS=""
+      if [ -n "$GOLD_IMAGE_REF" ]; then
+        EXTRA_ARGS="--build-arg BASE_IMAGE=${GOLD_IMAGE_REF}"
+      fi
+      if [ -n "$BUILD_ARGS" ]; then
+        EXTRA_ARGS="${EXTRA_ARGS} ${BUILD_ARGS}"
+      fi
+
+      docker buildx build \
+        --platform "${BUILD_PLATFORMS}" \
+        --file "${DOCKERFILE_PATH}" \
+        --tag "${FULL_IMAGE}" \
+        --tag "${FULL_IMAGE_LATEST}" \
+        --label "org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --label "org.opencontainers.image.revision=${CI_COMMIT_SHA}" \
+        --label "org.opencontainers.image.source=${CI_PROJECT_URL}" \
+        --label "bigbug.image.type=app" \
+        --label "bigbug.image.id=${APP_IMAGE_ID}" \
+        --label "bigbug.gold.image=${GOLD_IMAGE_REF}" \
+        --cache-from "type=registry,ref=${FULL_IMAGE_LATEST}" \
+        --cache-to "type=inline" \
+        --push \
+        ${EXTRA_ARGS} \
+        "${BUILD_CONTEXT}"
+
+      # Get image digest
+      DIGEST=$(docker buildx imagetools inspect "${FULL_IMAGE}" --format '{{json .Manifest.Digest}}' | tr -d '"')
+      echo "IMAGE_DIGEST=${DIGEST}" >> build.env
+      echo "FULL_IMAGE=${FULL_IMAGE}" >> build.env
+      echo "==> Build completed. Digest: ${DIGEST}"
+  artifacts:
+    reports:
+      dotenv: build.env
+    expire_in: 1 hour
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ─────────────────────────────────────────────
+# Sign image with cosign
+# ─────────────────────────────────────────────
+sign-app-image:
+  stage: sign
+  image: gcr.io/projectsigstore/cosign:v2.2.0
+  needs:
+    - job: build-app-image
+      artifacts: true
+  script:
+    - |
+      if [ -z "$COSIGN_PRIVATE_KEY" ]; then
+        echo "Skipping image signing (COSIGN_PRIVATE_KEY not configured)"
+        echo "COSIGN_SIGNATURE=" >> sign.env
+        exit 0
+      fi
+
+      echo "$COSIGN_PRIVATE_KEY" > /tmp/cosign.key
+      chmod 600 /tmp/cosign.key
+
+      echo "==> Signing image: ${FULL_IMAGE}"
+      COSIGN_PASSWORD="${COSIGN_PASSWORD}" cosign sign \
+        --key /tmp/cosign.key \
+        --yes \
+        "${FULL_IMAGE}@${IMAGE_DIGEST}"
+
+      SIGNATURE=$(COSIGN_PASSWORD="${COSIGN_PASSWORD}" cosign triangulate "${FULL_IMAGE}@${IMAGE_DIGEST}" 2>/dev/null || echo "")
+      echo "COSIGN_SIGNATURE=${SIGNATURE}" >> sign.env
+      echo "==> Image signed successfully"
+
+      rm -f /tmp/cosign.key
+  artifacts:
+    reports:
+      dotenv: sign.env
+    expire_in: 1 hour
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ─────────────────────────────────────────────
+# Notify BigBug backend
+# ─────────────────────────────────────────────
+notify-bigbug:
+  stage: notify
+  image: alpine:latest
+  needs:
+    - job: build-app-image
+      artifacts: true
+    - job: sign-app-image
+      artifacts: true
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      if [ -z "$BIGBUG_API_URL" ] || [ -z "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        echo "BigBug webhook not configured, skipping notification"
+        exit 0
+      fi
+
+      IS_SIGNED="false"
+      if [ -n "$COSIGN_SIGNATURE" ]; then
+        IS_SIGNED="true"
+      fi
+
+      ARCH_LIST=$(echo "$BUILD_PLATFORMS" | tr ',' '\n' | sed 's|linux/||' | tr '\n' ',' | sed 's/,$//')
+
+      curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+        -H "Content-Type: application/json" \
+        -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+        -d "{
+          \"object_kind\": \"pipeline\",
+          \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+          \"object_attributes\": {
+            \"id\": ${CI_PIPELINE_ID},
+            \"status\": \"success\",
+            \"ref\": \"${CI_COMMIT_REF_NAME}\",
+            \"sha\": \"${CI_COMMIT_SHA}\"
+          },
+          \"pipeline_type\": \"app_image_build\",
+          \"image_id\": \"${APP_IMAGE_ID}\",
+          \"image_tag\": \"${IMAGE_TAG}\",
+          \"sha256_digest\": \"${IMAGE_DIGEST}\",
+          \"cosign_signature\": \"${COSIGN_SIGNATURE}\",
+          \"is_signed\": ${IS_SIGNED},
+          \"arch\": \"${ARCH_LIST}\",
+          \"registry_url\": \"${REGISTRY_URL}\",
+          \"full_image\": \"${FULL_IMAGE}\",
+          \"gold_image_ref\": \"${GOLD_IMAGE_REF}\"
+        }" || echo "WARNING: Failed to notify BigBug"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+notify-failure:
+  stage: notify
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      if [ -n "$BIGBUG_API_URL" ] && [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+          -d "{
+            \"object_kind\": \"pipeline\",
+            \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+            \"object_attributes\": {
+              \"id\": ${CI_PIPELINE_ID},
+              \"status\": \"failed\",
+              \"ref\": \"${CI_COMMIT_REF_NAME}\",
+              \"sha\": \"${CI_COMMIT_SHA}\"
+            },
+            \"pipeline_type\": \"app_image_build\",
+            \"image_id\": \"${APP_IMAGE_ID}\",
+            \"message\": \"App image build pipeline failed\"
+          }" || true
+      fi
+  rules:
+    - when: on_failure

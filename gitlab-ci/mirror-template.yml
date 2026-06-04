@@ -1,0 +1,124 @@
+# GitLab CI/CD Template: GitHub → GitLab Mirror Sync
+# Usage: include this template in your project's .gitlab-ci.yml
+#
+# Required CI/CD variables (set in GitLab project/group settings):
+#   BIGBUG_API_URL       - BigBug backend URL (e.g. http://bigbug-backend:8000)
+#   BIGBUG_WEBHOOK_TOKEN - Shared secret for webhook authentication
+#   GITHUB_TOKEN         - GitHub personal access token (for private repos)
+
+stages:
+  - sync
+  - notify
+
+variables:
+  GIT_STRATEGY: none
+  GIT_DEPTH: "0"
+
+# ─────────────────────────────────────────────
+# Mirror sync job
+# ─────────────────────────────────────────────
+mirror-sync:
+  stage: sync
+  image: alpine/git:latest
+  variables:
+    GITHUB_REPO_URL: ""      # Override per project: https://github.com/org/repo.git
+    GITLAB_REPO_URL: ""      # Override per project: https://gitlab.example.com/group/repo.git
+    SYNC_BRANCHES: "true"
+    SYNC_TAGS: "true"
+    SYNC_LFS: "false"
+  before_script:
+    - apk add --no-cache curl git
+    - git config --global credential.helper store
+    # Configure GitHub credentials
+    - |
+      if [ -n "$GITHUB_TOKEN" ]; then
+        echo "https://oauth2:${GITHUB_TOKEN}@github.com" >> ~/.git-credentials
+      fi
+    # Configure GitLab credentials
+    - |
+      if [ -n "$GITLAB_TOKEN" ]; then
+        GITLAB_HOST=$(echo "$GITLAB_REPO_URL" | sed 's|https://||' | cut -d'/' -f1)
+        echo "https://oauth2:${GITLAB_TOKEN}@${GITLAB_HOST}" >> ~/.git-credentials
+      fi
+  script:
+    - |
+      if [ -z "$GITHUB_REPO_URL" ] || [ -z "$GITLAB_REPO_URL" ]; then
+        echo "ERROR: GITHUB_REPO_URL and GITLAB_REPO_URL must be set"
+        exit 1
+      fi
+
+      echo "==> Cloning from GitHub: $GITHUB_REPO_URL"
+      git clone --mirror "$GITHUB_REPO_URL" repo.git
+      cd repo.git
+
+      echo "==> Pushing to GitLab: $GITLAB_REPO_URL"
+      git remote add gitlab "$GITLAB_REPO_URL"
+
+      PUSH_ARGS="--mirror"
+      if [ "$SYNC_TAGS" = "false" ]; then
+        PUSH_ARGS="--all"
+      fi
+
+      git push gitlab $PUSH_ARGS --force
+
+      echo "==> Sync completed successfully"
+      SYNC_STATUS="success"
+      SYNC_MESSAGE="Mirror sync completed"
+  after_script:
+    - |
+      # Notify BigBug backend about sync result
+      if [ -n "$BIGBUG_API_URL" ] && [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        STATUS="${SYNC_STATUS:-failed}"
+        MESSAGE="${SYNC_MESSAGE:-Sync failed}"
+        curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+          -d "{
+            \"object_kind\": \"pipeline\",
+            \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+            \"object_attributes\": {
+              \"id\": ${CI_PIPELINE_ID},
+              \"status\": \"${STATUS}\",
+              \"ref\": \"${CI_COMMIT_REF_NAME}\",
+              \"sha\": \"${CI_COMMIT_SHA}\"
+            },
+            \"pipeline_type\": \"mirror_sync\",
+            \"message\": \"${MESSAGE}\"
+          }" || echo "WARNING: Failed to notify BigBug backend"
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ─────────────────────────────────────────────
+# Notify on failure
+# ─────────────────────────────────────────────
+notify-failure:
+  stage: notify
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      echo "Mirror sync FAILED for pipeline ${CI_PIPELINE_ID}"
+      if [ -n "$BIGBUG_API_URL" ] && [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+          -d "{
+            \"object_kind\": \"pipeline\",
+            \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+            \"object_attributes\": {
+              \"id\": ${CI_PIPELINE_ID},
+              \"status\": \"failed\",
+              \"ref\": \"${CI_COMMIT_REF_NAME}\",
+              \"sha\": \"${CI_COMMIT_SHA}\"
+            },
+            \"pipeline_type\": \"mirror_sync\",
+            \"message\": \"Mirror sync pipeline failed\"
+          }" || true
+      fi
+  rules:
+    - when: on_failure
