@@ -1,0 +1,135 @@
+# =============================================================================
+# Python / FastAPI Backend
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+htmlcov/
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.env.*.local
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ruff / linting
+.ruff_cache/
+
+# =============================================================================
+# Alembic
+# =============================================================================
+# Keep versions directory but ignore generated migrations if needed
+# backend/alembic/versions/*.py  # Uncomment if you don't want to track migrations
+
+# =============================================================================
+# Node.js / React / TypeScript Frontend
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+.pnp.cjs
+
+# Yarn Berry cache (если не используется Zero-Installs)
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Build output
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+frontend/coverage/
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+.env
+.env.*
+!.env.example
+
+# =============================================================================
+# Docker
+# =============================================================================
+.dockerignore
+
+# =============================================================================
+# IDE / Editors
+# =============================================================================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# OS
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# =============================================================================
+# Logs & Temp
+# =============================================================================
+logs/
+*.log
+tmp/
+temp/
+
+# =============================================================================
+# Workspace / Project specific
+# =============================================================================
+*.code-workspace
+roo_task_*.md
