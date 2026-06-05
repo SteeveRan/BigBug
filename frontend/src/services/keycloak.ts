@@ -41,20 +41,20 @@ export function resetKeycloakInstance(): void {
 // PKCE helpers
 // ---------------------------------------------------------------------------
 
-function base64UrlEncode(buffer: ArrayBuffer): string {
+export function base64UrlEncode(buffer: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
 }
 
-function generateCodeVerifier(): string {
+export function generateCodeVerifier(): string {
   const array = new Uint8Array(64)
   crypto.getRandomValues(array)
   return base64UrlEncode(array.buffer)
 }
 
-async function computeCodeChallenge(verifier: string): Promise<string> {
+export async function computeCodeChallenge(verifier: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(verifier)
   const hash = await crypto.subtle.digest('SHA-256', data)

@@ -24,6 +24,8 @@ import {
   SwapHoriz as MirrorIcon,
   Layers as GoldImageIcon,
   Apps as AppImageIcon,
+  Sailing as HelmIcon,
+  Dock as DockerIcon,
   AdminPanelSettings as AdminIcon,
   Menu as MenuIcon,
   Logout as LogoutIcon,
@@ -40,6 +42,8 @@ const navItems = [
   { label: 'Mirrors', path: '/mirrors', icon: <MirrorIcon /> },
   { label: 'Gold Images', path: '/gold-images', icon: <GoldImageIcon /> },
   { label: 'App Images', path: '/app-images', icon: <AppImageIcon /> },
+  { label: 'Helm Charts', path: '/helm-charts', icon: <HelmIcon /> },
+  { label: 'Docker Images', path: '/docker-images', icon: <DockerIcon /> },
 ]
 
 const adminItems = [

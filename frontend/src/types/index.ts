@@ -156,3 +156,102 @@ export const STATUS_FLAG = {
 } as const
 
 export type StatusFlag = (typeof STATUS_FLAG)[keyof typeof STATUS_FLAG]
+
+// ──── Helm Chart Types ─────────────────────────────────────────────────────
+
+export interface HelmChartSource {
+  id: number
+  name: string
+  repo_url: string
+  description: string | null
+  gitlab_project_id: string | null
+  gitlab_project_url: string | null
+  last_synced_at: string | null
+  status_flag: number
+  status_text: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface HelmChartSourceDetail extends HelmChartSource {
+  versions: HelmChartVersion[]
+}
+
+export interface HelmChartVersion {
+  id: number
+  source_id: number
+  chart_name: string
+  version: string
+  app_version: string | null
+  description: string | null
+  digest: string | null
+  chart_url: string | null
+  is_synced: boolean
+  status_flag: number
+  status_text: string | null
+  last_synced_at: string | null
+  created_at: string
+}
+
+export interface HelmSyncLog {
+  id: number
+  source_id: number
+  pipeline_id: string | null
+  pipeline_url: string | null
+  status_flag: number
+  status_text: string | null
+  log_output: string | null
+  triggered_by: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+// ──── Docker Image Types ───────────────────────────────────────────────────
+
+export interface DockerImageSource {
+  id: number
+  name: string
+  registry_url: string
+  description: string | null
+  gitlab_project_id: string | null
+  gitlab_project_url: string | null
+  last_synced_at: string | null
+  status_flag: number
+  status_text: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DockerImageSourceDetail extends DockerImageSource {
+  tags: DockerImageTag[]
+}
+
+export interface DockerImageTag {
+  id: number
+  source_id: number
+  image_name: string
+  tag: string
+  digest: string | null
+  size_bytes: number | null
+  architectures: string | null
+  is_synced: boolean
+  status_flag: number
+  status_text: string | null
+  last_synced_at: string | null
+  created_at: string
+}
+
+export interface DockerSyncLog {
+  id: number
+  source_id: number
+  pipeline_id: string | null
+  pipeline_url: string | null
+  status_flag: number
+  status_text: string | null
+  log_output: string | null
+  triggered_by: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}

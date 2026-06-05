@@ -11,6 +11,10 @@ import { MirrorsPage } from '../pages/Mirrors'
 import { MirrorDetailPage } from '../pages/Mirrors/MirrorDetail'
 import { GoldImagesPage } from '../pages/GoldImages'
 import { AppImagesPage } from '../pages/AppImages'
+import { HelmChartsPage } from '../pages/HelmCharts'
+import { HelmChartDetailPage } from '../pages/HelmCharts/HelmChartDetail'
+import { DockerImagesPage } from '../pages/DockerImages'
+import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail'
 import { AdminPage } from '../pages/Admin'
 
 export function AppRouter() {
@@ -38,6 +42,10 @@ export function AppRouter() {
         <Route path="mirrors/:id" element={<MirrorDetailPage />} />
         <Route path="gold-images" element={<GoldImagesPage />} />
         <Route path="app-images" element={<AppImagesPage />} />
+        <Route path="helm-charts" element={<HelmChartsPage />} />
+        <Route path="helm-charts/:id" element={<HelmChartDetailPage />} />
+        <Route path="docker-images" element={<DockerImagesPage />} />
+        <Route path="docker-images/:id" element={<DockerImageDetailPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,7 +15,7 @@ export const api = createApi({
       return headers
     },
   }),
-  tagTypes: ['Project', 'Mirror', 'GoldImage', 'AppImage', 'User', 'SyncLog', 'BuildLog'],
+  tagTypes: ['Project', 'Mirror', 'GoldImage', 'AppImage', 'User', 'SyncLog', 'BuildLog', 'HelmChart', 'DockerImage'],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation<
@@ -165,6 +165,70 @@ export const api = createApi({
       invalidatesTags: ['BuildLog'],
     }),
 
+    // Helm Charts
+    listHelmCharts: builder.query<unknown[], void>({
+      query: () => '/helm-charts',
+      providesTags: ['HelmChart'],
+    }),
+    getHelmChart: builder.query<unknown, number>({
+      query: (id) => `/helm-charts/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'HelmChart', id }],
+    }),
+    createHelmChart: builder.mutation<unknown, { name: string; repo_url: string; description?: string }>({
+      query: (body) => ({ url: '/helm-charts', method: 'POST', body }),
+      invalidatesTags: ['HelmChart'],
+    }),
+    updateHelmChart: builder.mutation<unknown, { id: number; data: Record<string, unknown> }>({
+      query: ({ id, data }) => ({ url: `/helm-charts/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'HelmChart', id }],
+    }),
+    deleteHelmChart: builder.mutation<void, number>({
+      query: (id) => ({ url: `/helm-charts/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['HelmChart'],
+    }),
+    indexHelmChart: builder.mutation<unknown, number>({
+      query: (id) => ({ url: `/helm-charts/${id}/index`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'HelmChart', id }],
+    }),
+    getHelmChartVersions: builder.query<unknown[], number>({
+      query: (id) => `/helm-charts/${id}/versions`,
+    }),
+    getHelmChartLogs: builder.query<unknown[], number>({
+      query: (id) => `/helm-charts/${id}/logs`,
+    }),
+
+    // Docker Images
+    listDockerImages: builder.query<unknown[], void>({
+      query: () => '/docker-images',
+      providesTags: ['DockerImage'],
+    }),
+    getDockerImage: builder.query<unknown, number>({
+      query: (id) => `/docker-images/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'DockerImage', id }],
+    }),
+    createDockerImage: builder.mutation<unknown, { name: string; registry_url: string; description?: string; image_name?: string }>({
+      query: (body) => ({ url: '/docker-images', method: 'POST', body }),
+      invalidatesTags: ['DockerImage'],
+    }),
+    updateDockerImage: builder.mutation<unknown, { id: number; data: Record<string, unknown> }>({
+      query: ({ id, data }) => ({ url: `/docker-images/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'DockerImage', id }],
+    }),
+    deleteDockerImage: builder.mutation<void, number>({
+      query: (id) => ({ url: `/docker-images/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['DockerImage'],
+    }),
+    indexDockerImage: builder.mutation<unknown, { id: number; image_name: string }>({
+      query: ({ id, image_name }) => ({ url: `/docker-images/${id}/index?image_name=${encodeURIComponent(image_name)}`, method: 'POST' }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'DockerImage', id }],
+    }),
+    getDockerImageTags: builder.query<unknown[], number>({
+      query: (id) => `/docker-images/${id}/tags`,
+    }),
+    getDockerImageLogs: builder.query<unknown[], number>({
+      query: (id) => `/docker-images/${id}/logs`,
+    }),
+
     // Admin
     listUsers: builder.query<unknown[], void>({
       query: () => '/admin/users',
@@ -225,4 +289,20 @@ export const {
   useUpdateUserMutation,
   useDeleteUserMutation,
   useListRolesQuery,
+  useListHelmChartsQuery,
+  useGetHelmChartQuery,
+  useCreateHelmChartMutation,
+  useUpdateHelmChartMutation,
+  useDeleteHelmChartMutation,
+  useIndexHelmChartMutation,
+  useGetHelmChartVersionsQuery,
+  useGetHelmChartLogsQuery,
+  useListDockerImagesQuery,
+  useGetDockerImageQuery,
+  useCreateDockerImageMutation,
+  useUpdateDockerImageMutation,
+  useDeleteDockerImageMutation,
+  useIndexDockerImageMutation,
+  useGetDockerImageTagsQuery,
+  useGetDockerImageLogsQuery,
 } = api
