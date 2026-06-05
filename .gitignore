@@ -77,6 +77,7 @@ yarn-error.log*
 frontend/dist/
 frontend/build/
 frontend/.vite/
+frontend/.yarn/
 
 # TypeScript
 *.tsbuildinfo

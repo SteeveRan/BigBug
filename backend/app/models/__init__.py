@@ -11,6 +11,9 @@ from app.models.app_image import AppImage
 from app.models.image_version import ImageVersion
 from app.models.build_schedule import BuildSchedule
 from app.models.build_log import BuildLog
+from app.models.helm_chart_source import HelmChartSource
+from app.models.helm_chart_version import HelmChartVersion
+from app.models.helm_sync_log import HelmSyncLog
 
 __all__ = [
     "User",
@@ -27,4 +30,7 @@ __all__ = [
     "ImageVersion",
     "BuildSchedule",
     "BuildLog",
+    "HelmChartSource",
+    "HelmChartVersion",
+    "HelmSyncLog",
 ]

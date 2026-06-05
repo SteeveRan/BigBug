@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from fastapi import Depends
 
 from app.database import get_db
 from app.models.sync_log import SyncLog
 from app.models.image_version import ImageVersion
 from app.models.build_log import BuildLog
+from app.models.helm_sync_log import HelmSyncLog
+from app.models.helm_chart_source import HelmChartSource
 
 router = APIRouter()
 
@@ -83,5 +84,33 @@ async def gitlab_webhook(
                     version.built_at = datetime.now(timezone.utc)
         await db.commit()
         return {"status": "ok", "type": "build_log", "id": build_log.id}
+
+    # Try to find matching HelmSyncLog
+    helm_result = await db.execute(
+        select(HelmSyncLog).where(HelmSyncLog.pipeline_id == pipeline_id)
+    )
+    helm_sync_log = helm_result.scalar_one_or_none()
+
+    if helm_sync_log:
+        helm_sync_log.status_flag = status_flag  # type: ignore[assignment]
+        helm_sync_log.status_text = pipeline_status  # type: ignore[assignment]
+        helm_sync_log.pipeline_url = pipeline_url  # type: ignore[assignment]
+        if pipeline_status in ("success", "failed", "canceled"):
+            from datetime import datetime, timezone
+            helm_sync_log.finished_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+
+            # Update parent HelmChartSource status
+            source_result = await db.execute(
+                select(HelmChartSource).where(HelmChartSource.id == helm_sync_log.source_id)
+            )
+            source = source_result.scalar_one_or_none()
+            if source:
+                source.status_flag = status_flag  # type: ignore[assignment]
+                source.status_text = pipeline_status  # type: ignore[assignment]
+                if pipeline_status == "success":
+                    source.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+
+        await db.commit()
+        return {"status": "ok", "type": "helm_sync_log", "id": helm_sync_log.id}
 
     return {"status": "ignored", "reason": "no matching log found for pipeline_id"}

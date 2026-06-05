@@ -1,0 +1,144 @@
+# GitLab CI/CD Template: Helm Chart Repository Sync
+# Usage: include this template in your helm-mirror project's .gitlab-ci.yml
+#
+# Required CI/CD variables (set in GitLab project/group settings):
+#   BIGBUG_API_URL       - BigBug backend URL (e.g. http://bigbug-backend:8000)
+#   BIGBUG_WEBHOOK_TOKEN - Shared secret for webhook authentication
+#   HELM_REPO_URL        - URL to the Helm chart repository index.yaml
+#   HELM_REPO_NAME       - Name of the Helm chart source in BigBug
+#
+# Optional CI/CD variables:
+#   GITLAB_REPO_URL      - GitLab repo to mirror charts to (default: this project)
+#   SYNC_STRATEGY        - "full" (clone entire repo) or "incremental" (default)
+#   CHART_FILTER         - Comma-separated list of chart names to sync (default: all)
+
+stages:
+  - sync
+  - notify
+
+variables:
+  GIT_STRATEGY: none
+  HELM_REPO_URL: ""       # Override per project
+  HELM_REPO_NAME: ""      # Override per project
+  SYNC_STRATEGY: "incremental"
+  CHART_FILTER: ""
+
+# ─────────────────────────────────────────────
+# Helm chart sync job
+# ─────────────────────────────────────────────
+helm-sync:
+  stage: sync
+  image: alpine/helm:latest
+  before_script:
+    - apk add --no-cache curl git yq
+    - helm plugin install https://github.com/chartmuseum/helm-push || true
+  script:
+    - |
+      if [ -z "$HELM_REPO_URL" ] || [ -z "$HELM_REPO_NAME" ]; then
+        echo "ERROR: HELM_REPO_URL and HELM_REPO_NAME must be set"
+        exit 1
+      fi
+
+      echo "==> Adding Helm repo: ${HELM_REPO_NAME}"
+      helm repo add "${HELM_REPO_NAME}" "${HELM_REPO_URL}"
+      helm repo update "${HELM_REPO_NAME}"
+
+      echo "==> Fetching available charts"
+      CHARTS=$(helm search repo "${HELM_REPO_NAME}" -o json)
+
+      if [ -n "$CHART_FILTER" ]; then
+        echo "==> Filtering charts: ${CHART_FILTER}"
+      fi
+
+      # Prepare local chart storage
+      mkdir -p charts
+      cd charts
+
+      # Download all chart versions
+      echo "$CHARTS" | jq -r '.[] | "\(.name) \(.version)"' | while read -r chart_name chart_version; do
+        # Strip repo prefix from chart name
+        short_name=$(echo "$chart_name" | sed "s|${HELM_REPO_NAME}/||")
+
+        # Apply chart filter if set
+        if [ -n "$CHART_FILTER" ]; then
+          MATCH=0
+          echo "$CHART_FILTER" | tr ',' '\n' | while read -r filter; do
+            if echo "$short_name" | grep -q "$filter"; then
+              MATCH=1
+            fi
+          done
+          if [ "$MATCH" = "0" ]; then
+            continue
+          fi
+        fi
+
+        echo "==> Pulling chart: ${chart_name} v${chart_version}"
+        helm pull "${chart_name}" --version "${chart_version}" --untar || echo "WARNING: Failed to pull ${chart_name} v${chart_version}" && continue
+
+        echo "==> Chart ${chart_name} v${chart_version} downloaded"
+      done
+
+      echo "==> Sync completed"
+      SYNC_STATUS="success"
+      SYNC_MESSAGE="Helm chart sync completed successfully. Repository: ${HELM_REPO_NAME}"
+  after_script:
+    - |
+      # Notify BigBug backend about sync result
+      if [ -n "$BIGBUG_API_URL" ] && [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        STATUS="${SYNC_STATUS:-failed}"
+        MESSAGE="${SYNC_MESSAGE:-Helm chart sync failed}"
+        curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+          -d "{
+            \"object_kind\": \"pipeline\",
+            \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+            \"object_attributes\": {
+              \"id\": ${CI_PIPELINE_ID},
+              \"status\": \"${STATUS}\",
+              \"ref\": \"${CI_COMMIT_REF_NAME}\",
+              \"sha\": \"${CI_COMMIT_SHA}\"
+            },
+            \"pipeline_type\": \"helm_sync\",
+            \"helm_repo_name\": \"${HELM_REPO_NAME}\",
+            \"helm_repo_url\": \"${HELM_REPO_URL}\",
+            \"message\": \"${MESSAGE}\"
+          }" || echo "WARNING: Failed to notify BigBug backend"
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ─────────────────────────────────────────────
+# Notify on failure
+# ─────────────────────────────────────────────
+notify-failure:
+  stage: notify
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - |
+      echo "Helm chart sync FAILED for pipeline ${CI_PIPELINE_ID}"
+      if [ -n "$BIGBUG_API_URL" ] && [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+        curl -s -X POST "${BIGBUG_API_URL}/api/webhooks/gitlab" \
+          -H "Content-Type: application/json" \
+          -H "X-Webhook-Token: ${BIGBUG_WEBHOOK_TOKEN}" \
+          -d "{
+            \"object_kind\": \"pipeline\",
+            \"project\": {\"path_with_namespace\": \"${CI_PROJECT_PATH}\"},
+            \"object_attributes\": {
+              \"id\": ${CI_PIPELINE_ID},
+              \"status\": \"failed\",
+              \"ref\": \"${CI_COMMIT_REF_NAME}\",
+              \"sha\": \"${CI_COMMIT_SHA}\"
+            },
+            \"pipeline_type\": \"helm_sync\",
+            \"helm_repo_name\": \"${HELM_REPO_NAME}\",
+            \"message\": \"Helm chart sync pipeline failed\"
+          }" || true
+      fi
+  rules:
+    - when: on_failure
