@@ -12,7 +12,7 @@ resource "keycloak_openid_client" "backend" {
   name      = "BigBug Backend"
   enabled   = true
 
-  access_type = "confidential"
+  access_type = "CONFIDENTIAL"
 
   standard_flow_enabled       = true
   direct_access_grants_enabled = true
@@ -31,7 +31,7 @@ resource "keycloak_openid_client" "frontend" {
   name      = "BigBug Frontend"
   enabled   = true
 
-  access_type = "public"
+  access_type = "PUBLIC"
 
   standard_flow_enabled       = true
   direct_access_grants_enabled = false

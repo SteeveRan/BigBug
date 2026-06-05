@@ -1,26 +1,40 @@
 # Harbor Helm chart values for kind development cluster
 # Chart: harbor/harbor (https://github.com/goharbor/harbor-helm)
+#
+# Used ports:
+#   NodePort 30080 → HTTP  (mapped to host :80  by kind-config.yaml)
+#   NodePort 30443 → HTTPS (mapped to host :443 by kind-config.yaml)
+#   No conflicts with:
+#     - Keycloak (:8180)
+#     - GitLab   (:8080)
+#     - Backend  (:8000)
+#     - Frontend (:5173)
 
 expose:
   type: nodePort
   tls:
     enabled: true
     certSource: auto          # Use auto-generated self-signed certificate
+    auto:
+      commonName: harbor.local
   nodePort:
     name: harbor
     ports:
       http:
-        port: 30080           # NodePort for HTTP on kind
+        port: 80              # Service port
+        nodePort: 30080       # NodePort — mapped to host :80 via kind-config.yaml
       https:
-        port: 30443           # NodePort for HTTPS on kind
+        port: 443             # Service port
+        nodePort: 30443       # NodePort — mapped to host :443 via kind-config.yaml
 
 # External URL used to access Harbor from outside the cluster
-externalURL: "https://harbor.local:30443"
+# Kind maps host :443 → NodePort 30443, so use standard port
+externalURL: "https://harbor.local"
 
 # Admin credentials (dev environment only)
 harborAdminPassword: "Harbor12345"
 
-# Persistence configuration
+# ── Persistence ──────────────────────────────────────────────
 persistence:
   enabled: true
   resourcePolicy: "keep"      # Preserve PVCs on uninstall
@@ -34,12 +48,35 @@ persistence:
     trivy:
       size: 2Gi               # Kept minimal since trivy is disabled
 
-# Core Harbor components
+# ── Core Harbor components ───────────────────────────────────
 core:
   image:
     repository: goharbor/harbor-core
     tag: v2.10.3
   replicas: 1
+  # ── OIDC Authentication (Keycloak integration) ──────────────
+  # Настройка производится вручную через Harbor UI или API после
+  # создания OIDC client в Keycloak. См. keycloak-integration.md
+  #
+  # При использовании через Helm values (не рекомендуется для dev):
+  # configureUserSettings: |
+  #   {
+  #     "auth_mode": "oidc_auth",
+  #     "oidc_name": "Keycloak",
+  #     "oidc_endpoint": "http://HOST_IP:8180/realms/bigbug",
+  #     "oidc_client_id": "harbor",
+  #     "oidc_client_secret": "",
+  #     "oidc_groups_claim": "groups",
+  #     "oidc_scope": "openid,profile,email,groups",
+  #     "oidc_verify_cert": false,
+  #     "oidc_auto_onboard": true,
+  #     "oidc_user_claim": "preferred_username"
+  #   }
+  #
+  # Переменные окружения для OIDC (альтернативный путь):
+  # extraEnvVars:
+  #   - name: OIDC_PROVIDER_ENDPOINT
+  #     value: "http://172.17.0.1:8180/realms/bigbug"
 
 portal:
   image:
@@ -61,7 +98,7 @@ chartmuseum:
     tag: v2.10.3
   replicas: 1
 
-# Disable scanners to save resources in dev
+# ── Disabled services (save dev resources) ───────────────────
 trivy:
   enabled: false
 

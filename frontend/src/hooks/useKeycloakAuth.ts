@@ -1,7 +1,7 @@
 /**
  * @file useKeycloakAuth.ts
- * @description React hook that lazy-initialises the Keycloak-js singleton and
- *              exposes ergonomic `login()` / `handleCallback()` helpers.
+ * @description React hook that fetches SSO config from the backend and exposes
+ *              ergonomic `login()` / `handleCallback()` helpers.
  *
  *              During development / local-only deployments the hook stays idle
  *              so the pure-local login form works unchanged.
@@ -13,11 +13,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useGetSsoConfigQuery } from '../store/api'
 import {
-  getKeycloakInstance,
   redirectToKeycloakLogin,
   SSO_VERIFIER_KEY,
 } from '../services/keycloak'
-import type Keycloak from 'keycloak-js'
 
 /** Redirect URI the Keycloak public client is configured to accept. */
 const SSO_REDIRECT_URI = `${window.location.origin}/sso/callback`
@@ -27,8 +25,8 @@ interface SsoState {
   ready: boolean
   /** `true` when the backend reports SSO is enabled. */
   enabled: boolean
-  /** The initialised Keycloak instance (only when `enabled`). */
-  keycloak: Keycloak | null
+  /** SSO configuration (url, realm, clientId) */
+  config: { url: string; realm: string; client_id: string } | null
   /** Any error that occurred during initialisation. */
   error: string | null
 }
@@ -48,7 +46,7 @@ export function useKeycloakAuth() {
   const [state, setState] = useState<SsoState>({
     ready: false,
     enabled: false,
-    keycloak: null,
+    config: null,
     error: null,
   })
 
@@ -57,28 +55,31 @@ export function useKeycloakAuth() {
 
     // API error or config not available → treat as disabled.
     if (isError || !config || !config.enabled) {
-      setState({ ready: true, enabled: false, keycloak: null, error: null })
+      setState({ ready: true, enabled: false, config: null, error: null })
       return
     }
 
-    try {
-      const kc = getKeycloakInstance(config.url, config.realm, config.client_id)
-      setState({ ready: true, enabled: true, keycloak: kc, error: null })
-    } catch (err) {
-      setState({
-        ready: true,
-        enabled: false,
-        keycloak: null,
-        error: err instanceof Error ? err.message : 'Failed to initialise Keycloak',
-      })
-    }
+    setState({
+      ready: true,
+      enabled: true,
+      config: { url: config.url, realm: config.realm, client_id: config.client_id },
+      error: null,
+    })
   }, [isLoading, isError, config, error])
 
   /** Start the PKCE redirect. */
   const login = useCallback(async () => {
-    if (!state.keycloak) return
-    await redirectToKeycloakLogin(state.keycloak, SSO_REDIRECT_URI)
-  }, [state.keycloak])
+    if (!state.config) {
+      console.error('[useKeycloakAuth] login() called but SSO config not available')
+      return
+    }
+    await redirectToKeycloakLogin(
+      state.config.url,
+      state.config.realm,
+      state.config.client_id,
+      SSO_REDIRECT_URI
+    )
+  }, [state.config])
 
   /**
    * After the Keycloak redirect the browser lands on /sso/callback with

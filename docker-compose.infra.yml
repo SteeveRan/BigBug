@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # This file defines infrastructure services that are rarely restarted:
-# databases, identity provider, CI/CD platform.
+# identity provider, CI/CD platform.
 #
 # Usage:
 #   docker compose -f docker-compose.infra.yml up -d
@@ -17,9 +17,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_backend_data:
   postgres_keycloak_data:
-  redis_data:
   gitlab_config:
   gitlab_logs:
   gitlab_data:
@@ -27,27 +25,8 @@ volumes:
 
 services:
   # ─────────────────────────────────────────────────────────────
-  # Databases
+  # Keycloak database
   # ─────────────────────────────────────────────────────────────
-  postgres-backend:
-    image: postgres:17
-    container_name: bigbug-postgres-backend
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-bigbug}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bigbug}
-      POSTGRES_DB: ${POSTGRES_DB:-bigbug}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_backend_data:/var/lib/postgresql/data
-    networks:
-      - bigbug-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bigbug} -d ${POSTGRES_DB:-bigbug}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   postgres-keycloak:
     image: postgres:17
     container_name: bigbug-postgres-keycloak
@@ -63,21 +42,6 @@ services:
       - bigbug-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${KC_POSTGRES_USER:-keycloak} -d ${KC_POSTGRES_DB:-keycloak}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: bigbug-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - bigbug-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -101,10 +65,13 @@ services:
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+      JAVA_OPTS: "-Xms512m -Xmx768m"
     ports:
       - "8180:8180"
     networks:
       - bigbug-network
+    mem_limit: 1g
+    memswap_limit: 1g
     depends_on:
       postgres-keycloak:
         condition: service_healthy
@@ -118,7 +85,7 @@ services:
       start_period: 60s
 
   # ─────────────────────────────────────────────────────────────
-  # GitLab (CI/CD platform)
+  # GitLab (CI/CD platform) — PostgreSQL is bundled inside the image
   # ─────────────────────────────────────────────────────────────
   gitlab:
     image: gitlab/gitlab-ce:latest
@@ -129,9 +96,15 @@ services:
         external_url 'http://gitlab.local:8080'
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
         gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-BigBugGitLab2024!Secure}'
+        puma['port'] = 8081
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
         nginx['listen_port'] = 8080
         nginx['listen_https'] = false
         prometheus_monitoring['enable'] = false
+        gitlab_kas['enable'] = false
+        gitlab_pages['enable'] = false
+        postgresql['shared_buffers'] = "256MB"
     ports:
       - "8080:8080"
       - "8443:443"
@@ -142,6 +115,8 @@ services:
       - gitlab_data:/var/opt/gitlab
     networks:
       - bigbug-network
+    mem_limit: 4g
+    memswap_limit: 4g
     shm_size: "256m"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/-/health"]
@@ -159,4 +134,5 @@ services:
     networks:
       - bigbug-network
     depends_on:
-      - gitlab
+      gitlab:
+        condition: service_healthy

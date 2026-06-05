@@ -1965,7 +1965,7 @@ __metadata:
     eslint-plugin-react-refresh: "npm:^0.4.9"
     globals: "npm:^15.9.0"
     jsdom: "npm:^25.0.0"
-    keycloak-js: "npm:^24.0.0"
+    keycloak-js: "npm:^26.2.4"
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
     react-redux: "npm:^9.1.0"
@@ -3661,13 +3661,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"js-sha256@npm:^0.11.0":
-  version: 0.11.1
-  resolution: "js-sha256@npm:0.11.1"
-  checksum: 10c0/ef8e294b6f38f218e4834cb653471dd1a76808cea93dc66eaffcb04124116bc36d6cebc4e8866753e184ab4e57892b6ef21918e8ab0450179a7e093ea962d974
-  languageName: node
-  linkType: hard
-
 "js-tokens@npm:^3.0.0 || ^4.0.0, js-tokens@npm:^4.0.0":
   version: 4.0.0
   resolution: "js-tokens@npm:4.0.0"
@@ -3778,20 +3771,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jwt-decode@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "jwt-decode@npm:4.0.0"
-  checksum: 10c0/de75bbf89220746c388cf6a7b71e56080437b77d2edb29bae1c2155048b02c6b8c59a3e5e8d6ccdfd54f0b8bda25226e491a4f1b55ac5f8da04cfbadec4e546c
-  languageName: node
-  linkType: hard
-
-"keycloak-js@npm:^24.0.0":
-  version: 24.0.5
-  resolution: "keycloak-js@npm:24.0.5"
-  dependencies:
-    js-sha256: "npm:^0.11.0"
-    jwt-decode: "npm:^4.0.0"
-  checksum: 10c0/aa2d537dfce44f4efe3d2bba63a35c355d73145961b055281862a7f733fe1581b5e847e5a9ae0eab2f866de51349b2dc10a29a9f764527095a6ac5750d0dbf71
+"keycloak-js@npm:^26.2.4":
+  version: 26.2.4
+  resolution: "keycloak-js@npm:26.2.4"
+  checksum: 10c0/ad1f3e7c07b6b84fd805129e21aefe94b32e48ecdde1c586294720712c0971ff4c49613c025476d30dbff22e5d61a4fc4d294050d5f11e1ecc0646bef2f02311
   languageName: node
   linkType: hard
 

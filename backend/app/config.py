@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     # separate *public* client; the backend only needs its id to expose it to
     # the SPA via /auth/sso/config.
     keycloak_frontend_client_id: str = "bigbug-frontend"
+    # WHY: Backend uses keycloak_url for server-to-server OIDC (token exchange,
+    # JWKS fetching), but the browser needs a publicly accessible URL.
+    # In Docker: backend uses http://keycloak:8180, browser uses http://localhost:8180
+    keycloak_public_url: str = "http://localhost:8180"
     # WHY: short, dedicated timeout for OIDC HTTP calls keeps slow IDP
     # responses from blocking request workers indefinitely.
     keycloak_http_timeout_seconds: float = 10.0

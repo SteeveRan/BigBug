@@ -120,17 +120,16 @@ class KeycloakOIDCService:
         Raises:
             OIDCExchangeError: on network failure or a non-2xx token response.
         """
+        # IMPORTANT: The authorization code was issued to the frontend
+        # (public) client, so the exchange must use the same client_id and
+        # NEVER include a client_secret — public clients rely on PKCE alone.
         data = {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": redirect_uri,
             "code_verifier": code_verifier,
-            "client_id": settings.keycloak_client_id,
+            "client_id": settings.keycloak_frontend_client_id,
         }
-        # Confidential clients must authenticate with their secret; public
-        # clients (PKCE-only) omit it.
-        if settings.keycloak_client_secret:
-            data["client_secret"] = settings.keycloak_client_secret
 
         try:
             async with self._client() as client:
@@ -159,12 +158,31 @@ class KeycloakOIDCService:
         """
         jwks = await self._get_jwks()
         try:
+            # Decode WITHOUT issuer/audience first to inspect the token and
+            # produce a helpful log message that pinpoints the exact mismatch.
+            unverified = jwt.get_unverified_claims(id_token)
+            expected_iss = self._issuer()
+            token_iss = unverified.get("iss", "")
+            token_aud = unverified.get("aud", "")
+            logger.debug(
+                "oidc_id_token_pre_validate",
+                extra={
+                    "token_iss": token_iss,
+                    "expected_iss": expected_iss,
+                    "token_aud": token_aud,
+                    "expected_aud": settings.keycloak_frontend_client_id,
+                },
+            )
+        except JWTError:
+            pass  # Can't even decode the header; let jwt.decode report it.
+
+        try:
             payload = jwt.decode(
                 id_token,
                 jwks,
                 # Keycloak signs tokens with RS256 by default.
                 algorithms=["RS256"],
-                audience=settings.keycloak_client_id,
+                audience=settings.keycloak_frontend_client_id,
                 issuer=self._issuer(),
                 # WHY: at_hash links the ID token to an access token we don't
                 # validate here, so skip that specific check to avoid spurious
@@ -172,7 +190,16 @@ class KeycloakOIDCService:
                 options={"verify_at_hash": False},
             )
         except JWTError as exc:
-            logger.info("oidc_id_token_invalid", extra={"error": str(exc)})
+            logger.warning(
+                "oidc_id_token_invalid",
+                extra={
+                    "error": str(exc),
+                    "token_iss": token_iss,
+                    "expected_iss": expected_iss,
+                    "token_aud": token_aud,
+                    "expected_aud": settings.keycloak_frontend_client_id,
+                },
+            )
             raise OIDCInvalidTokenError("ID token validation failed") from exc
 
         return self._extract_claims(payload)
@@ -229,7 +256,11 @@ class KeycloakOIDCService:
 
     @staticmethod
     def _issuer() -> str:
-        return f"{settings.keycloak_url}/realms/{settings.keycloak_realm}"
+        # IMPORTANT: Keycloak with KC_HOSTNAME_STRICT=false determines the iss
+        # claim from the Host header of the initiating request. The browser
+        # connects via the public URL, so the token carries the public issuer.
+        # We must validate against the same issuer.
+        return f"{settings.keycloak_public_url}/realms/{settings.keycloak_realm}"
 
     @staticmethod
     def _extract_claims(payload: dict) -> OIDCClaims:

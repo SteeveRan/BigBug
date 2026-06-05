@@ -6,20 +6,21 @@
 ## Архитектура
 
 ```
-┌─────────────────────────────────────────────────┐
-│  kind cluster: harbor                            │
-│  ┌───────────────────────────────────────────┐  │
-│  │  Namespace: harbor                         │  │
-│  │  ┌─────────┐ ┌──────────┐ ┌───────────┐  │  │
-│  │  │ Harbor  │ │ Chart    │ │ Registry  │  │  │
-│  │  │ Core    │ │ Museum   │ │ + DB/Redis│  │  │
-│  │  └─────────┘ └──────────┘ └───────────┘  │  │
-│  │       ▲                                   │  │
-│  │       │ NodePort 30080 (HTTP)             │  │
-│  │       │ NodePort 30443 (HTTPS)            │  │
-│  └───────┼───────────────────────────────────┘  │
-│          │                                       │
-└──────────┼───────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  kind cluster: harbor                                            │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  Namespace: harbor                                         │  │
+│  │  ┌──────────┐ ┌───────────┐ ┌──────────┐ ┌─────────────┐  │  │
+│  │  │ Harbor   │ │ Chart     │ │ Registry │ │ OIDC →       │  │  │
+│  │  │ Core +   │ │ Museum    │ │ + DB/    │ │ Keycloak     │  │  │
+│  │  │ Portal   │ │           │ │ Redis    │ │ :8180        │  │  │
+│  │  └──────────┘ └───────────┘ └──────────┘ └─────────────┘  │  │
+│  │       ▲                                                    │  │
+│  │       │ NodePort 30080 (HTTP)                              │  │
+│  │       │ NodePort 30443 (HTTPS)                             │  │
+│  └───────┼────────────────────────────────────────────────────┘  │
+│          │                                                       │
+└──────────┼───────────────────────────────────────────────────────┘
            │ port mapping
      ┌─────┴─────┐
      │  Docker   │
@@ -37,6 +38,8 @@
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.27+ | `kubectl version --client` |
 | [helm](https://helm.sh/) | 3.12+ | `helm version` |
 | [docker](https://docs.docker.com/engine/install/) | 24+ | `docker version` |
+| [curl](https://curl.se/) | 7.0+ | `curl --version` |
+| [jq](https://jqlang.github.io/jq/) | 1.6+ | `jq --version` |
 
 ## Быстрый старт
 
@@ -45,12 +48,71 @@
 cd BigBug
 
 # 2. Развернуть Harbor
-./harbor/deploy.sh
+./examples/harbor/deploy.sh
 
-# 3. Открыть Harbor UI
+# 3. Инициализировать проекты
+./examples/harbor/init-harbor.sh
+
+# 4. Открыть Harbor UI
 # https://harbor.local:30443
 # Логин: admin / Harbor12345
 ```
+
+## Полная последовательность шагов
+
+### Шаг 1: Развернуть Harbor в kind
+
+```bash
+./examples/harbor/deploy.sh
+```
+
+Скрипт автоматически:
+- Проверяет зависимости (kind, kubectl, helm, docker)
+- Добавляет `harbor.local` в `/etc/hosts`
+- Настраивает Docker insecure registry для `harbor.local:30080`
+- Создаёт kind-кластер `harbor` с пробросом портов
+- Устанавливает Harbor через Helm с параметрами из [`harbor-values.yaml`](harbor-values.yaml)
+- Ждёт готовности подов (до 300 секунд)
+
+### Шаг 2: Инициализировать проекты Harbor
+
+```bash
+./examples/harbor/init-harbor.sh
+```
+
+Создаёт три проекта через Harbor REST API v2.0:
+
+| Проект | Назначение | Доступ |
+|--------|------------|--------|
+| `gold-images` | Эталонные (gold) образы | Private |
+| `app-images` | Application images (собранные приложения) | Public |
+| `mirrors` | Зеркалируемые образы из внешних реестров | Public |
+
+Дополнительные опции:
+```bash
+./examples/harbor/init-harbor.sh --dry-run   # Проверить, какие проекты существуют
+./examples/harbor/init-harbor.sh --delete    # Удалить все проекты BigBug
+```
+
+### Шаг 3: Протестировать Harbor
+
+```bash
+./examples/harbor/test-push.sh
+```
+
+Выполняет: docker login → pull alpine → tag → push → API-проверка → очистка.
+
+### Шаг 3.1 (Опционально): Настроить OIDC через Keycloak
+
+См. подробное руководство: [`keycloak-integration.md`](keycloak-integration.md)
+
+Кратко:
+1. Создать OIDC client `harbor` в Keycloak (realm `bigbug`)
+2. Настроить redirect URI: `https://harbor.local:30443/c/oidc/callback`
+3. Скопировать Client Secret
+4. В Harbor UI → Administration → Configuration → Authentication выбрать OIDC
+5. Заполнить endpoint: `http://<HOST_IP>:8180/realms/bigbug`
+6. Включить Auto Onboarding
 
 ## Доступ к Harbor
 
@@ -59,11 +121,15 @@ cd BigBug
 | Harbor UI (HTTPS) | https://harbor.local:30443 | 30443 → 443 |
 | Docker Registry (HTTP) | harbor.local:30080 | 30080 → 80 |
 | Chart Repo (HTTPS) | https://harbor.local:30443/chartrepo/library | 30443 |
+| Harbor API (HTTPS) | https://harbor.local:30443/api/v2.0 | 30443 |
 
 ### Учётные данные
 
-- **Username:** `admin`
-- **Password:** `Harbor12345` (только для dev!)
+| Назначение | Username | Password | Источник |
+|------------|----------|----------|----------|
+| Harbor Admin | `admin` | `Harbor12345` | [`harbor-values.yaml`](harbor-values.yaml) |
+| Keycloak Admin | `admin` | `admin` | [`docker-compose.infra.yml`](../../docker-compose.infra.yml) |
+| BigBug Test User | `bigbug` | `bigbug` | Keycloak realm `bigbug` |
 
 ### Добавление Helm репозитория
 
@@ -75,7 +141,7 @@ helm repo add harbor-local \
 
 ## Конфигурация /etc/hosts
 
-Для разрешения `harbor.local` скрипт `deploy.sh` автоматически добавляет строку в `/etc/hosts`:
+Для разрешения `harbor.local` скрипт [`deploy.sh`](deploy.sh) автоматически добавляет строку в `/etc/hosts`:
 
 ```
 127.0.0.1 harbor.local
@@ -93,7 +159,7 @@ grep harbor.local /etc/hosts
 
 ### Автоматическая настройка (deploy.sh)
 
-`deploy.sh` автоматически обновляет `/etc/docker/daemon.json`:
+[`deploy.sh`](deploy.sh) автоматически обновляет `/etc/docker/daemon.json`:
 
 ```json
 {
@@ -128,10 +194,31 @@ docker info | grep -A3 "Insecure Registries"
 - Mirror для `harbor.local:30080`
 - `insecure_skip_verify = true`
 
+## Интеграция с Keycloak (OIDC)
+
+Подробная документация по настройке OIDC-аутентификации через Keycloak: [`keycloak-integration.md`](keycloak-integration.md)
+
+**Краткая схема:**
+1. Keycloak (realm `bigbug`, client `harbor`) — провайдер идентификации
+2. Harbor — RP (Relying Party), перенаправляет на Keycloak для аутентификации
+3. Группы Keycloak (`harbor-admin`, `harbor-dev`, `harbor-guest`) → роли Harbor
+4. Auto Onboarding — пользователи создаются при первом OIDC-входе
+
+**Важно:** При локальной разработке Keycloak работает на `localhost:8180`, что недоступно изнутри kind-кластера. Используйте IP docker-хоста (обычно `172.17.0.1`):
+
+```bash
+# Узнать IP docker bridge
+docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
+# → 172.17.0.1
+
+# OIDC Endpoint в Harbor:
+# http://172.17.0.1:8180/realms/bigbug
+```
+
 ## Тестирование
 
 ```bash
-./harbor/test-push.sh
+./examples/harbor/test-push.sh
 ```
 
 Скрипт выполняет:
@@ -163,23 +250,43 @@ curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/projects
 
 ```bash
 # Удалить кластер (запись /etc/hosts сохраняется)
-./harbor/teardown.sh
+./examples/harbor/teardown.sh
 
 # Полная очистка: кластер + /etc/hosts
-./harbor/teardown.sh --all
+./examples/harbor/teardown.sh --all
+
+# Удалить проекты BigBug
+./examples/harbor/init-harbor.sh --delete
 ```
 
 ## Структура файлов
 
 ```
 harbor/
-├── README.md            # Этот файл
-├── deploy.sh            # Главный скрипт развёртывания
-├── teardown.sh          # Скрипт удаления
-├── kind-config.yaml     # Конфигурация kind кластера
-├── harbor-values.yaml   # Helm values для Harbor chart
-└── test-push.sh         # Скрипт тестирования push образов
+├── README.md                 # Этот файл
+├── deploy.sh                 # Главный скрипт развёртывания
+├── init-harbor.sh            # Инициализация проектов через Harbor API
+├── teardown.sh               # Скрипт удаления
+├── kind-config.yaml          # Конфигурация kind кластера
+├── harbor-values.yaml        # Helm values для Harbor chart (включая OIDC заглушки)
+├── test-push.sh              # Скрипт тестирования push образов
+└── keycloak-integration.md   # Руководство по интеграции OIDC с Keycloak
 ```
+
+## Порты (сводка)
+
+| Порт | Назначение | Сервис |
+|------|------------|--------|
+| 80 | Harbor HTTP (mapped от NodePort 30080) | Harbor Registry |
+| 443 | Harbor HTTPS (mapped от NodePort 30443) | Harbor UI + API |
+| 30080 | NodePort HTTP (внутри kind) | Harbor Registry |
+| 30443 | NodePort HTTPS (внутри kind) | Harbor Portal + API |
+| 8080 | GitLab HTTP | GitLab CE |
+| 8180 | Keycloak HTTP | Keycloak |
+| 8000 | Backend API | BigBug Backend |
+| 5173 | Frontend Dev Server | BigBug Frontend |
+
+Порты проверены на конфликты — пересечений нет.
 
 ## Troubleshooting
 
@@ -187,7 +294,7 @@ harbor/
 
 ```bash
 kind delete cluster --name=harbor
-./harbor/deploy.sh
+./examples/harbor/deploy.sh
 ```
 
 ### Проблема: «connection refused» при push
@@ -256,9 +363,30 @@ Harbor использует самоподписанный сертификат.
 - Или добавьте `-k` флаг для curl
 - Для production используйте cert-manager + Let's Encrypt
 
+### Проблема: «Не удалось подключиться к Harbor API» при запуске init-harbor.sh
+
+```bash
+# Проверить состояние Harbor
+kubectl get pods -n harbor
+
+# Проверить endpoint
+curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/health
+
+# Проверить, что порты мапятся правильно
+kubectl get svc -n harbor harbor-portal
+```
+
+### Проблема: OIDC-редирект не работает (Keycloak изнутри kind)
+
+См. раздел [Интеграция с Keycloak (OIDC)](#интеграция-с-keycloak-oidc) и [`keycloak-integration.md`](keycloak-integration.md)
+
+Ключевое: используйте IP docker bridge (`172.17.0.1`) вместо `localhost` для OIDC Endpoint в Harbor.
+
 ## Ссылки
 
 - [Harbor Documentation](https://goharbor.io/docs/)
 - [Harbor Helm Chart](https://github.com/goharbor/harbor-helm)
+- [Harbor OIDC Authentication](https://goharbor.io/docs/2.10.0/administration/configure-oidc-auth/)
 - [kind Quick Start](https://kind.sigs.k8s.io/docs/user/quick-start/)
 - [kind Configuration](https://kind.sigs.k8s.io/docs/user/configuration/)
+- [Keycloak Documentation](https://www.keycloak.org/documentation)

@@ -20,7 +20,7 @@
     "@mui/material": "^6.0.0",
     "@reduxjs/toolkit": "^2.3.0",
     "axios": "^1.7.0",
-    "keycloak-js": "^24.0.0",
+    "keycloak-js": "^26.2.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-redux": "^9.1.0",

@@ -51,7 +51,7 @@ variable "frontend_redirect_uris" {
   type        = list(string)
   default     = [
     "http://localhost:5173/*",
-    "http://localhost:5173/sso-callback",
+    "http://localhost:5173/sso/callback",
   ]
 }
 

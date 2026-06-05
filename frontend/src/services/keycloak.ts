@@ -1,41 +1,17 @@
 /**
  * @file keycloak.ts
- * @description Singleton Keycloak-js instance and PKCE utilities for the
- *              Authorization Code + PKCE (S256) flow against the Keycloak
- *              *public* frontend client.
+ * @description PKCE utilities for the Authorization Code + PKCE (S256) flow
+ *              against the Keycloak *public* frontend client.
  *
- * @dependencies keycloak-js ^24
+ *              WHY no Keycloak-js singleton: keycloak-js does not expose
+ *              authServerUrl/realm/clientId as readable properties until after
+ *              init() is called (which triggers a full OIDC discovery round-trip
+ *              and tries to restore an existing session). We only need to build
+ *              the authorization URL, so we do it directly from the config
+ *              returned by the backend /auth/sso/config endpoint.
+ *
  * @relatedFiles ../hooks/useKeycloakAuth.ts, ../store/authSlice.ts
  */
-
-import Keycloak from 'keycloak-js'
-
-// ---------------------------------------------------------------------------
-// Singleton
-// ---------------------------------------------------------------------------
-
-let _instance: Keycloak | null = null
-
-/**
- * Return (or lazily create) the single Keycloak-js instance.
- *
- * The instance is configured as a *public* client — no secret — and uses the
- * standard Authorization Code + PKCE flow.
- */
-export function getKeycloakInstance(
-  url: string,
-  realm: string,
-  clientId: string,
-): Keycloak {
-  if (_instance) return _instance
-  _instance = new Keycloak({ url, realm, clientId })
-  return _instance
-}
-
-/** Reset the singleton — only intended for tests. */
-export function resetKeycloakInstance(): void {
-  _instance = null
-}
 
 // ---------------------------------------------------------------------------
 // PKCE helpers
@@ -72,15 +48,18 @@ export const SSO_VERIFIER_KEY = 'sso_code_verifier'
  * Kick off the Authorization Code + PKCE flow by redirecting the browser to
  * Keycloak's authorization endpoint.
  *
- * We construct the URL manually because keycloak-js 24.x does not expose
- * `codeChallenge` via its public types, and we need the code_verifier to be
- * sent to *our* backend rather than consumed inside the adapter.
+ * We build the URL directly from the SSO config returned by the backend
+ * (/auth/sso/config) instead of relying on keycloak-js instance properties,
+ * because keycloak-js does not expose authServerUrl/realm/clientId as readable
+ * properties until after init() is called.
  *
  * Stores the generated code_verifier in sessionStorage so
  * `useKeycloakAuth.handleCallback` can retrieve it after the redirect.
  */
 export async function redirectToKeycloakLogin(
-  keycloak: Keycloak,
+  url: string,
+  realm: string,
+  clientId: string,
   redirectUri: string,
 ): Promise<never> {
   const verifier = generateCodeVerifier()
@@ -88,20 +67,15 @@ export async function redirectToKeycloakLogin(
 
   const challenge = await computeCodeChallenge(verifier)
 
-  // authServerUrl is a public property on the Keycloak instance.
-  const baseUrl = keycloak.authServerUrl as string
-  const realm = keycloak.realm
-  const clientId = keycloak.clientId as string | undefined
-
   const params = new URLSearchParams()
   params.set('response_type', 'code')
-  params.set('client_id', clientId ?? '')
+  params.set('client_id', clientId)
   params.set('redirect_uri', redirectUri)
   params.set('code_challenge', challenge)
   params.set('code_challenge_method', 'S256')
   params.set('scope', 'openid profile email')
 
-  const loginUrl = `${baseUrl}/realms/${realm}/protocol/openid-connect/auth?${params.toString()}`
+  const loginUrl = `${url}/realms/${realm}/protocol/openid-connect/auth?${params.toString()}`
 
   window.location.href = loginUrl
   // Unreachable — the browser navigation replaces the current page.

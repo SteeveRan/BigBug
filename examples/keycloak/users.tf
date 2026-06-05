@@ -11,6 +11,8 @@ resource "keycloak_user" "test_admin" {
   enabled    = true
 
   email_verified = true
+  first_name = "Alice"
+  last_name  = "Aliceberg"
 
   initial_password {
     value     = var.test_user_password

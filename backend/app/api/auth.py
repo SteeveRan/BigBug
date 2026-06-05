@@ -85,12 +85,15 @@ async def sso_config():
     """
     Expose the public OIDC parameters needed to bootstrap keycloak-js.
 
-    SSO is considered enabled only when a backend client secret is configured,
-    so the frontend can hide the button in pure-local deployments.
+    SSO is considered enabled only when a frontend client ID and a public URL
+    are configured, so the frontend can hide the button in pure-local deployments.
+
+    WHY keycloak_public_url: Backend uses internal Docker hostname for
+    server-to-server communication, but browser needs publicly accessible URL.
     """
     return SSOConfig(
-        enabled=bool(settings.keycloak_client_secret),
-        url=settings.keycloak_url,
+        enabled=bool(settings.keycloak_frontend_client_id and settings.keycloak_public_url),
+        url=settings.keycloak_public_url,
         realm=settings.keycloak_realm,
         client_id=settings.keycloak_frontend_client_id,
     )
