@@ -1,0 +1,24 @@
+# kind cluster configuration for Harbor deployment
+# Reference: https://kind.sigs.k8s.io/docs/user/configuration/
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: harbor
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Harbor HTTP (NodePort 30080 -> host 80)
+      - containerPort: 30080
+        hostPort: 80
+        protocol: TCP
+      # Harbor HTTPS (NodePort 30443 -> host 443)
+      - containerPort: 30443
+        hostPort: 443
+        protocol: TCP
+# Configure containerd to allow insecure (HTTP) registry access
+# Required for docker push/pull to harbor.local:30080 without TLS
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."harbor.local:30080"]
+      endpoint = ["http://harbor.local:30080"]
+    [plugins."io.containerd.grpc.v1.cri".registry.configs."harbor.local:30080".tls]
+      insecure_skip_verify = true

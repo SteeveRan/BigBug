@@ -1,0 +1,16 @@
+# Keycloak OpenTofu/Terraform variables — example values
+# Copy to terraform.tfvars and customize for your environment.
+
+keycloak_url             = "http://localhost:8180"
+keycloak_admin_username  = "admin"
+keycloak_admin_password  = "admin"
+realm_name               = "bigbug"
+backend_client_id        = "bigbug-backend"
+backend_client_secret    = "bigbug-backend-secret"
+frontend_client_id       = "bigbug-frontend"
+test_user_username       = "bigbug"
+test_user_password       = "bigbug"
+test_user_email          = "bigbug@example.com"
+
+# Override redirect URIs for production/custom ports:
+# frontend_redirect_uris = ["http://localhost:3000/*", "http://myapp.example.com/*"]

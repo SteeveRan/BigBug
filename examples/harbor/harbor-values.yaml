@@ -1,0 +1,69 @@
+# Harbor Helm chart values for kind development cluster
+# Chart: harbor/harbor (https://github.com/goharbor/harbor-helm)
+
+expose:
+  type: nodePort
+  tls:
+    enabled: true
+    certSource: auto          # Use auto-generated self-signed certificate
+  nodePort:
+    name: harbor
+    ports:
+      http:
+        port: 30080           # NodePort for HTTP on kind
+      https:
+        port: 30443           # NodePort for HTTPS on kind
+
+# External URL used to access Harbor from outside the cluster
+externalURL: "https://harbor.local:30443"
+
+# Admin credentials (dev environment only)
+harborAdminPassword: "Harbor12345"
+
+# Persistence configuration
+persistence:
+  enabled: true
+  resourcePolicy: "keep"      # Preserve PVCs on uninstall
+  persistentVolumeClaim:
+    registry:
+      size: 5Gi
+    database:
+      size: 2Gi
+    redis:
+      size: 1Gi
+    trivy:
+      size: 2Gi               # Kept minimal since trivy is disabled
+
+# Core Harbor components
+core:
+  image:
+    repository: goharbor/harbor-core
+    tag: v2.10.3
+  replicas: 1
+
+portal:
+  image:
+    repository: goharbor/harbor-portal
+    tag: v2.10.3
+  replicas: 1
+
+registry:
+  registry:
+    image:
+      repository: goharbor/registry-photon
+      tag: v2.10.3
+  replicas: 1
+
+chartmuseum:
+  enabled: true                # Enable Helm chart repository
+  image:
+    repository: goharbor/chartmuseum-photon
+    tag: v2.10.3
+  replicas: 1
+
+# Disable scanners to save resources in dev
+trivy:
+  enabled: false
+
+notary:
+  enabled: false

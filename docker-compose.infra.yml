@@ -1,37 +1,33 @@
 # =============================================================================
-# ⚠️  DEPRECATED — This file is kept for backward compatibility only.
+# BigBug Infrastructure Services
 # =============================================================================
 #
-# The docker-compose configuration has been split into two files:
+# This file defines infrastructure services that are rarely restarted:
+# databases, identity provider, CI/CD platform.
 #
-#   docker-compose.infra.yml  — Infrastructure (DBs, Keycloak, GitLab, Runner)
-#   docker-compose.app.yml    — Application (Backend, Frontend)
-#
-# Quick start with the new workflow:
-#
-#   # 1. Start infrastructure
+# Usage:
 #   docker compose -f docker-compose.infra.yml up -d
 #
-#   # 2. Initialize Keycloak and GitLab via OpenTofu
-#   ./examples/init.sh
-#     # OR manually: cd examples/keycloak && tofu apply
-#     #              cd examples/gitlab && tofu apply
-#
-#   # 3. Start application
-#   docker compose -f docker-compose.app.yml up -d
-#
-# See examples/README.md for full documentation.
+# See examples/README.md for the full initialization workflow.
 # =============================================================================
+
+networks:
+  bigbug-network:
+    name: bigbug-network
+    driver: bridge
+
+volumes:
+  postgres_backend_data:
+  postgres_keycloak_data:
+  redis_data:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  gitlab_runner_config:
 
 services:
   # ─────────────────────────────────────────────────────────────
   # Databases
-  #
-  # The backend and Keycloak use separate PostgreSQL instances. Mixing them
-  # in a single DB blurs ownership (Keycloak owns its schema, Alembic owns
-  # the backend schema), complicates backups/restores and forces both
-  # services to share credentials. Two lightweight containers cost very
-  # little locally and make the topology match production guidance.
   # ─────────────────────────────────────────────────────────────
   postgres-backend:
     image: postgres:17
@@ -44,6 +40,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_backend_data:/var/lib/postgresql/data
+    networks:
+      - bigbug-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bigbug} -d ${POSTGRES_DB:-bigbug}"]
       interval: 10s
@@ -57,12 +55,12 @@ services:
       POSTGRES_USER: ${KC_POSTGRES_USER:-keycloak}
       POSTGRES_PASSWORD: ${KC_POSTGRES_PASSWORD:-keycloak}
       POSTGRES_DB: ${KC_POSTGRES_DB:-keycloak}
-    # WHY: expose on host port 5433 to coexist with postgres-backend (5432)
-    # for local debugging / DB inspection. Drop the mapping in production.
     ports:
       - "5433:5432"
     volumes:
       - postgres_keycloak_data:/var/lib/postgresql/data
+    networks:
+      - bigbug-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${KC_POSTGRES_USER:-keycloak} -d ${KC_POSTGRES_DB:-keycloak}"]
       interval: 10s
@@ -76,6 +74,8 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - bigbug-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -99,18 +99,16 @@ services:
       KC_HTTP_PORT: 8180
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
-      # WHY: explicit health endpoint and metrics make container orchestrators
-      # (and the keycloak-init job below) able to wait reliably.
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
     ports:
       - "8180:8180"
+    networks:
+      - bigbug-network
     depends_on:
       postgres-keycloak:
         condition: service_healthy
     healthcheck:
-      # WHY: /realms/master responds 200 once the realm cache is warm, which
-      # is the earliest point at which kcadm.sh can be used reliably.
       test:
         - "CMD-SHELL"
         - "exec 3<>/dev/tcp/127.0.0.1/8180 && printf 'GET /realms/master HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"
@@ -118,14 +116,9 @@ services:
       timeout: 5s
       retries: 20
       start_period: 60s
-# keycloak-init service has been removed.
-# Use OpenTofu for Keycloak initialization instead:
-#   cd examples/keycloak && tofu apply
-# See examples/README.md for documentation.
-
 
   # ─────────────────────────────────────────────────────────────
-  # GitLab (used for CI/CD pipelines that perform actual syncing)
+  # GitLab (CI/CD platform)
   # ─────────────────────────────────────────────────────────────
   gitlab:
     image: gitlab/gitlab-ce:latest
@@ -135,7 +128,7 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://gitlab.local:8080'
         gitlab_rails['gitlab_shell_ssh_port'] = 2222
-        gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-GitLabRoot123!}'
+        gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-BigBugGitLab2024!Secure}'
         nginx['listen_port'] = 8080
         nginx['listen_https'] = false
         prometheus_monitoring['enable'] = false
@@ -147,6 +140,8 @@ services:
       - gitlab_config:/etc/gitlab
       - gitlab_logs:/var/log/gitlab
       - gitlab_data:/var/opt/gitlab
+    networks:
+      - bigbug-network
     shm_size: "256m"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/-/health"]
@@ -161,77 +156,7 @@ services:
     volumes:
       - gitlab_runner_config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bigbug-network
     depends_on:
       - gitlab
-
-  # ─────────────────────────────────────────────────────────────
-  # Application
-  # ─────────────────────────────────────────────────────────────
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: bigbug-backend
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bigbug}:${POSTGRES_PASSWORD:-bigbug}@postgres-backend:5432/${POSTGRES_DB:-bigbug}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-changeme-in-production}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      KEYCLOAK_URL: http://keycloak:8180
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-bigbug}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-bigbug-backend}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-bigbug-backend-secret}
-      GITLAB_URL: http://gitlab.local:8080
-      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
-    ports:
-      - "8000:8000"
-    volumes:
-      # WHY: bind-mount the source for hot reload in dev. The Dockerfile keeps
-      # the venv at /opt/venv, so this mount does NOT shadow dependencies.
-      - ./backend:/app
-    depends_on:
-      postgres-backend:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    # WHY: entrypoint.sh dispatches on this argument — `app:start` waits for
-    # the DB, applies migrations, then exec's uvicorn. Use `app:init` to run
-    # only the migration step (e.g. in one-off jobs).
-    command: ["app:start"]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: bigbug-frontend
-    environment:
-      VITE_API_URL: http://localhost:8000
-      VITE_KEYCLOAK_URL: http://localhost:8180
-      VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-bigbug}
-      VITE_KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID_FRONTEND:-bigbug-frontend}
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    command: yarn dev --host
-
-volumes:
-  postgres_backend_data:
-  postgres_keycloak_data:
-  redis_data:
-  gitlab_config:
-  gitlab_logs:
-  gitlab_data:
-  gitlab_runner_config:
