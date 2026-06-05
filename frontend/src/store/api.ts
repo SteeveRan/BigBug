@@ -34,6 +34,22 @@ export const api = createApi({
     >({
       query: () => '/auth/me',
     }),
+    getSsoConfig: builder.query<
+      { enabled: boolean; url: string; realm: string; client_id: string },
+      void
+    >({
+      query: () => '/auth/sso/config',
+    }),
+    ssoExchange: builder.mutation<
+      { access_token: string; refresh_token: string; token_type: string },
+      { code: string; redirect_uri: string; code_verifier: string }
+    >({
+      query: (body) => ({
+        url: '/auth/oidc/exchange',
+        method: 'POST',
+        body,
+      }),
+    }),
 
     // Projects
     listProjects: builder.query<unknown[], void>({
@@ -175,6 +191,8 @@ export const api = createApi({
 export const {
   useLoginMutation,
   useGetMeQuery,
+  useGetSsoConfigQuery,
+  useSsoExchangeMutation,
   useListProjectsQuery,
   useGetProjectQuery,
   useCreateProjectMutation,

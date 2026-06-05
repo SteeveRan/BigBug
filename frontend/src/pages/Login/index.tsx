@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
 import {
   Box,
   Card,
@@ -9,10 +9,12 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Divider,
 } from '@mui/material'
 import { useAppDispatch } from '../../store'
 import { setCredentials } from '../../store/authSlice'
-import { useLoginMutation, useGetMeQuery } from '../../store/api'
+import { useLoginMutation } from '../../store/api'
+import { useKeycloakAuth } from '../../hooks/useKeycloakAuth'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
@@ -20,14 +22,25 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [login, { isLoading }] = useLoginMutation()
+  const { ready, enabled, login: ssoLogin } = useKeycloakAuth()
+
+  // Propagate error query param from SSO callback failures.
+  useEffect(() => {
+    const param = searchParams.get('error')
+    if (param) {
+      setError(param)
+      // Clean up the URL so the message doesn't survive a refresh.
+      navigate('/login', { replace: true })
+    }
+  }, [searchParams, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     try {
       const result = await login({ username, password }).unwrap()
-      // Fetch user info
       const meResponse = await fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${result.access_token}` },
       })
@@ -37,7 +50,7 @@ export function LoginPage() {
           accessToken: result.access_token,
           refreshToken: result.refresh_token,
           user: me,
-        })
+        }),
       )
       navigate('/')
     } catch {
@@ -100,6 +113,22 @@ export function LoginPage() {
               {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
           </Box>
+
+          {/* SSO button — shown only when the backend reports SSO is enabled
+              and the config has finished loading. */}
+          {ready && enabled && (
+            <>
+              <Divider sx={{ my: 2 }}>or</Divider>
+              <Button
+                variant="outlined"
+                fullWidth
+                size="large"
+                onClick={ssoLogin}
+              >
+                Sign in with SSO
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
     </Box>

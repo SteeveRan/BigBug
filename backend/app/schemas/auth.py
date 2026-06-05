@@ -16,6 +16,23 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class OIDCExchangeRequest(BaseModel):
+    """Authorization-code exchange payload sent by the SSO callback page."""
+
+    code: str
+    redirect_uri: str
+    code_verifier: str
+
+
+class SSOConfig(BaseModel):
+    """Public OIDC parameters the frontend needs to bootstrap keycloak-js."""
+
+    enabled: bool
+    url: str
+    realm: str
+    client_id: str
+
+
 class UserOut(BaseModel):
     id: int
     username: str

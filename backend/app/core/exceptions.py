@@ -36,3 +36,26 @@ class ExternalServiceError(HTTPException):
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"External service error ({service}): {detail}",
         )
+
+
+# --- OIDC / SSO ---------------------------------------------------------------
+# These are plain exceptions (not HTTPException) on purpose: the OIDC service is
+# a pure domain layer that must stay framework-agnostic and unit-testable. The
+# API layer (app/api/auth.py) catches them and maps to the appropriate HTTP
+# response, keeping transport concerns out of the service.
+
+
+class OIDCError(RuntimeError):
+    """Base class for all OIDC/SSO failures raised by the OIDC service."""
+
+
+class OIDCExchangeError(OIDCError):
+    """The authorization-code exchange with Keycloak failed (network / 4xx)."""
+
+
+class OIDCInvalidTokenError(OIDCError):
+    """The ID token failed signature, issuer, audience or expiry validation."""
+
+
+class OIDCProvisioningError(OIDCError):
+    """A valid token was received but the local user could not be provisioned."""

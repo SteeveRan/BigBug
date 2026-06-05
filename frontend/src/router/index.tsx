@@ -3,6 +3,7 @@ import { useAppSelector } from '../store'
 import { Layout } from '../components/Layout'
 import { ProtectedRoute } from './ProtectedRoute'
 import { LoginPage } from '../pages/Login'
+import { SsoCallbackPage } from '../pages/SsoCallback'
 import { DashboardPage } from '../pages/Dashboard'
 import { ProjectsPage } from '../pages/Projects'
 import { ProjectDetailPage } from '../pages/Projects/ProjectDetail'
@@ -21,6 +22,7 @@ export function AppRouter() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
       />
+      <Route path="/sso/callback" element={<SsoCallbackPage />} />
       <Route
         path="/"
         element={

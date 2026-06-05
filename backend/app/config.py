@@ -35,11 +35,28 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
+    # Symmetric encryption (Fernet) for credentials at rest (Helm/Docker
+    # registry passwords). Generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Empty string means encrypted columns cannot be written/read — features
+    # depending on it (Helm chart / Docker image sync) fail loudly at use.
+    encryption_key: str = ""
+
     # Keycloak OIDC
     keycloak_url: str = "http://localhost:8180"
     keycloak_realm: str = "bigbug"
     keycloak_client_id: str = "bigbug-backend"
     keycloak_client_secret: str = ""
+    # WHY: the browser performs the Authorization Code + PKCE flow against a
+    # separate *public* client; the backend only needs its id to expose it to
+    # the SPA via /auth/sso/config.
+    keycloak_frontend_client_id: str = "bigbug-frontend"
+    # WHY: short, dedicated timeout for OIDC HTTP calls keeps slow IDP
+    # responses from blocking request workers indefinitely.
+    keycloak_http_timeout_seconds: float = 10.0
+    # WHY: caching the JWKS avoids hitting Keycloak on every token validation
+    # while still allowing key rotation within the configured window.
+    keycloak_jwks_cache_ttl_seconds: int = 600
 
     # GitLab
     gitlab_url: str = "http://gitlab.local:8080"
