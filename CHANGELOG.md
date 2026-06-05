@@ -1,0 +1,291 @@
+# Changelog
+
+All notable changes to BigBug will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.4.0] - 2026-06-05
+
+### Added
+
+- **OpenTofu/Terraform инфраструктура:**
+  - [`examples/keycloak/`](examples/keycloak/) — декларативная конфигурация Keycloak на базе провайдера `mrparkers/keycloak` v4.x
+  - [`examples/keycloak/main.tf`](examples/keycloak/main.tf) — конфигурация провайдера
+  - [`examples/keycloak/realm.tf`](examples/keycloak/realm.tf) — realm "bigbug"
+  - [`examples/keycloak/clients.tf`](examples/keycloak/clients.tf) — confidential client `bigbug-backend` + public client `bigbug-frontend` с PKCE S256
+  - [`examples/keycloak/roles.tf`](examples/keycloak/roles.tf) — realm roles: admin, operator, viewer
+  - [`examples/keycloak/users.tf`](examples/keycloak/users.tf) — тестовый пользователь `bigbug` с ролью admin
+  - [`examples/gitlab/`](examples/gitlab/) — декларативная конфигурация GitLab на базе провайдера `gitlabhq/gitlab` v17.x
+  - [`examples/gitlab/main.tf`](examples/gitlab/main.tf) — конфигурация провайдера с data-источником для root пользователя
+  - [`examples/gitlab/groups.tf`](examples/gitlab/groups.tf) — группа "bigbug-mirrors" для зеркал
+  - [`examples/gitlab/tokens.tf`](examples/gitlab/tokens.tf) — Personal Access Token с правами api, read_repository, write_repository
+
+- **Разделение Docker Compose:**
+  - [`docker-compose.infra.yml`](docker-compose.infra.yml) — инфраструктурные сервисы (postgres-backend, postgres-keycloak, redis, keycloak, gitlab, gitlab-runner) с общей сетью `bigbug-network`
+  - [`docker-compose.app.yml`](docker-compose.app.yml) — сервисы приложения (backend, frontend) с external-сетью `bigbug-network`
+
+- **Автоматизация:**
+  - [`examples/init.sh`](examples/init.sh) — мастер-скрипт полной инициализации: проверка зависимостей (docker, opentofu/terraform, curl, jq), запуск инфраструктуры, ожидание health checks, применение OpenTofu конфигураций, обновление `.env`, запуск приложения
+  - [`examples/update-env.sh`](examples/update-env.sh) — скрипт обновления `.env` из OpenTofu outputs (GITLAB_TOKEN, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_ID_FRONTEND)
+
+- **Документация:**
+  - [`examples/README.md`](examples/README.md) — общий обзор, Quick Start, manual setup, troubleshooting
+  - [`examples/keycloak/README.md`](examples/keycloak/README.md) — что создаётся, переменные, проверка через UI
+  - [`examples/gitlab/README.md`](examples/gitlab/README.md) — что создаётся, получение root PAT, security notes
+  - Обновлён корневой [`README.md`](README.md) — новый Quick Start с OpenTofu, обновлённая структура проекта, таблица сервисов разделена на infra/app
+
+### Changed
+
+- **Реорганизация структуры проекта:**
+  - [`harbor/`](harbor/) перемещён → [`examples/harbor/`](examples/harbor/)
+  - [`examples/keycloak/`](examples/keycloak/) содержит OpenTofu-конфигурацию вместо bash-скрипта
+  - [`examples/gitlab/`](examples/gitlab/) содержит OpenTofu-конфигурацию
+
+- **Документация использует новые пути:**
+  - Harbor: `cd examples/harbor` вместо `cd harbor`
+  - Keycloak: `cd examples/keycloak && tofu apply` вместо `docker compose --profile init up keycloak-init`
+
+### Removed
+
+- **Удалён bash-скрипт инициализации Keycloak:**
+  - Папка [`keycloak/`](keycloak/) с файлом [`init-keycloak.sh`](keycloak/init-keycloak.sh) удалена
+  - Сервис `keycloak-init` с `profiles: ["init"]` удалён из [`docker-compose.yml`](docker-compose.yml)
+  - Keycloak теперь инициализируется через OpenTofu (`cd examples/keycloak && tofu apply`)
+
+### Deprecated
+
+- [`docker-compose.yml`](docker-compose.yml) помечен как deprecated — используйте [`docker-compose.infra.yml`](docker-compose.infra.yml) и [`docker-compose.app.yml`](docker-compose.app.yml)
+
+### Breaking Changes
+
+- `docker compose --profile init up keycloak-init` больше не работает
+- `docker compose up -d` запускает только старый единый compose-файл, который помечен deprecated
+- Требуется установка OpenTofu или Terraform для инициализации инфраструктуры
+- Путь к harbor изменился с `harbor/` на `examples/harbor/`
+
+## [0.3.0] - 2026-06-05
+
+### Added
+
+- **Backend тесты (111 тестов):**
+  - [`test_oidc.py`](backend/tests/test_oidc.py) — 19 тестов: обмен кода авторизации, валидация ID-токенов (подпись JWKS, issuer, audience, expiry), provisioning пользователей, синхронизация ролей из `realm_access.roles`, TTL-кэш JWKS
+  - [`test_helm_service.py`](backend/tests/test_helm_service.py) — 14 тестов: импорт источника, индексация через `index.yaml` (httpx + PyYAML), `_sync_chart_entries()` upsert, `_normalize_repo_url()`, обработка ошибок сети
+  - [`test_docker_service.py`](backend/tests/test_docker_service.py) — 16 тестов: импорт источника, индексация тегов через `/v2/<image>/tags/list`, разрешение digest через HEAD-запросы, `_normalize_registry_url()`, обработка ошибок сети
+  - [`test_secrets.py`](backend/tests/test_secrets.py) — 11 тестов: шифрование/дешифрование Fernet (roundtrip), `None`-safe обработка, `SecretEncryptionError` при неверном ключе/токене, `MultiFernet`-совместимость
+  - [`test_helm_api.py`](backend/tests/test_helm_api.py) — 15 тестов: CRUD эндпоинты `/api/helm-charts`, индексация, версии, логи синхронизации, RBAC-проверки (viewer/operator)
+  - [`test_docker_api.py`](backend/tests/test_docker_api.py) — 16 тестов: CRUD эндпоинты `/api/docker-images`, индексация по `image_name`, теги, логи синхронизации, RBAC-проверки (viewer/operator)
+  - [`test_auth.py`](backend/tests/test_auth.py) — 7 тестов: локальный логин, неверный пароль, неизвестный пользователь, истечение токенов
+  - [`test_projects.py`](backend/tests/test_projects.py) — 6 тестов: CRUD GitHub-проектов, RBAC-проверки
+  - [`test_images.py`](backend/tests/test_images.py) — 7 тестов: Gold/App images CRUD, версионирование, RBAC-проверки
+
+- **Frontend тесты (88 тестов):**
+  - [`keycloak.service.test.ts`](frontend/src/tests/keycloak.service.test.ts) — 17 тестов: singleton Keycloak instance, `generateCodeVerifier()`, `computeCodeChallenge()` (SHA-256), `redirectToKeycloakLogin()`, `resetKeycloakInstance()`
+  - [`useKeycloakAuth.test.tsx`](frontend/src/tests/useKeycloakAuth.test.tsx) — 10 тестов: хук `useKeycloakAuth`, состояния `ready`/`enabled`/`error`, `login()` редирект, `handleCallback()` exchange
+  - [`SsoCallback.test.tsx`](frontend/src/tests/SsoCallback.test.tsx) — 9 тестов: обработка callback, обмен кода на токены, обработка ошибок exchange, StrictMode double-mount guard, редирект на `/login?error=`
+  - [`HelmCharts.test.tsx`](frontend/src/tests/HelmCharts.test.tsx) — 8 тестов: список источников, диалог создания, кнопка Re-index, отображение статусов
+  - [`HelmChartDetail.test.tsx`](frontend/src/tests/HelmChartDetail.test.tsx) — 11 тестов: карточка деталей источника, таблица версий (Chart, Version, App Version, Status), история синхронизации
+  - [`DockerImages.test.tsx`](frontend/src/tests/DockerImages.test.tsx) — 8 тестов: список источников, диалог создания с опциональным `image_name`, кнопка Index Image
+  - [`DockerImageDetail.test.tsx`](frontend/src/tests/DockerImageDetail.test.tsx) — 13 тестов: карточка деталей источника, таблица тегов (Image, Tag, Architecture, Size), диалог "Index Image" с вводом имени образа, история синхронизации
+  - [`authSlice.test.ts`](frontend/src/tests/authSlice.test.ts) — 6 тестов: Redux slice (setCredentials, clearCredentials, начальное состояние)
+  - [`StatusChip.test.tsx`](frontend/src/tests/StatusChip.test.tsx) — 6 тестов: отображение всех 5 статусов (OK, Failed, Warning, In Progress, Pending), цветовая индикация
+
+- **Harbor инфраструктура:**
+  - [`harbor/kind-config.yaml`](harbor/kind-config.yaml) — конфигурация локального Kubernetes-кластера (kind) для развёртывания Harbor
+  - [`harbor/harbor-values.yaml`](harbor/harbor-values.yaml) — Helm-значения для Harbor (persistence, ingress, admin-credentials)
+  - [`harbor/deploy.sh`](harbor/deploy.sh) — скрипт развёртывания: `kind create cluster` + `helm install harbor`
+  - [`harbor/teardown.sh`](harbor/teardown.sh) — скрипт удаления: `kind delete cluster`
+  - [`harbor/test-push.sh`](harbor/test-push.sh) — скрипт тестового пуша Docker-образа в Harbor
+  - [`harbor/README.md`](harbor/README.md) — документация по развёртыванию и использованию Harbor
+
+### Fixed
+
+- **MissingGreenlet в `get_current_user`:** добавлен `selectinload` для ролей пользователя при асинхронной загрузке, устраняющий `MissingGreenlet` ошибку при доступе к `user.roles` вне сессии
+- **passlib → bcrypt:** заменён `passlib` на нативный [`bcrypt`](backend/app/core/security.py:4) для совместимости с Python 3.14 (passlib не поддерживает `bcrypt` ≥ 4.1)
+
+### Security
+
+- Все пароли хешируются через [`bcrypt`](backend/app/core/security.py:11) с автоматической генерацией соли ([`gensalt()`](backend/app/core/security.py:18))
+
+## [0.2.0] - 2026-06-05
+
+### Added
+
+- **Docker Images — модели (Блок 4):**
+  - [`DockerImageSource`](backend/app/models/docker_image_source.py) — источник Docker-образов (name, registry_url, gitlab_project_id, status_flag default=4 Pending)
+  - [`DockerImageTag`](backend/app/models/docker_image_tag.py) — тег Docker-образа (image_name, tag, digest из `docker-content-digest`, size_bytes, architectures JSON)
+  - [`DockerSyncLog`](backend/app/models/docker_sync_log.py) — лог синхронизации (pipeline_id, status_flag, triggered_by: scheduler/manual/webhook)
+  - Миграция [`add_docker_tables`](backend/alembic/versions/20260605_1200_add_docker_tables.py) — 3 таблицы с индексами
+
+- **Docker Registry Service (Блок 4):**
+  - [`DockerRegistryService`](backend/app/services/docker.py) — индексация тегов через Docker Registry API v2: `GET /v2/<image>/tags/list` + `HEAD /v2/<image>/manifests/<tag>` для digest
+  - `_sync_tags()` — upsert по `(source_id, image_name, tag)`, идемпотентная повторная индексация
+  - `_normalize_registry_url()` — автоматическое добавление `/v2` к registry URL
+  - Pydantic-схемы: [`docker.py`](backend/app/schemas/docker.py) — `DockerImageSourceOut`, `DockerImageSourceDetailOut` (с вложенными tags), `DockerImageTagOut`, `DockerSyncLogOut`
+
+- **Docker Images API (Блок 4):**
+  - [`docker_images.py`](backend/app/api/docker_images.py) — 8 эндпоинтов: `GET /api/docker-images`, `GET /api/docker-images/{id}`, `POST`, `PATCH`, `DELETE`, `POST .../index?image_name=...`, `GET .../tags`, `GET .../logs`
+  - RBAC: чтение — `require_viewer`, изменение — `require_operator`
+
+- **Frontend UI — Docker Images (Блок 5):**
+  - [`DockerImages/index.tsx`](frontend/src/pages/DockerImages/index.tsx) — список источников с таблицей (Name, Registry URL, Last Synced, Status, Actions), диалог создания
+  - [`DockerImageDetail.tsx`](frontend/src/pages/DockerImages/DockerImageDetail.tsx) — карточка Source Info, таблица тегов (Image, Tag, Architecture, Size с форматированием байт), история синхронизации, диалог "Index Image"
+
+- **Frontend UI — Helm Charts (Блок 5):**
+  - [`HelmCharts/index.tsx`](frontend/src/pages/HelmCharts/index.tsx) — список источников чартов с таблицей (Name, Repo URL, Last Synced, Status, Actions), диалог создания
+  - [`HelmChartDetail.tsx`](frontend/src/pages/HelmCharts/HelmChartDetail.tsx) — карточка Source Info, таблица версий чарта (Chart, Version, App Version, Status + индикатор Synced), история синхронизации
+
+- **RTK Query — 16 эндпоинтов (Блок 5):**
+  - [`api.ts`](frontend/src/store/api.ts) — `tagTypes: ['HelmChart', 'DockerImage']`, 8 эндпоинтов для Helm (CRUD + index + versions + logs), 8 эндпоинтов для Docker (CRUD + index + tags + logs)
+  - Экспортированы хуки: `useListHelmChartsQuery`, `useGetHelmChartQuery`, `useCreateHelmChartMutation`, `useUpdateHelmChartMutation`, `useDeleteHelmChartMutation`, `useIndexHelmChartMutation`, `useGetHelmChartVersionsQuery`, `useGetHelmChartLogsQuery` и аналогичные для Docker
+
+- **TypeScript-типы (Блок 5):**
+  - [`types/index.ts`](frontend/src/types/index.ts) — интерфейсы: `HelmChartSource`, `HelmChartSourceDetail`, `HelmChartVersion`, `HelmSyncLog`, `DockerImageSource`, `DockerImageSourceDetail`, `DockerImageTag`, `DockerSyncLog`
+
+- **Маршрутизация и меню (Блок 5):**
+  - [`router/index.tsx`](frontend/src/router/index.tsx) — маршруты `/helm-charts`, `/helm-charts/:id`, `/docker-images`, `/docker-images/:id`
+  - [`Layout/index.tsx`](frontend/src/components/Layout/index.tsx) — пункты меню "Helm Charts" (иконка `Sailing`) и "Docker Images" (иконка `Dock`)
+
+- **GitLab CI шаблоны (Блок 4):**
+  - [`docker-sync-template.yml`](gitlab-ci/docker-sync-template.yml) — CI-шаблон синхронизации Docker-образов (stages: `sync`, `notify`; образ `docker:27-dind`; переменные: `DOCKER_REGISTRY_URL`, `DOCKER_IMAGE_NAME`, `TAG_FILTER`, `TAG_LIMIT`)
+  - [`helm-sync-template.yml`](gitlab-ci/helm-sync-template.yml) — CI-шаблон синхронизации Helm-чартов (образ `alpine/helm`; переменные: `HELM_REPO_URL`, `SYNC_STRATEGY`, `CHART_FILTER`)
+
+### Changed
+
+- **Webhook расширен до 4 типов логов:**
+  - [`webhooks.py`](backend/app/api/webhooks.py) — добавлены обработчики `HelmSyncLog` и `DockerSyncLog` (поиск по `pipeline_id`, обновление статуса и `last_synced_at` родительской сущности)
+  - Поддерживаемые типы: `sync_log` (gitlab mirror), `build_log` (docker build), `helm_sync_log` (helm chart sync), `docker_sync_log` (docker image sync)
+
+- **Модели:**
+  - [`models/__init__.py`](backend/app/models/__init__.py) — добавлены `HelmChartSource`, `HelmChartVersion`, `HelmSyncLog`, `DockerImageSource`, `DockerImageTag`, `DockerSyncLog`
+- **Main:**
+  - [`main.py`](backend/app/main.py) — зарегистрированы роутеры `helm_charts` (`/api/helm-charts`) и `docker_images` (`/api/docker-images`)
+
+## [0.1.0] - 2026-06-05
+
+### Added
+
+- **SSO/OIDC интеграция (Блок 2):**
+  - [`KeycloakOIDCService`](backend/app/services/oidc.py) — обмен кода авторизации (`exchange_code()`), валидация ID-токенов (подпись JWKS, issuer, audience, expiry), provisioning пользователей (`provision_or_update_user()`), синхронизация ролей из `realm_access.roles` (`_sync_roles()`)
+  - [`OIDCClaims`](backend/app/services/oidc.py:52) — frozen dataclass (subject, username, email, roles)
+  - [`_JWKSCache`](backend/app/services/oidc.py:62) — TTL-кэш JWKS с `time.monotonic()`, автосброс при ошибках
+  - [`_NonClosingClient`](backend/app/services/oidc.py:313) — адаптер для инъекции тестовых httpx-клиентов
+  - 4 доменных исключения: `OIDCError`, `OIDCExchangeError`, `OIDCInvalidTokenError`, `OIDCProvisioningError` ([`exceptions.py`](backend/app/core/exceptions.py))
+  - API эндпоинты: [`GET /auth/sso/config`](backend/app/api/auth.py:83) (конфигурация SSO), [`POST /auth/oidc/exchange`](backend/app/api/auth.py:99) (обмен кода на JWT)
+  - Pydantic-схемы: `OIDCExchangeRequest` (code, redirect_uri, code_verifier), `SSOConfig` (enabled, url, realm, client_id)
+
+- **Frontend SSO (Блок 2):**
+  - [`keycloak.ts`](frontend/src/services/keycloak.ts) — singleton Keycloak instance, `redirectToKeycloakLogin()` с ручным построением PKCE-URL, `generateCodeVerifier()` (64 случайных байта → base64url), `computeCodeChallenge()` (SHA-256 → base64url), `resetKeycloakInstance()` для тестов
+  - [`useKeycloakAuth.ts`](frontend/src/hooks/useKeycloakAuth.ts) — хук аутентификации: `ready` (конфиг загружен), `enabled` (SSO включён), `login()` (редирект на Keycloak), `handleCallback()` (обмен кода)
+  - [`SsoCallback/index.tsx`](frontend/src/pages/SsoCallback/index.tsx) — страница обработки SSO-callback: обмен кода → получение токена → редирект, `useRef` guard против StrictMode double-mount
+  - [`Login/index.tsx`](frontend/src/pages/Login/index.tsx) — кнопка "Sign in with SSO" (показывается при `ready && enabled`), обработка `?error=` query-параметра
+  - [`router/index.tsx`](frontend/src/router/index.tsx) — маршрут `/sso/callback`
+  - [`api.ts`](frontend/src/store/api.ts) — `getSsoConfig` query, `ssoExchange` mutation
+
+- **Модель пользователя (Блок 2):**
+  - [`user.py`](backend/app/models/user.py) — `hashed_password` → `nullable=True` (SSO-пользователи без пароля), добавлено поле `keycloak_sub` (уникальный идентификатор Keycloak-identity)
+
+- **Helm Charts — модели (Блок 3):**
+  - [`HelmChartSource`](backend/app/models/helm_chart_source.py) — репозиторий Helm-чартов (name unique, repo_url, gitlab_project_id, status_flag)
+  - [`HelmChartVersion`](backend/app/models/helm_chart_version.py) — версия чарта (chart_name, version, app_version, digest SHA-256, urls JSON, is_synced)
+  - [`HelmSyncLog`](backend/app/models/helm_sync_log.py) — лог синхронизации (pipeline_id, status_flag, triggered_by: scheduler/manual/webhook)
+  - Миграция [`add_helm_tables`](backend/alembic/versions/20260605_0747_add_helm_tables.py) — 3 таблицы с индексами
+
+- **Helm Service (Блок 3):**
+  - [`HelmService`](backend/app/services/helm.py) — индексация чартов через парсинг `index.yaml` (httpx + PyYAML `safe_load()`), `_sync_chart_entries()` upsert по `(source_id, chart_name, version)`, `_normalize_repo_url()`, `_validate_repo_url()`
+  - Pydantic-схемы: [`helm.py`](backend/app/schemas/helm.py) — `HelmChartSourceOut`, `HelmChartSourceDetailOut`, `HelmChartVersionOut`, `HelmSyncLogOut`
+
+- **Helm Charts API (Блок 3):**
+  - [`helm_charts.py`](backend/app/api/helm_charts.py) — 8 эндпоинтов: `GET /helm-charts`, `GET /helm-charts/{id}`, `POST`, `PATCH`, `DELETE`, `POST .../index`, `GET .../versions`, `GET .../logs`
+  - RBAC: чтение — `require_viewer`, изменение — `require_operator`
+
+- **Шифрование секретов (Блок 2):**
+  - [`SecretCipher`](backend/app/core/secrets.py) — симметричное шифрование на базе Fernet (AES-128-CBC + HMAC-SHA256)
+  - [`encrypt_secret()`](backend/app/core/secrets.py:78) / [`decrypt_secret()`](backend/app/core/secrets.py:85) — хелперы, `None`-safe (пустые строки и `None` проходят прозрачно)
+  - [`get_cipher()`](backend/app/core/secrets.py:59) — `@lru_cache(maxsize=1)`, падает громко если `ENCRYPTION_KEY` не задан
+  - `SecretEncryptionError` — доменное исключение для ошибок расшифровки
+
+### Changed
+
+- **Модели:**
+  - [`models/__init__.py`](backend/app/models/__init__.py) — добавлены `HelmChartSource`, `HelmChartVersion`, `HelmSyncLog`
+- **Main:**
+  - [`main.py`](backend/app/main.py) — зарегистрирован роутер `helm_charts` (`/api/helm-charts`)
+- **Webhook:**
+  - [`webhooks.py`](backend/app/api/webhooks.py) — добавлена обработка `HelmSyncLog`: поиск по `pipeline_id`, обновление `status_flag`/`status_text`/`finished_at`, обновление `HelmChartSource.last_synced_at` при success
+
+### Security
+
+- **PKCE S256:** фронтенд генерирует `code_verifier` (64 случайных байта) и `code_challenge` (SHA-256), бэкенд передаёт `code_verifier` в Keycloak token endpoint; Keycloak-клиент `bigbug-frontend` создан как public client с обязательным PKCE S256
+- **Fernet-шифрование:** registry-пароли для Helm/Docker хранятся в зашифрованном виде, спроектировано для будущего перехода на `MultiFernet` (ротация ключей)
+
+## [0.0.1] - 2026-06-05
+
+### Added
+
+- **Docker-инфраструктура (Блок 1):**
+  - [`docker-compose.yml`](docker-compose.yml) — 8 сервисов: PostgreSQL 17 × 2 (backend + keycloak), Redis 7, Keycloak 24.0, GitLab CE, GitLab Runner, backend (FastAPI), frontend (React + Vite)
+  - [`keycloak-init`](docker-compose.yml) — одноразовый сервис с `profiles: ["init"]` для идемпотентной инициализации Keycloak
+  - [`init-keycloak.sh`](keycloak/init-keycloak.sh) — bootstrap Keycloak: создание realm `bigbug`, ролей (admin/operator/viewer), confidential client `bigbug-backend`, public client `bigbug-frontend` (PKCE S256 enforced), тестового пользователя
+  - [`backend/Dockerfile`](backend/Dockerfile) — multi-stage build (slim-bookworm → venv → копирование), запуск от `nonroot` пользователя
+  - [`backend/entrypoint.sh`](backend/entrypoint.sh) — точка входа: `app:start` (migrate + uvicorn), `app:init` (только migrate), ожидание PostgreSQL через `pg_isready`
+  - [`frontend/Dockerfile`](frontend/Dockerfile) — multi-stage build (node:24-alpine → nginx:alpine)
+  - [`.env.example`](.env.example) — все переменные окружения с комментариями (БД, Redis, Keycloak, GitLab, GitHub, Harbor, секреты)
+
+- **Backend — ядро (Блок 1):**
+  - [`FastAPI`](backend/app/main.py) приложение с CORS, lifespan (startup/shutdown для scheduler)
+  - [`SQLAlchemy 2.x`](backend/app/database.py) — асинхронный движок (`asyncpg`), `AsyncSession` фабрика
+  - [`Alembic`](backend/alembic/) — система миграций (initial schema [`39774f94ac35`](backend/alembic/versions/20260605_0449_39774f94ac35_initial_schema.py))
+  - [`config.py`](backend/app/config.py) — Pydantic Settings с маппингом переменных окружения
+  - JWT-аутентификация: [`security.py`](backend/app/core/security.py) — `create_access_token()`, `create_refresh_token()`, `decode_token()`, `verify_password()`, `get_password_hash()`
+  - RBAC: [`rbac.py`](backend/app/core/rbac.py) — декоратор `require_roles()` для проверки ролей (admin/operator/viewer)
+  - Глобальный обработчик исключений ([`main.py`](backend/app/main.py))
+
+- **Модели (Блок 1):**
+  - [`User`](backend/app/models/user.py) — локальные пользователи (username, email, hashed_password)
+  - [`Role`](backend/app/models/role.py) + `UserRole` — M2M роли (admin, operator, viewer)
+  - [`GithubOrg`](backend/app/models/github_org.py) — GitHub-организация
+  - [`GithubProject`](backend/app/models/github_project.py) — GitHub-репозиторий (metadata, stale tracking)
+  - [`GithubRelease`](backend/app/models/github_release.py) — релизы для delta tracking
+  - [`GitlabMirror`](backend/app/models/gitlab_mirror.py) — зеркало GitLab
+  - [`SyncSchedule`](backend/app/models/sync_schedule.py) — cron-расписание синхронизации (is_enabled, use_default, cron_expression)
+  - [`SyncLog`](backend/app/models/sync_log.py) — лог синхронизации (pipeline_id, status_flag, log_output)
+  - [`GoldImage`](backend/app/models/gold_image.py) + [`AppImage`](backend/app/models/app_image.py) — базовые и прикладные Docker-образы
+  - [`ImageVersion`](backend/app/models/image_version.py) — унифицированная таблица версий (gold/app, архитектуры, SHA-256 digest)
+  - [`BuildSchedule`](backend/app/models/build_schedule.py) + [`BuildLog`](backend/app/models/build_log.py) — расписание и логи сборок
+
+- **API эндпоинты (Блок 1):**
+  - [`auth.py`](backend/app/api/auth.py) — `POST /auth/login`, `GET /auth/me`, `POST /auth/refresh`
+  - [`admin.py`](backend/app/api/admin.py) — управление пользователями и ролями (admin only)
+  - [`projects.py`](backend/app/api/projects.py) — CRUD GitHub-проектов
+  - [`mirrors.py`](backend/app/api/mirrors.py) — управление GitLab-зеркалами
+  - [`gold_images.py`](backend/app/api/gold_images.py) + [`app_images.py`](backend/app/api/app_images.py) — управление Docker-образами
+  - [`webhooks.py`](backend/app/api/webhooks.py) — приём webhook-уведомлений от GitLab Runner (sync_log, build_log)
+  - [`schedules.py`](backend/app/api/schedules.py) — управление расписаниями синхронизации и сборок
+
+- **Сервисы (Блок 1):**
+  - [`github.py`](backend/app/services/github.py) — GitHub API клиент (PyGithub)
+  - [`gitlab.py`](backend/app/services/gitlab.py) — GitLab API клиент (python-gitlab)
+  - [`scheduler.py`](backend/app/services/scheduler.py) — AsyncIOScheduler для периодических задач
+  - [`build.py`](backend/app/services/build.py) — логика сборки Docker-образов
+
+- **GitLab CI шаблоны (Блок 1):**
+  - [`mirror-template.yml`](gitlab-ci/mirror-template.yml) — шаблон зеркалирования репозиториев
+  - [`gold-image-template.yml`](gitlab-ci/gold-image-template.yml) — шаблон сборки Gold-образов
+  - [`app-image-template.yml`](gitlab-ci/app-image-template.yml) — шаблон сборки App-образов
+
+- **Frontend — ядро (Блок 1):**
+  - React 19 + TypeScript + Vite
+  - Redux Toolkit + RTK Query ([`store/`](frontend/src/store/))
+  - Material UI v6 ([`theme.ts`](frontend/src/theme.ts))
+  - React Router v7 ([`router/`](frontend/src/router/))
+  - Страницы: [`Login`](frontend/src/pages/Login/), [`Dashboard`](frontend/src/pages/Dashboard/), [`Projects`](frontend/src/pages/Projects/), [`Mirrors`](frontend/src/pages/Mirrors/), [`GoldImages`](frontend/src/pages/GoldImages/), [`AppImages`](frontend/src/pages/AppImages/), [`Admin`](frontend/src/pages/Admin/)
+  - [`ProtectedRoute`](frontend/src/router/ProtectedRoute.tsx) — guard для аутентифицированных маршрутов
+  - [`Layout`](frontend/src/components/Layout/index.tsx) — боковое меню с навигацией
+
+[Unreleased]: https://github.com/user/BigBug/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/user/BigBug/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/user/BigBug/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/user/BigBug/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/user/BigBug/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/user/BigBug/releases/tag/v0.0.1

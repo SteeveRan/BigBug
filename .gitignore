@@ -130,6 +130,18 @@ tmp/
 temp/
 
 # =============================================================================
+# OpenTofu / Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+
+# =============================================================================
 # Workspace / Project specific
 # =============================================================================
 *.code-workspace

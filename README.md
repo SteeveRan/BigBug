@@ -1,111 +1,213 @@
-# BigBug — DevOps Sync & Build Service
+# BigBug
 
-A fullstack DevOps service for:
-- **Mirroring** GitHub repositories to GitLab with CI/CD pipelines
-- **Building** base OS/runtime Docker images (Gold Images)
-- **Building** application Docker images on top of Gold Images
-- **Tracking** sync/build status, logs, and schedules
+> DevOps sync & build service for GitHub mirrors, Docker images, and Helm charts
 
-## Tech Stack
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-111%20passed-brightgreen)]()
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-88%20passed-brightgreen)]()
+[![License](https://img.shields.io/badge/license-MIT-blue)]()
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | FastAPI, SQLAlchemy 2.x (async), Alembic, PostgreSQL 17 |
-| Auth | JWT (local), Keycloak OIDC (SSO) |
-| Scheduling | APScheduler |
-| Integrations | python-gitlab, PyGithub |
-| Frontend | React 19, TypeScript, Vite, Yarn |
-| UI | Material UI v6 |
-| State | Redux Toolkit + RTK Query |
-| Routing | React Router 7 |
-| Testing | pytest (backend), Vitest (frontend) |
-| Dev Infra | GitLab CE, GitLab Runner, Keycloak, Redis |
+## Overview
 
-## Quick Start
+BigBug is a fullstack DevOps service that automates the synchronization and lifecycle management of infrastructure artifacts — **GitHub repositories**, **Docker images**, and **Helm charts**. It mirrors source repositories to GitLab with CI/CD pipelines, builds layered Docker images (base OS/runtime Gold Images + application images), and keeps Docker registries and Helm chart repositories in sync.
+
+Designed for DevOps teams and enterprises that need a single pane of glass for artifact distribution, BigBug replaces ad-hoc scripts with a unified REST API and React UI. It supports scheduled syncs, manual triggers, pipeline-driven executions via GitLab Runner, and SSO authentication through Keycloak OIDC.
+
+## ✨ Features
+
+- **GitHub → GitLab mirroring** with automated CI/CD pipeline creation
+- **Gold Images** — base OS/runtime Docker image building
+- **App Images** — application image building on top of Gold Images
+- **Helm chart repository synchronization** — index, track versions, detect drift
+- **Docker registry image synchronization** — resolve tags, digests, architectures
+- **SSO/OIDC authentication** via Keycloak with PKCE S256
+- **RBAC** — three-tier role model (admin, operator, viewer)
+- **Scheduled sync & build jobs** with configurable cron expressions
+- **Build/sync logs** with status tracking and pipeline URLs
+- **REST API + React UI** — full management interface
+- **Import existing mirrors** — adopt pre-existing GitLab mirrors without re-creating them
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐      ┌──────────────┐      ┌──────────────────┐
+│   React UI      │ ────▶│  FastAPI     │ ────▶│ PostgreSQL × 2   │
+│   (Material UI) │      │  (Backend)   │      │ (app + keycloak) │
+└─────────────────┘      └──────────────┘      └──────────────────┘
+        │                        │                        │
+        │                        ▼                        ▼
+        │                ┌──────────────┐      ┌─────────────┐
+        └───────────────▶│  Keycloak    │      │   Redis 7   │
+                         │  (SSO/OIDC)  │      │   (Cache)   │
+                         └──────────────┘      └─────────────┘
+                                   │
+                                   ▼
+                          ┌──────────────┐
+                          │ GitLab CE    │
+                          │ + Runner     │
+                          └──────────────┘
+```
+
+Detailed architecture: [`plans/architecture.md`](plans/architecture.md)
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
-- Git
 
-### 1. Clone and configure
+- [Docker](https://docs.docker.com/engine/install/) 24+
+- [OpenTofu](https://opentofu.org/docs/intro/install/) 1.6+ or [Terraform](https://www.terraform.io/downloads) 1.5+
+
+### One-command Setup
 
 ```bash
-git clone <repo-url>
+# 1. Clone repository
+git clone https://github.com/user/BigBug.git
 cd BigBug
+
+# 2. Configure environment
 cp .env.example .env
-# Edit .env with your settings
+# Edit .env — set ENCRYPTION_KEY, GitHub tokens, etc.
+
+# 3. Full initialization (infrastructure + application)
+./examples/init.sh
 ```
 
-### 2. Start dev environment
+### Manual Step-by-Step
 
 ```bash
-docker compose up -d
+# 1. Start infrastructure
+docker compose -f docker-compose.infra.yml up -d
+
+# 2. Wait for readiness (check health)
+docker compose -f docker-compose.infra.yml ps
+
+# 3. Initialize Keycloak
+cd examples/keycloak
+cp terraform.tfvars.example terraform.tfvars
+tofu init && tofu apply
+
+# 4. Initialize GitLab
+cd ../gitlab
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars — set gitlab_token (root PAT with "api" scope)
+tofu init && tofu apply
+
+# 5. Update .env with outputs
+cd ../..
+./examples/update-env.sh
+
+# 6. Start application
+docker compose -f docker-compose.app.yml up -d
+
+# 7. Access UI
+open http://localhost:5173
+# Login: bigbug / bigbug
 ```
 
-Services will be available at:
+Services will start on:
+
 | Service | URL |
 |---------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8000/api/docs |
+| Frontend UI | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
 | GitLab | http://localhost:8080 |
 | Keycloak | http://localhost:8180 |
-| PostgreSQL | localhost:5432 |
+| PostgreSQL (backend) | localhost:5432 |
+| PostgreSQL (keycloak) | localhost:5433 |
 
-### 3. Run database migrations
+> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. The original [`docker-compose.yml`](docker-compose.yml) is kept for backward compatibility but prefer the new split-compose + OpenTofu approach. See [`examples/README.md`](examples/README.md) for full documentation.
 
-```bash
-docker compose exec backend alembic upgrade head
+## 📦 Tech Stack
+
+### Backend
+- **FastAPI** — REST API framework
+- **SQLAlchemy 2.x** (async) — ORM with asyncpg
+- **Alembic** — database migrations
+- **PostgreSQL 17** — primary database (separate instances for backend and Keycloak)
+- **Redis 7** — cache and session store
+- **APScheduler** (AsyncIOScheduler) — cron-based job scheduling
+- **python-gitlab** / **PyGithub** — GitLab and GitHub API clients
+- **python-jose** + **bcrypt** — JWT and password hashing
+- **authlib** + **httpx** — OIDC/OAuth2 (Keycloak SSO)
+- **cryptography** (Fernet) — at-rest secret encryption
+- **pytest** + **pytest-asyncio** + **httpx** — testing
+
+### Frontend
+- **React 19** + **TypeScript** — UI framework
+- **Redux Toolkit** + **RTK Query** — state management and API layer
+- **Material UI v6** — component library
+- **React Router v7** — client-side routing
+- **Vite** — build tool with HMR
+- **keycloak-js** — Keycloak OIDC adapter
+- **Vitest** + **@testing-library/react** — testing
+- **ESLint** + **@typescript-eslint** — linting
+
+### Infrastructure (dev)
+- **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor
+- **Keycloak 24** — SSO provider
+- **Harbor** (in kind) — local OCI registry for testing
+- **Docker Compose** — local development orchestration (split into [infra](docker-compose.infra.yml) and [app](docker-compose.app.yml))
+- **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak + GitLab)
+
+## 🗂️ Project Structure
+
+```
+BigBug/
+├── backend/                # FastAPI application
+│   ├── alembic/            # Database migrations
+│   ├── app/
+│   │   ├── api/            # REST API routers
+│   │   ├── core/           # Security, RBAC, exceptions, secrets
+│   │   ├── models/         # SQLAlchemy ORM models
+│   │   ├── schemas/        # Pydantic request/response schemas
+│   │   └── services/       # Business logic layer
+│   └── tests/              # pytest test suite (111 tests)
+├── frontend/               # React UI
+│   └── src/
+│       ├── components/     # Shared UI components
+│       ├── hooks/          # Custom React hooks
+│       ├── pages/          # Page components per feature
+│       ├── router/         # React Router configuration
+│       ├── services/       # External service adapters (Keycloak)
+│       ├── store/          # Redux store + RTK Query
+│       ├── tests/          # Vitest test suite (88 tests)
+│       └── types/          # TypeScript type definitions
+├── examples/               # Infrastructure initialization examples
+│   ├── init.sh             # Full environment initialization script
+│   ├── update-env.sh       # Update .env from OpenTofu outputs
+│   ├── harbor/             # Harbor deployment in kind
+│   ├── keycloak/           # OpenTofu: Keycloak realm, clients, roles, users
+│   └── gitlab/             # OpenTofu: GitLab groups, tokens
+├── gitlab-ci/              # CI/CD pipeline templates
+├── plans/                  # Architecture documentation
+├── docker-compose.infra.yml # Infrastructure services (DBs, Keycloak, GitLab)
+├── docker-compose.app.yml   # Application services (backend, frontend)
+├── docker-compose.yml       # Deprecated — kept for backward compatibility
+├── .env.example             # Environment variables template
+└── CHANGELOG.md             # Version history
 ```
 
-### 4. Create initial admin user
-
-```bash
-docker compose exec backend python -c "
-import asyncio
-from app.database import AsyncSessionLocal
-from app.models.user import User
-from app.models.role import Role, UserRole
-from app.core.security import get_password_hash
-
-async def create_admin():
-    async with AsyncSessionLocal() as db:
-        role = Role(name='admin', description='Administrator')
-        db.add(role)
-        await db.flush()
-        user = User(
-            username='admin',
-            email='admin@example.com',
-            hashed_password=get_password_hash('changeme'),
-        )
-        db.add(user)
-        await db.flush()
-        db.add(UserRole(user_id=user.id, role_id=role.id))
-        await db.commit()
-        print('Admin user created: admin / changeme')
-
-asyncio.run(create_admin())
-"
-```
-
-## Development
+## 🔧 Development
 
 ### Backend
 
 ```bash
 cd backend
 
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
 # Install dependencies
-pip install uv
-uv pip install -e ".[dev]"
+pip install -e .
 
 # Run migrations
 alembic upgrade head
 
-# Start dev server
+# Start development server
 uvicorn app.main:app --reload
 
 # Run tests
-pytest --cov=app tests/
+./run_tests.sh
 ```
 
 ### Frontend
@@ -116,82 +218,162 @@ cd frontend
 # Install dependencies
 yarn install
 
-# Start dev server
+# Start development server
 yarn dev
 
 # Run tests
-yarn test
+./run_tests.sh
+
+# TypeScript check
+npx tsc --noEmit
 
 # Lint
 yarn lint
 ```
 
-## Project Structure
+## 🐳 Docker Compose Services
 
+### Infrastructure (`docker-compose.infra.yml`)
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `postgres-backend` | 5432 | Application database (Alembic-managed schema) |
+| `postgres-keycloak` | 5433 | Keycloak database (separate instance) |
+| `redis` | 6379 | Cache and session store |
+| `keycloak` | 8180 | SSO/OIDC identity provider |
+| `gitlab` | 8080 | GitLab CE for CI/CD |
+| `gitlab-runner` | — | Pipeline executor |
+
+### Application (`docker-compose.app.yml`)
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `backend` | 8000 | FastAPI REST API with hot reload |
+| `frontend` | 5173 | React dev server with HMR |
+
+## 🔐 Authentication
+
+### Local Login
+
+```bash
+POST /api/auth/login     # username + password → JWT access token
 ```
-BigBug/
-├── docker-compose.yml          # Dev environment
-├── .env.example                # Environment variables template
-├── plans/
-│   └── architecture.md         # Architecture documentation
-├── backend/
-│   ├── alembic/                # Database migrations
-│   ├── app/
-│   │   ├── api/                # FastAPI routers
-│   │   ├── core/               # Security, RBAC, exceptions
-│   │   ├── models/             # SQLAlchemy models
-│   │   ├── schemas/            # Pydantic schemas
-│   │   └── services/           # Business logic
-│   └── tests/                  # pytest tests
-└── frontend/
-    └── src/
-        ├── components/         # Shared components
-        ├── pages/              # Page components
-        ├── router/             # React Router config
-        ├── store/              # Redux store + RTK Query
-        ├── tests/              # Vitest tests
-        └── types/              # TypeScript types
-```
 
-## Database Schema
+Default admin user (created by `keycloak-init`): `bigbug` / `bigbug`
 
-See [`plans/architecture.md`](plans/architecture.md) for the full ER diagram.
+### SSO Login (Keycloak OIDC)
 
-Key models:
-- **GithubOrg / GithubProject / GithubRelease** — GitHub metadata
-- **GitlabMirror** — GitLab mirror configuration
-- **SyncSchedule / SyncLog** — Mirror sync scheduling and history
-- **GoldImage / AppImage** — Docker image definitions
-- **ImageVersion** — Unified version table (gold + app)
-- **BuildSchedule / BuildLog** — Build scheduling and history
-- **User / Role / UserRole** — Authentication and RBAC
+- **Realm:** `bigbug`
+- **Clients:**
+  - `bigbug-frontend` — public client, PKCE S256 enforced
+  - `bigbug-backend` — confidential client, client secret auth
+- **Roles:** synced from `realm_access.roles` → admin, operator, viewer
 
-## API Documentation
-
-After starting the backend, visit:
-- Swagger UI: http://localhost:8000/api/docs
-- ReDoc: http://localhost:8000/api/redoc
-
-## Roles
+### RBAC
 
 | Role | Permissions |
 |------|-------------|
-| `admin` | Full access + user management |
-| `operator` | Manage projects, mirrors, images, trigger syncs/builds |
-| `viewer` | Read-only access |
+| `admin` | Full access + user/role management |
+| `operator` | Manage projects, mirrors, images, helm charts, docker images, trigger syncs |
+| `viewer` | Read-only access to all resources |
 
-## GitLab CI Templates
+## 🧪 Testing
 
-See `gitlab-ci/` directory for pipeline templates:
-- `mirror-template.yml` — Repository mirroring pipeline
-- `gold-image-template.yml` — Gold image build pipeline
-- `app-image-template.yml` — App image build pipeline
+```bash
+# Backend (111 tests)
+cd backend && ./run_tests.sh
 
-## Webhook Integration
-
-GitLab pipelines report status back via:
-```
-POST /api/webhooks/gitlab
+# Frontend (88 tests)
+cd frontend && ./run_tests.sh
 ```
 
-Configure this URL in your GitLab project's webhook settings.
+### Test Coverage
+
+**Backend:** OIDC service (19), Helm service (14), Docker service (16), Secrets (11), Helm API (15), Docker API (16), Auth (7), Projects (6), Images (7)
+
+**Frontend:** Keycloak service (17), `useKeycloakAuth` hook (10), SSO callback (9), Helm charts pages (19), Docker images pages (21), Auth slice (6), StatusChip (6)
+
+## 🌊 Harbor Deployment
+
+Local OCI registry for development and testing, deployed in a [kind](https://kind.sigs.k8s.io/) Kubernetes cluster.
+
+```bash
+cd examples/harbor
+
+# Deploy Harbor
+./deploy.sh
+
+# Verify push/pull works
+./test-push.sh
+
+# Tear down
+./teardown.sh --all
+```
+
+Access: `https://harbor.local:30443` (admin / Harbor12345)
+
+See [`examples/harbor/README.md`](examples/harbor/README.md) for prerequisites, troubleshooting, and manual setup instructions.
+
+## 📝 API Documentation
+
+After starting the backend:
+
+- **Swagger UI:** http://localhost:8000/docs
+- **ReDoc:** http://localhost:8000/redoc
+
+### Key Endpoints
+
+| Group | Prefix | Description |
+|-------|--------|-------------|
+| Auth | `/api/auth` | Login, token refresh, SSO config & exchange |
+| Projects | `/api/projects` | GitHub project CRUD |
+| Mirrors | `/api/mirrors` | GitLab mirror management |
+| Gold Images | `/api/gold-images` | Base image CRUD |
+| App Images | `/api/app-images` | App image CRUD |
+| Helm Charts | `/api/helm-charts` | Chart source CRUD, indexing, versions |
+| Docker Images | `/api/docker-images` | Registry source CRUD, indexing, tags |
+| Schedules | `/api/schedules` | Sync and build schedule management |
+| Webhooks | `/api/webhooks` | GitLab pipeline status callbacks |
+| Admin | `/api/admin` | User and role management (admin only) |
+
+## 🗺️ Roadmap
+
+- [ ] Cosign image signing integration
+- [ ] Advanced scheduling — retry policies, concurrency limits, backoff
+- [ ] Metrics & monitoring — Prometheus metrics + Grafana dashboards
+- [ ] Multi-tenancy — isolated projects and resources per team
+- [ ] Notification channels — Slack, Discord, email alerts
+- [ ] Helm OCI registry support
+- [ ] Harbor-native replication policies
+
+## 🤝 Contributing
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full version history.
+
+Pull requests are welcome. Please:
+
+- Follow the existing code style and patterns documented in [`plans/architecture.md`](plans/architecture.md)
+- Add tests for new features (pytest for backend, Vitest for frontend)
+- Update documentation for any user-facing changes
+- Keep PR scope focused — one feature or fix per PR
+
+### Code Patterns
+
+The project follows consistent patterns:
+
+- **Backend:** SQLAlchemy 2.0 Column-style models → Pydantic v2 schemas → domain service layer (throws `RuntimeError` subclasses, never `HTTPException`) → API router (maps to HTTP status codes).
+- **Frontend:** TypeScript interfaces in `types/` → RTK Query endpoints in `store/api.ts` → page components in `pages/FeatureName/` → routes in `router/index.tsx`.
+- **RBAC:** `require_admin`, `require_operator`, `require_viewer` FastAPI dependencies.
+- **Secrets:** `encrypt_secret()` / `decrypt_secret()` via Fernet for registry passwords.
+
+## 📄 License
+
+MIT License — see the [LICENSE](LICENSE) file.
+
+## 🙏 Acknowledgments
+
+- [Harbor](https://goharbor.io/) — CNCF-graduated container registry
+- [Keycloak](https://www.keycloak.org/) — open source identity and access management
+- [GitLab](https://about.gitlab.com/) — complete DevOps platform
+- [FastAPI](https://fastapi.tiangolo.com/) — modern Python web framework
+- [Material UI](https://mui.com/) — React component library

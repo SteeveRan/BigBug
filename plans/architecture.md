@@ -105,6 +105,11 @@ A fullstack DevOps service for:
 - **HelmChartVersion** — версия Helm-чарта (chart_name, version, app_version, digest, urls, chart_url, gitlab_project_id, is_synced). Связана с `HelmChartSource` через `source_id`.
 - **HelmSyncLog** — лог синхронизации источника (pipeline_id, pipeline_url, status_flag, log_output, triggered_by). Связан с `HelmChartSource` через `source_id`.
 
+#### Docker Images
+- **DockerImageSource** — источник Docker-образов (name, registry_url, gitlab_project_id, status_flag default=4 pending). Содержит коллекции `tags` и `sync_logs`.
+- **DockerImageTag** — тег Docker-образа (image_name, tag, digest из `docker-content-digest`, size_bytes, architectures). Связан с `DockerImageSource` через `source_id`. Upsert по (source_id, image_name, tag).
+- **DockerSyncLog** — лог синхронизации источника (pipeline_id, pipeline_url, status_flag, log_output, triggered_by). Связан с `DockerImageSource` через `source_id`.
+
 ---
 
 ## Authentication Flow
@@ -179,6 +184,23 @@ Scheduler / Manual trigger
 
 ---
 
+## Docker Sync Flow
+
+```
+Scheduler / Manual trigger
+  → FastAPI: docker_service.index_source(source, db, image_name=...)
+  → httpx GET <registry_url>/v2/<image>/tags/list
+  → httpx HEAD <registry_url>/v2/<image>/manifests/<tag> → digest из заголовка docker-content-digest
+  → docker_service._sync_tags(): upsert по (source_id, image_name, tag)
+  → Опционально: trigger_index_pipeline() → GitLab API → GitLab Runner
+  → GitLab Runner: execute docker-sync-template.yml
+  → GitLab Runner: POST /webhooks/gitlab (pipeline_type=docker_sync)
+  → FastAPI: update DockerSyncLog status → update DockerImageSource (last_synced_at, status)
+  → Frontend: poll/display status
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -221,9 +243,13 @@ BigBug/
 │       │   ├── build_log.py
 │       │   ├── helm_chart_source.py
 │       │   ├── helm_chart_version.py
-│       │   └── helm_sync_log.py
+│       │   ├── helm_sync_log.py
+│       │   ├── docker_image_source.py
+│       │   ├── docker_image_tag.py
+│       │   └── docker_sync_log.py
 │       ├── schemas/
-│       │   └── helm.py
+│       │   ├── helm.py
+│       │   └── docker.py
 │       ├── api/
 │       │   ├── auth.py
 │       │   ├── admin.py
@@ -232,6 +258,7 @@ BigBug/
 │       │   ├── gold_images.py
 │       │   ├── app_images.py
 │       │   ├── helm_charts.py
+│       │   ├── docker_images.py
 │       │   ├── schedules.py
 │       │   └── webhooks.py
 │       ├── services/
@@ -239,6 +266,7 @@ BigBug/
 │       │   ├── github.py
 │       │   ├── gitlab.py
 │       │   ├── helm.py
+│       │   ├── docker.py
 │       │   ├── scheduler.py
 │       │   └── build.py
 │       └── core/
@@ -279,5 +307,6 @@ BigBug/
     ├── mirror-template.yml
     ├── gold-image-template.yml
     ├── app-image-template.yml
-    └── helm-sync-template.yml
+    ├── helm-sync-template.yml
+    └── docker-sync-template.yml
 ```
