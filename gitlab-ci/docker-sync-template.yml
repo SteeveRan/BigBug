@@ -1,0 +1,151 @@
+# GitLab CI Template: Docker Image Sync
+#
+# This pipeline fetches Docker image tags from an external registry and
+# notifies the BigBug backend about the sync result.
+#
+# Required CI/CD variables (set in GitLab project or at trigger time):
+#   DOCKER_REGISTRY_URL   – Docker Registry API v2 base URL (e.g., https://registry-1.docker.io/v2)
+#   DOCKER_IMAGE_NAME     – Image name to sync (e.g., library/nginx)
+#   DOCKER_REGISTRY_USER  – (optional) Registry username for authentication
+#   DOCKER_REGISTRY_PASS  – (optional) Registry password/token
+#   BIGBUG_WEBHOOK_URL    – BigBug webhook endpoint (e.g., https://bigbug.example.com/api/webhooks/gitlab)
+#   BIGBUG_WEBHOOK_TOKEN  – (optional) Bearer token for webhook auth
+#   SYNC_STRATEGY         – "all" (sync every tag) or "latest" (only top-N)
+#   TAG_FILTER            – (optional) Regex to filter tags (e.g., "^1\\.\\d+")
+#   TAG_LIMIT             – (optional) Max tags to sync when strategy=latest (default: 10)
+
+stages:
+  - sync
+  - notify
+
+variables:
+  SYNC_STRATEGY: "all"
+  TAG_LIMIT: "10"
+
+.docker_login: &docker_login
+  - |
+    if [ -n "$DOCKER_REGISTRY_USER" ] && [ -n "$DOCKER_REGISTRY_PASS" ]; then
+      echo "$DOCKER_REGISTRY_PASS" | docker login "$DOCKER_REGISTRY_URL" \
+        --username "$DOCKER_REGISTRY_USER" --password-stdin
+    fi
+
+.bigbug_notify: &bigbug_notify
+  - |
+    AUTH_HEADER=""
+    if [ -n "$BIGBUG_WEBHOOK_TOKEN" ]; then
+      AUTH_HEADER="-H 'Authorization: Bearer $BIGBUG_WEBHOOK_TOKEN'"
+    fi
+
+    if [ "$CI_JOB_STATUS" = "success" ]; then
+      STATUS="success"
+    else
+      STATUS="failed"
+    fi
+
+    curl -sS -X POST "$BIGBUG_WEBHOOK_URL" \
+      -H "Content-Type: application/json" \
+      $AUTH_HEADER \
+      -d "{
+        \"object_kind\": \"pipeline\",
+        \"object_attributes\": {
+          \"id\": $CI_PIPELINE_ID,
+          \"status\": \"$STATUS\"
+        },
+        \"project\": {
+          \"web_url\": \"$CI_PROJECT_URL\"
+        }
+      }" || true
+
+# ──── Sync Job ────────────────────────────────────────────────────────────
+
+docker-sync:
+  stage: sync
+  image: docker:27-dind
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - *docker_login
+  script:
+    - |
+      echo "==> Syncing Docker image: ${DOCKER_IMAGE_NAME}"
+      echo "    Registry: ${DOCKER_REGISTRY_URL}"
+
+      # Resolve the registry host (strip /v2 suffix if present)
+      REGISTRY_HOST=$(echo "$DOCKER_REGISTRY_URL" | sed 's|/v2/*$||')
+
+      # Build tag list args
+      TAG_ARGS=""
+      if [ "$SYNC_STRATEGY" = "latest" ]; then
+        TAG_ARGS="--limit ${TAG_LIMIT}"
+      fi
+
+      if [ -n "$TAG_FILTER" ]; then
+        TAG_ARGS="$TAG_ARGS --filter '${TAG_FILTER}'"
+      fi
+
+      # List tags via registry API
+      # Use docker manifest inspect to validate each tag
+      TAGS_URL="${REGISTRY_HOST}/v2/${DOCKER_IMAGE_NAME}/tags/list"
+      echo "    Fetching tags from: ${TAGS_URL}"
+
+      TAGS_RESPONSE=$(curl -sS -f "$TAGS_URL" 2>&1) || {
+        echo "ERROR: Failed to fetch tags list: $TAGS_RESPONSE"
+        exit 1
+      }
+
+      TAG_COUNT=$(echo "$TAGS_RESPONSE" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+tags = data.get('tags', [])
+print(len(tags))
+for t in tags:
+    print(t)
+" 2>&1)
+
+      TOTAL=$(echo "$TAG_COUNT" | head -1)
+      echo "    Found ${TOTAL} tag(s)"
+
+      # Pull each tag to cache it in the local registry
+      TAGS=$(echo "$TAG_COUNT" | tail -n +2)
+
+      SYNCED=0
+      FAILED=0
+      for TAG in $TAGS; do
+        FULL_IMAGE="${REGISTRY_HOST}/${DOCKER_IMAGE_NAME}:${TAG}"
+        echo "    Pulling: ${FULL_IMAGE}"
+        if docker pull "$FULL_IMAGE" 2>&1; then
+          SYNCED=$((SYNCED + 1))
+          echo "      ✓ Pulled successfully"
+        else
+          FAILED=$((FAILED + 1))
+          echo "      ✗ Pull failed"
+        fi
+      done
+
+      echo "==> Sync complete: ${SYNCED} succeeded, ${FAILED} failed"
+      if [ $FAILED -gt 0 ]; then
+        exit 1
+      fi
+  after_script:
+    - *bigbug_notify
+  rules:
+    - if: '$DOCKER_REGISTRY_URL == null || $DOCKER_REGISTRY_URL == ""'
+      when: never
+    - if: '$DOCKER_IMAGE_NAME == null || $DOCKER_IMAGE_NAME == ""'
+      when: never
+    - when: always
+  tags:
+    - docker
+
+# ──── Failure Notification ────────────────────────────────────────────────
+
+notify-failure:
+  stage: notify
+  image: alpine:3.21
+  script:
+    - *bigbug_notify
+  when: on_failure
+  needs:
+    - docker-sync

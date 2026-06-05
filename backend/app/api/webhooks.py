@@ -8,6 +8,8 @@ from app.models.image_version import ImageVersion
 from app.models.build_log import BuildLog
 from app.models.helm_sync_log import HelmSyncLog
 from app.models.helm_chart_source import HelmChartSource
+from app.models.docker_sync_log import DockerSyncLog
+from app.models.docker_image_source import DockerImageSource
 
 router = APIRouter()
 
@@ -112,5 +114,35 @@ async def gitlab_webhook(
 
         await db.commit()
         return {"status": "ok", "type": "helm_sync_log", "id": helm_sync_log.id}
+
+    # Try to find matching DockerSyncLog
+    docker_result = await db.execute(
+        select(DockerSyncLog).where(DockerSyncLog.pipeline_id == pipeline_id)
+    )
+    docker_sync_log = docker_result.scalar_one_or_none()
+
+    if docker_sync_log:
+        docker_sync_log.status_flag = status_flag  # type: ignore[assignment]
+        docker_sync_log.status_text = pipeline_status  # type: ignore[assignment]
+        docker_sync_log.pipeline_url = pipeline_url  # type: ignore[assignment]
+        if pipeline_status in ("success", "failed", "canceled"):
+            from datetime import datetime, timezone
+            docker_sync_log.finished_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+
+            # Update parent DockerImageSource status
+            source_result = await db.execute(
+                select(DockerImageSource).where(
+                    DockerImageSource.id == docker_sync_log.source_id
+                )
+            )
+            source = source_result.scalar_one_or_none()
+            if source:
+                source.status_flag = status_flag  # type: ignore[assignment]
+                source.status_text = pipeline_status  # type: ignore[assignment]
+                if pipeline_status == "success":
+                    source.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+
+        await db.commit()
+        return {"status": "ok", "type": "docker_sync_log", "id": docker_sync_log.id}
 
     return {"status": "ignored", "reason": "no matching log found for pipeline_id"}

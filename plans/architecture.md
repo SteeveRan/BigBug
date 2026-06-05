@@ -100,6 +100,11 @@ A fullstack DevOps service for:
   - `cron_expression` — custom cron if not default
 - **BuildLog** — build run history linked to ImageVersion
 
+#### Helm Charts
+- **HelmChartSource** — Helm chart repository (name, repo_url, gitlab_project_id). Содержит коллекции `versions` и `sync_logs`.
+- **HelmChartVersion** — версия Helm-чарта (chart_name, version, app_version, digest, urls, chart_url, gitlab_project_id, is_synced). Связана с `HelmChartSource` через `source_id`.
+- **HelmSyncLog** — лог синхронизации источника (pipeline_id, pipeline_url, status_flag, log_output, triggered_by). Связан с `HelmChartSource` через `source_id`.
+
 ---
 
 ## Authentication Flow
@@ -157,6 +162,21 @@ Scheduler / Manual trigger
   → BuildLog updated
 ```
 
+## Helm Sync Flow
+
+```
+Scheduler / Manual trigger
+  → FastAPI: helm_service.index_source(source, db)
+  → httpx GET <repo_url>/index.yaml
+  → PyYAML yaml.safe_load() → entries[]
+  → helm_service._sync_chart_entries(): upsert по (source_id, chart_name, version)
+  → Опционально: trigger_index_pipeline() → GitLab API → GitLab Runner
+  → GitLab Runner: execute helm-sync-template.yml
+  → GitLab Runner: POST /webhooks/gitlab (pipeline_type=helm_sync)
+  → FastAPI: update HelmSyncLog status → update HelmChartSource (last_synced_at, status)
+  → Frontend: poll/display status
+```
+
 ---
 
 ## Project Structure
@@ -198,8 +218,12 @@ BigBug/
 │       │   ├── app_image.py
 │       │   ├── image_version.py
 │       │   ├── build_schedule.py
-│       │   └── build_log.py
+│       │   ├── build_log.py
+│       │   ├── helm_chart_source.py
+│       │   ├── helm_chart_version.py
+│       │   └── helm_sync_log.py
 │       ├── schemas/
+│       │   └── helm.py
 │       ├── api/
 │       │   ├── auth.py
 │       │   ├── admin.py
@@ -207,12 +231,14 @@ BigBug/
 │       │   ├── mirrors.py
 │       │   ├── gold_images.py
 │       │   ├── app_images.py
+│       │   ├── helm_charts.py
 │       │   ├── schedules.py
 │       │   └── webhooks.py
 │       ├── services/
 │       │   ├── auth.py
 │       │   ├── github.py
 │       │   ├── gitlab.py
+│       │   ├── helm.py
 │       │   ├── scheduler.py
 │       │   └── build.py
 │       └── core/
@@ -252,5 +278,6 @@ BigBug/
 └── gitlab-ci/
     ├── mirror-template.yml
     ├── gold-image-template.yml
-    └── app-image-template.yml
+    ├── app-image-template.yml
+    └── helm-sync-template.yml
 ```

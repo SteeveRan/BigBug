@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.api import auth, admin, projects, mirrors, gold_images, app_images, schedules, webhooks, helm_charts
+from app.api import auth, admin, projects, mirrors, gold_images, app_images, schedules, webhooks, helm_charts, docker_images
 
 
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(app_images.router, prefix="/api/app-images", tags=["app-image
 app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(helm_charts.router, prefix="/api/helm-charts", tags=["helm-charts"])
+app.include_router(docker_images.router, prefix="/api/docker-images", tags=["docker-images"])
 
 
 @app.get("/api/health", tags=["health"])
