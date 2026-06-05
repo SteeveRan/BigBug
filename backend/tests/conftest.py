@@ -2,6 +2,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -22,7 +23,7 @@ def event_loop():
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def test_engine():
     engine = create_async_engine(
         TEST_DATABASE_URL,
@@ -66,12 +67,26 @@ async def client(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
-async def admin_user(db_session: AsyncSession):
-    """Create an admin user for tests."""
-    # Create admin role
-    role = Role(name="admin", description="Administrator")
-    db_session.add(role)
-    await db_session.flush()
+async def admin_role(db_session: AsyncSession):
+    """Get or create the admin role (idempotent across tests)."""
+    result = await db_session.execute(select(Role).where(Role.name == "admin"))
+    role = result.scalar_one_or_none()
+    if role is None:
+        role = Role(name="admin", description="Administrator")
+        db_session.add(role)
+        await db_session.flush()
+    return role
+
+
+@pytest_asyncio.fixture
+async def admin_user(db_session: AsyncSession, admin_role):
+    """Get or create the admin user (idempotent across tests)."""
+    result = await db_session.execute(
+        select(User).where(User.username == "testadmin")
+    )
+    user = result.scalar_one_or_none()
+    if user is not None:
+        return user
 
     user = User(
         username="testadmin",
@@ -82,18 +97,32 @@ async def admin_user(db_session: AsyncSession):
     db_session.add(user)
     await db_session.flush()
 
-    db_session.add(UserRole(user_id=user.id, role_id=role.id))
-    await db_session.commit()
-    await db_session.refresh(user)
+    db_session.add(UserRole(user_id=user.id, role_id=admin_role.id))
+    await db_session.flush()
     return user
 
 
 @pytest_asyncio.fixture
-async def operator_user(db_session: AsyncSession):
-    """Create an operator user for tests."""
-    role = Role(name="operator", description="Operator")
-    db_session.add(role)
-    await db_session.flush()
+async def operator_role(db_session: AsyncSession):
+    """Get or create the operator role (idempotent across tests)."""
+    result = await db_session.execute(select(Role).where(Role.name == "operator"))
+    role = result.scalar_one_or_none()
+    if role is None:
+        role = Role(name="operator", description="Operator")
+        db_session.add(role)
+        await db_session.flush()
+    return role
+
+
+@pytest_asyncio.fixture
+async def operator_user(db_session: AsyncSession, operator_role):
+    """Get or create the operator user (idempotent across tests)."""
+    result = await db_session.execute(
+        select(User).where(User.username == "testoperator")
+    )
+    user = result.scalar_one_or_none()
+    if user is not None:
+        return user
 
     user = User(
         username="testoperator",
@@ -104,9 +133,8 @@ async def operator_user(db_session: AsyncSession):
     db_session.add(user)
     await db_session.flush()
 
-    db_session.add(UserRole(user_id=user.id, role_id=role.id))
-    await db_session.commit()
-    await db_session.refresh(user)
+    db_session.add(UserRole(user_id=user.id, role_id=operator_role.id))
+    await db_session.flush()
     return user
 
 

@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.23
 #
 # Multi-stage build for the BigBug backend (FastAPI + SQLAlchemy + Alembic).
 #
@@ -16,7 +16,7 @@
 # Run:
 #   docker run --rm -e DATABASE_URL=... bigbug-backend:dev app:init
 
-ARG PYTHON_VERSION=3.13
+ARG PYTHON_VERSION=3.14
 
 ############################################
 # Stage 1: builder
@@ -47,8 +47,11 @@ RUN pip install --no-cache-dir uv \
 WORKDIR /build
 
 # WHY: Copy only the manifest first so dependency installation is cached
-# independently from source changes.
+# independently from source changes. The app/ source must also be present
+# so that `uv pip install .` can discover the package defined in pyproject.toml
+# (packages = ["app"]) and install it into /opt/venv.
 COPY pyproject.toml ./
+COPY app/ ./app/
 
 RUN uv pip install --python /opt/venv/bin/python --no-cache .
 
@@ -64,6 +67,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH=/app \
     ENVIRONMENT=production
 
 LABEL org.opencontainers.image.title="bigbug-backend" \

@@ -34,7 +34,7 @@ async def sample_project(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_list_projects_requires_auth(client: AsyncClient):
     response = await client.get("/api/projects")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

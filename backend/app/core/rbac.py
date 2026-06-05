@@ -20,8 +20,10 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ):
-    from app.models.user import User
     from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.models.user import User
+    from app.models.role import UserRole
 
     token = credentials.credentials
     try:
@@ -33,7 +35,11 @@ async def get_current_user(
     if user_id is None:
         raise UnauthorizedError("Token missing subject")
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.user_roles).selectinload(UserRole.role))
+        .where(User.id == int(user_id))
+    )
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise UnauthorizedError("User not found or inactive")

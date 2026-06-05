@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_docker_tables'
-down_revision: Union[str, None] = '39774f94ac35'
+down_revision: Union[str, None] = '20260605_add_helm'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

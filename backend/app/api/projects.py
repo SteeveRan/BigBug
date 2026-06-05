@@ -106,7 +106,8 @@ async def update_project(
         project.stale_threshold_days = data.stale_threshold_days
 
     await db.commit()
-    await db.refresh(project)
+    # Refresh only modified scalar attributes; keep eagerly-loaded relationships intact.
+    await db.refresh(project, attribute_names=["custom_description", "stale_threshold_days"])
     return project
 
 
