@@ -2,6 +2,11 @@
 
 Руководство по аутентификации и управлению доступом в BigBug.
 
+> **Статус реализации:**
+> - ✅ Local auth (login/refresh/me)
+> - ✅ OIDC/Keycloak SSO
+> - ✅ **RBAC Phase 1 — ЗАВЕРШЁН** (2026-06-06): permission-based модель, JWT-кэширование, Admin API, Frontend hooks
+
 ## Текущая реализация
 
 ### Аутентификация
@@ -21,14 +26,21 @@ BigBug поддерживает два режима аутентификации
 
 ### Ключевые файлы
 
-- [`backend/app/core/security.py`](../../backend/app/core/security.py) — JWT, password hashing, dependencies
-- [`backend/app/core/rbac.py`](../../backend/app/core/rbac.py) — роли и права доступа
+**Backend:**
+- [`backend/app/core/security.py`](../../backend/app/core/security.py) — JWT, password hashing
+- [`backend/app/core/rbac.py`](../../backend/app/core/rbac.py) — `require_permission()`, `require_roles()`, `get_current_user`
 - [`backend/app/core/secrets.py`](../../backend/app/core/secrets.py) — Fernet шифрование
-- [`backend/app/api/auth.py`](../../backend/app/api/auth.py) — API endpoints
+- [`backend/app/api/auth.py`](../../backend/app/api/auth.py) — API endpoints (login, refresh, me, me/permissions, sso/config, oidc/exchange)
 - [`backend/app/services/oidc.py`](../../backend/app/services/oidc.py) — OIDC интеграция
+- [`backend/app/services/rbac_service.py`](../../backend/app/services/rbac_service.py) — ✅ RBAC business logic
+- [`backend/app/schemas/rbac.py`](../../backend/app/schemas/rbac.py) — ✅ Pydantic схемы для RBAC
+
+**Frontend:**
 - [`frontend/src/store/authSlice.ts`](../../frontend/src/store/authSlice.ts) — Auth state
 - [`frontend/src/services/keycloak.ts`](../../frontend/src/services/keycloak.ts) — Keycloak adapter
 - [`frontend/src/hooks/useKeycloakAuth.ts`](../../frontend/src/hooks/useKeycloakAuth.ts) — Auth hook
+- [`frontend/src/hooks/usePermissions.ts`](../../frontend/src/hooks/usePermissions.ts) — ✅ RBAC permissions hook
+- [`frontend/src/components/PermissionGate.tsx`](../../frontend/src/components/PermissionGate.tsx) — ✅ Conditional rendering
 - [`frontend/src/router/ProtectedRoute.tsx`](../../frontend/src/router/ProtectedRoute.tsx) — Route guard
 
 ## Local Authentication
@@ -177,58 +189,101 @@ KEYCLOAK_ROLE_MAPPING = {
 
 ## Backend: Защита endpoints
 
-### Dependencies
+### Dependencies ✅ РЕАЛИЗОВАНО
+
+Реальная реализация в [`backend/app/core/rbac.py`](../../backend/app/core/rbac.py):
 
 ```python
-# app/core/security.py
-from fastapi import Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
+# app/core/rbac.py
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from app.core.security import decode_token
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+security = HTTPBearer()
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    """Get current authenticated user"""
-    payload = verify_token(token)
-    user = await get_user_by_email(db, payload["sub"])
-    if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="Inactive user")
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    token = credentials.credentials
+    payload = decode_token(token)
+
+    user_id: int | None = payload.get("sub")
+    # ... load user with roles via selectinload ...
+
+    # Кэшировать permissions из JWT payload для RBAC
+    # (избегает дополнительного DB-запроса на каждую проверку)
+    user._cached_permissions = payload.get("permissions", [])
     return user
 
-async def require_admin(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """Require admin role"""
-    if current_user.role.name != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
 
-async def require_operator(
-    current_user: User = Depends(get_current_user)
-) -> User:
-    """Require operator or admin role"""
-    if current_user.role.name not in ("admin", "operator"):
-        raise HTTPException(status_code=403, detail="Operator access required")
-    return current_user
+def require_roles(*roles: RoleName):
+    """Role-based dependency (legacy, сохранён для совместимости)."""
+    async def dependency(current_user=Depends(get_current_user)):
+        user_role_names = {r.name for r in current_user.roles}
+        if not any(role.value in user_role_names for role in roles):
+            raise ForbiddenError(f"Required roles: {[r.value for r in roles]}")
+        return current_user
+    return dependency
+
+# Удобные алиасы:
+def require_admin():
+    return require_roles(RoleName.ADMIN)
+
+def require_operator():
+    return require_roles(RoleName.ADMIN, RoleName.OPERATOR)
+
+def require_viewer():
+    return require_roles(RoleName.ADMIN, RoleName.OPERATOR, RoleName.VIEWER)
 ```
 
-### Использование в роутерах
+### require_permission() — Permission-based dependency ✅ РЕАЛИЗОВАНО
 
 ```python
-@router.get("/mirrors", response_model=list[MirrorOut])
-async def list_mirrors(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_operator)  # Требует operator+
+# app/core/rbac.py
+def require_permission(permission: str) -> Callable:
+    """
+    FastAPI dependency factory для permission-based access control.
+
+    Алгоритм:
+    1. Получить текущего пользователя (get_current_user)
+    2. Прочитать permissions из JWT cache (user._cached_permissions)
+    3. Если cache пуст — fallback на DB-запрос через RBACService
+    4. Если permission отсутствует — raise HTTP 403
+    """
+    async def dependency(
+        current_user=Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ):
+        # Оптимизация: читаем из JWT payload кэша
+        cached: list[str] = getattr(current_user, "_cached_permissions", [])
+
+        if not cached:
+            # Fallback для токенов без permissions в payload
+            from app.services.rbac_service import RBACService
+            rbac_service = RBACService(db)
+            cached = await rbac_service.get_user_permissions(current_user.id)
+
+        if permission not in cached:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Permission denied: '{permission}' required",
+            )
+        return current_user
+
+    return dependency
+
+# Использование в роутерах:
+@router.post("/mirrors/{id}/sync")
+async def sync_mirror(
+    id: int,
+    _: User = Depends(require_permission("mirrors:sync"))
 ):
     ...
 
-@router.delete("/users/{user_id}")
-async def delete_user(
-    user_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin)  # Только admin
+@router.delete("/mirrors/{id}")
+async def delete_mirror(
+    id: int,
+    _: User = Depends(require_permission("mirrors:delete"))
 ):
     ...
 ```
@@ -293,141 +348,141 @@ function hasRole(userRole: string | undefined, required: string): boolean {
 },
 ```
 
-## Планируемый RBAC (Phase 1)
+## RBAC Phase 1 ✅ ЗАВЕРШЁН
 
-### Permission-based модель
+### Permission-based модель ✅ РЕАЛИЗОВАНО
 
-Переход от role-based к permission-based:
+32 permissions по паттерну `resource:action`, реализованы в миграции [`20260606_1932_bde12d699ca4_add_rbac_permissions.py`](../../backend/alembic/versions/20260606_1932_bde12d699ca4_add_rbac_permissions.py):
 
-```
-resource:action
-```
+| Resource | Permissions |
+|----------|-------------|
+| `mirrors` | `read`, `write`, `delete`, `sync` |
+| `projects` | `read`, `write`, `delete` |
+| `helm` | `read`, `write`, `delete`, `sync`, `index` |
+| `docker` | `read`, `write`, `delete`, `sync`, `index` |
+| `gold_images` | `read`, `write`, `delete`, `build` |
+| `app_images` | `read`, `write`, `delete`, `build` |
+| `users` | `read`, `write`, `delete` |
+| `roles` | `read`, `write`, `delete` |
+| `system` | `config` |
 
-Примеры permissions:
-- `mirrors:read` — просмотр зеркал
-- `mirrors:write` — создание/изменение зеркал
-- `mirrors:delete` — удаление зеркал
-- `mirrors:sync` — запуск синхронизации
-- `users:manage` — управление пользователями
-- `settings:read` — просмотр настроек
-- `settings:write` — изменение настроек
-
-### Новые таблицы
-
-```sql
--- Права доступа
-CREATE TABLE permissions (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) UNIQUE NOT NULL,  -- "mirrors:read"
-    description TEXT
-);
-
--- Связь ролей и прав
-CREATE TABLE role_permissions (
-    role_id INTEGER REFERENCES roles(id),
-    permission_id INTEGER REFERENCES permissions(id),
-    PRIMARY KEY (role_id, permission_id)
-);
-```
-
-### Предустановленные роли
+### Предустановленные роли ✅ РЕАЛИЗОВАНО
 
 | Роль | Permissions |
 |------|-------------|
-| `admin` | Все permissions |
-| `operator` | read/write/sync для всех ресурсов, без users:manage |
-| `viewer` | Только read permissions |
+| `admin` | Все 32 permissions |
+| `operator` | read + write + sync/index/build для ресурсов; без delete и admin-разделов |
+| `viewer` | Только `*:read` permissions (6 permissions) |
 
-### Backend: require_permission()
+Builtin-роли (`is_custom=False`) **защищены от модификации и удаления** через [`RBACService`](../../backend/app/services/rbac_service.py).
+
+### JWT Payload с Permissions ✅ РЕАЛИЗОВАНО
+
+При `login`, `refresh` и `oidc/exchange` в JWT payload вшиваются permissions:
 
 ```python
-# app/core/rbac.py
-def require_permission(permission: str):
-    """Dependency factory for permission check"""
-    async def check_permission(
-        current_user: User = Depends(get_current_user),
-        db: AsyncSession = Depends(get_db)
-    ) -> User:
-        user_permissions = await get_user_permissions(db, current_user.id)
-        if permission not in user_permissions:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Permission '{permission}' required"
-            )
-        return current_user
-    return check_permission
+# app/api/auth.py (login, refresh, oidc/exchange)
+rbac_service = RBACService(db)
+permissions = await rbac_service.get_user_permissions(user.id)
 
-# Использование
-@router.post("/mirrors/{id}/sync")
-async def sync_mirror(
-    id: int,
-    current_user: User = Depends(require_permission("mirrors:sync"))
-):
-    ...
+token_data = {
+    "sub": str(user.id),
+    "username": user.username,
+    "permissions": permissions,  # ["mirrors:read", "helm:write", ...]
+}
+return TokenResponse(
+    access_token=create_access_token(token_data),
+    refresh_token=create_refresh_token(token_data),
+)
 ```
 
-### Frontend: usePermissions() hook
+`get_current_user` читает permissions из payload и кэширует в `user._cached_permissions` — позволяет `require_permission()` работать без DB-запроса на каждый endpoint.
+
+### RBACService ✅ РЕАЛИЗОВАНО
+
+[`backend/app/services/rbac_service.py`](../../backend/app/services/rbac_service.py) — сервис бизнес-логики:
+
+| Метод | Описание |
+|-------|----------|
+| `get_user_permissions(user_id)` | Список `"resource:action"` строк для пользователя (через user → roles → permissions) |
+| `get_all_permissions()` | Все permissions в системе |
+| `get_all_roles()` | Все роли с embedded permissions |
+| `get_role_by_id(role_id)` | Одна роль с permissions |
+| `create_role(name, description, permission_names, created_by_user_id)` | Создание кастомной роли |
+| `update_role(role_id, name, description, permission_names)` | Обновление (только `is_custom=True`) |
+| `delete_role(role_id)` | Удаление (только `is_custom=True`, без assigned пользователей) |
+| `assign_permissions_to_role(role_id, permission_names)` | Замена permissions роли |
+
+**Доменные исключения** (из [`backend/app/core/exceptions.py`](../../backend/app/core/exceptions.py)):
+- `RoleNotFoundError`
+- `CannotModifyBuiltinRoleError`
+- `RoleHasUsersError`
+- `PermissionNotFoundError`
+
+### Frontend: usePermissions() ✅ РЕАЛИЗОВАНО
+
+[`frontend/src/hooks/usePermissions.ts`](../../frontend/src/hooks/usePermissions.ts):
 
 ```typescript
-// src/hooks/usePermissions.ts
 export function usePermissions() {
-  const user = useSelector((state: RootState) => state.auth.user);
-  
-  const hasPermission = (permission: string): boolean => {
-    return user?.permissions?.includes(permission) ?? false;
-  };
-  
-  const hasAnyPermission = (...permissions: string[]): boolean => {
-    return permissions.some(p => hasPermission(p));
-  };
-  
-  return { hasPermission, hasAnyPermission };
+  const permissions = useAppSelector(selectUserPermissions)  // string[]
+
+  const hasPermission = useCallback(
+    (permission: string): boolean => permissions.includes(permission),
+    [permissions]
+  )
+
+  const hasAnyPermission = useCallback(
+    (requiredPermissions: string[]): boolean =>
+      requiredPermissions.some((p) => permissions.includes(p)),
+    [permissions]
+  )
+
+  const hasAllPermissions = useCallback(
+    (requiredPermissions: string[]): boolean =>
+      requiredPermissions.every((p) => permissions.includes(p)),
+    [permissions]
+  )
+
+  return { permissions, hasPermission, hasAnyPermission, hasAllPermissions }
 }
 
-// Использование
-function MirrorActions({ mirror }) {
-  const { hasPermission } = usePermissions();
-  
+// Использование:
+function MirrorActions() {
+  const { hasPermission } = usePermissions()
   return (
-    <Box>
-      {hasPermission('mirrors:sync') && (
-        <Button onClick={handleSync}>Sync</Button>
-      )}
-      {hasPermission('mirrors:delete') && (
-        <Button color="error" onClick={handleDelete}>Delete</Button>
-      )}
-    </Box>
-  );
+    <>
+      {hasPermission('mirrors:sync') && <Button>Sync</Button>}
+      {hasPermission('mirrors:delete') && <Button color="error">Delete</Button>}
+    </>
+  )
 }
 ```
 
-### Frontend: PermissionGate компонент
+### Frontend: PermissionGate ✅ РЕАЛИЗОВАНО
+
+[`frontend/src/components/PermissionGate.tsx`](../../frontend/src/components/PermissionGate.tsx):
 
 ```typescript
-// src/components/PermissionGate.tsx
 interface PermissionGateProps {
-  permission: string;
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
+  permission?: string        // одиночная проверка
+  anyOf?: string[]           // OR-логика
+  allOf?: string[]           // AND-логика
+  fallback?: ReactNode       // что показать если нет доступа
+  children: ReactNode
 }
 
-export const PermissionGate: React.FC<PermissionGateProps> = ({
-  permission,
-  children,
-  fallback = null
-}) => {
-  const { hasPermission } = usePermissions();
-  
-  if (!hasPermission(permission)) {
-    return <>{fallback}</>;
-  }
-  
-  return <>{children}</>;
-};
+// Использование:
+<PermissionGate permission="users:write">
+  <CreateUserButton />
+</PermissionGate>
 
-// Использование
-<PermissionGate permission="users:manage">
-  <AdminPanel />
+<PermissionGate anyOf={["helm:write", "helm:delete"]} fallback={<ReadOnlyView />}>
+  <HelmActions />
+</PermissionGate>
+
+<PermissionGate allOf={["mirrors:read", "mirrors:write"]}>
+  <MirrorManager />
 </PermissionGate>
 ```
 

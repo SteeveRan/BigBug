@@ -10,6 +10,7 @@ from app.api import (
     docker_images,
     gold_images,
     helm_charts,
+    integrations,
     mirrors,
     projects,
     schedules,
@@ -58,6 +59,7 @@ app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"]
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(helm_charts.router, prefix="/api/helm-charts", tags=["helm-charts"])
 app.include_router(docker_images.router, prefix="/api/docker-images", tags=["docker-images"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 
 
 @app.get("/api/health", tags=["health"])

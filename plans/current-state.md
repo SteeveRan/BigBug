@@ -1,7 +1,7 @@
 # BigBug - Current State
 
-> Последнее обновление: 2026-06-05
-> Статус: Блоки 1-5 завершены, идёт рефакторинг архитектуры
+> Последнее обновление: 2026-06-06
+> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, идёт рефакторинг архитектуры
 
 ## Что работает сейчас
 
@@ -38,6 +38,14 @@
 **Admin** (`/api/admin/`):
 - Управление пользователями
 - Управление ролями
+- `GET /api/admin/permissions` — список всех permissions
+- `GET /api/admin/roles` — список ролей с permissions
+- `POST /api/admin/roles` — создание кастомной роли
+- `PATCH /api/admin/roles/{id}` — обновление роли
+- `DELETE /api/admin/roles/{id}` — удаление кастомной роли
+
+**Auth (расширение)**:
+- `GET /api/auth/me/permissions` — permissions текущего пользователя
 
 **Webhooks** (`/api/webhooks/`):
 - GitLab webhook для обновления статусов
@@ -61,6 +69,10 @@
 - `Layout` - навигация + sidebar
 - `StatusChip` - унифицированный статус
 - `ProtectedRoute` - защищённые маршруты
+- `PermissionGate` — условный рендер на основе permissions (`permission`/`anyOf`/`allOf` props)
+
+**Hooks**:
+- `usePermissions` — `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()` из Redux store
 
 ### ✅ Infrastructure
 
@@ -91,7 +103,7 @@
 
 **Текущие таблицы**:
 - `users` - пользователи (local + SSO)
-- `roles` - роли (admin/operator/viewer)
+- `roles` - роли (admin/operator/viewer), расширена полями `is_custom`, `created_by_user_id`
 - `user_roles` - M2M связь
 - `github_orgs` - GitHub организации
 - `github_projects` - GitHub репозитории
@@ -110,32 +122,47 @@
 - `docker_image_sources` - источники Docker образов
 - `docker_image_tags` - теги образов
 - `docker_sync_logs` - логи синхронизации
+- `permissions` - 32 permission по паттерну `resource:action`
+- `role_permissions` - M2M роли ↔ permissions
 
 **Миграции**:
 - `20260605_0449_39774f94ac35_initial_schema.py` - базовая схема
 - `20260605_0747_add_helm_tables.py` - Helm таблицы
 - `20260605_1200_add_docker_tables.py` - Docker таблицы
+- `20260606_1932_bde12d699ca4_add_rbac_permissions.py` - RBAC: permissions, role_permissions, расширение roles
+
+## ✅ Завершённые этапы рефакторинга
+
+### ✅ RBAC Phase 1 — ЗАВЕРШЁН (2026-06-06)
+
+**Реализовано**:
+
+**Новые таблицы**:
+- `permissions` — 32 permission по паттерну `resource:action` (mirrors, projects, helm, docker, gold_images, app_images, users, roles, system)
+- `role_permissions` — M2M роли ↔ permissions
+- Поля `is_custom`, `created_by_user_id` в таблице `roles`
+
+**Backend**:
+- [`backend/app/core/rbac.py`](../backend/app/core/rbac.py) — `require_permission()` dependency factory с JWT-кэшированием; `require_roles()`, `require_admin()`, `require_operator()`, `require_viewer()` сохранены
+- [`backend/app/services/rbac_service.py`](../backend/app/services/rbac_service.py) — `RBACService`: `get_user_permissions()`, `get_all_permissions()`, `get_all_roles()`, `create_role()`, `update_role()`, `delete_role()`, `assign_permissions_to_role()`; встроенная защита builtin-ролей
+- [`backend/app/schemas/rbac.py`](../backend/app/schemas/rbac.py) — `PermissionOut`, `RoleOut`, `RoleDetailOut`, `RoleCreate`, `RoleUpdate`, `UserPermissionsOut`
+- Permissions вшиты в JWT payload при `login` / `refresh` / `oidc/exchange`; `get_current_user` кэширует их в `user._cached_permissions`
+
+**Admin API**:
+- `GET /api/admin/permissions` — список всех permissions
+- `GET /api/admin/roles` — список ролей с permissions
+- `POST /api/admin/roles` — создание кастомной роли
+- `PATCH /api/admin/roles/{id}` — обновление роли (только кастомные)
+- `DELETE /api/admin/roles/{id}` — удаление роли (только кастомные, без пользователей)
+
+**Auth API (расширение)**:
+- `GET /api/auth/me/permissions` — permissions и роль текущего пользователя
+
+**Frontend**:
+- [`frontend/src/hooks/usePermissions.ts`](../frontend/src/hooks/usePermissions.ts) — `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`
+- [`frontend/src/components/PermissionGate.tsx`](../frontend/src/components/PermissionGate.tsx) — условный рендер с props `permission`, `anyOf`, `allOf`, `fallback`
 
 ## Что в процессе (рефакторинг)
-
-### 🚧 RBAC (Phase 1)
-
-**Цель**: Переход от role-based к permission-based модели
-
-**Новые таблицы** (планируются):
-- `permissions` - глобальные permissions (`resource:action`)
-- `role_permissions` - M2M роли ↔ permissions
-- Расширение `roles` (кастомные роли)
-- Расширение `users` (email как primary identifier)
-
-**Новые API** (планируются):
-- `GET/POST /api/v1/admin/roles` - управление ролями
-- `GET/POST /api/v1/admin/permissions` - управление permissions
-- `GET /api/v1/auth/me/permissions` - permissions текущего пользователя
-
-**Текущий RBAC**: [`backend/app/core/rbac.py`](../backend/app/core/rbac.py)
-- `require_admin()`, `require_operator()`, `require_viewer()` dependencies
-- Простая role-based проверка
 
 ### 🚧 Multi-instance Integrations (Phase 2)
 
@@ -154,7 +181,7 @@
 ## Известные ограничения
 
 1. **Одиночные интеграции**: только один GitLab, один GitHub, один Docker registry
-2. **Простой RBAC**: только 3 роли без кастомизации
+2. **Базовый RBAC**: 3 предустановленные роли + кастомные (Phase 1 завершён); нет UI для управления кастомными ролями
 3. **Нет Harbor**: Harbor интеграция не реализована
 4. **Нет Pipeline UI**: управление пайплайнами только через GitLab
 5. **Нет Audit Log**: история изменений не ведётся
@@ -171,7 +198,7 @@
 
 Согласно [`/docs/architecture/11-migration-strategy.md`](../docs/architecture/11-migration-strategy.md):
 
-1. **Phase 1**: RBAC Foundation (permissions, custom roles, JWT update)
+1. **Phase 1**: ✅ RBAC Foundation (permissions, custom roles, JWT update) — ЗАВЕРШЁН
 2. **Phase 2**: Multi-instance integrations (GitLab, Harbor, GitHub, Docker, Helm)
 3. **Phase 3**: OIDC & Advanced (configurable OIDC, role mapping)
 4. **Phase 4**: Polish (audit log, rate limiting, Admin UI)

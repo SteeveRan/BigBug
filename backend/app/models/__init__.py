@@ -4,11 +4,14 @@ from app.models.build_schedule import BuildSchedule
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
+from app.models.github_instance import GithubInstance
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
+from app.models.gitlab_instance import GitlabInstance
 from app.models.gitlab_mirror import GitlabMirror
 from app.models.gold_image import GoldImage
+from app.models.harbor_instance import HarborInstance
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 from app.models.helm_sync_log import HelmSyncLog
@@ -25,10 +28,13 @@ __all__ = [
     "UserRole",
     "Permission",
     "role_permissions",
+    "GithubInstance",
     "GithubOrg",
     "GithubProject",
     "GithubRelease",
+    "GitlabInstance",
     "GitlabMirror",
+    "HarborInstance",
     "SyncSchedule",
     "SyncLog",
     "GoldImage",

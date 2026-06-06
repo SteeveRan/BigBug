@@ -67,7 +67,7 @@ def _sign_id_token(
     now = int(time.time())
     payload: dict = {
         "iss": "http://localhost:8180/realms/bigbug",
-        "aud": "bigbug-backend",
+        "aud": "bigbug-frontend",
         "sub": "kc-user-001",
         "preferred_username": "sso_user",
         "email": "sso_user@example.com",
@@ -105,24 +105,19 @@ def mock_http_client() -> MagicMock:
 async def seeded_roles(db_session: AsyncSession):
     """Ensure admin, operator, viewer roles exist in the test DB.
 
-    Uses a simple upsert strategy to coexist with conftest fixtures that may
-    have already created the same roles in a shared session.
+    Uses the ORM so that model-level defaults (e.g. is_custom=False) are
+    always honoured, regardless of whether the table was created via Alembic
+    migrations or Base.metadata.create_all.
     """
-    from sqlalchemy import text as sa_text
-
-    roles = {}
+    roles: dict[str, Role] = {}
     for name in RoleName:
-        # Use INSERT OR IGNORE so the fixture is safe when called together
-        # with admin_user / operator_user (which also seed roles).
-        stmt = sa_text(
-            "INSERT OR IGNORE INTO roles (name, description, created_at) "
-            "VALUES (:name, :desc, datetime('now'))"
-        )
-        await db_session.execute(stmt, {"name": name.value, "desc": name.value})
-        await db_session.flush()
-        # Now fetch the role (whether newly inserted or already existed).
         result = await db_session.execute(select(Role).where(Role.name == name.value))
-        roles[name.value] = result.scalar_one()
+        role = result.scalar_one_or_none()
+        if role is None:
+            role = Role(name=name.value, description=name.value, is_custom=False)
+            db_session.add(role)
+            await db_session.flush()
+        roles[name.value] = role
     await db_session.commit()
     return roles
 

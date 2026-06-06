@@ -19,7 +19,6 @@ backend/tests/
 ├── conftest.py              # Fixtures (test DB, client, auth)
 ├── test_auth.py             # Тесты аутентификации
 ├── test_projects.py         # Тесты GitHub проектов
-├── test_mirrors.py          # Тесты GitLab зеркал
 ├── test_images.py           # Тесты Gold/App Images
 ├── test_helm_api.py         # Тесты Helm Charts API
 ├── test_helm_service.py     # Тесты Helm service layer
@@ -28,6 +27,10 @@ backend/tests/
 ├── test_oidc.py             # Тесты OIDC интеграции
 └── test_secrets.py          # Тесты шифрования
 ```
+
+**Отсутствующие тесты (нужно написать для RBAC Phase 1)**:
+- `test_rbac_service.py` — тесты `RBACService` (CRUD ролей, permissions, защита builtin-ролей)
+- `test_rbac_api.py` — тесты Admin RBAC API (`GET /admin/permissions`, `/admin/roles`, CRUD)
 
 ### Запуск тестов
 
@@ -176,8 +179,10 @@ def operator_token(operator_user: User) -> str:
 
 #### Тестирование API endpoints
 
+**Примечание**: Файл `tests/test_mirrors.py` не существует в проекте. Пример ниже показывает паттерн для будущих тестов.
+
 ```python
-# tests/test_mirrors.py
+# tests/test_mirrors.py (пример, файл не существует)
 import pytest
 from httpx import AsyncClient
 
@@ -365,6 +370,10 @@ frontend/src/tests/
 ├── keycloak.service.test.ts      # Keycloak сервис
 └── useKeycloakAuth.test.tsx      # Keycloak auth hook
 ```
+
+**Отсутствующие тесты (нужно написать для RBAC Phase 1)**:
+- `usePermissions.test.ts` — тесты хука `usePermissions` (`hasPermission`, `hasAnyPermission`, `hasAllPermissions`)
+- `PermissionGate.test.tsx` — тесты компонента `PermissionGate` (условный рендер, `permission`/`anyOf`/`allOf`, fallback)
 
 ### Запуск тестов
 

@@ -5,6 +5,36 @@ All notable changes to BigBug will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-06
+
+### Added
+
+- **Permission-based RBAC система (Phase 1):**
+  - Database таблицы: `permissions` (32 granular permissions по паттерну `resource:action`), `role_permissions` (M2M роли ↔ permissions)
+  - Поля `is_custom`, `created_by_user_id` в таблице `roles` для поддержки кастомных ролей
+  - Миграция [`20260606_1932_bde12d699ca4_add_rbac_permissions.py`](backend/alembic/versions/20260606_1932_bde12d699ca4_add_rbac_permissions.py) — создание таблиц + seed 32 permissions + назначение для builtin-ролей (admin: все, operator: read+write+actions, viewer: read-only)
+  - [`require_permission()`](backend/app/core/rbac.py:81) FastAPI dependency с JWT payload caching — permissions читаются из JWT, fallback на DB-запрос для старых токенов
+  - [`RBACService`](backend/app/services/rbac_service.py) — бизнес-логика: `get_user_permissions()`, `get_all_permissions()`, `create_role()`, `update_role()`, `delete_role()`, `assign_permissions_to_role()`; встроенная защита builtin-ролей от модификации/удаления
+  - Pydantic схемы в [`backend/app/schemas/rbac.py`](backend/app/schemas/rbac.py): `PermissionOut`, `RoleOut`, `RoleDetailOut`, `RoleCreate`, `RoleUpdate`, `UserPermissionsOut`
+  - Permissions embedded в JWT payload при login/refresh/OIDC exchange (строки 51-63, 88-100, 185-197 в [`backend/app/api/auth.py`](backend/app/api/auth.py))
+  - [`frontend/src/hooks/usePermissions.ts`](frontend/src/hooks/usePermissions.ts) — хук с `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`
+  - [`frontend/src/components/PermissionGate.tsx`](frontend/src/components/PermissionGate.tsx) — условный рендер с props `permission`, `anyOf`, `allOf`, `fallback`
+
+- **Admin RBAC API:**
+  - `GET /api/admin/permissions` — список всех доступных permissions в системе
+  - `GET /api/admin/roles` — список ролей с embedded permissions
+  - `POST /api/admin/roles` — создание кастомной роли с набором permissions
+  - `PATCH /api/admin/roles/{id}` — обновление кастомной роли (builtin-роли защищены)
+  - `DELETE /api/admin/roles/{id}` — удаление кастомной роли (проверка что нет assigned пользователей)
+
+- **Auth API расширение:**
+  - `GET /api/auth/me/permissions` — permissions и роль текущего пользователя
+
+### Changed
+
+- **JWT токены** теперь содержат `permissions: list[str]` в payload для RBAC-кэширования; [`get_current_user`](backend/app/core/rbac.py:21) кэширует их в `user._cached_permissions`
+- **Таблица `roles`** расширена: `is_custom` (boolean), `created_by_user_id` (FK на users)
+
 ## [0.4.0] - 2026-06-05
 
 ### Added
@@ -283,7 +313,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [`ProtectedRoute`](frontend/src/router/ProtectedRoute.tsx) — guard для аутентифицированных маршрутов
   - [`Layout`](frontend/src/components/Layout/index.tsx) — боковое меню с навигацией
 
-[Unreleased]: https://github.com/user/BigBug/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/user/BigBug/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/user/BigBug/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/user/BigBug/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/user/BigBug/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/user/BigBug/compare/v0.1.0...v0.2.0
