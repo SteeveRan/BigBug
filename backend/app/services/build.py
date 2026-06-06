@@ -55,7 +55,7 @@ class BuildService:
             version.status_flag = 1
             version.status_text = f"Failed to trigger pipeline: {e}"
             await db.commit()
-            raise ExternalServiceError("GitLab", str(e))
+            raise ExternalServiceError("GitLab", str(e)) from e
 
         now = datetime.now(UTC)
         build_log = BuildLog(
@@ -116,7 +116,7 @@ class BuildService:
             version.status_flag = 1
             version.status_text = f"Failed to trigger pipeline: {e}"
             await db.commit()
-            raise ExternalServiceError("GitLab", str(e))
+            raise ExternalServiceError("GitLab", str(e)) from e
 
         now = datetime.now(UTC)
         build_log = BuildLog(

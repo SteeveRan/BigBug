@@ -32,7 +32,7 @@ async def get_current_user(
     try:
         payload = decode_token(token)
     except ValueError as e:
-        raise UnauthorizedError(str(e))
+        raise UnauthorizedError(str(e)) from e
 
     user_id: int | None = payload.get("sub")
     if user_id is None:

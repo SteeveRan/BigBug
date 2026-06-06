@@ -141,12 +141,12 @@ class DockerRegistryService:
                 response = await client.get(tags_url)
                 response.raise_for_status()
             except httpx.HTTPError as e:
-                raise ExternalServiceError("Docker registry", f"HTTP error: {e}")
+                raise ExternalServiceError("Docker registry", f"HTTP error: {e}") from e
 
         try:
             data: dict[str, Any] = response.json()
         except Exception as e:
-            raise ExternalServiceError("Docker registry", f"JSON parse error: {e}")
+            raise ExternalServiceError("Docker registry", f"JSON parse error: {e}") from e
 
         if "tags" not in data:
             raise ExternalServiceError(

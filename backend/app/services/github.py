@@ -37,7 +37,7 @@ class GitHubService:
             gh = self._get_client()
             gh_repo = gh.get_repo(f"{owner}/{repo_name}")
         except GithubException as e:
-            raise ExternalServiceError("GitHub", str(e))
+            raise ExternalServiceError("GitHub", str(e)) from e
 
         # Get or create org
         org_result = await db.execute(select(GithubOrg).where(GithubOrg.login == owner))
@@ -110,7 +110,7 @@ class GitHubService:
             gh = self._get_client()
             gh_repo = gh.get_repo(project.full_name)
         except GithubException as e:
-            raise ExternalServiceError("GitHub", str(e))
+            raise ExternalServiceError("GitHub", str(e)) from e
 
         project.description = gh_repo.description
         project.homepage_url = gh_repo.homepage

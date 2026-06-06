@@ -35,14 +35,14 @@ select = [
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
 ]
-ignore = [
-    "B008",  # FastAPI Depends() in argument defaults — стандартный паттерн
-]
+ignore = []
 
 [lint.per-file-ignores]
-"__init__.py" = ["F401"]        # неиспользуемые импорты в __init__.py — норма
-"tests/**" = ["S101"]           # assert в тестах — норма
-"alembic/**" = ["INP001"]       # alembic файлы без __init__.py
+"__init__.py" = ["F401"]            # неиспользуемые импорты в __init__.py — норма
+"tests/**" = ["S101"]               # assert в тестах — норма
+"alembic/**" = ["INP001"]           # alembic файлы без __init__.py
+"app/api/**" = ["B008"]             # FastAPI Depends() в аргументах — стандартный паттерн DI
+"app/core/rbac.py" = ["B008"]      # FastAPI Depends() в зависимостях RBAC
 
 [format]
 # Настройки форматирования (используется ruff format)

@@ -40,7 +40,7 @@ class GitLabService:
             namespace, name = _parse_gitlab_url(gitlab_url)
             gl_project = gl.projects.get(f"{namespace}/{name}")
         except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e))
+            raise ExternalServiceError("GitLab", str(e)) from e
 
         mirror = GitlabMirror(
             project_id=project_id,
@@ -84,7 +84,7 @@ class GitLabService:
                 mirror.pipeline_trigger_token,
             )
         except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e))
+            raise ExternalServiceError("GitLab", str(e)) from e
 
         now = datetime.now(UTC)
         sync_log = SyncLog(
@@ -113,7 +113,7 @@ class GitLabService:
             pipeline = gl_project.pipelines.get(int(pipeline_id))
             return {"status": pipeline.status, "id": pipeline.id}
         except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e))
+            raise ExternalServiceError("GitLab", str(e)) from e
 
 
 gitlab_service = GitLabService()

@@ -127,12 +127,12 @@ class HelmService:
                 response = await client.get(repo_url, headers=headers)
                 response.raise_for_status()
             except httpx.HTTPError as e:
-                raise ExternalServiceError("Helm repo", f"HTTP error: {e}")
+                raise ExternalServiceError("Helm repo", f"HTTP error: {e}") from e
 
         try:
             data = yaml.safe_load(response.text)
         except yaml.YAMLError as e:
-            raise ExternalServiceError("Helm repo", f"YAML parse error: {e}")
+            raise ExternalServiceError("Helm repo", f"YAML parse error: {e}") from e
 
         if not isinstance(data, dict) or "entries" not in data:
             raise ExternalServiceError("Helm repo", "index.yaml does not contain 'entries' key")
