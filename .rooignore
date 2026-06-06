@@ -1,0 +1,26 @@
+# Build artifacts
+node_modules/
+.yarn/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
+htmlcov/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Large documentation (read selectively)
+docs/architecture/**/*.md
+
+# Legacy
+plans/architecture.md
+plans/handoff-summary.md
+plans/infrastructure-init-redesign.md

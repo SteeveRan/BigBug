@@ -67,7 +67,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: bigbug-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-bigbug}:${POSTGRES_PASSWORD:-bigbug}@postgres-backend:5432/${POSTGRES_DB:-bigbug}
@@ -110,7 +110,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     container_name: bigbug-frontend
     environment:
       VITE_API_URL: http://localhost:8000

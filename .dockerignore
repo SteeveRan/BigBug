@@ -1,0 +1,13 @@
+.git/
+.github/
+.vscode/
+.idea/
+*.md
+!README.md
+docs/
+plans/
+examples/
+*.log
+.env
+.env.*
+!.env.example
