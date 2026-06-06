@@ -1,0 +1,10 @@
+node_modules/
+.yarn/
+.pnp.*
+dist/
+coverage/
+.vite/
+.eslintcache
+*.log
+.env
+.env.*
