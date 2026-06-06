@@ -22,5 +22,3 @@ docs/architecture/**/*.md
 
 # Legacy
 plans/architecture.md
-plans/handoff-summary.md
-plans/infrastructure-init-redesign.md

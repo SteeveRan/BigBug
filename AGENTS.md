@@ -50,7 +50,7 @@ BigBug/
 
 ## Technology Stack
 
-### Backend (Python 3.12+)
+### Backend (Python 3.14+)
 - **FastAPI** - async REST API framework
 - **SQLAlchemy 2.x** - ORM with async support
 - **Alembic** - database migrations

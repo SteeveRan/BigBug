@@ -5,7 +5,7 @@
 ### Core Framework
 | Технология | Версия | Назначение |
 |-----------|--------|-----------|
-| Python | 3.12+ | Runtime |
+| Python | 3.14 | Runtime |
 | FastAPI | latest | Async REST API framework |
 | SQLAlchemy | 2.x | ORM с async поддержкой |
 | Alembic | latest | Database migrations |
