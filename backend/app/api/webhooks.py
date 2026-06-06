@@ -43,16 +43,12 @@ async def gitlab_webhook(
     pipeline = payload.get("object_attributes", {})
     pipeline_id = str(pipeline.get("id", ""))
     pipeline_status = pipeline.get("status", "")
-    pipeline_url = (
-        payload.get("project", {}).get("web_url", "") + f"/-/pipelines/{pipeline_id}"
-    )
+    pipeline_url = payload.get("project", {}).get("web_url", "") + f"/-/pipelines/{pipeline_id}"
 
     status_flag = GITLAB_STATUS_MAP.get(pipeline_status, 4)
 
     # Try to find matching SyncLog
-    sync_result = await db.execute(
-        select(SyncLog).where(SyncLog.pipeline_id == pipeline_id)
-    )
+    sync_result = await db.execute(select(SyncLog).where(SyncLog.pipeline_id == pipeline_id))
     sync_log = sync_result.scalar_one_or_none()
 
     if sync_log:
@@ -67,9 +63,7 @@ async def gitlab_webhook(
         return {"status": "ok", "type": "sync_log", "id": sync_log.id}
 
     # Try to find matching BuildLog
-    build_result = await db.execute(
-        select(BuildLog).where(BuildLog.pipeline_id == pipeline_id)
-    )
+    build_result = await db.execute(select(BuildLog).where(BuildLog.pipeline_id == pipeline_id))
     build_log = build_result.scalar_one_or_none()
 
     if build_log:
@@ -82,9 +76,7 @@ async def gitlab_webhook(
             build_log.finished_at = datetime.now(UTC)
             # Update parent ImageVersion status
             version_result = await db.execute(
-                select(ImageVersion).where(
-                    ImageVersion.id == build_log.image_version_id
-                )
+                select(ImageVersion).where(ImageVersion.id == build_log.image_version_id)
             )
             version = version_result.scalar_one_or_none()
             if version:
@@ -112,9 +104,7 @@ async def gitlab_webhook(
 
             # Update parent HelmChartSource status
             source_result = await db.execute(
-                select(HelmChartSource).where(
-                    HelmChartSource.id == helm_sync_log.source_id
-                )
+                select(HelmChartSource).where(HelmChartSource.id == helm_sync_log.source_id)
             )
             source = source_result.scalar_one_or_none()
             if source:
@@ -143,9 +133,7 @@ async def gitlab_webhook(
 
             # Update parent DockerImageSource status
             source_result = await db.execute(
-                select(DockerImageSource).where(
-                    DockerImageSource.id == docker_sync_log.source_id
-                )
+                select(DockerImageSource).where(DockerImageSource.id == docker_sync_log.source_id)
             )
             source = source_result.scalar_one_or_none()
             if source:

@@ -38,6 +38,4 @@ class HelmChartSource(Base):
     versions = relationship(
         "HelmChartVersion", back_populates="source", cascade="all, delete-orphan"
     )
-    sync_logs = relationship(
-        "HelmSyncLog", back_populates="source", cascade="all, delete-orphan"
-    )
+    sync_logs = relationship("HelmSyncLog", back_populates="source", cascade="all, delete-orphan")

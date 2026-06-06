@@ -226,8 +226,8 @@ yarn test
 ```bash
 # Backend
 cd backend
-black .                    # Format
-ruff check --fix .        # Lint
+ruff format .              # Format
+ruff check --fix .         # Lint
 pytest                     # Test
 
 # Frontend

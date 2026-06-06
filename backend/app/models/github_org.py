@@ -23,6 +23,4 @@ class GithubOrg(Base):
     )
 
     # Relationships
-    projects = relationship(
-        "GithubProject", back_populates="org", cascade="all, delete-orphan"
-    )
+    projects = relationship("GithubProject", back_populates="org", cascade="all, delete-orphan")

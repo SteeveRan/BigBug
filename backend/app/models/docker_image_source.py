@@ -17,9 +17,7 @@ class DockerImageSource(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
-    registry_url = Column(
-        String(500), nullable=False
-    )  # e.g., https://registry-1.docker.io
+    registry_url = Column(String(500), nullable=False)  # e.g., https://registry-1.docker.io
     description = Column(Text, nullable=True)
 
     # GitLab mirror project for Docker sync pipelines
@@ -41,9 +39,5 @@ class DockerImageSource(Base):
     )
 
     # Relationships
-    tags = relationship(
-        "DockerImageTag", back_populates="source", cascade="all, delete-orphan"
-    )
-    sync_logs = relationship(
-        "DockerSyncLog", back_populates="source", cascade="all, delete-orphan"
-    )
+    tags = relationship("DockerImageTag", back_populates="source", cascade="all, delete-orphan")
+    sync_logs = relationship("DockerSyncLog", back_populates="source", cascade="all, delete-orphan")

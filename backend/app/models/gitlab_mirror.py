@@ -51,6 +51,4 @@ class GitlabMirror(Base):
     sync_schedules = relationship(
         "SyncSchedule", back_populates="mirror", cascade="all, delete-orphan"
     )
-    sync_logs = relationship(
-        "SyncLog", back_populates="mirror", cascade="all, delete-orphan"
-    )
+    sync_logs = relationship("SyncLog", back_populates="mirror", cascade="all, delete-orphan")

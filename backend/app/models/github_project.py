@@ -10,9 +10,7 @@ class GithubProject(Base):
     __tablename__ = "github_projects"
 
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(
-        Integer, ForeignKey("github_orgs.id", ondelete="CASCADE"), nullable=False
-    )
+    org_id = Column(Integer, ForeignKey("github_orgs.id", ondelete="CASCADE"), nullable=False)
 
     # GitHub metadata
     github_id = Column(Integer, nullable=True, unique=True)
@@ -53,10 +51,6 @@ class GithubProject(Base):
 
     # Relationships
     org = relationship("GithubOrg", back_populates="projects")
-    releases = relationship(
-        "GithubRelease", back_populates="project", cascade="all, delete-orphan"
-    )
-    mirrors = relationship(
-        "GitlabMirror", back_populates="project", cascade="all, delete-orphan"
-    )
+    releases = relationship("GithubRelease", back_populates="project", cascade="all, delete-orphan")
+    mirrors = relationship("GitlabMirror", back_populates="project", cascade="all, delete-orphan")
     app_images = relationship("AppImage", back_populates="project")

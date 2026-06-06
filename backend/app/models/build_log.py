@@ -25,9 +25,7 @@ class BuildLog(Base):
     status_text = Column(String(500), nullable=True)
     log_output = Column(Text, nullable=True)
 
-    triggered_by = Column(
-        String(100), nullable=True
-    )  # "scheduler" | "manual" | "webhook"
+    triggered_by = Column(String(100), nullable=True)  # "scheduler" | "manual" | "webhook"
 
     started_at = Column(DateTime(timezone=True), nullable=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)

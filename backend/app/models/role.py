@@ -13,15 +13,11 @@ class Role(Base):
     name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     is_custom = Column(Boolean, default=False, nullable=False)
-    created_by_user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
+    created_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
-    user_roles = relationship(
-        "UserRole", back_populates="role", cascade="all, delete-orphan"
-    )
+    user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
     permissions = relationship(
         "Permission",
         secondary="role_permissions",
@@ -33,12 +29,8 @@ class Role(Base):
 class UserRole(Base):
     __tablename__ = "user_roles"
 
-    user_id = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
-    role_id = Column(
-        Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True
-    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True)
     assigned_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships

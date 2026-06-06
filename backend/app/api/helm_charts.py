@@ -70,9 +70,7 @@ async def update_source(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(
-        select(HelmChartSource).where(HelmChartSource.id == source_id)
-    )
+    result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(
@@ -97,9 +95,7 @@ async def delete_source(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(
-        select(HelmChartSource).where(HelmChartSource.id == source_id)
-    )
+    result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(
@@ -119,9 +115,7 @@ async def index_source(
     _=Depends(require_operator()),
 ):
     """Re-index a Helm chart source (fetch index.yaml and update versions)."""
-    result = await db.execute(
-        select(HelmChartSource).where(HelmChartSource.id == source_id)
-    )
+    result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(

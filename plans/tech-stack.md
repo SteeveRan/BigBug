@@ -51,8 +51,7 @@
 ### Code Quality
 | Технология | Версия | Назначение |
 |-----------|--------|-----------|
-| black | latest | Code formatter |
-| ruff | latest | Linter + auto-fix |
+| ruff | latest | Formatter (ruff format) + linter + auto-fix |
 
 ## Frontend
 

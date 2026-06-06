@@ -47,9 +47,7 @@ async def create_user(
 ):
     # Check uniqueness
     existing = await db.execute(
-        select(User).where(
-            (User.username == data.username) | (User.email == data.email)
-        )
+        select(User).where((User.username == data.username) | (User.email == data.email))
     )
     if existing.scalar_one_or_none():
         raise HTTPException(
@@ -93,9 +91,7 @@ async def update_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if data.email is not None:
         user.email = data.email
@@ -131,9 +127,7 @@ async def delete_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     await db.delete(user)
     await db.commit()
 
@@ -178,15 +172,11 @@ async def get_role(
     service = RBACService(db)
     role = await service.get_role_by_id(role_id)
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
     return role
 
 
-@router.post(
-    "/roles", response_model=RoleDetailOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("/roles", response_model=RoleDetailOut, status_code=status.HTTP_201_CREATED)
 async def create_role(
     data: RoleCreate,
     db: AsyncSession = Depends(get_db),

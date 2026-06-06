@@ -25,9 +25,7 @@ def _normalize_repo_url(url: str) -> str:
 def _validate_repo_url(url: str) -> None:
     """Raise BadRequestError if the URL is not a plausible Helm repo."""
     if not re.match(r"^https?://", url):
-        raise BadRequestError(
-            f"Helm repo URL must start with http:// or https://: {url}"
-        )
+        raise BadRequestError(f"Helm repo URL must start with http:// or https://: {url}")
 
 
 class HelmService:
@@ -49,9 +47,7 @@ class HelmService:
             select(HelmChartSource).where(HelmChartSource.name == name)
         )
         if existing_result.scalar_one_or_none() is not None:
-            raise BadRequestError(
-                f"Helm chart source with name '{name}' already exists"
-            )
+            raise BadRequestError(f"Helm chart source with name '{name}' already exists")
 
         source = HelmChartSource(
             name=name,
@@ -68,9 +64,7 @@ class HelmService:
         await db.refresh(source)
         return source
 
-    async def index_source(
-        self, source: HelmChartSource, db: AsyncSession
-    ) -> HelmSyncLog:
+    async def index_source(self, source: HelmChartSource, db: AsyncSession) -> HelmSyncLog:
         """Fetch index.yaml and sync chart versions for a source."""
         now = datetime.now(UTC)
         sync_log = HelmSyncLog(
@@ -126,9 +120,7 @@ class HelmService:
 
     async def _fetch_index(self, repo_url: str) -> dict[str, Any]:
         """Download and parse index.yaml."""
-        headers: dict[str, str] = {
-            "Accept": "application/x-yaml, application/yaml, text/yaml"
-        }
+        headers: dict[str, str] = {"Accept": "application/x-yaml, application/yaml, text/yaml"}
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
@@ -143,9 +135,7 @@ class HelmService:
             raise ExternalServiceError("Helm repo", f"YAML parse error: {e}")
 
         if not isinstance(data, dict) or "entries" not in data:
-            raise ExternalServiceError(
-                "Helm repo", "index.yaml does not contain 'entries' key"
-            )
+            raise ExternalServiceError("Helm repo", "index.yaml does not contain 'entries' key")
 
         return data
 
@@ -177,9 +167,7 @@ class HelmService:
                     existing.app_version = entry.get("appVersion")
                     existing.description = entry.get("description")
                     existing.urls = json.dumps(entry.get("urls", []))
-                    existing.chart_url = (
-                        entry.get("urls", [None])[0] if entry.get("urls") else None
-                    )
+                    existing.chart_url = entry.get("urls", [None])[0] if entry.get("urls") else None
                 else:
                     chart_version = HelmChartVersion(
                         source_id=source.id,
@@ -189,9 +177,7 @@ class HelmService:
                         description=entry.get("description"),
                         digest=digest,
                         urls=json.dumps(entry.get("urls", [])),
-                        chart_url=(
-                            entry.get("urls", [None])[0] if entry.get("urls") else None
-                        ),
+                        chart_url=(entry.get("urls", [None])[0] if entry.get("urls") else None),
                         status_flag=0,  # ok — newly indexed
                         status_text="ok",
                         is_synced=True,
@@ -201,9 +187,7 @@ class HelmService:
 
         await db.flush()
 
-    async def refresh_source(
-        self, source: HelmChartSource, db: AsyncSession
-    ) -> HelmSyncLog:
+    async def refresh_source(self, source: HelmChartSource, db: AsyncSession) -> HelmSyncLog:
         """Re-index an existing Helm chart source."""
         return await self.index_source(source, db)
 

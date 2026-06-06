@@ -114,8 +114,8 @@ pytest
 pytest tests/test_auth.py -v
 
 # Code quality (in order)
-black .                    # Format
-ruff check --fix .        # Lint & auto-fix
+ruff format .              # Format
+ruff check --fix .         # Lint & auto-fix
 pytest                     # Test
 ```
 
@@ -503,8 +503,8 @@ export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd frontend && npx tsc --n
 ```bash
 # Backend
 cd backend && source .venv/bin/activate
-black .                    # Format
-ruff check --fix .        # Lint and auto-fix
+ruff format .              # Format
+ruff check --fix .         # Lint and auto-fix
 pytest                     # Test
 
 # Frontend (требуется nvm)

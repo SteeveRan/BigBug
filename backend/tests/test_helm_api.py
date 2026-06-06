@@ -48,9 +48,7 @@ async def sample_helm_source(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_helm_sources(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_list_helm_sources(client: AsyncClient, operator_token: str, sample_helm_source):
     """GET /api/helm-charts returns list of sources (operator can access)."""
     response = await client.get(
         "/api/helm-charts",
@@ -74,9 +72,7 @@ async def test_list_helm_sources_requires_auth(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_helm_source(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_get_helm_source(client: AsyncClient, operator_token: str, sample_helm_source):
     """GET /api/helm-charts/{id} returns source with versions."""
     response = await client.get(
         f"/api/helm-charts/{sample_helm_source.id}",
@@ -155,9 +151,7 @@ async def test_create_helm_source_duplicate(
 
 
 @pytest.mark.asyncio
-async def test_update_helm_source(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_update_helm_source(client: AsyncClient, operator_token: str, sample_helm_source):
     """PATCH /api/helm-charts/{id} updates source fields."""
     response = await client.patch(
         f"/api/helm-charts/{sample_helm_source.id}",
@@ -183,9 +177,7 @@ async def test_update_helm_source_not_found(client: AsyncClient, operator_token:
 
 
 @pytest.mark.asyncio
-async def test_delete_helm_source(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_delete_helm_source(client: AsyncClient, operator_token: str, sample_helm_source):
     """DELETE /api/helm-charts/{id} removes the source (operator can delete)."""
     response = await client.delete(
         f"/api/helm-charts/{sample_helm_source.id}",
@@ -208,9 +200,7 @@ async def test_delete_helm_source_not_found(client: AsyncClient, operator_token:
 
 
 @pytest.mark.asyncio
-async def test_index_helm_source(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_index_helm_source(client: AsyncClient, operator_token: str, sample_helm_source):
     """POST /api/helm-charts/{id}/index re-indexes the source."""
     with patch("app.services.helm.HelmService._fetch_index") as mock_fetch:
         mock_fetch.return_value = {
@@ -252,9 +242,7 @@ async def test_index_helm_source_not_found(client: AsyncClient, operator_token: 
 
 
 @pytest.mark.asyncio
-async def test_get_helm_versions(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_get_helm_versions(client: AsyncClient, operator_token: str, sample_helm_source):
     """GET /api/helm-charts/{id}/versions returns versions list."""
     response = await client.get(
         f"/api/helm-charts/{sample_helm_source.id}/versions",
@@ -284,9 +272,7 @@ async def test_get_helm_versions_filter(
 
 
 @pytest.mark.asyncio
-async def test_get_helm_logs(
-    client: AsyncClient, operator_token: str, sample_helm_source
-):
+async def test_get_helm_logs(client: AsyncClient, operator_token: str, sample_helm_source):
     """GET /api/helm-charts/{id}/logs returns sync log entries."""
     response = await client.get(
         f"/api/helm-charts/{sample_helm_source.id}/logs",

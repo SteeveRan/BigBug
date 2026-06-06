@@ -6,15 +6,14 @@
 #   ./scripts/lint.sh
 #
 # Требования:
-#   - Python 3.14+ с виртуальным окружением (корневой .venv проекта)
+#   - Python 3.14+ с виртуальным окружением (backend/.venv)
 #   - установлен ruff: pip install ruff
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-PROJECT_DIR="$(dirname "$BACKEND_DIR")"
-VENV_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
 
 if [ ! -x "$VENV_PYTHON" ]; then
     echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
@@ -25,9 +24,14 @@ fi
 cd "$BACKEND_DIR"
 
 echo "=== Running ruff check ==="
-"$VENV_PYTHON" -m ruff check app/ tests/ || {
-    echo "ПРЕДУПРЕЖДЕНИЕ: ruff не установлен. Установите: pip install ruff"
-}
+if "$VENV_PYTHON" -m ruff check app/ tests/ 2>&1; then
+    echo "No issues found."
+else
+    echo ""
+    echo "ПРЕДУПРЕЖДЕНИЕ: ruff check нашёл ошибки (код $?)."
+    echo "Для автоматического исправления: ./scripts/format.sh"
+    echo "Для детального просмотра: $VENV_PYTHON -m ruff check app/ tests/"
+fi
 
 echo ""
 echo "=== Done ==="

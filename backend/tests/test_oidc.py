@@ -206,9 +206,7 @@ async def test_exchange_code_network_error(db_session, mock_http_client):
 
 
 @pytest.mark.asyncio
-async def test_validate_id_token_success(
-    db_session, rsa_keys, mock_http_client, monkeypatch
-):
+async def test_validate_id_token_success(db_session, rsa_keys, mock_http_client, monkeypatch):
     """A properly signed ID token with valid claims passes validation."""
     private_pem, public_pem = rsa_keys
     id_token = _sign_id_token(private_pem)
@@ -218,9 +216,7 @@ async def test_validate_id_token_success(
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(
-        db_session, http_client=mock_http_client, jwks_cache=jwks_cache
-    )
+    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
     claims = await service.validate_id_token(id_token)
 
     assert claims.subject == "kc-user-001"
@@ -239,9 +235,7 @@ async def test_validate_id_token_expired(db_session, rsa_keys, mock_http_client)
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(
-        db_session, http_client=mock_http_client, jwks_cache=jwks_cache
-    )
+    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
     with pytest.raises(OIDCInvalidTokenError, match="validation failed"):
         await service.validate_id_token(id_token)
 
@@ -257,9 +251,7 @@ async def test_validate_id_token_bad_signature(db_session, rsa_keys, mock_http_c
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(
-        db_session, http_client=mock_http_client, jwks_cache=jwks_cache
-    )
+    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
     with pytest.raises(OIDCInvalidTokenError):
         await service.validate_id_token(id_token)
 
@@ -297,9 +289,7 @@ async def test_provision_or_update_user_new(db_session, mock_http_client, seeded
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_existing(
-    db_session, mock_http_client, seeded_roles
-):
+async def test_provision_or_update_user_existing(db_session, mock_http_client, seeded_roles):
     """An existing SSO user is updated instead of duplicated."""
     # Pre-create the user
     user = User(
@@ -338,9 +328,7 @@ async def test_provision_or_update_user_existing(
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_find_by_email(
-    db_session, mock_http_client, seeded_roles
-):
+async def test_provision_or_update_user_find_by_email(db_session, mock_http_client, seeded_roles):
     """If no Keycloak sub matches, the user is found by email."""
     user = User(
         username="email_user",

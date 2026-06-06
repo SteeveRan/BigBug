@@ -119,9 +119,7 @@ async def test_fetch_index_network_error(helm_service):
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(
-            side_effect=httpx.ConnectError("Connection refused")
-        )
+        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
         mock_client_cls.return_value = mock_client
 
         with pytest.raises(ExternalServiceError, match="Helm repo"):
@@ -153,9 +151,7 @@ async def test_fetch_index_no_entries_key(helm_service):
 @pytest.mark.asyncio
 async def test_index_source_creates_versions(helm_service, db_session: AsyncSession):
     """index_source parses index.yaml and creates HelmChartVersion records."""
-    source = HelmChartSource(
-        name="test-source", repo_url="https://charts.example.com/index.yaml"
-    )
+    source = HelmChartSource(name="test-source", repo_url="https://charts.example.com/index.yaml")
     db_session.add(source)
     await db_session.commit()
 
@@ -230,9 +226,7 @@ async def test_sync_chart_entries_idempotent(helm_service, db_session: AsyncSess
 @pytest.mark.asyncio
 async def test_index_source_fetch_failure(helm_service, db_session: AsyncSession):
     """When _fetch_index fails, source and log are marked as failed."""
-    source = HelmChartSource(
-        name="fail-source", repo_url="https://charts.example.com/index.yaml"
-    )
+    source = HelmChartSource(name="fail-source", repo_url="https://charts.example.com/index.yaml")
     db_session.add(source)
     await db_session.commit()
 

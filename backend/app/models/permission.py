@@ -14,9 +14,7 @@ class Permission(Base):
     __tablename__ = "permissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(
-        String(100), unique=True, nullable=False, index=True
-    )  # "resource:action"
+    name = Column(String(100), unique=True, nullable=False, index=True)  # "resource:action"
     description = Column(Text, nullable=True)
 
     def __repr__(self) -> str:

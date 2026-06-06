@@ -46,9 +46,7 @@ async def sample_docker_source(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_docker_sources(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_list_docker_sources(client: AsyncClient, operator_token: str, sample_docker_source):
     """GET /api/docker-images returns list of sources."""
     response = await client.get(
         "/api/docker-images",
@@ -72,9 +70,7 @@ async def test_list_docker_sources_requires_auth(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_docker_source(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_get_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
     """GET /api/docker-images/{id} returns source with tags."""
     response = await client.get(
         f"/api/docker-images/{sample_docker_source.id}",
@@ -119,9 +115,7 @@ async def test_create_docker_source(client: AsyncClient, operator_token: str):
 
 
 @pytest.mark.asyncio
-async def test_create_docker_source_with_image_name(
-    client: AsyncClient, operator_token: str
-):
+async def test_create_docker_source_with_image_name(client: AsyncClient, operator_token: str):
     """POST /api/docker-images with image_name triggers indexing."""
     with patch("app.services.docker.DockerRegistryService._fetch_tags") as mock_fetch:
         mock_fetch.return_value = {"name": "library/alpine", "tags": ["3.19", "3.20"]}
@@ -166,9 +160,7 @@ async def test_create_docker_source_duplicate(
 
 
 @pytest.mark.asyncio
-async def test_update_docker_source(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_update_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
     """PATCH /api/docker-images/{id} updates source fields."""
     response = await client.patch(
         f"/api/docker-images/{sample_docker_source.id}",
@@ -194,9 +186,7 @@ async def test_update_docker_source_not_found(client: AsyncClient, operator_toke
 
 
 @pytest.mark.asyncio
-async def test_delete_docker_source(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_delete_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
     """DELETE /api/docker-images/{id} removes the source."""
     response = await client.delete(
         f"/api/docker-images/{sample_docker_source.id}",
@@ -258,9 +248,7 @@ async def test_index_docker_source_not_found(client: AsyncClient, operator_token
 
 
 @pytest.mark.asyncio
-async def test_get_docker_tags(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_get_docker_tags(client: AsyncClient, operator_token: str, sample_docker_source):
     """GET /api/docker-images/{id}/tags returns tags list."""
     response = await client.get(
         f"/api/docker-images/{sample_docker_source.id}/tags",
@@ -290,9 +278,7 @@ async def test_get_docker_tags_filter(
 
 
 @pytest.mark.asyncio
-async def test_get_docker_logs(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
+async def test_get_docker_logs(client: AsyncClient, operator_token: str, sample_docker_source):
     """GET /api/docker-images/{id}/logs returns sync log entries."""
     response = await client.get(
         f"/api/docker-images/{sample_docker_source.id}/logs",

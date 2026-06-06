@@ -23,9 +23,7 @@ def _normalize_registry_url(url: str) -> str:
 def _validate_registry_url(url: str) -> None:
     """Raise BadRequestError if the URL is not a plausible Docker registry."""
     if not re.match(r"^https?://", url):
-        raise BadRequestError(
-            f"Docker registry URL must start with http:// or https://: {url}"
-        )
+        raise BadRequestError(f"Docker registry URL must start with http:// or https://: {url}")
 
 
 class DockerRegistryService:
@@ -51,9 +49,7 @@ class DockerRegistryService:
             select(DockerImageSource).where(DockerImageSource.name == name)
         )
         if existing_result.scalar_one_or_none() is not None:
-            raise BadRequestError(
-                f"Docker image source with name '{name}' already exists"
-            )
+            raise BadRequestError(f"Docker image source with name '{name}' already exists")
 
         source = DockerImageSource(
             name=name,
@@ -202,9 +198,7 @@ class DockerRegistryService:
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             for tag in tags:
-                digest = await self._resolve_manifest_digest(
-                    client, str(base_url), image_name, tag
-                )
+                digest = await self._resolve_manifest_digest(client, str(base_url), image_name, tag)
 
                 # Check if this exact tag already exists
                 existing_result = await db.execute(

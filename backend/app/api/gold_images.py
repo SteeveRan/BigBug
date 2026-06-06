@@ -38,9 +38,7 @@ async def get_gold_image(
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
     if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found")
     return image
 
 
@@ -78,9 +76,7 @@ async def update_gold_image(
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
     if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found")
 
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(image, field, value)
@@ -99,9 +95,7 @@ async def delete_gold_image(
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
     if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found")
     await db.delete(image)
     await db.commit()
 
@@ -114,9 +108,7 @@ async def list_versions(
 ):
     result = await db.execute(
         select(ImageVersion)
-        .where(
-            ImageVersion.gold_image_id == image_id, ImageVersion.image_type == "gold"
-        )
+        .where(ImageVersion.gold_image_id == image_id, ImageVersion.image_type == "gold")
         .order_by(ImageVersion.created_at.desc())
     )
     return result.scalars().all()
@@ -136,15 +128,11 @@ async def trigger_build(
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
     if not image:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gold image not found")
 
     from app.services.build import build_service
 
-    version = await build_service.trigger_gold_build(
-        image, data.version_tag, data.arch, db
-    )
+    version = await build_service.trigger_gold_build(image, data.version_tag, data.arch, db)
     return version
 
 
@@ -162,9 +150,7 @@ async def get_build_schedule(
     )
     schedule = result.scalar_one_or_none()
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     return schedule
 
 
@@ -183,9 +169,7 @@ async def update_build_schedule(
     )
     schedule = result.scalar_one_or_none()
     if not schedule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
 
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(schedule, field, value)

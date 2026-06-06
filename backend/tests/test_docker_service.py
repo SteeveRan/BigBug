@@ -114,9 +114,7 @@ async def test_fetch_tags_success(docker_service):
         mock_client.get = AsyncMock(return_value=mock_response)
         mock_client_cls.return_value = mock_client
 
-        tags_data = await docker_service._fetch_tags(
-            "https://registry.local/v2", "library/nginx"
-        )
+        tags_data = await docker_service._fetch_tags("https://registry.local/v2", "library/nginx")
 
     assert tags_data == FAKE_TAGS_RESPONSE
     assert "tags" in tags_data
@@ -160,9 +158,7 @@ async def test_fetch_tags_no_tags_key(docker_service):
         mock_client_cls.return_value = mock_client
 
         with pytest.raises(ExternalServiceError, match="tags"):
-            await docker_service._fetch_tags(
-                "https://registry.local/v2", "no-tags-image"
-            )
+            await docker_service._fetch_tags("https://registry.local/v2", "no-tags-image")
 
 
 # ─── index_source ───────────────────────────────────────────────────────────
@@ -188,9 +184,7 @@ async def test_index_source_creates_tags(docker_service, db_session: AsyncSessio
         with patch.object(docker_service, "_resolve_manifest_digest") as mock_digest:
             mock_digest.return_value = "sha256:test-digest"
 
-            sync_log = await docker_service.index_source(
-                source, "library/nginx", db_session
-            )
+            sync_log = await docker_service.index_source(source, "library/nginx", db_session)
 
     assert sync_log.status_flag == 0  # success
     assert source.status_flag == 0
@@ -217,18 +211,16 @@ async def test_sync_tags_idempotent(docker_service, db_session: AsyncSession):
     tags_data = {"name": "library/nginx", "tags": ["1.27-alpine"]}
 
     # First sync
-    with patch.object(
-        docker_service, "_fetch_tags", return_value=tags_data
-    ), patch.object(
-        docker_service, "_resolve_manifest_digest", return_value="sha256:old"
+    with (
+        patch.object(docker_service, "_fetch_tags", return_value=tags_data),
+        patch.object(docker_service, "_resolve_manifest_digest", return_value="sha256:old"),
     ):
         await docker_service.index_source(source, "library/nginx", db_session)
 
     # Second sync with updated digest
-    with patch.object(
-        docker_service, "_fetch_tags", return_value=tags_data
-    ), patch.object(
-        docker_service, "_resolve_manifest_digest", return_value="sha256:new"
+    with (
+        patch.object(docker_service, "_fetch_tags", return_value=tags_data),
+        patch.object(docker_service, "_resolve_manifest_digest", return_value="sha256:new"),
     ):
         await docker_service.index_source(source, "library/nginx", db_session)
 
@@ -251,12 +243,8 @@ async def test_index_source_fetch_failure(docker_service, db_session: AsyncSessi
     await db_session.commit()
 
     with patch.object(docker_service, "_fetch_tags") as mock_fetch:
-        mock_fetch.side_effect = ExternalServiceError(
-            "Docker registry", "network error"
-        )
-        sync_log = await docker_service.index_source(
-            source, "library/nginx", db_session
-        )
+        mock_fetch.side_effect = ExternalServiceError("Docker registry", "network error")
+        sync_log = await docker_service.index_source(source, "library/nginx", db_session)
 
     assert sync_log.status_flag == 1  # failed
     assert source.status_flag == 1
@@ -266,9 +254,7 @@ async def test_index_source_fetch_failure(docker_service, db_session: AsyncSessi
 
 
 @pytest.mark.asyncio
-async def test_import_source_from_url_no_image(
-    docker_service, db_session: AsyncSession
-):
+async def test_import_source_from_url_no_image(docker_service, db_session: AsyncSession):
     """Creating a source without image_name succeeds without indexing."""
     source = await docker_service.import_source_from_url(
         "registry-only",
@@ -283,15 +269,11 @@ async def test_import_source_from_url_no_image(
 
 
 @pytest.mark.asyncio
-async def test_import_source_from_url_with_image(
-    docker_service, db_session: AsyncSession
-):
+async def test_import_source_from_url_with_image(docker_service, db_session: AsyncSession):
     """Creating a source with image_name triggers indexing."""
     with patch.object(docker_service, "_fetch_tags") as mock_fetch:
         mock_fetch.return_value = {"name": "library/alpine", "tags": ["3.19"]}
-        with patch.object(
-            docker_service, "_resolve_manifest_digest", return_value="sha256:abc"
-        ):
+        with patch.object(docker_service, "_resolve_manifest_digest", return_value="sha256:abc"):
             source = await docker_service.import_source_from_url(
                 "alpine-registry",
                 "https://registry.example.com",
@@ -306,9 +288,7 @@ async def test_import_source_from_url_with_image(
 @pytest.mark.asyncio
 async def test_import_source_duplicate_name(docker_service, db_session: AsyncSession):
     """Creating a source with a duplicate name raises BadRequestError."""
-    source = DockerImageSource(
-        name="dupe-docker", registry_url="https://registry.local/v2"
-    )
+    source = DockerImageSource(name="dupe-docker", registry_url="https://registry.local/v2")
     db_session.add(source)
     await db_session.commit()
 

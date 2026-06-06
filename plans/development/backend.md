@@ -419,14 +419,14 @@ async def test_get_resource_not_found(async_client: AsyncClient, operator_token:
 ### Форматирование и линтинг
 
 ```bash
-# Black - форматирование кода
-black .
+# Ruff format - форматирование кода
+ruff format .
 
-# Ruff - линтинг и автофикс
+# Ruff check - линтинг и автофикс
 ruff check --fix .
 
 # Полная проверка (в таком порядке)
-black . && ruff check --fix . && pytest
+ruff format . && ruff check --fix . && pytest
 ```
 
 ### Pre-commit hooks (опционально)
@@ -435,13 +435,10 @@ black . && ruff check --fix . && pytest
 
 ```yaml
 repos:
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
+      - id: ruff-format
       - id: ruff
         args: [--fix]
 ```

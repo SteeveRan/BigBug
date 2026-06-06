@@ -71,8 +71,10 @@ def get_cipher() -> SecretCipher:
         # data on every restart and is far worse than a loud configuration
         # error during boot.
         raise RuntimeError(
-            "ENCRYPTION_KEY is not configured. Generate one with "
-            "`python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`"
+            "ENCRYPTION_KEY is not configured. Generate one with: "
+            "python -c "
+            '"from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())"'
         )
     return SecretCipher(settings.encryption_key)
 

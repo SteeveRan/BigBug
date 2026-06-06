@@ -43,11 +43,7 @@ class SchedulerService:
         from app.services.gitlab import gitlab_service
 
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(SyncSchedule).where(
-                    SyncSchedule.is_enabled == True
-                )  # noqa: E712
-            )
+            result = await db.execute(select(SyncSchedule).where(SyncSchedule.is_enabled.is_(True)))
             schedules = result.scalars().all()
 
             for schedule in schedules:
@@ -55,10 +51,8 @@ class SchedulerService:
 
                 # Determine effective cron
                 if schedule.use_default_schedule:
-                    effective_cron = settings.default_sync_cron
-                elif schedule.cron_expression:
-                    effective_cron = schedule.cron_expression
-                else:
+                    _ = settings.default_sync_cron
+                elif not schedule.cron_expression:
                     continue
 
                 # Check if it's time to run
@@ -73,9 +67,7 @@ class SchedulerService:
                     continue
 
                 try:
-                    await gitlab_service.trigger_sync(
-                        mirror, db, triggered_by="scheduler"
-                    )
+                    await gitlab_service.trigger_sync(mirror, db, triggered_by="scheduler")
                     schedule.last_run_at = now
                     logger.info(f"Triggered sync for mirror {mirror.id}")
                 except Exception as e:
@@ -93,9 +85,7 @@ class SchedulerService:
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(BuildSchedule).where(
-                    BuildSchedule.is_enabled == True
-                )  # noqa: E712
+                select(BuildSchedule).where(BuildSchedule.is_enabled.is_(True))
             )
             schedules = result.scalars().all()
 
@@ -108,9 +98,7 @@ class SchedulerService:
                 try:
                     if schedule.image_type == "gold" and schedule.gold_image_id:
                         img_result = await db.execute(
-                            select(GoldImage).where(
-                                GoldImage.id == schedule.gold_image_id
-                            )
+                            select(GoldImage).where(GoldImage.id == schedule.gold_image_id)
                         )
                         image = img_result.scalar_one_or_none()
                         if image:
@@ -130,9 +118,7 @@ class SchedulerService:
                     schedule.last_run_at = now
                     logger.info(f"Triggered build for schedule {schedule.id}")
                 except Exception as e:
-                    logger.error(
-                        f"Failed to trigger build for schedule {schedule.id}: {e}"
-                    )
+                    logger.error(f"Failed to trigger build for schedule {schedule.id}: {e}")
 
             await db.commit()
 

@@ -52,9 +52,7 @@ async def get_source(
     return source
 
 
-@router.post(
-    "", response_model=DockerImageSourceOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("", response_model=DockerImageSourceOut, status_code=status.HTTP_201_CREATED)
 async def create_source(
     data: CreateDockerImageSourceRequest,
     db: AsyncSession = Depends(get_db),
@@ -75,9 +73,7 @@ async def update_source(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(
-        select(DockerImageSource).where(DockerImageSource.id == source_id)
-    )
+    result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(
@@ -103,9 +99,7 @@ async def delete_source(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(
-        select(DockerImageSource).where(DockerImageSource.id == source_id)
-    )
+    result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(
@@ -127,9 +121,7 @@ async def index_source(
     _=Depends(require_operator()),
 ):
     """Re-index tags for a Docker image source (fetch from registry and update tags)."""
-    result = await db.execute(
-        select(DockerImageSource).where(DockerImageSource.id == source_id)
-    )
+    result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
     source = result.scalar_one_or_none()
     if not source:
         raise HTTPException(

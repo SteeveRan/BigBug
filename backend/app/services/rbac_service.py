@@ -89,9 +89,7 @@ class RBACService:
     async def get_role_by_id(self, role_id: int) -> Role | None:
         """Get a single role with permissions, or None."""
         result = await self.db.execute(
-            select(Role)
-            .options(selectinload(Role.permissions))
-            .where(Role.id == role_id)
+            select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
         )
         return result.scalar_one_or_none()
 
@@ -99,9 +97,7 @@ class RBACService:
     # Role CRUD
     # ------------------------------------------------------------------
 
-    async def _resolve_permissions(
-        self, permission_names: list[str]
-    ) -> list[Permission]:
+    async def _resolve_permissions(self, permission_names: list[str]) -> list[Permission]:
         """
         Fetch Permission objects for a list of permission name strings.
         Raises PermissionNotFoundError if any name is unknown.
@@ -114,9 +110,7 @@ class RBACService:
 
         missing = set(permission_names) - found_names
         if missing:
-            raise PermissionNotFoundError(
-                f"Unknown permission(s): {', '.join(sorted(missing))}"
-            )
+            raise PermissionNotFoundError(f"Unknown permission(s): {', '.join(sorted(missing))}")
         return found
 
     async def create_role(
@@ -186,9 +180,7 @@ class RBACService:
 
         # Check if any users have this role
         user_count_result = await self.db.execute(
-            select(func.count())
-            .select_from(UserRole)
-            .where(UserRole.role_id == role_id)
+            select(func.count()).select_from(UserRole).where(UserRole.role_id == role_id)
         )
         user_count = user_count_result.scalar() or 0
         if user_count > 0:
@@ -199,9 +191,7 @@ class RBACService:
         await self.db.delete(role)
         await self.db.commit()
 
-    async def assign_permissions_to_role(
-        self, role_id: int, permission_names: list[str]
-    ) -> Role:
+    async def assign_permissions_to_role(self, role_id: int, permission_names: list[str]) -> Role:
         """Replace all permissions for a role with the given set."""
         role = await self.get_role_by_id(role_id)
         if role is None:

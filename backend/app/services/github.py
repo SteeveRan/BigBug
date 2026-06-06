@@ -30,9 +30,7 @@ class GitHubService:
             return Github()
         return Github(settings.github_token)
 
-    async def import_project_from_url(
-        self, github_url: str, db: AsyncSession
-    ) -> GithubProject:
+    async def import_project_from_url(self, github_url: str, db: AsyncSession) -> GithubProject:
         owner, repo_name = _parse_github_url(github_url)
 
         try:
@@ -134,17 +132,13 @@ class GitHubService:
         await self._sync_releases(gh_repo, project, db)
         await db.commit()
 
-    async def _sync_releases(
-        self, gh_repo, project: GithubProject, db: AsyncSession
-    ) -> None:
+    async def _sync_releases(self, gh_repo, project: GithubProject, db: AsyncSession) -> None:
         """Sync GitHub releases to DB."""
         try:
             releases = gh_repo.get_releases()
             for gh_release in releases:
                 rel_result = await db.execute(
-                    select(GithubRelease).where(
-                        GithubRelease.github_release_id == gh_release.id
-                    )
+                    select(GithubRelease).where(GithubRelease.github_release_id == gh_release.id)
                 )
                 release = rel_result.scalar_one_or_none()
                 if not release:

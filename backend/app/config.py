@@ -24,9 +24,7 @@ class Settings(BaseSettings):
     @classmethod
     def validate_database_url(cls, v: str) -> str:
         if not v.startswith("postgresql+asyncpg://"):
-            raise ValueError(
-                "DATABASE_URL must use postgresql+asyncpg:// scheme for async support"
-            )
+            raise ValueError("DATABASE_URL must use postgresql+asyncpg:// scheme for async support")
         return v
 
     # Redis
@@ -81,24 +79,15 @@ class Settings(BaseSettings):
 
     @property
     def keycloak_openid_config_url(self) -> str:
-        return (
-            f"{self.keycloak_url}/realms/{self.keycloak_realm}"
-            "/.well-known/openid-configuration"
-        )
+        return f"{self.keycloak_url}/realms/{self.keycloak_realm}/.well-known/openid-configuration"
 
     @property
     def keycloak_token_url(self) -> str:
-        return (
-            f"{self.keycloak_url}/realms/{self.keycloak_realm}"
-            "/protocol/openid-connect/token"
-        )
+        return f"{self.keycloak_url}/realms/{self.keycloak_realm}/protocol/openid-connect/token"
 
     @property
     def keycloak_jwks_url(self) -> str:
-        return (
-            f"{self.keycloak_url}/realms/{self.keycloak_realm}"
-            "/protocol/openid-connect/certs"
-        )
+        return f"{self.keycloak_url}/realms/{self.keycloak_realm}/protocol/openid-connect/certs"
 
 
 settings = Settings()

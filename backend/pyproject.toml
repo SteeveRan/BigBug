@@ -47,7 +47,6 @@ dev = [
     "faker>=25.0.0",
     # Linting & formatting
     "ruff>=0.11.0",
-    "black>=24.0.0",
     "mypy>=1.13.0",
 ]
 
@@ -67,7 +66,10 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
-ignore = ["E501"]
+ignore = [
+    "E501",
+    "B008",  # FastAPI Depends() in argument defaults — стандартный паттерн
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

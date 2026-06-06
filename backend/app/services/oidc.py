@@ -112,9 +112,7 @@ class KeycloakOIDCService:
 
     # --- public API -----------------------------------------------------------
 
-    async def exchange_code(
-        self, code: str, redirect_uri: str, code_verifier: str
-    ) -> dict:
+    async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
         """
         Exchange an authorization code for a token set at Keycloak's token
         endpoint using PKCE.
@@ -137,9 +135,7 @@ class KeycloakOIDCService:
             async with self._client() as client:
                 response = await client.post(settings.keycloak_token_url, data=data)
         except httpx.HTTPError as exc:
-            logger.warning(
-                "oidc_token_exchange_network_error", extra={"error": str(exc)}
-            )
+            logger.warning("oidc_token_exchange_network_error", extra={"error": str(exc)})
             raise OIDCExchangeError("Could not reach the identity provider") from exc
 
         if response.status_code != httpx.codes.OK:
@@ -275,9 +271,7 @@ class KeycloakOIDCService:
         # preferred_username is Keycloak's canonical login name; fall back to
         # email local-part so we always have a non-empty username.
         email = payload.get("email", "") or ""
-        username = payload.get("preferred_username") or (
-            email.split("@")[0] if email else subject
-        )
+        username = payload.get("preferred_username") or (email.split("@")[0] if email else subject)
         realm_roles = payload.get("realm_access", {}).get("roles", []) or []
         roles = frozenset(r for r in realm_roles if r in _KNOWN_ROLES)
         return OIDCClaims(subject=subject, username=username, email=email, roles=roles)
@@ -285,16 +279,12 @@ class KeycloakOIDCService:
     async def _find_user(self, claims: OIDCClaims) -> User | None:
         # Match on the immutable Keycloak subject first; fall back to email so a
         # pre-existing local account is linked to SSO instead of duplicated.
-        result = await self._db.execute(
-            select(User).where(User.keycloak_sub == claims.subject)
-        )
+        result = await self._db.execute(select(User).where(User.keycloak_sub == claims.subject))
         user = result.scalar_one_or_none()
         if user is not None:
             return user
         if claims.email:
-            result = await self._db.execute(
-                select(User).where(User.email == claims.email)
-            )
+            result = await self._db.execute(select(User).where(User.email == claims.email))
             return result.scalar_one_or_none()
         return None
 
@@ -326,9 +316,7 @@ class KeycloakOIDCService:
     async def _sync_roles(self, user: User, desired_roles: frozenset[str]) -> None:
         """Make the user's role assignments match ``desired_roles`` exactly."""
         if desired_roles:
-            result = await self._db.execute(
-                select(Role).where(Role.name.in_(desired_roles))
-            )
+            result = await self._db.execute(select(Role).where(Role.name.in_(desired_roles)))
             role_by_name = {role.name: role for role in result.scalars().all()}
         else:
             # No recognised IDP roles -> user ends up with no assignments.
@@ -336,9 +324,7 @@ class KeycloakOIDCService:
 
         # Map any roles that exist in Keycloak but were never seeded locally:
         # we simply skip them (the init script seeds admin/operator/viewer).
-        current = await self._db.execute(
-            select(UserRole).where(UserRole.user_id == user.id)
-        )
+        current = await self._db.execute(select(UserRole).where(UserRole.user_id == user.id))
         current_assignments = {ur.role_id: ur for ur in current.scalars().all()}
         desired_role_ids = {role.id for role in role_by_name.values()}
 

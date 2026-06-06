@@ -116,9 +116,7 @@ async def operator_role(db_session: AsyncSession):
 @pytest_asyncio.fixture
 async def operator_user(db_session: AsyncSession, operator_role):
     """Get or create the operator user (idempotent across tests)."""
-    result = await db_session.execute(
-        select(User).where(User.username == "testoperator")
-    )
+    result = await db_session.execute(select(User).where(User.username == "testoperator"))
     user = result.scalar_one_or_none()
     if user is not None:
         return user

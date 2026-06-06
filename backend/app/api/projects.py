@@ -24,9 +24,7 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
-    result = await db.execute(
-        select(GithubProject).options(selectinload(GithubProject.org))
-    )
+    result = await db.execute(select(GithubProject).options(selectinload(GithubProject.org)))
     return result.scalars().all()
 
 
@@ -43,9 +41,7 @@ async def get_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return project
 
 
@@ -75,9 +71,7 @@ async def create_project(
     return project
 
 
-@router.post(
-    "/import", response_model=GithubProjectOut, status_code=status.HTTP_201_CREATED
-)
+@router.post("/import", response_model=GithubProjectOut, status_code=status.HTTP_201_CREATED)
 async def import_project(
     data: ImportProjectRequest,
     db: AsyncSession = Depends(get_db),
@@ -103,9 +97,7 @@ async def update_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     if data.custom_description is not None:
         project.custom_description = data.custom_description
@@ -114,9 +106,7 @@ async def update_project(
 
     await db.commit()
     # Refresh only modified scalar attributes; keep eagerly-loaded relationships intact.
-    await db.refresh(
-        project, attribute_names=["custom_description", "stale_threshold_days"]
-    )
+    await db.refresh(project, attribute_names=["custom_description", "stale_threshold_days"])
     return project
 
 
@@ -134,9 +124,7 @@ async def refresh_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     from app.services.github import github_service
 
@@ -150,13 +138,9 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(
-        select(GithubProject).where(GithubProject.id == project_id)
-    )
+    result = await db.execute(select(GithubProject).where(GithubProject.id == project_id))
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     await db.delete(project)
     await db.commit()

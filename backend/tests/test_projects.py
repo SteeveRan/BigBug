@@ -70,9 +70,7 @@ async def test_get_project_not_found(client: AsyncClient, operator_token: str):
 
 
 @pytest.mark.asyncio
-async def test_update_project_description(
-    client: AsyncClient, operator_token: str, sample_project
-):
+async def test_update_project_description(client: AsyncClient, operator_token: str, sample_project):
     response = await client.patch(
         f"/api/projects/{sample_project.id}",
         headers={"Authorization": f"Bearer {operator_token}"},

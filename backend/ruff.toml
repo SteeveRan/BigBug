@@ -35,7 +35,9 @@ select = [
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
 ]
-ignore = []
+ignore = [
+    "B008",  # FastAPI Depends() in argument defaults — стандартный паттерн
+]
 
 [lint.per-file-ignores]
 "__init__.py" = ["F401"]        # неиспользуемые импорты в __init__.py — норма

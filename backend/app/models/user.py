@@ -23,9 +23,7 @@ class User(Base):
     )
 
     # Relationships
-    user_roles = relationship(
-        "UserRole", back_populates="user", cascade="all, delete-orphan"
-    )
+    user_roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def roles(self):
