@@ -1,25 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// Mock keycloak-js so the constructor returns an object with the expected
-// public properties (authServerUrl, realm, clientId).
-vi.mock('keycloak-js', () => ({
-  default: vi.fn((config: { url: string; realm: string; clientId: string }) => ({
-    authServerUrl: config.url,
-    realm: config.realm,
-    clientId: config.clientId,
-  })),
-}))
-
 import {
-  getKeycloakInstance,
-  resetKeycloakInstance,
   generateCodeVerifier,
   computeCodeChallenge,
   redirectToKeycloakLogin,
   SSO_VERIFIER_KEY,
   base64UrlEncode,
 } from '../services/keycloak'
-import type Keycloak from 'keycloak-js'
 
 // ---------------------------------------------------------------------------
 // base64UrlEncode unit tests
@@ -34,68 +21,12 @@ describe('base64UrlEncode', () => {
 
   it('replaces + with - and / with _', () => {
     // Create bytes that produce + and / in standard base64
-    // 0xFA is 250, 0xFE is 254 — these produce + and / in standard base64
     const buffer = new Uint8Array([0xFA, 0xFE]).buffer
     const result = base64UrlEncode(buffer)
     expect(result).not.toContain('+')
     expect(result).not.toContain('/')
     // Standard base64 of [0xFA, 0xFE] is "+v4=", base64url should be "-v4" (no padding)
     expect(result).toMatch(/^-/)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Singleton
-// ---------------------------------------------------------------------------
-describe('getKeycloakInstance', () => {
-  beforeEach(() => {
-    resetKeycloakInstance()
-  })
-
-  it('returns a Keycloak instance', () => {
-    const inst = getKeycloakInstance(
-      'https://auth.example.com',
-      'myrealm',
-      'myclient',
-    )
-    expect(inst).toBeDefined()
-    expect(typeof inst).toBe('object')
-    expect((inst as any).clientId).toBe('myclient')
-    expect((inst as any).realm).toBe('myrealm')
-  })
-
-  it('returns the same instance on repeated calls (singleton)', () => {
-    const first = getKeycloakInstance(
-      'https://auth.example.com',
-      'myrealm',
-      'myclient',
-    )
-    const second = getKeycloakInstance(
-      'https://another.example.com',
-      'other',
-      'otherclient',
-    )
-    expect(second).toBe(first)
-    // The original parameters are preserved (singleton is already created)
-    expect((second as any).clientId).toBe('myclient')
-  })
-})
-
-describe('resetKeycloakInstance', () => {
-  it('resets the singleton so a new instance is created', () => {
-    const first = getKeycloakInstance(
-      'https://auth.example.com',
-      'realm1',
-      'client1',
-    )
-    resetKeycloakInstance()
-    const second = getKeycloakInstance(
-      'https://auth.example.com',
-      'realm2',
-      'client2',
-    )
-    expect(second).not.toBe(first)
-    expect((second as any).clientId).toBe('client2')
   })
 })
 
@@ -167,7 +98,6 @@ describe('redirectToKeycloakLogin', () => {
   let mockStorage: Record<string, string>
 
   beforeEach(() => {
-    resetKeycloakInstance()
     mockStorage = {}
     Object.defineProperty(window, 'sessionStorage', {
       value: {
@@ -180,15 +110,20 @@ describe('redirectToKeycloakLogin', () => {
     })
 
     // Mock window.location.href
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).location
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).location = { href: '', assign: vi.fn() }
   })
 
   it('stores the code_verifier in sessionStorage', async () => {
-    const kc = getKeycloakInstance('https://kc.example.com', 'r', 'c')
-
     try {
-      await redirectToKeycloakLogin(kc, 'https://app.example.com/callback')
+      await redirectToKeycloakLogin(
+        'https://kc.example.com',
+        'r',
+        'c',
+        'https://app.example.com/callback',
+      )
     } catch {
       // Promise<never> — не должно выполняться после редиректа
     }
@@ -204,10 +139,13 @@ describe('redirectToKeycloakLogin', () => {
   })
 
   it('builds a URL with PKCE parameters', async () => {
-    const kc = getKeycloakInstance('https://kc.example.com', 'r', 'c')
-
     try {
-      await redirectToKeycloakLogin(kc, 'https://app.example.com/sso/callback')
+      await redirectToKeycloakLogin(
+        'https://kc.example.com',
+        'r',
+        'c',
+        'https://app.example.com/sso/callback',
+      )
     } catch {
       // ожидаемо
     }

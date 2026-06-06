@@ -19,7 +19,9 @@ from app.schemas.auth import (
     OIDCExchangeRequest,
     SSOConfig,
 )
+from app.schemas.rbac import UserPermissionsOut
 from app.services.oidc import KeycloakOIDCService
+from app.services.rbac_service import RBACService
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,11 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
 
-    token_data = {"sub": str(user.id), "username": user.username}
+    # Load permissions to include in JWT for RBAC caching
+    rbac_service = RBACService(db)
+    permissions = await rbac_service.get_user_permissions(user.id)
+
+    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -62,7 +68,11 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
-    token_data = {"sub": str(user.id), "username": user.username}
+    # Load fresh permissions to include in JWT for RBAC caching
+    rbac_service = RBACService(db)
+    permissions = await rbac_service.get_user_permissions(user.id)
+
+    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -77,6 +87,25 @@ async def get_me(current_user: User = Depends(get_current_user)):
         email=current_user.email,
         is_active=current_user.is_active,
         roles=[r.name for r in current_user.roles],
+    )
+
+
+@router.get("/me/permissions", response_model=UserPermissionsOut)
+async def get_my_permissions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the current user's permissions."""
+    service = RBACService(db)
+    permissions = await service.get_user_permissions(current_user.id)
+
+    # Determine primary role name (first role, or "none")
+    role_name = current_user.roles[0].name if current_user.roles else "none"
+
+    return UserPermissionsOut(
+        user_id=current_user.id,
+        role=role_name,
+        permissions=permissions,
     )
 
 
@@ -130,7 +159,11 @@ async def oidc_exchange(data: OIDCExchangeRequest, db: AsyncSession = Depends(ge
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
 
-    token_data = {"sub": str(user.id), "username": user.username}
+    # Load permissions to include in JWT for RBAC caching
+    rbac_service = RBACService(db)
+    permissions = await rbac_service.get_user_permissions(user.id)
+
+    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),

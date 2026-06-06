@@ -1,5 +1,25 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
+/**
+ * Декодирует JWT токен и извлекает массив permissions.
+ *
+ * Использует только безопасные методы: atob(), JSON.parse().
+ * НЕ применяет eval() или Function().
+ *
+ * @param token - JWT access token в формате header.payload.signature
+ * @returns массив строк permissions или [] при ошибке/отсутствии
+ */
+function parseJwtPermissions(token: string): string[] {
+  try {
+    const base64Payload = token.split('.')[1]
+    const jsonPayload = atob(base64Payload)
+    const payload = JSON.parse(jsonPayload)
+    return Array.isArray(payload.permissions) ? payload.permissions : []
+  } catch {
+    return []
+  }
+}
+
 export interface AuthUser {
   id: number
   username: string
@@ -14,6 +34,8 @@ interface AuthState {
   refreshToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
+  /** RBAC permissions extracted from JWT (populated in Phase 2) */
+  permissions: string[]
 }
 
 const initialState: AuthState = {
@@ -22,6 +44,7 @@ const initialState: AuthState = {
   refreshToken: localStorage.getItem('refresh_token'),
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
+  permissions: [],
 }
 
 const authSlice = createSlice({
@@ -36,6 +59,7 @@ const authSlice = createSlice({
       state.refreshToken = action.payload.refreshToken
       state.user = action.payload.user
       state.isAuthenticated = true
+      state.permissions = parseJwtPermissions(action.payload.accessToken)
       localStorage.setItem('access_token', action.payload.accessToken)
       localStorage.setItem('refresh_token', action.payload.refreshToken)
     },
@@ -48,6 +72,7 @@ const authSlice = createSlice({
       state.accessToken = null
       state.refreshToken = null
       state.isAuthenticated = false
+      state.permissions = []
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
     },
@@ -59,3 +84,7 @@ const authSlice = createSlice({
 
 export const { setCredentials, setUser, logout, setLoading } = authSlice.actions
 export default authSlice.reducer
+
+/** Selector: returns the RBAC permissions string[] from auth state */
+export const selectUserPermissions = (state: { auth: AuthState }) =>
+  state.auth.permissions

@@ -21,7 +21,7 @@ import {
   Switch,
   Tooltip,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import {
   useListUsersQuery,
   useCreateUserMutation,
@@ -37,7 +37,6 @@ export function AdminPage() {
   const [deleteUser] = useDeleteUserMutation()
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [editUser, setEditUser] = useState<User | null>(null)
   const [form, setForm] = useState({ username: '', email: '', password: '', roles: 'viewer' })
   const [submitting, setSubmitting] = useState(false)
 

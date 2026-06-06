@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -11,10 +11,20 @@ class Role(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
+    is_custom = Column(Boolean, default=False, nullable=False)
+    created_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     user_roles = relationship("UserRole", back_populates="role", cascade="all, delete-orphan")
+    permissions = relationship(
+        "Permission",
+        secondary="role_permissions",
+        backref="roles",
+        lazy="selectin",
+    )
 
 
 class UserRole(Base):

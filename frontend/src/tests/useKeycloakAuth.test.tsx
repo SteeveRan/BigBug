@@ -6,18 +6,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 // so the tests must match that value.
 const DEFAULT_ORIGIN = 'http://localhost:3000'
 
-// Mock keycloak-js so the constructor returns an object with the expected
-// public properties.
-vi.mock('keycloak-js', () => ({
-  default: vi.fn((config: { url: string; realm: string; clientId: string }) => ({
-    authServerUrl: config.url,
-    realm: config.realm,
-    clientId: config.clientId,
-  })),
-}))
-
 import { useKeycloakAuth } from '../hooks/useKeycloakAuth'
-import { resetKeycloakInstance } from '../services/keycloak'
 
 // Mock RTK Query
 vi.mock('../store/api', () => ({
@@ -30,7 +19,6 @@ import { useGetSsoConfigQuery } from '../store/api'
 const mockStorage: Record<string, string> = {}
 beforeEach(() => {
   vi.clearAllMocks()
-  resetKeycloakInstance()
   Object.keys(mockStorage).forEach((k) => delete mockStorage[k])
 
   Object.defineProperty(window, 'sessionStorage', {
@@ -46,7 +34,9 @@ beforeEach(() => {
 
 // Mock window.location
 beforeEach(() => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (window as any).location
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(window as any).location = {
     href: '',
     origin: DEFAULT_ORIGIN,

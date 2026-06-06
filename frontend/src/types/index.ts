@@ -255,3 +255,43 @@ export interface DockerSyncLog {
   finished_at: string | null
   created_at: string
 }
+
+// ──── RBAC Types ───────────────────────────────────────────────────────────
+
+/** Одно право доступа (например, "mirrors:read", "helm:write") */
+export interface Permission {
+  id: number
+  name: string
+  description: string | null
+}
+
+/** Роль с привязанными permissions */
+export interface Role {
+  id: number
+  name: string
+  description: string | null
+  is_custom: boolean
+  created_by_user_id: number | null
+  permissions: Permission[]
+}
+
+/** Ответ от GET /api/auth/me/permissions */
+export interface UserPermissions {
+  user_id: number
+  role: string
+  permissions: string[]
+}
+
+/** Данные для создания новой роли */
+export interface RoleCreate {
+  name: string
+  description?: string | null
+  permission_names: string[]
+}
+
+/** Данные для обновления существующей роли */
+export interface RoleUpdate {
+  name?: string | null
+  description?: string | null
+  permission_names?: string[] | null
+}

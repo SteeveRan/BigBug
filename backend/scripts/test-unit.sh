@@ -16,8 +16,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-PROJECT_DIR="$(dirname "$BACKEND_DIR")"
-VENV_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
 
 if [ ! -x "$VENV_PYTHON" ]; then
     echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"

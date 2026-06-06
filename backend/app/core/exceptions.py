@@ -59,3 +59,27 @@ class OIDCInvalidTokenError(OIDCError):
 
 class OIDCProvisioningError(OIDCError):
     """A valid token was received but the local user could not be provisioned."""
+
+
+# --- RBAC ---------------------------------------------------------------
+# These are plain exceptions (not HTTPException) on purpose: the RBAC
+# service is a pure domain layer that must stay framework-agnostic and
+# unit-testable. The API layer catches them and maps to the appropriate
+# HTTP response, keeping transport concerns out of the service.
+
+
+class PermissionNotFoundError(RuntimeError):
+    """One or more requested permission names do not exist in the system."""
+
+
+class CannotModifyBuiltinRoleError(RuntimeError):
+    """Attempted to modify or delete a built-in (non-custom) role."""
+
+
+class RoleHasUsersError(RuntimeError):
+    """Cannot delete a role that still has users assigned to it."""
+
+
+class RoleNotFoundError(RuntimeError):
+    """The requested role does not exist."""
+

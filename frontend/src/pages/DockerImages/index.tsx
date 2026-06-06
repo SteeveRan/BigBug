@@ -58,18 +58,6 @@ export function DockerImagesPage() {
     }
   }
 
-  const formatBytes = (bytes: number | null): string => {
-    if (bytes === null) return '—'
-    const units = ['B', 'KB', 'MB', 'GB']
-    let size = bytes
-    let unitIdx = 0
-    while (size >= 1024 && unitIdx < units.length - 1) {
-      size /= 1024
-      unitIdx++
-    }
-    return `${size.toFixed(1)} ${units[unitIdx]}`
-  }
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

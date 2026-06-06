@@ -1,5 +1,6 @@
 from app.models.user import User
 from app.models.role import Role, UserRole
+from app.models.permission import Permission, role_permissions
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
@@ -22,6 +23,8 @@ __all__ = [
     "User",
     "Role",
     "UserRole",
+    "Permission",
+    "role_permissions",
     "GithubOrg",
     "GithubProject",
     "GithubRelease",

@@ -428,6 +428,21 @@ cd frontend && yarn dev
 
 ### Run Tests
 
+**Агентам**: Всегда запускать тесты через скрипты:
+
+```bash
+# Backend unit tests (+ format + lint)
+./backend/scripts/test-unit.sh -v
+
+# Backend e2e tests
+./backend/scripts/test-e2e.sh -v
+
+# Frontend unit tests (Vitest)
+./frontend/scripts/test-unit.sh
+```
+
+**Вручную** (требуется активировать окружение):
+
 ```bash
 # Backend
 cd backend
@@ -436,7 +451,7 @@ pytest                          # All tests
 pytest tests/test_auth.py -v   # Specific file
 pytest -k "test_login" -v      # By name pattern
 
-# Frontend
+# Frontend (требуется nvm: export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh")
 cd frontend
 yarn test                       # Watch mode
 yarn test:run                   # Single run
@@ -466,14 +481,34 @@ alembic history
 
 ### Code Quality Checks
 
+**Агентам**: использовать скрипты (они загружают правильное окружение):
+
 ```bash
-# Backend (run in order)
-cd backend
+# Backend
+./backend/scripts/format.sh
+./backend/scripts/lint.sh
+./backend/scripts/test-unit.sh
+
+# Frontend
+./frontend/scripts/format.sh
+./frontend/scripts/lint.sh
+./frontend/scripts/test-unit.sh
+
+# Type check frontend
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd frontend && npx tsc --noEmit
+```
+
+**Вручную** (требуется активировать окружение):
+
+```bash
+# Backend
+cd backend && source .venv/bin/activate
 black .                    # Format
 ruff check --fix .        # Lint and auto-fix
 pytest                     # Test
 
-# Frontend
+# Frontend (требуется nvm)
+export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
 cd frontend
 yarn format                # Prettier
 yarn lint                  # ESLint

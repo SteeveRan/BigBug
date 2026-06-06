@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { SsoCallbackPage } from '../pages/SsoCallback'
-import { api } from '../store/api'
 import authReducer from '../store/authSlice'
 
 // Mock react-router
@@ -24,14 +23,27 @@ vi.mock('../hooks/useKeycloakAuth', () => ({
   }),
 }))
 
-// Create a minimal store for the Provider
+// Mock useSsoExchangeMutation — avoids the jsdom <-> undici AbortController
+// incompatibility that would otherwise trigger when RTK Query middleware
+// creates a Request() with jsdom's AbortSignal.
+const mockExchange = vi.fn().mockReturnValue({
+  unwrap: () => Promise.resolve({ access_token: 'mock-token', refresh_token: 'mock-refresh' }),
+})
+vi.mock('../store/api', async () => {
+  const actual = await vi.importActual('../store/api')
+  return {
+    ...(actual as object),
+    useSsoExchangeMutation: () => [mockExchange, { isLoading: false }],
+  }
+})
+
+// Create a minimal store without the real api middleware (the exchange
+// mutation is mocked above, so we don't need the real api.middleware).
 function createTestStore() {
   return configureStore({
     reducer: {
       auth: authReducer,
-      [api.reducerPath]: api.reducer,
     },
-    middleware: (gdm) => gdm().concat(api.middleware),
   })
 }
 

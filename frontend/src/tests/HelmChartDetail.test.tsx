@@ -13,7 +13,7 @@ const mockNavigate = vi.fn()
 vi.mock('react-router', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: '1' }),
-  Link: ({ children, ...props }: any) => <a {...props}>{children}</a>,
+  Link: ({ children, ...props }: Record<string, unknown>) => <a {...props}>{children as React.ReactNode}</a>,
 }))
 
 // Mock RTK Query hooks

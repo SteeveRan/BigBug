@@ -1,5 +1,12 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 import type { RootState } from './index'
+import type {
+  Permission,
+  Role,
+  UserPermissions,
+  RoleCreate,
+  RoleUpdate,
+} from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -15,7 +22,19 @@ export const api = createApi({
       return headers
     },
   }),
-  tagTypes: ['Project', 'Mirror', 'GoldImage', 'AppImage', 'User', 'SyncLog', 'BuildLog', 'HelmChart', 'DockerImage'],
+  tagTypes: [
+    'Project',
+    'Mirror',
+    'GoldImage',
+    'AppImage',
+    'User',
+    'SyncLog',
+    'BuildLog',
+    'HelmChart',
+    'DockerImage',
+    'Permissions',
+    'Roles',
+  ],
   endpoints: (builder) => ({
     // Auth
     login: builder.mutation<
@@ -33,6 +52,10 @@ export const api = createApi({
       void
     >({
       query: () => '/auth/me',
+    }),
+    getUserPermissions: builder.query<UserPermissions, void>({
+      query: () => '/auth/me/permissions',
+      providesTags: ['Permissions'],
     }),
     getSsoConfig: builder.query<
       { enabled: boolean; url: string; realm: string; client_id: string },
@@ -246,8 +269,43 @@ export const api = createApi({
       query: (id) => ({ url: `/admin/users/${id}`, method: 'DELETE' }),
       invalidatesTags: ['User'],
     }),
-    listRoles: builder.query<unknown[], void>({
+    // RBAC: Permissions
+    getAllPermissions: builder.query<Permission[], void>({
+      query: () => '/admin/permissions',
+      providesTags: ['Permissions'],
+    }),
+
+    // RBAC: Roles
+    getAllRoles: builder.query<Role[], void>({
       query: () => '/admin/roles',
+      providesTags: ['Roles'],
+    }),
+    getRoleById: builder.query<Role, number>({
+      query: (id) => `/admin/roles/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Roles', id }],
+    }),
+    createRole: builder.mutation<Role, RoleCreate>({
+      query: (body) => ({
+        url: '/admin/roles',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Roles'],
+    }),
+    updateRole: builder.mutation<Role, { id: number; data: RoleUpdate }>({
+      query: ({ id, data }) => ({
+        url: `/admin/roles/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Roles', id }, 'Roles'],
+    }),
+    deleteRole: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/admin/roles/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Roles'],
     }),
   }),
 })
@@ -288,7 +346,13 @@ export const {
   useCreateUserMutation,
   useUpdateUserMutation,
   useDeleteUserMutation,
-  useListRolesQuery,
+  useGetUserPermissionsQuery,
+  useGetAllPermissionsQuery,
+  useGetAllRolesQuery,
+  useGetRoleByIdQuery,
+  useCreateRoleMutation,
+  useUpdateRoleMutation,
+  useDeleteRoleMutation,
   useListHelmChartsQuery,
   useGetHelmChartQuery,
   useCreateHelmChartMutation,
