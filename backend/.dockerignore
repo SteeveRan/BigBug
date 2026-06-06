@@ -1,0 +1,39 @@
+# Keep the build context lean so layer caching is stable and secrets/dev
+# artefacts never accidentally ship inside the image.
+
+# Python build & cache artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual environments — deps are installed from pyproject inside the image
+.venv/
+venv/
+env/
+
+# Local secrets / runtime overrides must never enter the image
+.env
+.env.*
+
+# Editor / OS metadata
+.vscode/
+.idea/
+.DS_Store
+
+# VCS — irrelevant for runtime
+.git/
+.gitignore
+
+# Tests are unnecessary at runtime; ship them only when building a CI image
+tests/
+
+# Docker-specific files (no need to copy themselves)
+Dockerfile
+.dockerignore

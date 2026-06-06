@@ -1,0 +1,50 @@
+# ruff.toml — Конфигурация линтера и форматтера для BigBug backend.
+#
+# Используется ruff (замена flake8, isort, pyupgrade, и др.).
+# Настройки pyproject.toml [tool.ruff] сохраняются для обратной совместимости,
+# но приоритет имеет ruff.toml.
+
+target-version = "py314"
+line-length = 100
+
+# Директории для исключения из проверки
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    "alembic/versions",
+    "dist",
+    "build",
+    "*.egg-info",
+]
+
+[lint]
+# Правила для проверки
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = []
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]        # неиспользуемые импорты в __init__.py — норма
+"tests/**" = ["S101"]           # assert в тестах — норма
+"alembic/**" = ["INP001"]       # alembic файлы без __init__.py
+
+[format]
+# Настройки форматирования (используется ruff format)
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
