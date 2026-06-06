@@ -1,20 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.gitlab_mirror import GitlabMirror
 from app.models.sync_log import SyncLog
 from app.models.sync_schedule import SyncSchedule
-from app.core.rbac import require_operator, require_viewer
 from app.schemas.mirror import (
-    GitlabMirrorOut,
     CreateMirrorRequest,
+    GitlabMirrorOut,
     ImportMirrorRequest,
-    UpdateMirrorRequest,
     SyncLogOut,
     SyncScheduleOut,
+    UpdateMirrorRequest,
     UpdateSyncScheduleRequest,
 )
 
@@ -39,7 +38,9 @@ async def get_mirror(
     result = await db.execute(select(GitlabMirror).where(GitlabMirror.id == mirror_id))
     mirror = result.scalar_one_or_none()
     if not mirror:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found"
+        )
     return mirror
 
 
@@ -59,7 +60,9 @@ async def create_mirror(
     await db.flush()
 
     # Create default sync schedule
-    schedule = SyncSchedule(mirror_id=mirror.id, is_enabled=True, use_default_schedule=True)
+    schedule = SyncSchedule(
+        mirror_id=mirror.id, is_enabled=True, use_default_schedule=True
+    )
     db.add(schedule)
 
     await db.commit()
@@ -67,7 +70,9 @@ async def create_mirror(
     return mirror
 
 
-@router.post("/import", response_model=GitlabMirrorOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/import", response_model=GitlabMirrorOut, status_code=status.HTTP_201_CREATED
+)
 async def import_mirror(
     data: ImportMirrorRequest,
     db: AsyncSession = Depends(get_db),
@@ -77,7 +82,9 @@ async def import_mirror(
     from app.services.gitlab import gitlab_service
 
     project = await github_service.import_project_from_url(data.github_url, db)
-    mirror = await gitlab_service.import_mirror_from_url(data.gitlab_url, project.id, db)
+    mirror = await gitlab_service.import_mirror_from_url(
+        data.gitlab_url, project.id, db
+    )
     return mirror
 
 
@@ -91,7 +98,9 @@ async def update_mirror(
     result = await db.execute(select(GitlabMirror).where(GitlabMirror.id == mirror_id))
     mirror = result.scalar_one_or_none()
     if not mirror:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found"
+        )
 
     if data.mirrored_branch is not None:
         mirror.mirrored_branch = data.mirrored_branch
@@ -112,7 +121,9 @@ async def delete_mirror(
     result = await db.execute(select(GitlabMirror).where(GitlabMirror.id == mirror_id))
     mirror = result.scalar_one_or_none()
     if not mirror:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found"
+        )
     await db.delete(mirror)
     await db.commit()
 
@@ -127,9 +138,12 @@ async def trigger_sync(
     result = await db.execute(select(GitlabMirror).where(GitlabMirror.id == mirror_id))
     mirror = result.scalar_one_or_none()
     if not mirror:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found"
+        )
 
     from app.services.gitlab import gitlab_service
+
     sync_log = await gitlab_service.trigger_sync(mirror, db, triggered_by="manual")
     return sync_log
 
@@ -161,7 +175,9 @@ async def get_sync_schedule(
     )
     schedule = result.scalar_one_or_none()
     if not schedule:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
+        )
     return schedule
 
 
@@ -177,7 +193,9 @@ async def update_sync_schedule(
     )
     schedule = result.scalar_one_or_none()
     if not schedule:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found"
+        )
 
     if data.is_enabled is not None:
         schedule.is_enabled = data.is_enabled

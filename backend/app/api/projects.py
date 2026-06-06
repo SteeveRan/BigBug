@@ -1,18 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.github_project import GithubProject
-from app.models.github_org import GithubOrg
 from app.models.github_release import GithubRelease
-from app.core.rbac import require_operator, require_viewer
 from app.schemas.project import (
-    GithubProjectOut,
-    GithubProjectListOut,
-    GithubReleaseOut,
     CreateProjectRequest,
+    GithubProjectListOut,
+    GithubProjectOut,
+    GithubReleaseOut,
     ImportProjectRequest,
     UpdateProjectRequest,
 )
@@ -44,7 +43,9 @@ async def get_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
     return project
 
 
@@ -69,17 +70,21 @@ async def create_project(
     _=Depends(require_operator()),
 ):
     from app.services.github import github_service
+
     project = await github_service.import_project_from_url(data.github_url, db)
     return project
 
 
-@router.post("/import", response_model=GithubProjectOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/import", response_model=GithubProjectOut, status_code=status.HTTP_201_CREATED
+)
 async def import_project(
     data: ImportProjectRequest,
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
     from app.services.github import github_service
+
     project = await github_service.import_project_from_url(data.github_url, db)
     return project
 
@@ -98,7 +103,9 @@ async def update_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
 
     if data.custom_description is not None:
         project.custom_description = data.custom_description
@@ -107,7 +114,9 @@ async def update_project(
 
     await db.commit()
     # Refresh only modified scalar attributes; keep eagerly-loaded relationships intact.
-    await db.refresh(project, attribute_names=["custom_description", "stale_threshold_days"])
+    await db.refresh(
+        project, attribute_names=["custom_description", "stale_threshold_days"]
+    )
     return project
 
 
@@ -125,9 +134,12 @@ async def refresh_project(
     )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
 
     from app.services.github import github_service
+
     await github_service.refresh_project(project, db)
     return project
 
@@ -138,9 +150,13 @@ async def delete_project(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(select(GithubProject).where(GithubProject.id == project_id))
+    result = await db.execute(
+        select(GithubProject).where(GithubProject.id == project_id)
+    )
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
+        )
     await db.delete(project)
     await db.commit()

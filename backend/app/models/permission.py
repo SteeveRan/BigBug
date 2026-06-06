@@ -5,8 +5,7 @@ Permissions follow the format "resource:action" (e.g., "mirrors:read").
 The role_permissions table links roles to their assigned permissions.
 """
 
-from sqlalchemy import Column, Integer, String, Text, Table, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, ForeignKey, Integer, String, Table, Text
 
 from app.database import Base
 
@@ -15,7 +14,9 @@ class Permission(Base):
     __tablename__ = "permissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), unique=True, nullable=False, index=True)  # "resource:action"
+    name = Column(
+        String(100), unique=True, nullable=False, index=True
+    )  # "resource:action"
     description = Column(Text, nullable=True)
 
     def __repr__(self) -> str:

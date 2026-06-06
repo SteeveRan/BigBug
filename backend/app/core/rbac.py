@@ -1,11 +1,11 @@
+from collections.abc import Callable
 from enum import StrEnum
-from typing import Callable
 
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import UnauthorizedError, ForbiddenError
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.security import decode_token
 from app.database import get_db
 
@@ -24,8 +24,9 @@ async def get_current_user(
 ):
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
-    from app.models.user import User
+
     from app.models.role import UserRole
+    from app.models.user import User
 
     token = credentials.credentials
     try:
@@ -59,10 +60,9 @@ def require_roles(*roles: RoleName):
     async def dependency(current_user=Depends(get_current_user)):
         user_role_names = {r.name for r in current_user.roles}
         if not any(role.value in user_role_names for role in roles):
-            raise ForbiddenError(
-                f"Required roles: {[r.value for r in roles]}"
-            )
+            raise ForbiddenError(f"Required roles: {[r.value for r in roles]}")
         return current_user
+
     return dependency
 
 
@@ -96,6 +96,7 @@ def require_permission(permission: str) -> Callable:
         3. Falls back to DB lookup for old tokens without permissions
         4. Raises HTTP 403 if not authorized
     """
+
     async def dependency(
         current_user=Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
@@ -110,6 +111,7 @@ def require_permission(permission: str) -> Callable:
             # Fallback: token was issued before Phase 4 or caching is disabled.
             # Perform the full DB lookup via RBACService.
             from app.services.rbac_service import RBACService
+
             rbac_service = RBACService(db)
             cached = await rbac_service.get_user_permissions(current_user.id)
 

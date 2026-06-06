@@ -53,7 +53,9 @@ class SecretCipher:
         except InvalidToken as exc:
             # WHY: Surface a domain-specific error so API layers can map it to
             # a clear 500 instead of leaking cryptography internals.
-            raise SecretEncryptionError("Failed to decrypt secret (wrong key or corrupt data)") from exc
+            raise SecretEncryptionError(
+                "Failed to decrypt secret (wrong key or corrupt data)"
+            ) from exc
 
 
 @lru_cache(maxsize=1)

@@ -2,8 +2,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.gold_image import GoldImage
 from app.models.app_image import AppImage
+from app.models.gold_image import GoldImage
 
 
 @pytest.fixture
@@ -35,7 +35,9 @@ async def sample_app_image(db_session: AsyncSession, sample_gold_image):
 
 
 @pytest.mark.asyncio
-async def test_list_gold_images(client: AsyncClient, operator_token: str, sample_gold_image):
+async def test_list_gold_images(
+    client: AsyncClient, operator_token: str, sample_gold_image
+):
     response = await client.get(
         "/api/gold-images",
         headers={"Authorization": f"Bearer {operator_token}"},
@@ -65,7 +67,9 @@ async def test_create_gold_image(client: AsyncClient, operator_token: str):
 
 
 @pytest.mark.asyncio
-async def test_get_gold_image(client: AsyncClient, operator_token: str, sample_gold_image):
+async def test_get_gold_image(
+    client: AsyncClient, operator_token: str, sample_gold_image
+):
     response = await client.get(
         f"/api/gold-images/{sample_gold_image.id}",
         headers={"Authorization": f"Bearer {operator_token}"},
@@ -75,7 +79,9 @@ async def test_get_gold_image(client: AsyncClient, operator_token: str, sample_g
 
 
 @pytest.mark.asyncio
-async def test_update_gold_image(client: AsyncClient, operator_token: str, sample_gold_image):
+async def test_update_gold_image(
+    client: AsyncClient, operator_token: str, sample_gold_image
+):
     response = await client.patch(
         f"/api/gold-images/{sample_gold_image.id}",
         headers={"Authorization": f"Bearer {operator_token}"},
@@ -86,7 +92,9 @@ async def test_update_gold_image(client: AsyncClient, operator_token: str, sampl
 
 
 @pytest.mark.asyncio
-async def test_list_app_images(client: AsyncClient, operator_token: str, sample_app_image):
+async def test_list_app_images(
+    client: AsyncClient, operator_token: str, sample_app_image
+):
     response = await client.get(
         "/api/app-images",
         headers={"Authorization": f"Bearer {operator_token}"},
@@ -116,7 +124,9 @@ async def test_create_app_image(
 
 
 @pytest.mark.asyncio
-async def test_delete_gold_image(client: AsyncClient, admin_token: str, sample_gold_image):
+async def test_delete_gold_image(
+    client: AsyncClient, admin_token: str, sample_gold_image
+):
     response = await client.delete(
         f"/api/gold-images/{sample_gold_image.id}",
         headers={"Authorization": f"Bearer {admin_token}"},

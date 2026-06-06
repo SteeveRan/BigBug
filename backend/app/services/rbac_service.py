@@ -11,19 +11,19 @@ All methods are pure domain logic and raise domain exceptions (not HTTPException
 The API layer is responsible for mapping those exceptions to HTTP responses.
 """
 
-from sqlalchemy import select, func, exists
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.user import User
-from app.models.role import Role, UserRole
-from app.models.permission import Permission, role_permissions
 from app.core.exceptions import (
-    PermissionNotFoundError,
     CannotModifyBuiltinRoleError,
+    PermissionNotFoundError,
     RoleHasUsersError,
     RoleNotFoundError,
 )
+from app.models.permission import Permission
+from app.models.role import Role, UserRole
+from app.models.user import User
 
 
 class RBACService:
@@ -72,9 +72,7 @@ class RBACService:
 
     async def get_all_permissions(self) -> list[Permission]:
         """Get all available permissions in the system."""
-        result = await self.db.execute(
-            select(Permission).order_by(Permission.name)
-        )
+        result = await self.db.execute(select(Permission).order_by(Permission.name))
         return list(result.scalars().all())
 
     # ------------------------------------------------------------------
@@ -84,9 +82,7 @@ class RBACService:
     async def get_all_roles(self) -> list[Role]:
         """Get all roles with their permissions pre-loaded."""
         result = await self.db.execute(
-            select(Role)
-            .options(selectinload(Role.permissions))
-            .order_by(Role.name)
+            select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
         )
         return list(result.scalars().all())
 
@@ -103,7 +99,9 @@ class RBACService:
     # Role CRUD
     # ------------------------------------------------------------------
 
-    async def _resolve_permissions(self, permission_names: list[str]) -> list[Permission]:
+    async def _resolve_permissions(
+        self, permission_names: list[str]
+    ) -> list[Permission]:
         """
         Fetch Permission objects for a list of permission name strings.
         Raises PermissionNotFoundError if any name is unknown.
@@ -188,7 +186,9 @@ class RBACService:
 
         # Check if any users have this role
         user_count_result = await self.db.execute(
-            select(func.count()).select_from(UserRole).where(UserRole.role_id == role_id)
+            select(func.count())
+            .select_from(UserRole)
+            .where(UserRole.role_id == role_id)
         )
         user_count = user_count_result.scalar() or 0
         if user_count > 0:

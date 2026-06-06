@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -38,18 +38,20 @@ class SchedulerService:
     async def _run_sync_jobs(self) -> None:
         """Run all enabled sync schedules."""
         from app.database import AsyncSessionLocal
-        from app.models.sync_schedule import SyncSchedule
         from app.models.gitlab_mirror import GitlabMirror
+        from app.models.sync_schedule import SyncSchedule
         from app.services.gitlab import gitlab_service
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(SyncSchedule).where(SyncSchedule.is_enabled == True)  # noqa: E712
+                select(SyncSchedule).where(
+                    SyncSchedule.is_enabled == True
+                )  # noqa: E712
             )
             schedules = result.scalars().all()
 
             for schedule in schedules:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
 
                 # Determine effective cron
                 if schedule.use_default_schedule:
@@ -71,7 +73,9 @@ class SchedulerService:
                     continue
 
                 try:
-                    await gitlab_service.trigger_sync(mirror, db, triggered_by="scheduler")
+                    await gitlab_service.trigger_sync(
+                        mirror, db, triggered_by="scheduler"
+                    )
                     schedule.last_run_at = now
                     logger.info(f"Triggered sync for mirror {mirror.id}")
                 except Exception as e:
@@ -82,19 +86,21 @@ class SchedulerService:
     async def _run_build_jobs(self) -> None:
         """Run all enabled build schedules."""
         from app.database import AsyncSessionLocal
+        from app.models.app_image import AppImage
         from app.models.build_schedule import BuildSchedule
         from app.models.gold_image import GoldImage
-        from app.models.app_image import AppImage
         from app.services.build import build_service
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(
-                select(BuildSchedule).where(BuildSchedule.is_enabled == True)  # noqa: E712
+                select(BuildSchedule).where(
+                    BuildSchedule.is_enabled == True
+                )  # noqa: E712
             )
             schedules = result.scalars().all()
 
             for schedule in schedules:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
 
                 if schedule.next_run_at and schedule.next_run_at > now:
                     continue
@@ -102,7 +108,9 @@ class SchedulerService:
                 try:
                     if schedule.image_type == "gold" and schedule.gold_image_id:
                         img_result = await db.execute(
-                            select(GoldImage).where(GoldImage.id == schedule.gold_image_id)
+                            select(GoldImage).where(
+                                GoldImage.id == schedule.gold_image_id
+                            )
                         )
                         image = img_result.scalar_one_or_none()
                         if image:
@@ -122,7 +130,9 @@ class SchedulerService:
                     schedule.last_run_at = now
                     logger.info(f"Triggered build for schedule {schedule.id}")
                 except Exception as e:
-                    logger.error(f"Failed to trigger build for schedule {schedule.id}: {e}")
+                    logger.error(
+                        f"Failed to trigger build for schedule {schedule.id}: {e}"
+                    )
 
             await db.commit()
 

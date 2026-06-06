@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -17,10 +18,16 @@ class ImageVersion(Base):
 
     # FK to parent image — one of these is set, the other is NULL
     gold_image_id = Column(
-        Integer, ForeignKey("gold_images.id", ondelete="CASCADE"), nullable=True, index=True
+        Integer,
+        ForeignKey("gold_images.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
     app_image_id = Column(
-        Integer, ForeignKey("app_images.id", ondelete="CASCADE"), nullable=True, index=True
+        Integer,
+        ForeignKey("app_images.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
 
     # Version info
@@ -40,20 +47,20 @@ class ImageVersion(Base):
     status_text = Column(String(500), nullable=True)
 
     built_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
     gold_image = relationship(
         "GoldImage",
         primaryjoin="and_(ImageVersion.gold_image_id == GoldImage.id, "
-                    "ImageVersion.image_type == 'gold')",
+        "ImageVersion.image_type == 'gold')",
         back_populates="versions",
         foreign_keys=[gold_image_id],
     )
     app_image = relationship(
         "AppImage",
         primaryjoin="and_(ImageVersion.app_image_id == AppImage.id, "
-                    "ImageVersion.image_type == 'app')",
+        "ImageVersion.image_type == 'app')",
         back_populates="versions",
         foreign_keys=[app_image_id],
     )

@@ -1,20 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.models.user import User
-from app.models.role import Role, UserRole
-from app.core.security import get_password_hash
-from app.core.rbac import require_admin, require_permission
 from app.core.exceptions import (
-    PermissionNotFoundError,
     CannotModifyBuiltinRoleError,
+    PermissionNotFoundError,
     RoleHasUsersError,
     RoleNotFoundError,
 )
-from app.schemas.auth import UserOut, UserCreate, UserUpdate
-from app.schemas.rbac import PermissionOut, RoleDetailOut, RoleCreate, RoleUpdate
+from app.core.rbac import require_admin, require_permission
+from app.core.security import get_password_hash
+from app.database import get_db
+from app.models.role import Role, UserRole
+from app.models.user import User
+from app.schemas.auth import UserCreate, UserOut, UserUpdate
+from app.schemas.rbac import PermissionOut, RoleCreate, RoleDetailOut, RoleUpdate
 from app.services.rbac_service import RBACService
 
 router = APIRouter()
@@ -47,10 +47,15 @@ async def create_user(
 ):
     # Check uniqueness
     existing = await db.execute(
-        select(User).where((User.username == data.username) | (User.email == data.email))
+        select(User).where(
+            (User.username == data.username) | (User.email == data.email)
+        )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username or email already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username or email already exists",
+        )
 
     user = User(
         username=data.username,
@@ -88,7 +93,9 @@ async def update_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
     if data.email is not None:
         user.email = data.email
@@ -97,9 +104,7 @@ async def update_user(
 
     if data.roles is not None:
         # Remove existing roles
-        await db.execute(
-            UserRole.__table__.delete().where(UserRole.user_id == user_id)
-        )
+        await db.execute(UserRole.__table__.delete().where(UserRole.user_id == user_id))
         for role_name in data.roles:
             role_result = await db.execute(select(Role).where(Role.name == role_name))
             role = role_result.scalar_one_or_none()
@@ -126,7 +131,9 @@ async def delete_user(
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     await db.delete(user)
     await db.commit()
 
@@ -171,11 +178,15 @@ async def get_role(
     service = RBACService(db)
     role = await service.get_role_by_id(role_id)
     if role is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+        )
     return role
 
 
-@router.post("/roles", response_model=RoleDetailOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/roles", response_model=RoleDetailOut, status_code=status.HTTP_201_CREATED
+)
 async def create_role(
     data: RoleCreate,
     db: AsyncSession = Depends(get_db),

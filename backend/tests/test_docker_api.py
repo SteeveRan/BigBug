@@ -119,11 +119,15 @@ async def test_create_docker_source(client: AsyncClient, operator_token: str):
 
 
 @pytest.mark.asyncio
-async def test_create_docker_source_with_image_name(client: AsyncClient, operator_token: str):
+async def test_create_docker_source_with_image_name(
+    client: AsyncClient, operator_token: str
+):
     """POST /api/docker-images with image_name triggers indexing."""
     with patch("app.services.docker.DockerRegistryService._fetch_tags") as mock_fetch:
         mock_fetch.return_value = {"name": "library/alpine", "tags": ["3.19", "3.20"]}
-        with patch("app.services.docker.DockerRegistryService._resolve_manifest_digest") as mock_digest:
+        with patch(
+            "app.services.docker.DockerRegistryService._resolve_manifest_digest"
+        ) as mock_digest:
             mock_digest.return_value = "sha256:def456"
 
             response = await client.post(
@@ -220,8 +224,13 @@ async def test_index_docker_source_with_image_name(
 ):
     """POST /api/docker-images/{id}/index?image_name=nginx indexes tags."""
     with patch("app.services.docker.DockerRegistryService._fetch_tags") as mock_fetch:
-        mock_fetch.return_value = {"name": "library/nginx", "tags": ["1.27-alpine", "latest"]}
-        with patch("app.services.docker.DockerRegistryService._resolve_manifest_digest") as mock_digest:
+        mock_fetch.return_value = {
+            "name": "library/nginx",
+            "tags": ["1.27-alpine", "latest"],
+        }
+        with patch(
+            "app.services.docker.DockerRegistryService._resolve_manifest_digest"
+        ) as mock_digest:
             mock_digest.return_value = "sha256:indexed"
 
             response = await client.post(

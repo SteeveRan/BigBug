@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,7 +11,10 @@ class GithubRelease(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(
-        Integer, ForeignKey("github_projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("github_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     github_release_id = Column(Integer, nullable=True, unique=True)
@@ -20,7 +24,7 @@ class GithubRelease(Base):
     is_prerelease = Column(Boolean, default=False, nullable=False)
     is_draft = Column(Boolean, default=False, nullable=False)
     published_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
     project = relationship("GithubProject", back_populates="releases")

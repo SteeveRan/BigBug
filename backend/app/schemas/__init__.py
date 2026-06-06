@@ -1,8 +1,8 @@
 from app.schemas.rbac import (
     PermissionOut,
-    RoleOut,
-    RoleDetailOut,
     RoleCreate,
+    RoleDetailOut,
+    RoleOut,
     RoleUpdate,
     UserPermissionsOut,
 )

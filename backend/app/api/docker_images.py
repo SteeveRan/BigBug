@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
-from app.core.rbac import require_operator, require_viewer
 from app.schemas.docker import (
-    DockerImageSourceOut,
+    CreateDockerImageSourceRequest,
     DockerImageSourceDetailOut,
+    DockerImageSourceOut,
     DockerImageTagOut,
     DockerSyncLogOut,
-    CreateDockerImageSourceRequest,
     UpdateDockerImageSourceRequest,
 )
 
@@ -21,6 +21,7 @@ router = APIRouter()
 
 
 # ──── Sources CRUD ─────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[DockerImageSourceOut])
 async def list_sources(
@@ -117,6 +118,7 @@ async def delete_source(
 
 # ──── Index / Sync ─────────────────────────────────────────────────────────
 
+
 @router.post("/{source_id}/index", response_model=DockerSyncLogOut)
 async def index_source(
     source_id: int,
@@ -145,6 +147,7 @@ async def index_source(
 
 # ──── Tags ─────────────────────────────────────────────────────────────────
 
+
 @router.get("/{source_id}/tags", response_model=list[DockerImageTagOut])
 async def list_tags(
     source_id: int,
@@ -169,6 +172,7 @@ async def list_tags(
 
 
 # ──── Sync Logs ────────────────────────────────────────────────────────────
+
 
 @router.get("/{source_id}/logs", response_model=list[DockerSyncLogOut])
 async def get_sync_logs(

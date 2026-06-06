@@ -9,8 +9,12 @@ from unittest.mock import patch
 import pytest
 from cryptography.fernet import Fernet
 
-from app.core.secrets import SecretCipher, SecretEncryptionError, encrypt_secret, decrypt_secret
-
+from app.core.secrets import (
+    SecretCipher,
+    SecretEncryptionError,
+    decrypt_secret,
+    encrypt_secret,
+)
 
 # A valid Fernet key for module-level helper tests (URL-safe base64 32 bytes).
 _VALID_FERNET_KEY = "mWcJRzG34XG8yDTrgmK7YfO4s2t1IC1Bq-8xO7GMHPg="
@@ -71,6 +75,7 @@ class TestModuleLevelHelpers:
             mock_settings.encryption_key = _VALID_FERNET_KEY
             # Clear the cached get_cipher result so the mock takes effect.
             from app.core.secrets import get_cipher
+
             get_cipher.cache_clear()
             yield
             get_cipher.cache_clear()

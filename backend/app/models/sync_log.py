@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,7 +11,10 @@ class SyncLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     mirror_id = Column(
-        Integer, ForeignKey("gitlab_mirrors.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("gitlab_mirrors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     pipeline_id = Column(String(255), nullable=True)
@@ -21,11 +25,13 @@ class SyncLog(Base):
     status_text = Column(String(500), nullable=True)
     log_output = Column(Text, nullable=True)
 
-    triggered_by = Column(String(100), nullable=True)  # "scheduler" | "manual" | "webhook"
+    triggered_by = Column(
+        String(100), nullable=True
+    )  # "scheduler" | "manual" | "webhook"
 
     started_at = Column(DateTime(timezone=True), nullable=True)
     finished_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
     mirror = relationship("GitlabMirror", back_populates="sync_logs")

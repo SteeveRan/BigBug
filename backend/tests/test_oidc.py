@@ -27,7 +27,6 @@ from app.services.oidc import (
     _JWKSCache,
 )
 
-
 # ─── helpers ────────────────────────────────────────────────────────────────
 
 
@@ -39,10 +38,14 @@ def _build_rsa_keypair() -> tuple[str, str]:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ).decode("ascii")
-    public_pem = key.public_key().public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode("ascii")
+    public_pem = (
+        key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
     return private_pem, public_pem
 
 
@@ -106,6 +109,7 @@ async def seeded_roles(db_session: AsyncSession):
     have already created the same roles in a shared session.
     """
     from sqlalchemy import text as sa_text
+
     roles = {}
     for name in RoleName:
         # Use INSERT OR IGNORE so the fixture is safe when called together
@@ -264,9 +268,7 @@ async def test_validate_id_token_bad_signature(db_session, rsa_keys, mock_http_c
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_new(
-    db_session, mock_http_client, seeded_roles
-):
+async def test_provision_or_update_user_new(db_session, mock_http_client, seeded_roles):
     """A new SSO user is created with the correct claims and roles."""
     claims = OIDCClaims(
         subject="kc-new-user",
@@ -285,6 +287,7 @@ async def test_provision_or_update_user_new(
 
     # Re-query with eager-load to avoid MissingGreenlet on lazy relationships
     from sqlalchemy.orm import selectinload
+
     result = await db_session.execute(
         select(User).options(selectinload(User.user_roles)).where(User.id == user.id)
     )
@@ -326,6 +329,7 @@ async def test_provision_or_update_user_existing(
 
     # Re-query with eager-load to avoid MissingGreenlet on lazy relationships
     from sqlalchemy.orm import selectinload
+
     result = await db_session.execute(
         select(User).options(selectinload(User.user_roles)).where(User.id == updated.id)
     )
@@ -364,9 +368,7 @@ async def test_provision_or_update_user_find_by_email(
 
 
 @pytest.mark.asyncio
-async def test_sync_roles_add_and_remove(
-    db_session, mock_http_client, seeded_roles
-):
+async def test_sync_roles_add_and_remove(db_session, mock_http_client, seeded_roles):
     """_sync_roles adds new roles and removes revoked ones."""
     user = User(
         username="roles_test",
@@ -439,30 +441,36 @@ async def test_sync_roles_none(db_session, mock_http_client, seeded_roles):
 
 class TestExtractClaims:
     def test_normal_payload(self):
-        claims = KeycloakOIDCService._extract_claims({
-            "sub": "abc",
-            "preferred_username": "john",
-            "email": "john@example.com",
-            "realm_access": {"roles": ["admin", "operator"]},
-        })
+        claims = KeycloakOIDCService._extract_claims(
+            {
+                "sub": "abc",
+                "preferred_username": "john",
+                "email": "john@example.com",
+                "realm_access": {"roles": ["admin", "operator"]},
+            }
+        )
         assert claims.subject == "abc"
         assert claims.username == "john"
         assert claims.email == "john@example.com"
         assert claims.roles == frozenset({"admin", "operator"})
 
     def test_no_preferred_username_falls_back_to_email(self):
-        claims = KeycloakOIDCService._extract_claims({
-            "sub": "abc",
-            "email": "john@example.com",
-            "realm_access": {"roles": []},
-        })
+        claims = KeycloakOIDCService._extract_claims(
+            {
+                "sub": "abc",
+                "email": "john@example.com",
+                "realm_access": {"roles": []},
+            }
+        )
         assert claims.username == "john"
 
     def test_unknown_roles_filtered(self):
-        claims = KeycloakOIDCService._extract_claims({
-            "sub": "abc",
-            "preferred_username": "jane",
-            "email": "jane@example.com",
-            "realm_access": {"roles": ["admin", "custom-app-role"]},
-        })
+        claims = KeycloakOIDCService._extract_claims(
+            {
+                "sub": "abc",
+                "preferred_username": "jane",
+                "email": "jane@example.com",
+                "realm_access": {"roles": ["admin", "custom-app-role"]},
+            }
+        )
         assert claims.roles == frozenset({"admin"})

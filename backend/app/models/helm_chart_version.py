@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -12,8 +13,10 @@ class HelmChartVersion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     source_id = Column(
-        Integer, ForeignKey("helm_chart_sources.id", ondelete="CASCADE"),
-        nullable=False, index=True,
+        Integer,
+        ForeignKey("helm_chart_sources.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     # Chart identity
@@ -23,9 +26,9 @@ class HelmChartVersion(Base):
     description = Column(Text, nullable=True)
 
     # Package metadata (from index.yaml entry)
-    digest = Column(String(255), nullable=True)          # SHA-256 digest from index.yaml
-    urls = Column(Text, nullable=True)                    # JSON array of download URLs
-    chart_url = Column(String(500), nullable=True)        # Primary download URL
+    digest = Column(String(255), nullable=True)  # SHA-256 digest from index.yaml
+    urls = Column(Text, nullable=True)  # JSON array of download URLs
+    chart_url = Column(String(500), nullable=True)  # Primary download URL
 
     # GitLab mirror tracking
     gitlab_project_id = Column(String(255), nullable=True)
@@ -39,7 +42,7 @@ class HelmChartVersion(Base):
     is_synced = Column(Boolean, default=False, nullable=False)
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
     source = relationship("HelmChartSource", back_populates="versions")

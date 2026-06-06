@@ -1,15 +1,14 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import gitlab
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.config import settings
-from app.models.gold_image import GoldImage
-from app.models.app_image import AppImage
-from app.models.image_version import ImageVersion
-from app.models.build_log import BuildLog
 from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.models.app_image import AppImage
+from app.models.build_log import BuildLog
+from app.models.gold_image import GoldImage
+from app.models.image_version import ImageVersion
 
 
 class BuildService:
@@ -42,21 +41,23 @@ class BuildService:
         try:
             gl = self._get_gitlab_client()
             gl_project = gl.projects.get(image.gitlab_project_id)
-            pipeline = gl_project.pipelines.create({
-                "ref": "main",
-                "variables": [
-                    {"key": "VERSION_TAG", "value": version_tag},
-                    {"key": "TARGET_ARCH", "value": arch},
-                    {"key": "IMAGE_VERSION_ID", "value": str(version.id)},
-                ],
-            })
+            pipeline = gl_project.pipelines.create(
+                {
+                    "ref": "main",
+                    "variables": [
+                        {"key": "VERSION_TAG", "value": version_tag},
+                        {"key": "TARGET_ARCH", "value": arch},
+                        {"key": "IMAGE_VERSION_ID", "value": str(version.id)},
+                    ],
+                }
+            )
         except gitlab.exceptions.GitlabError as e:
             version.status_flag = 1
             version.status_text = f"Failed to trigger pipeline: {e}"
             await db.commit()
             raise ExternalServiceError("GitLab", str(e))
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         build_log = BuildLog(
             image_version_id=version.id,
             pipeline_id=str(pipeline.id),
@@ -101,21 +102,23 @@ class BuildService:
         try:
             gl = self._get_gitlab_client()
             gl_project = gl.projects.get(image.gitlab_project_id)
-            pipeline = gl_project.pipelines.create({
-                "ref": "main",
-                "variables": [
-                    {"key": "VERSION_TAG", "value": version_tag},
-                    {"key": "TARGET_ARCH", "value": arch},
-                    {"key": "IMAGE_VERSION_ID", "value": str(version.id)},
-                ],
-            })
+            pipeline = gl_project.pipelines.create(
+                {
+                    "ref": "main",
+                    "variables": [
+                        {"key": "VERSION_TAG", "value": version_tag},
+                        {"key": "TARGET_ARCH", "value": arch},
+                        {"key": "IMAGE_VERSION_ID", "value": str(version.id)},
+                    ],
+                }
+            )
         except gitlab.exceptions.GitlabError as e:
             version.status_flag = 1
             version.status_text = f"Failed to trigger pipeline: {e}"
             await db.commit()
             raise ExternalServiceError("GitLab", str(e))
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         build_log = BuildLog(
             image_version_id=version.id,
             pipeline_id=str(pipeline.id),

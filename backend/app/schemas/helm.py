@@ -1,8 +1,9 @@
 from datetime import datetime
+
 from pydantic import BaseModel
 
-
 # ──── HelmChartVersion ────────────────────────────────────────────────────
+
 
 class HelmChartVersionOut(BaseModel):
     id: int
@@ -24,6 +25,7 @@ class HelmChartVersionOut(BaseModel):
 
 # ──── HelmSyncLog ─────────────────────────────────────────────────────────
 
+
 class HelmSyncLogOut(BaseModel):
     id: int
     source_id: int
@@ -41,6 +43,7 @@ class HelmSyncLogOut(BaseModel):
 
 
 # ──── HelmChartSource ─────────────────────────────────────────────────────
+
 
 class HelmChartSourceOut(BaseModel):
     id: int
@@ -65,6 +68,7 @@ class HelmChartSourceDetailOut(HelmChartSourceOut):
 
 
 # ──── Requests ────────────────────────────────────────────────────────────
+
 
 class CreateHelmChartSourceRequest(BaseModel):
     name: str

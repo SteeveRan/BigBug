@@ -1,6 +1,6 @@
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -8,11 +8,10 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 from app.models.helm_sync_log import HelmSyncLog
-from app.core.exceptions import BadRequestError, ExternalServiceError
 
 
 def _normalize_repo_url(url: str) -> str:
@@ -26,7 +25,9 @@ def _normalize_repo_url(url: str) -> str:
 def _validate_repo_url(url: str) -> None:
     """Raise BadRequestError if the URL is not a plausible Helm repo."""
     if not re.match(r"^https?://", url):
-        raise BadRequestError(f"Helm repo URL must start with http:// or https://: {url}")
+        raise BadRequestError(
+            f"Helm repo URL must start with http:// or https://: {url}"
+        )
 
 
 class HelmService:
@@ -48,7 +49,9 @@ class HelmService:
             select(HelmChartSource).where(HelmChartSource.name == name)
         )
         if existing_result.scalar_one_or_none() is not None:
-            raise BadRequestError(f"Helm chart source with name '{name}' already exists")
+            raise BadRequestError(
+                f"Helm chart source with name '{name}' already exists"
+            )
 
         source = HelmChartSource(
             name=name,
@@ -69,7 +72,7 @@ class HelmService:
         self, source: HelmChartSource, db: AsyncSession
     ) -> HelmSyncLog:
         """Fetch index.yaml and sync chart versions for a source."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sync_log = HelmSyncLog(
             source_id=source.id,
             status_flag=3,  # in_progress
@@ -89,7 +92,7 @@ class HelmService:
             sync_log.status_flag = 1
             sync_log.status_text = "failed"
             sync_log.log_output = str(e)
-            sync_log.finished_at = datetime.now(timezone.utc)
+            sync_log.finished_at = datetime.now(UTC)
             source.status_flag = 1
             source.status_text = f"Failed to fetch index: {e}"
             await db.flush()
@@ -103,7 +106,7 @@ class HelmService:
             sync_log.status_flag = 1
             sync_log.status_text = "failed"
             sync_log.log_output = f"Failed to sync entries: {e}"
-            sync_log.finished_at = datetime.now(timezone.utc)
+            sync_log.finished_at = datetime.now(UTC)
             source.status_flag = 1
             source.status_text = f"Entry sync error: {e}"
             await db.flush()
@@ -111,21 +114,21 @@ class HelmService:
 
         sync_log.status_flag = 0
         sync_log.status_text = "success"
-        sync_log.log_output = (
-            f"Indexed {len(entries)} chart(s) from {source.repo_url}"
-        )
-        sync_log.finished_at = datetime.now(timezone.utc)
+        sync_log.log_output = f"Indexed {len(entries)} chart(s) from {source.repo_url}"
+        sync_log.finished_at = datetime.now(UTC)
 
         source.status_flag = 0
         source.status_text = "ok"
-        source.last_synced_at = datetime.now(timezone.utc)
+        source.last_synced_at = datetime.now(UTC)
 
         await db.flush()
         return sync_log
 
     async def _fetch_index(self, repo_url: str) -> dict[str, Any]:
         """Download and parse index.yaml."""
-        headers: dict[str, str] = {"Accept": "application/x-yaml, application/yaml, text/yaml"}
+        headers: dict[str, str] = {
+            "Accept": "application/x-yaml, application/yaml, text/yaml"
+        }
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
@@ -174,7 +177,9 @@ class HelmService:
                     existing.app_version = entry.get("appVersion")
                     existing.description = entry.get("description")
                     existing.urls = json.dumps(entry.get("urls", []))
-                    existing.chart_url = entry.get("urls", [None])[0] if entry.get("urls") else None
+                    existing.chart_url = (
+                        entry.get("urls", [None])[0] if entry.get("urls") else None
+                    )
                 else:
                     chart_version = HelmChartVersion(
                         source_id=source.id,
@@ -184,11 +189,13 @@ class HelmService:
                         description=entry.get("description"),
                         digest=digest,
                         urls=json.dumps(entry.get("urls", [])),
-                        chart_url=entry.get("urls", [None])[0] if entry.get("urls") else None,
+                        chart_url=(
+                            entry.get("urls", [None])[0] if entry.get("urls") else None
+                        ),
                         status_flag=0,  # ok — newly indexed
                         status_text="ok",
                         is_synced=True,
-                        last_synced_at=datetime.now(timezone.utc),
+                        last_synced_at=datetime.now(UTC),
                     )
                     db.add(chart_version)
 
@@ -208,7 +215,7 @@ class HelmService:
         Creates a HelmSyncLog entry with status pending. The actual pipeline
         execution happens in GitLab CI via the helm-sync-template.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sync_log = HelmSyncLog(
             source_id=source.id,
             status_flag=4,  # pending

@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,7 +11,10 @@ class GitlabMirror(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(
-        Integer, ForeignKey("github_projects.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("github_projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     # GitLab project info
@@ -35,11 +39,11 @@ class GitlabMirror(Base):
     # Import flag: True if mirror was imported from existing GitLab project
     is_imported = Column(Boolean, default=False, nullable=False)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

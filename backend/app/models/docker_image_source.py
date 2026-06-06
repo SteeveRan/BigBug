@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -16,7 +17,9 @@ class DockerImageSource(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
-    registry_url = Column(String(500), nullable=False)  # e.g., https://registry-1.docker.io
+    registry_url = Column(
+        String(500), nullable=False
+    )  # e.g., https://registry-1.docker.io
     description = Column(Text, nullable=True)
 
     # GitLab mirror project for Docker sync pipelines
@@ -30,11 +33,11 @@ class DockerImageSource(Base):
     status_flag = Column(Integer, nullable=False, default=4)
     status_text = Column(String(500), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

@@ -82,4 +82,3 @@ class RoleHasUsersError(RuntimeError):
 
 class RoleNotFoundError(RuntimeError):
     """The requested role does not exist."""
-

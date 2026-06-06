@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,10 +11,16 @@ class AppImage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(
-        Integer, ForeignKey("github_projects.id", ondelete="SET NULL"), nullable=True, index=True
+        Integer,
+        ForeignKey("github_projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     gold_image_id = Column(
-        Integer, ForeignKey("gold_images.id", ondelete="SET NULL"), nullable=True, index=True
+        Integer,
+        ForeignKey("gold_images.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     name = Column(String(255), nullable=False, index=True)
@@ -22,11 +29,11 @@ class AppImage(Base):
     gitlab_project_id = Column(String(255), nullable=True)
     gitlab_project_url = Column(String(500), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships
@@ -35,14 +42,14 @@ class AppImage(Base):
     versions = relationship(
         "ImageVersion",
         primaryjoin="and_(ImageVersion.app_image_id == AppImage.id, "
-                    "ImageVersion.image_type == 'app')",
+        "ImageVersion.image_type == 'app')",
         back_populates="app_image",
         cascade="all, delete-orphan",
     )
     build_schedules = relationship(
         "BuildSchedule",
         primaryjoin="and_(BuildSchedule.app_image_id == AppImage.id, "
-                    "BuildSchedule.image_type == 'app')",
+        "BuildSchedule.image_type == 'app')",
         back_populates="app_image",
         cascade="all, delete-orphan",
     )

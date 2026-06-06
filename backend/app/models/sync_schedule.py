@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -10,7 +11,10 @@ class SyncSchedule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     mirror_id = Column(
-        Integer, ForeignKey("gitlab_mirrors.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer,
+        ForeignKey("gitlab_mirrors.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     cron_expression = Column(String(100), nullable=True)
@@ -19,11 +23,11 @@ class SyncSchedule(Base):
 
     next_run_at = Column(DateTime(timezone=True), nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

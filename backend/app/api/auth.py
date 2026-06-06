@@ -1,23 +1,31 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.exceptions import (
+    OIDCExchangeError,
+    OIDCInvalidTokenError,
+    OIDCProvisioningError,
+)
+from app.core.rbac import get_current_user
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    verify_password,
+)
 from app.database import get_db
 from app.models.user import User
-from app.models.role import Role, UserRole
-from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token
-from app.core.rbac import get_current_user
-from app.core.exceptions import OIDCExchangeError, OIDCInvalidTokenError, OIDCProvisioningError
 from app.schemas.auth import (
     LoginRequest,
-    TokenResponse,
-    RefreshRequest,
-    UserOut,
     OIDCExchangeRequest,
+    RefreshRequest,
     SSOConfig,
+    TokenResponse,
+    UserOut,
 )
 from app.schemas.rbac import UserPermissionsOut
 from app.services.oidc import KeycloakOIDCService
@@ -34,17 +42,27 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = result.scalar_one_or_none()
 
     if not user or not user.hashed_password:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
     if not verify_password(data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive"
+        )
 
     # Load permissions to include in JWT for RBAC caching
     rbac_service = RBACService(db)
     permissions = await rbac_service.get_user_permissions(user.id)
 
-    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
+    token_data = {
+        "sub": str(user.id),
+        "username": user.username,
+        "permissions": permissions,
+    }
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -56,23 +74,34 @@ async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)
     try:
         payload = decode_token(data.refresh_token)
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
 
     if payload.get("type") != "refresh":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not a refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not a refresh token"
+        )
 
     user_id = payload.get("sub")
     result = await db.execute(select(User).where(User.id == int(user_id)))
     user = result.scalar_one_or_none()
 
     if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
 
     # Load fresh permissions to include in JWT for RBAC caching
     rbac_service = RBACService(db)
     permissions = await rbac_service.get_user_permissions(user.id)
 
-    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
+    token_data = {
+        "sub": str(user.id),
+        "username": user.username,
+        "permissions": permissions,
+    }
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -121,7 +150,9 @@ async def sso_config():
     server-to-server communication, but browser needs publicly accessible URL.
     """
     return SSOConfig(
-        enabled=bool(settings.keycloak_frontend_client_id and settings.keycloak_public_url),
+        enabled=bool(
+            settings.keycloak_frontend_client_id and settings.keycloak_public_url
+        ),
         url=settings.keycloak_public_url,
         realm=settings.keycloak_realm,
         client_id=settings.keycloak_frontend_client_id,
@@ -154,16 +185,24 @@ async def oidc_exchange(data: OIDCExchangeRequest, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
     except OIDCProvisioningError as exc:
         logger.error("oidc_provisioning_failed", extra={"error": str(exc)})
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
 
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive"
+        )
 
     # Load permissions to include in JWT for RBAC caching
     rbac_service = RBACService(db)
     permissions = await rbac_service.get_user_permissions(user.id)
 
-    token_data = {"sub": str(user.id), "username": user.username, "permissions": permissions}
+    token_data = {
+        "sub": str(user.id),
+        "username": user.username,
+        "permissions": permissions,
+    }
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),

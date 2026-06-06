@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime
+from datetime import UTC, datetime
+
+from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -14,12 +15,14 @@ class GithubOrg(Base):
     type = Column(String(50), nullable=False, default="Organization")
     avatar_url = Column(String(500), nullable=True)
     github_id = Column(Integer, nullable=True, unique=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships
-    projects = relationship("GithubProject", back_populates="org", cascade="all, delete-orphan")
+    projects = relationship(
+        "GithubProject", back_populates="org", cascade="all, delete-orphan"
+    )

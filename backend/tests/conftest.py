@@ -1,16 +1,17 @@
 import asyncio
+
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.database import Base, get_db
-from app.models.user import User
-from app.models.role import Role, UserRole
 from app.core.security import get_password_hash
+from app.database import Base, get_db
+from app.main import app
+from app.models.role import Role, UserRole
+from app.models.user import User
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -81,9 +82,7 @@ async def admin_role(db_session: AsyncSession):
 @pytest_asyncio.fixture
 async def admin_user(db_session: AsyncSession, admin_role):
     """Get or create the admin user (idempotent across tests)."""
-    result = await db_session.execute(
-        select(User).where(User.username == "testadmin")
-    )
+    result = await db_session.execute(select(User).where(User.username == "testadmin"))
     user = result.scalar_one_or_none()
     if user is not None:
         return user

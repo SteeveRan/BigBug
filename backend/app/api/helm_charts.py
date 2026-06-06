@@ -1,19 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 from app.models.helm_sync_log import HelmSyncLog
-from app.core.rbac import require_operator, require_viewer
 from app.schemas.helm import (
-    HelmChartSourceOut,
+    CreateHelmChartSourceRequest,
     HelmChartSourceDetailOut,
+    HelmChartSourceOut,
     HelmChartVersionOut,
     HelmSyncLogOut,
-    CreateHelmChartSourceRequest,
     UpdateHelmChartSourceRequest,
 )
 
@@ -21,6 +21,7 @@ router = APIRouter()
 
 
 # ──── Sources CRUD ────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[HelmChartSourceOut])
 async def list_sources(
@@ -44,7 +45,9 @@ async def get_source(
     )
     source = result.scalar_one_or_none()
     if not source:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found"
+        )
     return source
 
 
@@ -55,6 +58,7 @@ async def create_source(
     _=Depends(require_operator()),
 ):
     from app.services.helm import helm_service
+
     source = await helm_service.import_source_from_url(data.name, data.repo_url, db)
     return source
 
@@ -71,7 +75,9 @@ async def update_source(
     )
     source = result.scalar_one_or_none()
     if not source:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found"
+        )
 
     if data.name is not None:
         source.name = data.name  # type: ignore[assignment]
@@ -91,15 +97,20 @@ async def delete_source(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
+    result = await db.execute(
+        select(HelmChartSource).where(HelmChartSource.id == source_id)
+    )
     source = result.scalar_one_or_none()
     if not source:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found"
+        )
     await db.delete(source)
     await db.commit()
 
 
 # ──── Index / Sync ─────────────────────────────────────────────────────────
+
 
 @router.post("/{source_id}/index", response_model=HelmSyncLogOut)
 async def index_source(
@@ -113,9 +124,12 @@ async def index_source(
     )
     source = result.scalar_one_or_none()
     if not source:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Helm chart source not found"
+        )
 
     from app.services.helm import helm_service
+
     sync_log = await helm_service.refresh_source(source, db)
     await db.commit()
     await db.refresh(sync_log)
@@ -123,6 +137,7 @@ async def index_source(
 
 
 # ──── Versions ─────────────────────────────────────────────────────────────
+
 
 @router.get("/{source_id}/versions", response_model=list[HelmChartVersionOut])
 async def list_versions(
@@ -132,11 +147,13 @@ async def list_versions(
     _=Depends(require_viewer()),
 ):
     """List chart versions for a source. Optionally filter by chart_name."""
-    stmt = select(HelmChartVersion).where(
-        HelmChartVersion.source_id == source_id
-    ).order_by(
-        HelmChartVersion.chart_name,
-        HelmChartVersion.version.desc(),
+    stmt = (
+        select(HelmChartVersion)
+        .where(HelmChartVersion.source_id == source_id)
+        .order_by(
+            HelmChartVersion.chart_name,
+            HelmChartVersion.version.desc(),
+        )
     )
     if chart_name:
         stmt = stmt.where(HelmChartVersion.chart_name == chart_name)
@@ -146,6 +163,7 @@ async def list_versions(
 
 
 # ──── Sync Logs ────────────────────────────────────────────────────────────
+
 
 @router.get("/{source_id}/logs", response_model=list[HelmSyncLogOut])
 async def get_sync_logs(

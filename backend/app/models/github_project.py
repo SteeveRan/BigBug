@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -9,7 +10,9 @@ class GithubProject(Base):
     __tablename__ = "github_projects"
 
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("github_orgs.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(
+        Integer, ForeignKey("github_orgs.id", ondelete="CASCADE"), nullable=False
+    )
 
     # GitHub metadata
     github_id = Column(Integer, nullable=True, unique=True)
@@ -23,8 +26,8 @@ class GithubProject(Base):
     homepage_url = Column(String(500), nullable=True)
 
     # License
-    license_spdx = Column(String(100), nullable=True)   # e.g. "MIT", "Apache-2.0"
-    license_name = Column(String(255), nullable=True)   # full name
+    license_spdx = Column(String(100), nullable=True)  # e.g. "MIT", "Apache-2.0"
+    license_name = Column(String(255), nullable=True)  # full name
     license_text = Column(Text, nullable=True)
 
     # Flags
@@ -41,15 +44,19 @@ class GithubProject(Base):
     github_updated_at = Column(DateTime(timezone=True), nullable=True)
     github_pushed_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships
     org = relationship("GithubOrg", back_populates="projects")
-    releases = relationship("GithubRelease", back_populates="project", cascade="all, delete-orphan")
-    mirrors = relationship("GitlabMirror", back_populates="project", cascade="all, delete-orphan")
+    releases = relationship(
+        "GithubRelease", back_populates="project", cascade="all, delete-orphan"
+    )
+    mirrors = relationship(
+        "GitlabMirror", back_populates="project", cascade="all, delete-orphan"
+    )
     app_images = relationship("AppImage", back_populates="project")

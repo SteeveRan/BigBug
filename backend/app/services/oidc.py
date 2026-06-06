@@ -112,7 +112,9 @@ class KeycloakOIDCService:
 
     # --- public API -----------------------------------------------------------
 
-    async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
+    async def exchange_code(
+        self, code: str, redirect_uri: str, code_verifier: str
+    ) -> dict:
         """
         Exchange an authorization code for a token set at Keycloak's token
         endpoint using PKCE.
@@ -135,7 +137,9 @@ class KeycloakOIDCService:
             async with self._client() as client:
                 response = await client.post(settings.keycloak_token_url, data=data)
         except httpx.HTTPError as exc:
-            logger.warning("oidc_token_exchange_network_error", extra={"error": str(exc)})
+            logger.warning(
+                "oidc_token_exchange_network_error", extra={"error": str(exc)}
+            )
             raise OIDCExchangeError("Could not reach the identity provider") from exc
 
         if response.status_code != httpx.codes.OK:
@@ -143,7 +147,10 @@ class KeycloakOIDCService:
             # not leak provider internals to the caller.
             logger.warning(
                 "oidc_token_exchange_rejected",
-                extra={"status_code": response.status_code, "body": response.text[:500]},
+                extra={
+                    "status_code": response.status_code,
+                    "body": response.text[:500],
+                },
             )
             raise OIDCExchangeError("Authorization code exchange was rejected")
 
@@ -268,7 +275,9 @@ class KeycloakOIDCService:
         # preferred_username is Keycloak's canonical login name; fall back to
         # email local-part so we always have a non-empty username.
         email = payload.get("email", "") or ""
-        username = payload.get("preferred_username") or (email.split("@")[0] if email else subject)
+        username = payload.get("preferred_username") or (
+            email.split("@")[0] if email else subject
+        )
         realm_roles = payload.get("realm_access", {}).get("roles", []) or []
         roles = frozenset(r for r in realm_roles if r in _KNOWN_ROLES)
         return OIDCClaims(subject=subject, username=username, email=email, roles=roles)
@@ -283,7 +292,9 @@ class KeycloakOIDCService:
         if user is not None:
             return user
         if claims.email:
-            result = await self._db.execute(select(User).where(User.email == claims.email))
+            result = await self._db.execute(
+                select(User).where(User.email == claims.email)
+            )
             return result.scalar_one_or_none()
         return None
 

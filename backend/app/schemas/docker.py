@@ -1,8 +1,9 @@
 from datetime import datetime
+
 from pydantic import BaseModel
 
-
 # ──── DockerImageTag────────────────────────────────────────────────────────
+
 
 class DockerImageTagOut(BaseModel):
     id: int
@@ -23,6 +24,7 @@ class DockerImageTagOut(BaseModel):
 
 # ──── DockerSyncLog ────────────────────────────────────────────────────────
 
+
 class DockerSyncLogOut(BaseModel):
     id: int
     source_id: int
@@ -40,6 +42,7 @@ class DockerSyncLogOut(BaseModel):
 
 
 # ──── DockerImageSource ────────────────────────────────────────────────────
+
 
 class DockerImageSourceOut(BaseModel):
     id: int
@@ -64,6 +67,7 @@ class DockerImageSourceDetailOut(DockerImageSourceOut):
 
 
 # ──── Requests ─────────────────────────────────────────────────────────────
+
 
 class CreateDockerImageSourceRequest(BaseModel):
     name: str

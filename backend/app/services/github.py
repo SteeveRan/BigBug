@@ -1,15 +1,15 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from github import Github, GithubException
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
-from app.core.exceptions import BadRequestError, ExternalServiceError
 
 
 def _parse_github_url(url: str) -> tuple[str, str]:
@@ -42,9 +42,7 @@ class GitHubService:
             raise ExternalServiceError("GitHub", str(e))
 
         # Get or create org
-        org_result = await db.execute(
-            select(GithubOrg).where(GithubOrg.login == owner)
-        )
+        org_result = await db.execute(select(GithubOrg).where(GithubOrg.login == owner))
         org = org_result.scalar_one_or_none()
         if not org:
             try:
@@ -96,7 +94,7 @@ class GitHubService:
         except GithubException:
             pass
 
-        project.last_synced_at = datetime.now(timezone.utc)
+        project.last_synced_at = datetime.now(UTC)
 
         await db.flush()
 
@@ -121,7 +119,7 @@ class GitHubService:
         project.is_archived = gh_repo.archived
         project.github_updated_at = gh_repo.updated_at
         project.github_pushed_at = gh_repo.pushed_at
-        project.last_synced_at = datetime.now(timezone.utc)
+        project.last_synced_at = datetime.now(UTC)
 
         if gh_repo.license:
             project.license_spdx = gh_repo.license.spdx_id
@@ -136,7 +134,9 @@ class GitHubService:
         await self._sync_releases(gh_repo, project, db)
         await db.commit()
 
-    async def _sync_releases(self, gh_repo, project: GithubProject, db: AsyncSession) -> None:
+    async def _sync_releases(
+        self, gh_repo, project: GithubProject, db: AsyncSession
+    ) -> None:
         """Sync GitHub releases to DB."""
         try:
             releases = gh_repo.get_releases()

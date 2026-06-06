@@ -16,7 +16,6 @@ from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 from app.services.helm import HelmService, _normalize_repo_url, _validate_repo_url
 
-
 FAKE_INDEX_YAML = """
 apiVersion: v1
 entries:
@@ -120,7 +119,9 @@ async def test_fetch_index_network_error(helm_service):
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
+        mock_client.get = AsyncMock(
+            side_effect=httpx.ConnectError("Connection refused")
+        )
         mock_client_cls.return_value = mock_client
 
         with pytest.raises(ExternalServiceError, match="Helm repo"):

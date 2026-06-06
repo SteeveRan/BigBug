@@ -1,15 +1,14 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import gitlab
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from app.config import settings
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.gitlab_mirror import GitlabMirror
 from app.models.sync_log import SyncLog
 from app.models.sync_schedule import SyncSchedule
-from app.core.exceptions import BadRequestError, ExternalServiceError
 
 
 def _parse_gitlab_url(url: str) -> tuple[str, str]:
@@ -87,7 +86,7 @@ class GitLabService:
         except gitlab.exceptions.GitlabError as e:
             raise ExternalServiceError("GitLab", str(e))
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sync_log = SyncLog(
             mirror_id=mirror.id,
             pipeline_id=str(pipeline.id),

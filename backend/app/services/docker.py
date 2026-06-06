@@ -1,17 +1,15 @@
-import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
-from app.core.exceptions import BadRequestError, ExternalServiceError
 
 
 def _normalize_registry_url(url: str) -> str:
@@ -80,7 +78,7 @@ class DockerRegistryService:
         db: AsyncSession,
     ) -> DockerSyncLog:
         """Fetch tags for an image from the registry and sync them."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         sync_log = DockerSyncLog(
             source_id=source.id,
             status_flag=3,  # in_progress
@@ -100,7 +98,7 @@ class DockerRegistryService:
             sync_log.status_flag = 1  # type: ignore[assignment]
             sync_log.status_text = "failed"  # type: ignore[assignment]
             sync_log.log_output = str(e)  # type: ignore[assignment]
-            sync_log.finished_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+            sync_log.finished_at = datetime.now(UTC)  # type: ignore[assignment]
             source.status_flag = 1  # type: ignore[assignment]
             source.status_text = f"Failed to fetch tags: {e}"  # type: ignore[assignment]
             await db.flush()
@@ -112,7 +110,7 @@ class DockerRegistryService:
             sync_log.status_flag = 1  # type: ignore[assignment]
             sync_log.status_text = "failed"  # type: ignore[assignment]
             sync_log.log_output = f"Failed to sync tags: {e}"  # type: ignore[assignment]
-            sync_log.finished_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+            sync_log.finished_at = datetime.now(UTC)  # type: ignore[assignment]
             source.status_flag = 1  # type: ignore[assignment]
             source.status_text = f"Tag sync error: {e}"  # type: ignore[assignment]
             await db.flush()
@@ -123,18 +121,16 @@ class DockerRegistryService:
         sync_log.log_output = (  # type: ignore[assignment]
             f"Indexed {tag_count} tag(s) for {image_name} from {source.registry_url}"
         )
-        sync_log.finished_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+        sync_log.finished_at = datetime.now(UTC)  # type: ignore[assignment]
 
         source.status_flag = 0  # type: ignore[assignment]
         source.status_text = "ok"  # type: ignore[assignment]
-        source.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+        source.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
 
         await db.flush()
         return sync_log
 
-    async def _fetch_tags(
-        self, registry_url: str, image_name: str
-    ) -> dict[str, Any]:
+    async def _fetch_tags(self, registry_url: str, image_name: str) -> dict[str, Any]:
         """Fetch tags list and metadata from Docker Registry API v2.
 
         Uses two endpoints:
@@ -154,9 +150,7 @@ class DockerRegistryService:
         try:
             data: dict[str, Any] = response.json()
         except Exception as e:
-            raise ExternalServiceError(
-                "Docker registry", f"JSON parse error: {e}"
-            )
+            raise ExternalServiceError("Docker registry", f"JSON parse error: {e}")
 
         if "tags" not in data:
             raise ExternalServiceError(
@@ -224,7 +218,7 @@ class DockerRegistryService:
 
                 if existing:
                     existing.digest = digest  # type: ignore[assignment]
-                    existing.last_synced_at = datetime.now(timezone.utc)  # type: ignore[assignment]
+                    existing.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
                     if not existing.is_synced:  # type: ignore[comparison-overlap]
                         existing.is_synced = True  # type: ignore[assignment]
                 else:
@@ -236,7 +230,7 @@ class DockerRegistryService:
                         status_flag=0,  # ok — newly indexed
                         status_text="ok",
                         is_synced=True,
-                        last_synced_at=datetime.now(timezone.utc),
+                        last_synced_at=datetime.now(UTC),
                     )
                     db.add(image_tag)
 
