@@ -7,7 +7,7 @@
 # oidc_client_secret must be obtained from Keycloak after deploying
 # the Keycloak OpenTofu config → Clients → harbor → Credentials.
 #
-# See: examples/harbor/keycloak-integration.md for detailed
+# See: ../setup/keycloak-integration.md for detailed
 # instructions on setting up OIDC integration.
 
 # ─── Harbor Connection ───────────────────────────────────────────────────────

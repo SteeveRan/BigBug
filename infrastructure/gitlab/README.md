@@ -64,7 +64,7 @@ open http://localhost:8080
 ### Quick Setup
 
 ```bash
-cd examples/gitlab
+cd infrastructure/gitlab
 
 # Copy example variables
 cp terraform.tfvars.example terraform.tfvars
@@ -93,8 +93,8 @@ tofu output -raw backend_token
 Or update `.env` automatically:
 
 ```bash
-cd ../..
-./examples/update-env.sh
+cd ..
+./update-env.sh
 ```
 
 ### Verify in GitLab UI

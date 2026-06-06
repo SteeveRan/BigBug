@@ -10,48 +10,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **OpenTofu/Terraform инфраструктура:**
-  - [`examples/keycloak/`](examples/keycloak/) — декларативная конфигурация Keycloak на базе провайдера `mrparkers/keycloak` v4.x
-  - [`examples/keycloak/main.tf`](examples/keycloak/main.tf) — конфигурация провайдера
-  - [`examples/keycloak/realm.tf`](examples/keycloak/realm.tf) — realm "bigbug"
-  - [`examples/keycloak/clients.tf`](examples/keycloak/clients.tf) — confidential client `bigbug-backend` + public client `bigbug-frontend` с PKCE S256
-  - [`examples/keycloak/roles.tf`](examples/keycloak/roles.tf) — realm roles: admin, operator, viewer
-  - [`examples/keycloak/users.tf`](examples/keycloak/users.tf) — тестовый пользователь `bigbug` с ролью admin
-  - [`examples/gitlab/`](examples/gitlab/) — декларативная конфигурация GitLab на базе провайдера `gitlabhq/gitlab` v17.x
-  - [`examples/gitlab/main.tf`](examples/gitlab/main.tf) — конфигурация провайдера с data-источником для root пользователя
-  - [`examples/gitlab/groups.tf`](examples/gitlab/groups.tf) — группа "bigbug-mirrors" для зеркал
-  - [`examples/gitlab/tokens.tf`](examples/gitlab/tokens.tf) — Personal Access Token с правами api, read_repository, write_repository
+  - [`infrastructure/keycloak/`](infrastructure/keycloak/) — декларативная конфигурация Keycloak на базе провайдера `mrparkers/keycloak` v4.x
+  - [`infrastructure/keycloak/main.tf`](infrastructure/keycloak/main.tf) — конфигурация провайдера
+  - [`infrastructure/keycloak/realm.tf`](infrastructure/keycloak/realm.tf) — realm "bigbug"
+  - [`infrastructure/keycloak/clients.tf`](infrastructure/keycloak/clients.tf) — confidential client `bigbug-backend` + public client `bigbug-frontend` с PKCE S256
+  - [`infrastructure/keycloak/roles.tf`](infrastructure/keycloak/roles.tf) — realm roles: admin, operator, viewer
+  - [`infrastructure/keycloak/users.tf`](infrastructure/keycloak/users.tf) — тестовый пользователь `bigbug` с ролью admin
+  - [`infrastructure/gitlab/`](infrastructure/gitlab/) — декларативная конфигурация GitLab на базе провайдера `gitlabhq/gitlab` v17.x
+  - [`infrastructure/gitlab/main.tf`](infrastructure/gitlab/main.tf) — конфигурация провайдера с data-источником для root пользователя
+  - [`infrastructure/gitlab/groups.tf`](infrastructure/gitlab/groups.tf) — группа "bigbug-mirrors" для зеркал
+  - [`infrastructure/gitlab/tokens.tf`](infrastructure/gitlab/tokens.tf) — Personal Access Token с правами api, read_repository, write_repository
 
 - **Разделение Docker Compose:**
   - [`docker-compose.infra.yml`](docker-compose.infra.yml) — инфраструктурные сервисы (postgres-backend, postgres-keycloak, redis, keycloak, gitlab, gitlab-runner) с общей сетью `bigbug-network`
   - [`docker-compose.app.yml`](docker-compose.app.yml) — сервисы приложения (backend, frontend) с external-сетью `bigbug-network`
 
 - **Автоматизация:**
-  - [`examples/init.sh`](examples/init.sh) — мастер-скрипт полной инициализации: проверка зависимостей (docker, opentofu/terraform, curl, jq), запуск инфраструктуры, ожидание health checks, применение OpenTofu конфигураций, обновление `.env`, запуск приложения
-  - [`examples/update-env.sh`](examples/update-env.sh) — скрипт обновления `.env` из OpenTofu outputs (GITLAB_TOKEN, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_ID_FRONTEND)
+  - [`infrastructure/init.sh`](infrastructure/init.sh) — мастер-скрипт полной инициализации: проверка зависимостей (docker, opentofu/terraform, curl, jq), запуск инфраструктуры, ожидание health checks, применение OpenTofu конфигураций, обновление `.env`, запуск приложения
+  - [`infrastructure/update-env.sh`](infrastructure/update-env.sh) — скрипт обновления `.env` из OpenTofu outputs (GITLAB_TOKEN, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID, KEYCLOAK_CLIENT_ID_FRONTEND)
 
 - **Документация:**
-  - [`examples/README.md`](examples/README.md) — общий обзор, Quick Start, manual setup, troubleshooting
-  - [`examples/keycloak/README.md`](examples/keycloak/README.md) — что создаётся, переменные, проверка через UI
-  - [`examples/gitlab/README.md`](examples/gitlab/README.md) — что создаётся, получение root PAT, security notes
+  - [`infrastructure/README.md`](infrastructure/README.md) — общий обзор, Quick Start, manual setup, troubleshooting
+  - [`infrastructure/keycloak/README.md`](infrastructure/keycloak/README.md) — что создаётся, переменные, проверка через UI
+  - [`infrastructure/gitlab/README.md`](infrastructure/gitlab/README.md) — что создаётся, получение root PAT, security notes
   - Обновлён корневой [`README.md`](README.md) — новый Quick Start с OpenTofu, обновлённая структура проекта, таблица сервисов разделена на infra/app
 
 ### Changed
 
 - **Реорганизация структуры проекта:**
-  - [`harbor/`](harbor/) перемещён → [`examples/harbor/`](examples/harbor/)
-  - [`examples/keycloak/`](examples/keycloak/) содержит OpenTofu-конфигурацию вместо bash-скрипта
-  - [`examples/gitlab/`](examples/gitlab/) содержит OpenTofu-конфигурацию
+  - [`harbor/`](harbor/) перемещён → [`infrastructure/harbor/setup/`](infrastructure/harbor/setup/)
+  - [`infrastructure/keycloak/`](infrastructure/keycloak/) содержит OpenTofu-конфигурацию вместо bash-скрипта
+  - [`infrastructure/gitlab/`](infrastructure/gitlab/) содержит OpenTofu-конфигурацию
 
 - **Документация использует новые пути:**
-  - Harbor: `cd examples/harbor` вместо `cd harbor`
-  - Keycloak: `cd examples/keycloak && tofu apply` вместо `docker compose --profile init up keycloak-init`
+  - Harbor: `cd infrastructure/harbor/setup` вместо `cd harbor`
+  - Keycloak: `cd infrastructure/keycloak && tofu apply` вместо `docker compose --profile init up keycloak-init`
 
 ### Removed
 
 - **Удалён bash-скрипт инициализации Keycloak:**
   - Папка [`keycloak/`](keycloak/) с файлом [`init-keycloak.sh`](keycloak/init-keycloak.sh) удалена
   - Сервис `keycloak-init` с `profiles: ["init"]` удалён из [`docker-compose.yml`](docker-compose.yml)
-  - Keycloak теперь инициализируется через OpenTofu (`cd examples/keycloak && tofu apply`)
+  - Keycloak теперь инициализируется через OpenTofu (`cd infrastructure/keycloak && tofu apply`)
 
 ### Deprecated
 
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `docker compose --profile init up keycloak-init` больше не работает
 - `docker compose up -d` запускает только старый единый compose-файл, который помечен deprecated
 - Требуется установка OpenTofu или Terraform для инициализации инфраструктуры
-- Путь к harbor изменился с `harbor/` на `examples/harbor/`
+- Путь к harbor изменился с `harbor/` на `infrastructure/harbor/setup/`
 
 ## [0.3.0] - 2026-06-05
 

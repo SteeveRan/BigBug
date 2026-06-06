@@ -163,5 +163,5 @@ docs/architecture/
 - [`backend/app/services/gitlab.py`](../../backend/app/services/gitlab.py) — GitLab сервис
 - [`backend/alembic/versions/`](../../backend/alembic/versions/) — миграции БД
 - [`gitlab-ci/`](../../gitlab-ci/) — CI/CD шаблоны
-- [`examples/`](../../examples/) — примеры настройки GitLab, Harbor, Keycloak
+- [`infrastructure/`](../../infrastructure/) — примеры настройки GitLab, Harbor, Keycloak
 - [`plans/architecture.md`](../../plans/architecture.md) — высокоуровневый план

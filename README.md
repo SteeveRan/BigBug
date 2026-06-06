@@ -68,7 +68,7 @@ cp .env.example .env
 # Edit .env — set ENCRYPTION_KEY, GitHub tokens, etc.
 
 # 3. Full initialization (infrastructure + application)
-./examples/init.sh
+./infrastructure/init.sh
 ```
 
 ### Manual Step-by-Step
@@ -81,7 +81,7 @@ docker compose -f docker-compose.infra.yml up -d
 docker compose -f docker-compose.infra.yml ps
 
 # 3. Initialize Keycloak
-cd examples/keycloak
+cd infrastructure/keycloak
 cp terraform.tfvars.example terraform.tfvars
 tofu init && tofu apply
 
@@ -93,7 +93,7 @@ tofu init && tofu apply
 
 # 5. Update .env with outputs
 cd ../..
-./examples/update-env.sh
+./infrastructure/update-env.sh
 
 # 6. Start application
 docker compose -f docker-compose.app.yml up -d
@@ -114,7 +114,7 @@ Services will start on:
 | PostgreSQL (backend) | localhost:5432 |
 | PostgreSQL (keycloak) | localhost:5433 |
 
-> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. The original [`docker-compose.yml`](docker-compose.yml) is kept for backward compatibility but prefer the new split-compose + OpenTofu approach. See [`examples/README.md`](examples/README.md) for full documentation.
+> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. The original [`docker-compose.yml`](docker-compose.yml) is kept for backward compatibility but prefer the new split-compose + OpenTofu approach. See [`infrastructure/README.md`](infrastructure/README.md) for full documentation.
 
 ## 📦 Tech Stack
 
@@ -171,13 +171,14 @@ BigBug/
 │       ├── store/          # Redux store + RTK Query
 │       ├── tests/          # Vitest test suite (88 tests)
 │       └── types/          # TypeScript type definitions
-├── examples/               # Infrastructure initialization examples
-│   ├── init.sh             # Full environment initialization script
-│   ├── update-env.sh       # Update .env from OpenTofu outputs
-│   ├── harbor/             # Harbor deployment in kind
-│   ├── keycloak/           # OpenTofu: Keycloak realm, clients, roles, users
-│   └── gitlab/             # OpenTofu: GitLab groups, tokens
-├── gitlab-ci/              # CI/CD pipeline templates
+├── infrastructure/          # Infrastructure initialization
+│   ├── init.sh              # Full environment initialization script
+│   ├── update-env.sh        # Update .env from OpenTofu outputs
+│   ├── harbor/              # Harbor deployment (setup/ + terraform/)
+│   ├── keycloak/            # OpenTofu: Keycloak realm, clients, roles, users
+│   ├── gitlab/              # OpenTofu: GitLab groups, tokens
+│   └── gitlab-components/   # GitLab CI/CD component templates
+├── gitlab-ci/               # CI/CD pipeline templates (legacy)
 ├── plans/                  # Architecture documentation
 ├── docker-compose.infra.yml # Infrastructure services (DBs, Keycloak, GitLab)
 ├── docker-compose.app.yml   # Application services (backend, frontend)
@@ -298,7 +299,7 @@ cd frontend && ./run_tests.sh
 Local OCI registry for development and testing, deployed in a [kind](https://kind.sigs.k8s.io/) Kubernetes cluster.
 
 ```bash
-cd examples/harbor
+cd infrastructure/harbor/setup
 
 # Deploy Harbor
 ./deploy.sh
@@ -312,7 +313,7 @@ cd examples/harbor
 
 Access: `https://harbor.local:30443` (admin / Harbor12345)
 
-See [`examples/harbor/README.md`](examples/harbor/README.md) for prerequisites, troubleshooting, and manual setup instructions.
+See [`infrastructure/harbor/setup/README.md`](infrastructure/harbor/setup/README.md) for prerequisites, troubleshooting, and manual setup instructions.
 
 ## 📝 API Documentation
 

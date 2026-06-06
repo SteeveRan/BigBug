@@ -6,7 +6,6 @@
 !README.md
 docs/
 plans/
-examples/
 *.log
 .env
 .env.*

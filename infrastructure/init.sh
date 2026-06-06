@@ -6,7 +6,7 @@
 #              updates .env, and starts application services.
 #
 # Usage:
-#   ./examples/init.sh
+#   ./infrastructure/init.sh
 #
 # Prerequisites:
 #   - Docker 24+
@@ -176,7 +176,7 @@ if [[ ! -f terraform.tfvars ]]; then
     if [[ -n "${ROOT_PASSWORD}" ]]; then
         log "  Initial root password: ${ROOT_PASSWORD}"
         log "  Please create a root PAT at http://localhost:8080/-/user_settings/personal_access_tokens"
-        log "  (scope: api) and add it to examples/gitlab/terraform.tfvars:"
+        log "  (scope: api) and add it to infrastructure/gitlab/terraform.tfvars:"
         echo ""
         echo "    gitlab_url   = \"http://localhost:8080\""
         echo "    gitlab_token = \"YOUR-ROOT-PAT\""
@@ -189,15 +189,15 @@ if [[ ! -f terraform.tfvars ]]; then
 
     log_error "GitLab initialization skipped — terraform.tfvars required."
     log "  To complete GitLab setup later, run:"
-    log "    cd examples/gitlab && ${TF_CMD} init && ${TF_CMD} apply -auto-approve"
-    log "    cd ../.. && ./examples/update-env.sh"
+    log "    cd infrastructure/gitlab && ${TF_CMD} init && ${TF_CMD} apply -auto-approve"
+    log "    cd ../.. && ./infrastructure/update-env.sh"
 elif ! grep -qE 'gitlab_token\s*=\s*"CHANGE-ME' terraform.tfvars 2>/dev/null; then
     "${TF_CMD}" init -input=false
     "${TF_CMD}" apply -auto-approve -input=false
 else
     log_error "gitlab/terraform.tfvars still has placeholder token."
-    log "  Update gitlab_token in examples/gitlab/terraform.tfvars with a real root PAT."
-    log "  Then run: cd examples/gitlab && ${TF_CMD} apply -auto-approve"
+    log "  Update gitlab_token in infrastructure/gitlab/terraform.tfvars with a real root PAT."
+    log "  Then run: cd infrastructure/gitlab && ${TF_CMD} apply -auto-approve"
 fi
 
 # ─────────────────────────────────────────────────────────────

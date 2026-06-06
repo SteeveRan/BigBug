@@ -31,7 +31,7 @@ provider "harbor" {
 }
 
 # ─── OIDC Authentication (Keycloak Integration) ──────────────────────────────
-# Mirrors the manual setup described in: examples/harbor/keycloak-integration.md
+# Mirrors the manual setup described in: infrastructure/harbor/setup/keycloak-integration.md
 
 resource "harbor_config_auth" "oidc" {
   auth_mode          = var.auth_mode

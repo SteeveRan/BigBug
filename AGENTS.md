@@ -38,10 +38,11 @@ BigBug/
 │   │   └── types/       # TypeScript interfaces
 │   └── package.json     # Node dependencies
 ├── gitlab-ci/           # GitLab CI/CD templates
-├── examples/            # Infrastructure setup examples
+├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
 │   ├── keycloak/       # OpenTofu Keycloak config
 │   ├── gitlab/         # OpenTofu GitLab config
-│   └── harbor/         # Harbor deployment scripts
+│   ├── harbor/         # Harbor deployment (setup + terraform)
+│   └── gitlab-components/ # GitLab CI/CD component templates
 ├── docs/
 │   └── architecture/    # Detailed design docs (for human review)
 ├── plans/               # Implementation plans for agents
@@ -412,7 +413,7 @@ docker compose -f docker-compose.infra.yml up -d
 # 2. Wait for services (check http://localhost:8180, http://localhost:8080)
 
 # 3. Initialize Keycloak (if first time)
-cd examples && ./init.sh
+cd infrastructure && ./init.sh
 
 # 4. Start application
 docker compose -f docker-compose.app.yml up -d

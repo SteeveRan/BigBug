@@ -42,7 +42,7 @@ docker compose -f docker-compose.infra.yml up -d
 # Redis: localhost:6379
 
 # 3. Инициализировать Keycloak и GitLab (первый раз)
-cd examples
+cd infrastructure
 ./init.sh
 
 # 4. Запустить приложение
@@ -81,12 +81,12 @@ docker compose -f docker-compose.app.yml down -v
 
 ### OpenTofu конфигурации
 
-#### Keycloak ([`examples/keycloak/`](../../examples/keycloak/))
+#### Keycloak ([`infrastructure/keycloak/`](../../infrastructure/keycloak/))
 
 Создаёт realm, клиентов, роли, пользователей через OpenTofu.
 
 ```bash
-cd examples/keycloak
+cd infrastructure/keycloak
 
 # 1. Скопировать и настроить переменные
 cp terraform.tfvars.example terraform.tfvars
@@ -109,12 +109,12 @@ tofu output -json > outputs.json
 - `users.tf` - тестовые пользователи (admin/bigbug, operator/bigbug)
 - `outputs.tf` - client secrets, user IDs
 
-#### GitLab ([`examples/gitlab/`](../../examples/gitlab/))
+#### GitLab ([`infrastructure/gitlab/`](../../infrastructure/gitlab/))
 
 Создаёт группу, токены, настройки через OpenTofu.
 
 ```bash
-cd examples/gitlab
+cd infrastructure/gitlab
 
 # 1. Получить root token из GitLab UI или Docker logs
 docker compose -f ../../docker-compose.infra.yml logs gitlab | grep "Password:"
@@ -140,10 +140,10 @@ tofu output -json > outputs.json
 
 ### Скрипт автоматической инициализации
 
-[`examples/init.sh`](../../examples/init.sh) - полная автоматизация:
+[`infrastructure/init.sh`](../../infrastructure/init.sh) - полная автоматизация:
 
 ```bash
-cd examples
+cd infrastructure
 ./init.sh
 ```
 
@@ -159,10 +159,10 @@ cd examples
 
 ### Скрипт обновления .env
 
-[`examples/update-env.sh`](../../examples/update-env.sh) - обновление переменных окружения из OpenTofu outputs:
+[`infrastructure/update-env.sh`](../../infrastructure/update-env.sh) - обновление переменных окружения из OpenTofu outputs:
 
 ```bash
-cd examples
+cd infrastructure
 ./update-env.sh
 ```
 
@@ -242,12 +242,12 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 ```bash
 # State файлы
-examples/keycloak/terraform.tfstate
-examples/gitlab/terraform.tfstate
+infrastructure/keycloak/terraform.tfstate
+infrastructure/gitlab/terraform.tfstate
 
 # Бэкап
-examples/keycloak/terraform.tfstate.backup
-examples/gitlab/terraform.tfstate.backup
+infrastructure/keycloak/terraform.tfstate.backup
+infrastructure/gitlab/terraform.tfstate.backup
 ```
 
 ### Remote state (production)
@@ -395,8 +395,8 @@ docker exec -i bigbug-postgres-backend psql -U bigbug bigbug < backup_20260606.s
 
 ```bash
 # Backup state files
-cp examples/keycloak/terraform.tfstate backups/keycloak_$(date +%Y%m%d).tfstate
-cp examples/gitlab/terraform.tfstate backups/gitlab_$(date +%Y%m%d).tfstate
+cp infrastructure/keycloak/terraform.tfstate backups/keycloak_$(date +%Y%m%d).tfstate
+cp infrastructure/gitlab/terraform.tfstate backups/gitlab_$(date +%Y%m%d).tfstate
 ```
 
 ## Troubleshooting
@@ -440,8 +440,8 @@ docker exec -it bigbug-gitlab grep 'Password:' /etc/gitlab/initial_root_password
 
 ```bash
 # Пересоздать state
-rm -rf examples/keycloak/.terraform*
-cd examples/keycloak && tofu init
+rm -rf infrastructure/keycloak/.terraform*
+cd infrastructure/keycloak && tofu init
 
 # Import существующих ресурсов
 tofu import keycloak_realm.bigbug bigbug
@@ -462,8 +462,8 @@ tofu import keycloak_realm.bigbug bigbug
 
 - [`docker-compose.infra.yml`](../../docker-compose.infra.yml)
 - [`docker-compose.app.yml`](../../docker-compose.app.yml)
-- [`examples/README.md`](../../examples/README.md)
-- [`examples/init.sh`](../../examples/init.sh)
+- [`infrastructure/README.md`](../../infrastructure/README.md)
+- [`infrastructure/init.sh`](../../infrastructure/init.sh)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [OpenTofu Documentation](https://opentofu.org/docs/)
 - [Keycloak Documentation](https://www.keycloak.org/documentation)

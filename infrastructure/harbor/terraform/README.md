@@ -106,8 +106,8 @@ Each CI robot account grants:
 
 ### Prerequisites
 
-- Harbor deployed and healthy (see [`examples/harbor/deploy.sh`](../../examples/harbor/deploy.sh))
-- Keycloak configured with OIDC client `harbor` (see [`examples/keycloak/`](../../examples/keycloak/))
+- Harbor deployed and healthy (see [`infrastructure/harbor/setup/deploy.sh`](../setup/deploy.sh))
+- Keycloak configured with OIDC client `harbor` (see [`infrastructure/keycloak/`](../../keycloak/))
 - OpenTofu 1.6+ or Terraform 1.5+
 
 ### Quick Setup
@@ -137,7 +137,7 @@ tofu apply
 
 1. Deploy Keycloak via OpenTofu:
    ```bash
-   cd ../../examples/keycloak
+   cd ../../keycloak
    tofu init && tofu apply
    ```
 
@@ -253,7 +253,7 @@ This configuration is fully idempotent:
 
 ## Relationship to Legacy Scripts
 
-This OpenTofu configuration **replaces** the following manual steps from [`examples/harbor/`](../../examples/harbor/):
+This OpenTofu configuration **replaces** the following manual steps from [`infrastructure/harbor/setup/`](../setup/):
 
 | Manual Step | Terraform Equivalent |
 |-------------|---------------------|
@@ -317,4 +317,4 @@ tofu output -raw gold_images_ci_robot_secret
 - [Harbor OIDC Authentication](https://goharbor.io/docs/2.10.0/administration/configure-oidc-auth/)
 - [Harbor API v2.0](https://goharbor.io/docs/2.10.0/build-customize-contribute/configure-swagger/)
 - [Keycloak OIDC Client Configuration](https://www.keycloak.org/docs/latest/server_admin/#_oidc_clients)
-- [Legacy Harbor Setup](examples/harbor/README.md)
+- [Legacy Harbor Setup](../setup/README.md)

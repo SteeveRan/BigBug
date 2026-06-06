@@ -57,7 +57,7 @@ This configuration provisions the following resources in Keycloak:
 ### Quick Setup
 
 ```bash
-cd examples/keycloak
+cd infrastructure/keycloak
 
 # Copy example variables
 cp terraform.tfvars.example terraform.tfvars

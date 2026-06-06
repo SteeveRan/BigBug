@@ -5,7 +5,7 @@
 #              Reads Keycloak and GitLab outputs and writes them to .env.
 #
 # Usage:
-#   ./examples/update-env.sh
+#   ./infrastructure/update-env.sh
 #
 
 set -euo pipefail
@@ -77,7 +77,7 @@ if [[ -d "${KC_DIR}/.terraform" ]]; then
         update_env_var "KEYCLOAK_CLIENT_ID_FRONTEND" "${KC_FRONTEND_ID}"
     fi
 else
-    log "  Keycloak state not found — skipping. Run 'cd examples/keycloak && ${TF_CMD} apply' first."
+    log "  Keycloak state not found — skipping. Run 'cd infrastructure/keycloak && ${TF_CMD} apply' first."
 fi
 
 # ── GitLab outputs ────────────────────────────────────────────
@@ -94,7 +94,7 @@ if [[ -d "${GL_DIR}/.terraform" ]]; then
         log "  WARNING: Could not extract GITLAB_TOKEN from GitLab outputs."
     fi
 else
-    log "  GitLab state not found — skipping. Run 'cd examples/gitlab && ${TF_CMD} apply' first."
+    log "  GitLab state not found — skipping. Run 'cd infrastructure/gitlab && ${TF_CMD} apply' first."
 fi
 
 log "### .env update complete ###"

@@ -1,4 +1,4 @@
-# BigBug Examples — Infrastructure Initialization
+# BigBug Infrastructure Initialization
 
 > OpenTofu/Terraform-based infrastructure initialization for BigBug development environment.
 
@@ -26,7 +26,7 @@ The fastest way to get everything running:
 
 ```bash
 # From the project root
-./examples/init.sh
+./infrastructure/init.sh
 ```
 
 This single command will:
@@ -67,7 +67,7 @@ docker compose -f docker-compose.infra.yml ps
 ### 2. Initialize Keycloak
 
 ```bash
-cd examples/keycloak
+cd infrastructure/keycloak
 
 # Copy and customize variables
 cp terraform.tfvars.example terraform.tfvars
@@ -83,7 +83,7 @@ tofu apply
 ### 3. Initialize GitLab
 
 ```bash
-cd examples/gitlab
+cd infrastructure/gitlab
 
 # Get the initial root password
 docker compose -f ../../docker-compose.infra.yml exec gitlab \
@@ -105,8 +105,8 @@ tofu apply
 ### 4. Update Environment
 
 ```bash
-cd ../..
-./examples/update-env.sh
+cd ..
+./update-env.sh
 ```
 
 ### 5. Start Application
@@ -118,18 +118,27 @@ docker compose -f docker-compose.app.yml up -d
 ## Directory Structure
 
 ```
-examples/
+infrastructure/
 ├── README.md                    # This file
 ├── init.sh                      # Full initialization script
 ├── update-env.sh                # Update .env from OpenTofu outputs
 │
 ├── harbor/                      # Harbor deployment in kind cluster
-│   ├── deploy.sh
-│   ├── teardown.sh
-│   ├── test-push.sh
-│   ├── kind-config.yaml
-│   ├── harbor-values.yaml
-│   └── README.md
+│   ├── setup/                   # Shell scripts and configs
+│   │   ├── deploy.sh
+│   │   ├── teardown.sh
+│   │   ├── test-push.sh
+│   │   ├── init-harbor.sh
+│   │   ├── kind-config.yaml
+│   │   ├── harbor-values.yaml
+│   │   ├── keycloak-integration.md
+│   │   └── README.md
+│   └── terraform/               # OpenTofu: Harbor configuration
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── terraform.tfvars.example
+│       └── README.md
 │
 ├── keycloak/                    # OpenTofu: Keycloak configuration
 │   ├── main.tf                  # Provider configuration
@@ -143,15 +152,22 @@ examples/
 │   ├── .gitignore               # Ignore state and secrets
 │   └── README.md                # Keycloak-specific docs
 │
-└── gitlab/                      # OpenTofu: GitLab configuration
-    ├── main.tf                  # Provider configuration
-    ├── groups.tf                # Mirrors group
-    ├── tokens.tf                # Personal Access Tokens
-    ├── variables.tf             # Input variables
-    ├── outputs.tf               # Exported tokens (sensitive)
-    ├── terraform.tfvars.example # Example variables
-    ├── .gitignore               # Ignore state and secrets
-    └── README.md                # GitLab-specific docs
+├── gitlab/                      # OpenTofu: GitLab configuration
+│   ├── main.tf                  # Provider configuration
+│   ├── groups.tf                # Mirrors group
+│   ├── tokens.tf                # Personal Access Tokens
+│   ├── variables.tf             # Input variables
+│   ├── outputs.tf               # Exported tokens (sensitive)
+│   ├── terraform.tfvars.example # Example variables
+│   ├── .gitignore               # Ignore state and secrets
+│   └── README.md                # GitLab-specific docs
+│
+└── gitlab-components/           # GitLab CI/CD component templates
+    ├── app-image-template.yml
+    ├── docker-sync-template.yml
+    ├── gold-image-template.yml
+    ├── helm-sync-template.yml
+    └── mirror-template.yml
 ```
 
 ## Updating Configuration
@@ -161,7 +177,7 @@ examples/
 After changing `.tf` files:
 
 ```bash
-cd examples/keycloak
+cd infrastructure/keycloak
 tofu plan    # Review changes
 tofu apply   # Apply changes
 ```
@@ -171,12 +187,12 @@ tofu apply   # Apply changes
 After changing `.tf` files:
 
 ```bash
-cd examples/gitlab
+cd infrastructure/gitlab
 tofu plan    # Review changes
 tofu apply   # Apply changes
 ```
 
-Run `./examples/update-env.sh` after any changes that modify outputs.
+Run `./infrastructure/update-env.sh` after any changes that modify outputs.
 
 ## Destroying Environments
 
@@ -185,8 +201,8 @@ Run `./examples/update-env.sh` after any changes that modify outputs.
 docker compose -f docker-compose.app.yml down
 
 # Destroy OpenTofu-managed resources
-cd examples/keycloak && tofu destroy
-cd examples/gitlab && tofu destroy
+cd infrastructure/keycloak && tofu destroy
+cd infrastructure/gitlab && tofu destroy
 
 # Stop infrastructure and remove volumes
 docker compose -f docker-compose.infra.yml down -v
@@ -223,7 +239,7 @@ curl -v http://localhost:8080/-/health
 
 ```bash
 # Force unlock state (if a previous run was interrupted)
-cd examples/keycloak  # or examples/gitlab
+cd infrastructure/keycloak  # or infrastructure/gitlab
 tofu force-unlock <LOCK_ID>
 
 # Refresh state without making changes

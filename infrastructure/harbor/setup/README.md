@@ -49,16 +49,16 @@
 cd BigBug
 
 # 2. Развернуть Harbor
-./examples/harbor/deploy.sh
+./infrastructure/harbor/setup/deploy.sh
 
 # 3. Инициализировать проекты и OIDC (через Terraform — рекомендуемый способ)
-cd ../../infrastructure/terraform/harbor
+cd ../terraform
 cp terraform.tfvars.example terraform.tfvars
 # Отредактируйте terraform.tfvars (harbor_password, oidc_client_secret)
 tofu init && tofu apply
 
 #    ИЛИ через bash (legacy):
-#    ../../examples/harbor/init-harbor.sh
+#    ./init-harbor.sh
 
 # 4. Открыть Harbor UI
 # https://harbor.local:30443
@@ -70,7 +70,7 @@ tofu init && tofu apply
 ### Шаг 1: Развернуть Harbor в kind
 
 ```bash
-./examples/harbor/deploy.sh
+./infrastructure/harbor/setup/deploy.sh
 ```
 
 Скрипт автоматически:
@@ -86,7 +86,7 @@ tofu init && tofu apply
 **Рекомендуемый способ — через OpenTofu** (декларативно, идемпотентно):
 
 ```bash
-cd ../../infrastructure/terraform/harbor
+cd ../terraform
 cp terraform.tfvars.example terraform.tfvars
 # Отредактируйте terraform.tfvars (harbor_password, oidc_client_secret)
 tofu init && tofu apply
@@ -104,7 +104,7 @@ Terraform создаст:
 **Legacy способ — через bash** (оставлен для обратной совместимости):
 
 ```bash
-./examples/harbor/init-harbor.sh
+./infrastructure/harbor/setup/init-harbor.sh
 ```
 
 Создаёт три проекта через Harbor REST API v2.0:
@@ -117,14 +117,14 @@ Terraform создаст:
 
 Дополнительные опции:
 ```bash
-./examples/harbor/init-harbor.sh --dry-run   # Проверить, какие проекты существуют
-./examples/harbor/init-harbor.sh --delete    # Удалить все проекты BigBug
+./infrastructure/harbor/setup/init-harbor.sh --dry-run   # Проверить, какие проекты существуют
+./infrastructure/harbor/setup/init-harbor.sh --delete    # Удалить все проекты BigBug
 ```
 
 ### Шаг 3: Протестировать Harbor
 
 ```bash
-./examples/harbor/test-push.sh
+./infrastructure/harbor/setup/test-push.sh
 ```
 
 Выполняет: docker login → pull alpine → tag → push → API-проверка → очистка.
@@ -245,7 +245,7 @@ docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
 ## Тестирование
 
 ```bash
-./examples/harbor/test-push.sh
+./infrastructure/harbor/setup/test-push.sh
 ```
 
 Скрипт выполняет:
@@ -277,13 +277,13 @@ curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/projects
 
 ```bash
 # Удалить кластер (запись /etc/hosts сохраняется)
-./examples/harbor/teardown.sh
+./infrastructure/harbor/setup/teardown.sh
 
 # Полная очистка: кластер + /etc/hosts
-./examples/harbor/teardown.sh --all
+./infrastructure/harbor/setup/teardown.sh --all
 
 # Удалить проекты BigBug
-./examples/harbor/init-harbor.sh --delete
+./infrastructure/harbor/setup/init-harbor.sh --delete
 ```
 
 ## Структура файлов
@@ -325,7 +325,7 @@ harbor/
 
 ```bash
 kind delete cluster --name=harbor
-./examples/harbor/deploy.sh
+./infrastructure/harbor/setup/deploy.sh
 ```
 
 ### Проблема: «connection refused» при push

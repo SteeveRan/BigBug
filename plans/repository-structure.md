@@ -7,9 +7,8 @@ BigBug/
 ├── .roo/                        # Kiro AI rules
 ├── backend/                     # FastAPI backend
 ├── frontend/                    # React frontend
-├── examples/                    # Infrastructure setup examples (legacy)
+├── infrastructure/              # Infrastructure initialization
 ├── docs/                        # Detailed documentation
-├── infrastructure               # Infrastructure setup examples
 ├── plans/                       # Implementation plans (this directory)
 ├── .env.example                 # Example environment variables
 ├── .gitignore                   # Git ignore patterns
@@ -89,16 +88,17 @@ gitlab-ci/
 └── docker-sync-template.yml     # Docker image synchronization
 ```
 
-## Infrastructure Examples
+## Infrastructure
 
 ```
-examples/
+infrastructure/
 ├── README.md                    # General setup instructions
 ├── init.sh                      # Master initialization script
 ├── update-env.sh                # Update .env from outputs
 ├── keycloak/                    # OpenTofu Keycloak config
 ├── gitlab/                      # OpenTofu GitLab config
-└── harbor/                      # Harbor deployment scripts
+├── gitlab-components/           # GitLab CI/CD component templates
+└── harbor/                      # Harbor deployment (setup/ + terraform/)
 ```
 
 ## Documentation

@@ -73,10 +73,10 @@
 - Realm `bigbug`
 - Роли: admin, operator, viewer
 - Clients: bigbug-backend (confidential), bigbug-frontend (public + PKCE)
-- OpenTofu конфигурация в `examples/keycloak/`
+- OpenTofu конфигурация в `infrastructure/keycloak/`
 
 **GitLab**:
-- OpenTofu конфигурация в `examples/gitlab/`
+- OpenTofu конфигурация в `infrastructure/gitlab/`
 - Группа для зеркал
 - Personal Access Token для backend
 
