@@ -40,6 +40,7 @@
 | [docker](https://docs.docker.com/engine/install/) | 24+ | `docker version` |
 | [curl](https://curl.se/) | 7.0+ | `curl --version` |
 | [jq](https://jqlang.github.io/jq/) | 1.6+ | `jq --version` |
+| [OpenTofu](https://opentofu.org/) | 1.6+ | `tofu version` |
 
 ## Быстрый старт
 
@@ -50,8 +51,14 @@ cd BigBug
 # 2. Развернуть Harbor
 ./examples/harbor/deploy.sh
 
-# 3. Инициализировать проекты
-./examples/harbor/init-harbor.sh
+# 3. Инициализировать проекты и OIDC (через Terraform — рекомендуемый способ)
+cd ../../infrastructure/terraform/harbor
+cp terraform.tfvars.example terraform.tfvars
+# Отредактируйте terraform.tfvars (harbor_password, oidc_client_secret)
+tofu init && tofu apply
+
+#    ИЛИ через bash (legacy):
+#    ../../examples/harbor/init-harbor.sh
 
 # 4. Открыть Harbor UI
 # https://harbor.local:30443
@@ -74,7 +81,27 @@ cd BigBug
 - Устанавливает Harbor через Helm с параметрами из [`harbor-values.yaml`](harbor-values.yaml)
 - Ждёт готовности подов (до 300 секунд)
 
-### Шаг 2: Инициализировать проекты Harbor
+### Шаг 2: Инициализировать проекты и OIDC в Harbor
+
+**Рекомендуемый способ — через OpenTofu** (декларативно, идемпотентно):
+
+```bash
+cd ../../infrastructure/terraform/harbor
+cp terraform.tfvars.example terraform.tfvars
+# Отредактируйте terraform.tfvars (harbor_password, oidc_client_secret)
+tofu init && tofu apply
+```
+
+Подробнее: [инструкция к Terraform конфигурации](../../infrastructure/terraform/harbor/README.md)
+
+Terraform создаст:
+- Проекты: `gold-images`, `app-images`, `mirrors`
+- OIDC-интеграцию с Keycloak
+- Robot accounts для CI/CD
+- Внешние registries (Docker Hub, Quay.io)
+- Webhook для уведомлений backend
+
+**Legacy способ — через bash** (оставлен для обратной совместимости):
 
 ```bash
 ./examples/harbor/init-harbor.sh
@@ -265,13 +292,17 @@ curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/projects
 harbor/
 ├── README.md                 # Этот файл
 ├── deploy.sh                 # Главный скрипт развёртывания
-├── init-harbor.sh            # Инициализация проектов через Harbor API
+├── init-harbor.sh            # Инициализация проектов через Harbor API (legacy)
 ├── teardown.sh               # Скрипт удаления
 ├── kind-config.yaml          # Конфигурация kind кластера
 ├── harbor-values.yaml        # Helm values для Harbor chart (включая OIDC заглушки)
 ├── test-push.sh              # Скрипт тестирования push образов
 └── keycloak-integration.md   # Руководство по интеграции OIDC с Keycloak
 ```
+
+> **Инициализация проектов и OIDC теперь через OpenTofu**: [`infrastructure/terraform/harbor/`](../../infrastructure/terraform/harbor/).
+> Bash скрипт `init-harbor.sh` оставлен как legacy reference.
+> См. [инструкцию по Terraform](../../infrastructure/terraform/harbor/README.md).
 
 ## Порты (сводка)
 
