@@ -1,6 +1,6 @@
 /**
  * @file outputs.tf
- * @description Output values exported by the Harbor configuration.
+ * @description Output values exported by the Harbor module.
  */
 
 # ─── Projects ────────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ output "webhook_id" {
   value       = harbor_project_webhook.backend_notifications.id
 }
 
-# ─── Registry URLs (for docker login) ────────────────────────────────────────
+# ─── Registry URL (for docker login) ─────────────────────────────────────────
 
 output "registry_url" {
   description = "Harbor registry base URL (for docker login)"

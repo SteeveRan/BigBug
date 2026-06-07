@@ -74,10 +74,11 @@
 
 ### Infrastructure
 
-- **Docker Compose**: `docker-compose.infra.yml` + `docker-compose.app.yml`
-- **Keycloak**: Realm `bigbug`, 3 роли, OpenTofu конфигурация в [`infrastructure/keycloak/`](infrastructure/keycloak/)
-- **GitLab**: OpenTofu конфигурация в [`infrastructure/gitlab/`](infrastructure/gitlab/)
-- **Harbor**: Deployment + Terraform в [`infrastructure/harbor/`](infrastructure/harbor/)
+- **Docker Compose**: [`infrastructure/docker-compose.yml`](infrastructure/docker-compose.yml) (infra) + [`docker-compose.yml`](docker-compose.yml) (app)
+- **OpenTofu**: Root модуль в [`infrastructure/terraform/`](infrastructure/terraform/), подмодули в [`infrastructure/terraform/modules/`](infrastructure/terraform/modules/) (keycloak, harbor, gitlab)
+- **Keycloak**: Realm `bigbug`, 3 роли, OpenTofu модуль [`infrastructure/terraform/modules/keycloak/`](infrastructure/terraform/modules/keycloak/)
+- **GitLab**: OpenTofu модуль [`infrastructure/terraform/modules/gitlab/`](infrastructure/terraform/modules/gitlab/)
+- **Harbor**: Deployment в kind ([`infrastructure/harbor/`](infrastructure/harbor/)) + OpenTofu модуль [`infrastructure/terraform/modules/harbor/`](infrastructure/terraform/modules/harbor/)
 - **GitLab CI Templates** ([`infrastructure/gitlab-components/`](infrastructure/gitlab-components/)):
   - `gold-image-template.yml` — build → sign (cosign) → notify
   - `app-image-template.yml` — build → sign (cosign) → notify

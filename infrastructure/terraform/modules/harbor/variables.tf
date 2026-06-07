@@ -1,6 +1,6 @@
 /**
  * @file variables.tf
- * @description Input variables for the Harbor OpenTofu configuration.
+ * @description Input variables for the Harbor module.
  */
 
 # ─── Harbor Connection ───────────────────────────────────────────────────────
@@ -39,19 +39,18 @@ variable "oidc_provider_name" {
 }
 
 variable "oidc_endpoint" {
-  description = "OIDC provider endpoint URL (e.g. http://172.17.0.1:8180/realms/bigbug)"
+  description = "OIDC provider endpoint URL (e.g. http://localhost:8180/realms/bigbug)"
   type        = string
-  default     = "http://localhost:8180/realms/bigbug"
 }
 
 variable "oidc_client_id" {
-  description = "OIDC client ID (from Keycloak → Clients → harbor)"
+  description = "OIDC client ID (from Keycloak outputs)"
   type        = string
   default     = "harbor"
 }
 
 variable "oidc_client_secret" {
-  description = "OIDC client secret (from Keycloak → Clients → harbor → Credentials)"
+  description = "OIDC client secret (from Keycloak outputs)"
   type        = string
   sensitive   = true
 }

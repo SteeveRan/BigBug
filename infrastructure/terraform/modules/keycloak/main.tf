@@ -1,6 +1,6 @@
 /**
  * @file main.tf
- * @description OpenTofu/Terraform provider configuration for Keycloak
+ * @description Terraform provider configuration for Keycloak module
  * @provider mrparkers/keycloak ~> 4.0
  */
 

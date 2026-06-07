@@ -3,10 +3,10 @@
 # =============================================================================
 #
 # This file defines infrastructure services that are rarely restarted:
-# identity provider, CI/CD platform.
+# Keycloak (identity provider) and GitLab (CI/CD platform).
 #
 # Usage:
-#   docker compose -f docker-compose.infra.yml up -d
+#   docker compose -f infrastructure/docker-compose.yml up -d
 #
 # See infrastructure/README.md for the full initialization workflow.
 # =============================================================================
@@ -119,7 +119,7 @@ services:
     memswap_limit: 4g
     shm_size: "256m"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/-/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/users/sign_in"]
       interval: 60s
       timeout: 30s
       retries: 10

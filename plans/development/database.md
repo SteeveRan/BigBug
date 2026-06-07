@@ -434,10 +434,10 @@ alembic merge -m "merge_heads" head1 head2
 
 ```bash
 # Проверить PostgreSQL
-docker compose -f docker-compose.infra.yml ps postgres-backend
+docker compose ps postgres-backend
 
 # Проверить логи
-docker compose -f docker-compose.infra.yml logs postgres-backend
+docker compose logs postgres-backend
 
 # Подключиться напрямую
 docker exec -it bigbug-postgres-backend psql -U bigbug -d bigbug
@@ -453,8 +453,8 @@ alembic downgrade base
 alembic upgrade head
 
 # Или пересоздать БД
-docker compose -f docker-compose.infra.yml down -v
-docker compose -f docker-compose.infra.yml up -d postgres-backend
+docker compose -f infrastructure/docker-compose.yml down -v
+docker compose up -d postgres-backend
 alembic upgrade head
 ```
 

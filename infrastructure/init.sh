@@ -2,7 +2,8 @@
 #
 # @file init.sh
 # @description Full environment initialization for BigBug
-#              Starts infrastructure, applies OpenTofu configurations,
+#              Starts infrastructure, deploys Harbor in kind (if needed),
+#              applies OpenTofu (Keycloak → Harbor → GitLab),
 #              updates .env, and starts application services.
 #
 # Usage:
@@ -19,6 +20,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Compose files
+INFRA_COMPOSE="${SCRIPT_DIR}/docker-compose.yml"
+APP_COMPOSE="${PROJECT_ROOT}/docker-compose.yml"
+
+# Terraform root module
+TF_DIR="${SCRIPT_DIR}/terraform"
+
+# Harbor
+HARBOR_DIR="${SCRIPT_DIR}/harbor"
+HARBOR_CLUSTER="harbor"
+
 # ─────────────────────────────────────────────────────────────
 # Logging
 # ─────────────────────────────────────────────────────────────
@@ -28,6 +40,44 @@ log() {
 
 log_error() {
     printf '[%s] ERROR: %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*" >&2
+}
+
+log_warn() {
+    printf '[%s] WARN:  %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*" >&2
+}
+
+# ─────────────────────────────────────────────────────────────
+# Helper: check if Docker containers for a compose file are running
+# ─────────────────────────────────────────────────────────────
+compose_services_running() {
+    local compose_file="$1"
+    local expected="$2"
+
+    local running
+    running="$(docker compose -f "${compose_file}" ps --status running --format '{{.Service}}' 2>/dev/null)"
+    local count
+    count="$(echo "${running}" | grep -c . || true)"
+
+    if (( count >= expected )); then
+        return 0
+    fi
+    return 1
+}
+
+# ─────────────────────────────────────────────────────────────
+# Helper: start compose services only if not already running
+# ─────────────────────────────────────────────────────────────
+compose_up_if_needed() {
+    local compose_file="$1"
+    local min_services="${2:-1}"
+    local label="$3"
+
+    if compose_services_running "${compose_file}" "${min_services}"; then
+        log "  ${label} containers already running — skipping docker compose up"
+    else
+        log "  Starting ${label} containers..."
+        docker compose -f "${compose_file}" up -d
+    fi
 }
 
 # ─────────────────────────────────────────────────────────────
@@ -75,7 +125,6 @@ elif command -v terraform &>/dev/null; then
     TF_CMD="terraform"
     TF_VERSION="$(terraform version -json 2>/dev/null | jq -r '.terraform_version' 2>/dev/null || echo 'unknown')"
     log "  Found: terraform ${TF_VERSION}"
-    # Warn if using Terraform instead of OpenTofu (still works, just FYI)
     if [[ "${TF_VERSION}" != "unknown" ]]; then
         log "  NOTE: Using HashiCorp Terraform. OpenTofu is recommended but not required."
     fi
@@ -112,92 +161,168 @@ if [[ ! -f "${PROJECT_ROOT}/.env" ]]; then
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 3. Start infrastructure
+# 3. Start infrastructure services
 # ─────────────────────────────────────────────────────────────
 log "### Starting infrastructure services ###"
 cd "${PROJECT_ROOT}"
-docker compose -f docker-compose.infra.yml up -d
+
+# infrastructure/docker-compose.yml: postgres-keycloak, keycloak, gitlab, gitlab-runner
+compose_up_if_needed "${INFRA_COMPOSE}" 4 "infrastructure"
 
 # ─────────────────────────────────────────────────────────────
 # 4. Wait for service readiness
 # ─────────────────────────────────────────────────────────────
 log "### Waiting for service readiness ###"
 
-# Keycloak — check health endpoint
+# Keycloak
 wait_for_service "Keycloak" "http://localhost:8180/realms/master" 180
 
 # GitLab — takes a while to boot
-wait_for_service "GitLab" "http://localhost:8080/-/health" 600
+wait_for_service "GitLab" "http://localhost:8080/users/sign_in" 600
 
 log "  All infrastructure services are ready."
 
 # ─────────────────────────────────────────────────────────────
-# 5. Initialize Keycloak with OpenTofu
+# 5. Deploy Harbor in kind (only if cluster doesn't exist)
 # ─────────────────────────────────────────────────────────────
-log "### Initializing Keycloak ###"
-cd "${SCRIPT_DIR}/keycloak"
+log "### Checking Harbor (kind) ###"
+
+if command -v kind &>/dev/null; then
+    if kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
+        log "  Harbor kind cluster '${HARBOR_CLUSTER}' already exists — skipping deploy."
+    else
+        log "  Harbor kind cluster not found. Running deploy.sh..."
+        if [[ -f "${HARBOR_DIR}/deploy.sh" ]]; then
+            (cd "${HARBOR_DIR}" && bash deploy.sh)
+            log "  Harbor deployed in kind."
+        else
+            log_warn "  Harbor deploy.sh not found at ${HARBOR_DIR}/deploy.sh — skipping Harbor setup."
+        fi
+    fi
+else
+    log_warn "  kind is not installed — skipping Harbor deployment."
+    log_warn "  Install kind: https://kind.sigs.k8s.io/docs/user/quick-start/"
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 6. Initialize infrastructure with OpenTofu (single apply)
+#    Order: Keycloak → Harbor → GitLab (resolved by dependency graph)
+# ─────────────────────────────────────────────────────────────
+log "### Initializing infrastructure with OpenTofu ###"
+cd "${TF_DIR}"
 
 if [[ ! -f terraform.tfvars ]]; then
     log "  Creating terraform.tfvars from defaults..."
-    cat > terraform.tfvars <<'TFVARS'
-keycloak_url             = "http://localhost:8180"
-keycloak_admin_username  = "admin"
-keycloak_admin_password  = "admin"
-realm_name               = "bigbug"
-backend_client_id        = "bigbug-backend"
-backend_client_secret    = "bigbug-backend-secret"
-frontend_client_id       = "bigbug-frontend"
-test_user_username       = "bigbug"
-test_user_password       = "bigbug"
-test_user_email          = "bigbug@example.com"
-TFVARS
+
+    # Generate a random backend user password if not set
+    BACKEND_PASSWORD="$(openssl rand -base64 24 | tr -d '/+=' | head -c 20)"
+
+    cat > terraform.tfvars <<TFVARS_EOF
+# Auto-generated by init.sh — edit as needed
+keycloak_url            = "http://localhost:8180"
+keycloak_admin_username = "admin"
+keycloak_admin_password = "admin"
+realm_name              = "bigbug"
+
+backend_client_id     = "bigbug-backend"
+backend_client_secret = "bigbug-backend-secret"
+
+frontend_client_id    = "bigbug-frontend"
+frontend_redirect_uris = ["http://localhost:5173/*", "http://localhost:3000/*"]
+
+harbor_client_id                = "harbor"
+harbor_client_secret            = "harbor-oidc-secret"
+harbor_redirect_uris            = ["https://harbor.local:30443/c/oidc/callback", "https://harbor.local:30443/*"]
+harbor_post_logout_redirect_uris = ["https://harbor.local:30443/c/oidc/logout", "https://harbor.local:30443/"]
+harbor_root_url                 = "https://harbor.local:30443"
+
+test_user_username = "bigbug"
+test_user_password = "bigbug"
+test_user_email    = "bigbug@example.com"
+
+harbor_url      = "https://harbor.local"
+harbor_username = "admin"
+harbor_password = "Harbor12345"
+
+harbor_auth_mode          = "oidc_auth"
+harbor_oidc_provider_name = "Keycloak"
+harbor_oidc_endpoint      = "http://localhost:8180/realms/bigbug"
+harbor_oidc_groups_claim  = "groups"
+harbor_oidc_scope         = "openid,profile,email,groups"
+harbor_oidc_verify_cert   = false
+harbor_oidc_auto_onboard  = true
+harbor_oidc_user_claim    = "preferred_username"
+
+gold_images_project_name  = "gold-images"
+gold_images_storage_quota = -1
+
+app_images_project_name  = "app-images"
+app_images_storage_quota = -1
+
+mirrors_project_name  = "mirrors"
+mirrors_storage_quota = -1
+
+replication_schedule    = "0 0 2 * * *"
+dockerhub_registry_name = "docker-hub"
+dockerhub_endpoint_url  = "https://hub.docker.com"
+quay_registry_name      = "quay-io"
+quay_endpoint_url       = "https://quay.io"
+
+webhook_backend_url = "http://localhost:8000/api/webhooks/harbor"
+
+gitlab_url   = "http://localhost:8080"
+gitlab_token = "CHANGE-ME-root-personal-access-token"
+
+mirrors_group_name = "bigbug-mirrors"
+
+backend_user_name     = "BigBug Backend"
+backend_user_username = "bigbug-backend"
+backend_user_email    = "bigbug-backend@localhost.localdomain"
+backend_user_password = "${BACKEND_PASSWORD}"
+
+backend_token_name       = "bigbug-backend-token"
+backend_token_expires_at = "2027-12-31"
+backend_token_scopes     = ["api", "read_repository", "write_repository"]
+TFVARS_EOF
     log "  Created terraform.tfvars with default development values."
 fi
 
-"${TF_CMD}" init -input=false
-"${TF_CMD}" apply -auto-approve -input=false
+# Check if gitlab_token is still a placeholder
+if grep -qE 'gitlab_token\s*=\s*"CHANGE-ME' terraform.tfvars 2>/dev/null; then
+    log_warn "  GitLab token is still a placeholder in terraform.tfvars."
+    log_warn "  Attempting to extract GitLab initial root password..."
 
-# ─────────────────────────────────────────────────────────────
-# 6. Initialize GitLab with OpenTofu
-# ─────────────────────────────────────────────────────────────
-log "### Initializing GitLab ###"
-cd "${SCRIPT_DIR}/gitlab"
-
-if [[ ! -f terraform.tfvars ]]; then
-    log "  WARNING: gitlab/terraform.tfvars not found."
-    log "  You need a GitLab root PAT to continue."
-
-    # Try to extract the initial root password
     ROOT_PASSWORD=""
-    if docker compose -f "${PROJECT_ROOT}/docker-compose.infra.yml" exec -T gitlab cat /etc/gitlab/initial_root_password 2>/dev/null; then
-        ROOT_PASSWORD="$(docker compose -f "${PROJECT_ROOT}/docker-compose.infra.yml" exec -T gitlab cat /etc/gitlab/initial_root_password 2>/dev/null | grep 'Password:' | awk '{print $2}')"
-    fi
-
-    if [[ -n "${ROOT_PASSWORD}" ]]; then
+    if ROOT_PASSWORD="$(docker compose -f "${INFRA_COMPOSE}" exec -T gitlab cat /etc/gitlab/initial_root_password 2>/dev/null | grep 'Password:' | awk '{print $2}')" && [[ -n "${ROOT_PASSWORD}" ]]; then
         log "  Initial root password: ${ROOT_PASSWORD}"
         log "  Please create a root PAT at http://localhost:8080/-/user_settings/personal_access_tokens"
-        log "  (scope: api) and add it to infrastructure/gitlab/terraform.tfvars:"
+        log "  (scope: api) and update gitlab_token in ${TF_DIR}/terraform.tfvars"
         echo ""
-        echo "    gitlab_url   = \"http://localhost:8080\""
         echo "    gitlab_token = \"YOUR-ROOT-PAT\""
         echo ""
-    else
-        log "  Copy terraform.tfvars.example to terraform.tfvars and set gitlab_token."
-        log "  Initial root password can be found in the GitLab container logs:"
-        log "    docker compose -f docker-compose.infra.yml exec gitlab cat /etc/gitlab/initial_root_password"
-    fi
+        log_error "Skipping GitLab module — terraform will apply only Keycloak + Harbor."
+        log "  After setting gitlab_token, run:"
+        log "    cd ${TF_DIR} && ${TF_CMD} init && ${TF_CMD} apply -auto-approve"
+        log "    cd ${PROJECT_ROOT} && ./infrastructure/update-env.sh"
 
-    log_error "GitLab initialization skipped — terraform.tfvars required."
-    log "  To complete GitLab setup later, run:"
-    log "    cd infrastructure/gitlab && ${TF_CMD} init && ${TF_CMD} apply -auto-approve"
-    log "    cd ../.. && ./infrastructure/update-env.sh"
-elif ! grep -qE 'gitlab_token\s*=\s*"CHANGE-ME' terraform.tfvars 2>/dev/null; then
+        # Apply only Keycloak + Harbor by targeting them
+        "${TF_CMD}" init -input=false
+        "${TF_CMD}" apply -auto-approve -input=false -target='module.keycloak' -target='module.harbor'
+    else
+        log_error "  Could not extract GitLab root password."
+        log "  Copy terraform.tfvars.example to terraform.tfvars and set gitlab_token."
+        log_error "Skipping all terraform — gitlab_token required."
+        log "  To complete setup later:"
+        log "    cd ${TF_DIR}"
+        log "    # Edit terraform.tfvars -> set gitlab_token"
+        log "    ${TF_CMD} init && ${TF_CMD} apply -auto-approve"
+        log "    cd ${PROJECT_ROOT} && ./infrastructure/update-env.sh"
+    fi
+else
+    # All tokens set — full apply
     "${TF_CMD}" init -input=false
     "${TF_CMD}" apply -auto-approve -input=false
-else
-    log_error "gitlab/terraform.tfvars still has placeholder token."
-    log "  Update gitlab_token in infrastructure/gitlab/terraform.tfvars with a real root PAT."
-    log "  Then run: cd infrastructure/gitlab && ${TF_CMD} apply -auto-approve"
+    log "  OpenTofu applied successfully."
 fi
 
 # ─────────────────────────────────────────────────────────────
@@ -211,7 +336,9 @@ log "### Updating .env ###"
 # ─────────────────────────────────────────────────────────────
 log "### Starting application services ###"
 cd "${PROJECT_ROOT}"
-docker compose -f docker-compose.app.yml up -d
+
+# root docker-compose.yml: postgres-backend, redis, backend, frontend
+compose_up_if_needed "${APP_COMPOSE}" 2 "application"
 
 # ─────────────────────────────────────────────────────────────
 # Done
@@ -226,6 +353,9 @@ log "    Frontend:  http://localhost:5173"
 log "    Backend:   http://localhost:8000"
 log "    Keycloak:  http://localhost:8180  (admin / admin)"
 log "    GitLab:    http://localhost:8080  (root / see container logs)"
+if command -v kind &>/dev/null && kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
+log "    Harbor:    https://harbor.local:30443  (admin / Harbor12345)"
+fi
 log ""
 log "  Login:  bigbug / bigbug"
 log ""

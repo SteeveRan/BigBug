@@ -75,28 +75,23 @@ cp .env.example .env
 
 ```bash
 # 1. Start infrastructure
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f infrastructure/docker-compose.yml up -d
 
 # 2. Wait for readiness (check health)
-docker compose -f docker-compose.infra.yml ps
+docker compose -f infrastructure/docker-compose.yml ps
 
-# 3. Initialize Keycloak
-cd infrastructure/keycloak
-cp terraform.tfvars.example terraform.tfvars
-tofu init && tofu apply
-
-# 4. Initialize GitLab
-cd ../gitlab
+# 3. Initialize infrastructure (Keycloak → Harbor → GitLab)
+cd infrastructure/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars — set gitlab_token (root PAT with "api" scope)
 tofu init && tofu apply
 
-# 5. Update .env with outputs
+# 4. Update .env with outputs
 cd ../..
 ./infrastructure/update-env.sh
 
-# 6. Start application
-docker compose -f docker-compose.app.yml up -d
+# 5. Start application
+docker compose up -d
 
 # 7. Access UI
 open http://localhost:5173
@@ -114,7 +109,7 @@ Services will start on:
 | PostgreSQL (backend) | localhost:5432 |
 | PostgreSQL (keycloak) | localhost:5433 |
 
-> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. The original [`docker-compose.yml`](docker-compose.yml) is kept for backward compatibility but prefer the new split-compose + OpenTofu approach. See [`infrastructure/README.md`](infrastructure/README.md) for full documentation.
+> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. Use the new split-compose + OpenTofu approach. See [`infrastructure/README.md`](infrastructure/README.md) for full documentation.
 
 ## 📦 Tech Stack
 
@@ -145,8 +140,8 @@ Services will start on:
 - **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor
 - **Keycloak 24** — SSO provider
 - **Harbor** (in kind) — local OCI registry for testing
-- **Docker Compose** — local development orchestration (split into [infra](docker-compose.infra.yml) and [app](docker-compose.app.yml))
-- **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak + GitLab)
+- **Docker Compose** — local development orchestration (split into [infra](infrastructure/docker-compose.yml) and [app](docker-compose.yml))
+- **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak → Harbor → GitLab)
 
 ## 🗂️ Project Structure
 
@@ -160,29 +155,33 @@ BigBug/
 │   │   ├── models/         # SQLAlchemy ORM models
 │   │   ├── schemas/        # Pydantic request/response schemas
 │   │   └── services/       # Business logic layer
-│   └── tests/              # pytest test suite (111 tests)
+│   ├── docker/             # Dockerfile + entrypoint
+│   ├── scripts/            # Format, lint, test scripts
+│   ├── tests/              # pytest test suite (111 tests)
+│   └── pyproject.toml      # Python dependencies
 ├── frontend/               # React UI
-│   └── src/
-│       ├── components/     # Shared UI components
-│       ├── hooks/          # Custom React hooks
-│       ├── pages/          # Page components per feature
-│       ├── router/         # React Router configuration
-│       ├── services/       # External service adapters (Keycloak)
-│       ├── store/          # Redux store + RTK Query
-│       ├── tests/          # Vitest test suite (88 tests)
-│       └── types/          # TypeScript type definitions
+│   ├── src/
+│   │   ├── components/     # Shared UI components
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── pages/          # Page components per feature
+│   │   ├── router/         # React Router configuration
+│   │   ├── services/       # External service adapters (Keycloak)
+│   │   ├── store/          # Redux store + RTK Query
+│   │   ├── tests/          # Vitest test suite (88 tests)
+│   │   └── types/          # TypeScript type definitions
+│   ├── docker/             # Dockerfile
+│   ├── scripts/            # Format, lint, test scripts
+│   └── package.json        # Node dependencies
 ├── infrastructure/          # Infrastructure initialization
 │   ├── init.sh              # Full environment initialization script
 │   ├── update-env.sh        # Update .env from OpenTofu outputs
-│   ├── harbor/              # Harbor deployment (setup/ + terraform/)
-│   ├── keycloak/            # OpenTofu: Keycloak realm, clients, roles, users
-│   ├── gitlab/              # OpenTofu: GitLab groups, tokens
+│   ├── docker-compose.yml   # Infrastructure services (postgres-keycloak, Keycloak, GitLab)
+│   ├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
+│   ├── harbor/              # Harbor deployment in kind
 │   └── gitlab-components/   # GitLab CI/CD component templates
+├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
 ├── gitlab-ci/               # CI/CD pipeline templates (legacy)
 ├── plans/                  # Architecture documentation
-├── docker-compose.infra.yml # Infrastructure services (DBs, Keycloak, GitLab)
-├── docker-compose.app.yml   # Application services (backend, frontend)
-├── docker-compose.yml       # Deprecated — kept for backward compatibility
 ├── .env.example             # Environment variables template
 └── CHANGELOG.md             # Version history
 ```
@@ -234,21 +233,21 @@ yarn lint
 
 ## 🐳 Docker Compose Services
 
-### Infrastructure (`docker-compose.infra.yml`)
+### Infrastructure (`infrastructure/docker-compose.yml`)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `postgres-backend` | 5432 | Application database (Alembic-managed schema) |
 | `postgres-keycloak` | 5433 | Keycloak database (separate instance) |
-| `redis` | 6379 | Cache and session store |
 | `keycloak` | 8180 | SSO/OIDC identity provider |
 | `gitlab` | 8080 | GitLab CE for CI/CD |
 | `gitlab-runner` | — | Pipeline executor |
 
-### Application (`docker-compose.app.yml`)
+### Application (`docker-compose.yml`)
 
 | Service | Port | Description |
 |---------|------|-------------|
+| `postgres-backend` | 5432 | Application database (Alembic-managed schema) |
+| `redis` | 6379 | Cache and session store |
 | `backend` | 8000 | FastAPI REST API with hot reload |
 | `frontend` | 5173 | React dev server with HMR |
 
@@ -299,7 +298,7 @@ cd frontend && ./run_tests.sh
 Local OCI registry for development and testing, deployed in a [kind](https://kind.sigs.k8s.io/) Kubernetes cluster.
 
 ```bash
-cd infrastructure/harbor/setup
+cd infrastructure/harbor
 
 # Deploy Harbor
 ./deploy.sh
@@ -313,7 +312,7 @@ cd infrastructure/harbor/setup
 
 Access: `https://harbor.local:30443` (admin / Harbor12345)
 
-See [`infrastructure/harbor/setup/README.md`](infrastructure/harbor/setup/README.md) for prerequisites, troubleshooting, and manual setup instructions.
+See [`infrastructure/harbor/README.md`](infrastructure/harbor/README.md) for prerequisites, troubleshooting, and manual setup instructions.
 
 ## 📝 API Documentation
 

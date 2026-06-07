@@ -49,16 +49,13 @@
 cd BigBug
 
 # 2. Развернуть Harbor
-./infrastructure/harbor/setup/deploy.sh
+./infrastructure/harbor/deploy.sh
 
-# 3. Инициализировать проекты и OIDC (через Terraform — рекомендуемый способ)
-cd ../terraform
+# 3. Инициализировать проекты и OIDC через OpenTofu
+cd infrastructure/terraform
 cp terraform.tfvars.example terraform.tfvars
-# Отредактируйте terraform.tfvars (harbor_password, oidc_client_secret)
+# Отредактируйте terraform.tfvars (harbor_password, harbor_client_secret)
 tofu init && tofu apply
-
-#    ИЛИ через bash (legacy):
-#    ./init-harbor.sh
 
 # 4. Открыть Harbor UI
 # https://harbor.local:30443
@@ -70,7 +67,7 @@ tofu init && tofu apply
 ### Шаг 1: Развернуть Harbor в kind
 
 ```bash
-./infrastructure/harbor/setup/deploy.sh
+./infrastructure/harbor/deploy.sh
 ```
 
 Скрипт автоматически:
@@ -83,7 +80,7 @@ tofu init && tofu apply
 
 ### Шаг 2: Инициализировать проекты и OIDC в Harbor
 
-**Рекомендуемый способ — через OpenTofu** (декларативно, идемпотентно):
+**Через OpenTofu** (декларативно, идемпотентно):
 
 ```bash
 cd ../terraform
@@ -92,39 +89,17 @@ cp terraform.tfvars.example terraform.tfvars
 tofu init && tofu apply
 ```
 
-Подробнее: [инструкция к Terraform конфигурации](../../infrastructure/terraform/harbor/README.md)
-
-Terraform создаст:
+Корневой модуль `infrastructure/terraform/` создаст:
 - Проекты: `gold-images`, `app-images`, `mirrors`
 - OIDC-интеграцию с Keycloak
 - Robot accounts для CI/CD
 - Внешние registries (Docker Hub, Quay.io)
 - Webhook для уведомлений backend
 
-**Legacy способ — через bash** (оставлен для обратной совместимости):
-
-```bash
-./infrastructure/harbor/setup/init-harbor.sh
-```
-
-Создаёт три проекта через Harbor REST API v2.0:
-
-| Проект | Назначение | Доступ |
-|--------|------------|--------|
-| `gold-images` | Эталонные (gold) образы | Private |
-| `app-images` | Application images (собранные приложения) | Public |
-| `mirrors` | Зеркалируемые образы из внешних реестров | Public |
-
-Дополнительные опции:
-```bash
-./infrastructure/harbor/setup/init-harbor.sh --dry-run   # Проверить, какие проекты существуют
-./infrastructure/harbor/setup/init-harbor.sh --delete    # Удалить все проекты BigBug
-```
-
 ### Шаг 3: Протестировать Harbor
 
 ```bash
-./infrastructure/harbor/setup/test-push.sh
+./infrastructure/harbor/test-push.sh
 ```
 
 Выполняет: docker login → pull alpine → tag → push → API-проверка → очистка.
@@ -134,11 +109,11 @@ Terraform создаст:
 См. подробное руководство: [`keycloak-integration.md`](keycloak-integration.md)
 
 Кратко:
-1. Создать OIDC client `harbor` в Keycloak (realm `bigbug`)
+1. Создать OIDC client `harbor` в Keycloak (realm `bigbug`) — **автоматически через OpenTofu**
 2. Настроить redirect URI: `https://harbor.local:30443/c/oidc/callback`
-3. Скопировать Client Secret
+3. OpenTofu передаёт Client Secret из Keycloak в Harbor автоматически
 4. В Harbor UI → Administration → Configuration → Authentication выбрать OIDC
-5. Заполнить endpoint: `http://<HOST_IP>:8180/realms/bigbug`
+5. Заполнить endpoint: `http://localhost:8180/realms/bigbug`
 6. Включить Auto Onboarding
 
 ## Доступ к Harbor
@@ -155,7 +130,7 @@ Terraform создаст:
 | Назначение | Username | Password | Источник |
 |------------|----------|----------|----------|
 | Harbor Admin | `admin` | `Harbor12345` | [`harbor-values.yaml`](harbor-values.yaml) |
-| Keycloak Admin | `admin` | `admin` | [`docker-compose.infra.yml`](../../docker-compose.infra.yml) |
+| Keycloak Admin | `admin` | `admin` | [`infrastructure/docker-compose.yml`](../docker-compose.yml) |
 | BigBug Test User | `bigbug` | `bigbug` | Keycloak realm `bigbug` |
 
 ### Добавление Helm репозитория
@@ -214,13 +189,6 @@ sudo systemctl restart docker
 docker info | grep -A3 "Insecure Registries"
 ```
 
-### Настройка containerd в kind
-
-Настроена через [`kind-config.yaml`](kind-config.yaml):
-
-- Mirror для `harbor.local:30080`
-- `insecure_skip_verify = true`
-
 ## Интеграция с Keycloak (OIDC)
 
 Подробная документация по настройке OIDC-аутентификации через Keycloak: [`keycloak-integration.md`](keycloak-integration.md)
@@ -245,7 +213,7 @@ docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
 ## Тестирование
 
 ```bash
-./infrastructure/harbor/setup/test-push.sh
+./infrastructure/harbor/test-push.sh
 ```
 
 Скрипт выполняет:
@@ -277,13 +245,10 @@ curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/projects
 
 ```bash
 # Удалить кластер (запись /etc/hosts сохраняется)
-./infrastructure/harbor/setup/teardown.sh
+./infrastructure/harbor/teardown.sh
 
 # Полная очистка: кластер + /etc/hosts
-./infrastructure/harbor/setup/teardown.sh --all
-
-# Удалить проекты BigBug
-./infrastructure/harbor/setup/init-harbor.sh --delete
+./infrastructure/harbor/teardown.sh --all
 ```
 
 ## Структура файлов
@@ -292,17 +257,15 @@ curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/projects
 harbor/
 ├── README.md                 # Этот файл
 ├── deploy.sh                 # Главный скрипт развёртывания
-├── init-harbor.sh            # Инициализация проектов через Harbor API (legacy)
 ├── teardown.sh               # Скрипт удаления
 ├── kind-config.yaml          # Конфигурация kind кластера
-├── harbor-values.yaml        # Helm values для Harbor chart (включая OIDC заглушки)
+├── harbor-values.yaml        # Helm values для Harbor chart
 ├── test-push.sh              # Скрипт тестирования push образов
 └── keycloak-integration.md   # Руководство по интеграции OIDC с Keycloak
 ```
 
-> **Инициализация проектов и OIDC теперь через OpenTofu**: [`infrastructure/terraform/harbor/`](../../infrastructure/terraform/harbor/).
-> Bash скрипт `init-harbor.sh` оставлен как legacy reference.
-> См. [инструкцию по Terraform](../../infrastructure/terraform/harbor/README.md).
+> **Инициализация проектов и OIDC через OpenTofu**: [`infrastructure/terraform/`](../terraform/).
+> Модуль `harbor` в [`infrastructure/terraform/modules/harbor/`](../terraform/modules/harbor/) вызывается корневым модулем.
 
 ## Порты (сводка)
 
@@ -325,7 +288,7 @@ harbor/
 
 ```bash
 kind delete cluster --name=harbor
-./infrastructure/harbor/setup/deploy.sh
+./infrastructure/harbor/deploy.sh
 ```
 
 ### Проблема: «connection refused» при push
@@ -393,19 +356,6 @@ Harbor использует самоподписанный сертификат.
 - Примите предупреждение безопасности
 - Или добавьте `-k` флаг для curl
 - Для production используйте cert-manager + Let's Encrypt
-
-### Проблема: «Не удалось подключиться к Harbor API» при запуске init-harbor.sh
-
-```bash
-# Проверить состояние Harbor
-kubectl get pods -n harbor
-
-# Проверить endpoint
-curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/health
-
-# Проверить, что порты мапятся правильно
-kubectl get svc -n harbor harbor-portal
-```
 
 ### Проблема: OIDC-редирект не работает (Keycloak изнутри kind)
 

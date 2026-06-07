@@ -1,6 +1,6 @@
 /**
  * @file outputs.tf
- * @description Output values exported by the Keycloak configuration.
+ * @description Output values exported by the Keycloak module.
  */
 
 output "realm_id" {
@@ -23,6 +23,12 @@ output "backend_client_id" {
   value       = keycloak_openid_client.backend.client_id
 }
 
+output "backend_client_secret" {
+  description = "Backend OIDC client secret"
+  value       = var.backend_client_secret
+  sensitive   = true
+}
+
 output "frontend_client_id" {
   description = "Frontend OIDC client ID"
   value       = keycloak_openid_client.frontend.client_id
@@ -31,6 +37,12 @@ output "frontend_client_id" {
 output "harbor_client_id" {
   description = "Harbor OIDC client ID"
   value       = keycloak_openid_client.harbor.client_id
+}
+
+output "harbor_client_secret" {
+  description = "Harbor OIDC client secret"
+  value       = var.harbor_client_secret
+  sensitive   = true
 }
 
 output "test_user_username" {

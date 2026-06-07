@@ -1,15 +1,15 @@
 # =============================================================================
-# BigBug Application Services
+# BigBug Application Services (Development)
 # =============================================================================
 #
-# This file defines application services that are rebuilt and restarted
-# frequently during development: databases, backend API and frontend UI.
+# This file defines application services for local development:
+# postgres-backend, redis, backend API and frontend UI.
 #
 # Prerequisites:
-#   docker compose -f docker-compose.infra.yml up -d
+#   docker compose -f infrastructure/docker-compose.yml up -d
 #
 # Usage:
-#   docker compose -f docker-compose.app.yml up -d
+#   docker compose up -d
 #
 # See infrastructure/README.md for the full initialization workflow.
 # =============================================================================

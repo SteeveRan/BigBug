@@ -1,6 +1,6 @@
 /**
  * @file variables.tf
- * @description Input variables for the Keycloak OpenTofu configuration.
+ * @description Input variables for the Keycloak module.
  */
 
 variable "keycloak_url" {
@@ -49,7 +49,7 @@ variable "frontend_client_id" {
 variable "frontend_redirect_uris" {
   description = "Frontend valid redirect URIs"
   type        = list(string)
-  default     = [
+  default = [
     "http://localhost:5173/*",
     "http://localhost:5173/sso/callback",
   ]
@@ -70,7 +70,7 @@ variable "harbor_client_secret" {
 variable "harbor_redirect_uris" {
   description = "Harbor valid redirect URIs"
   type        = list(string)
-  default     = [
+  default = [
     "https://harbor.local:30443/c/oidc/callback",
     "https://harbor.local:30443/*",
   ]
@@ -79,7 +79,7 @@ variable "harbor_redirect_uris" {
 variable "harbor_post_logout_redirect_uris" {
   description = "Harbor valid post logout redirect URIs"
   type        = list(string)
-  default     = [
+  default = [
     "https://harbor.local:30443/c/oidc/logout",
     "https://harbor.local:30443/",
   ]

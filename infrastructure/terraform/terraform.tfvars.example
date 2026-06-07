@@ -1,0 +1,92 @@
+# BigBug Infrastructure — Example Terraform Variables
+#
+# Copy to terraform.tfvars and customize for your environment.
+#
+# IMPORTANT:
+#   - gitlab_token must be a valid root PAT from GitLab.
+#     For a fresh GitLab CE, get the initial root password:
+#       docker compose -f infrastructure/docker-compose.yml exec gitlab cat /etc/gitlab/initial_root_password
+#     Then create a PAT at http://localhost:8080/-/user_settings/personal_access_tokens
+#     with "api" scope.
+#
+#   - harbor_client_secret must match the Keycloak OIDC client secret below.
+#     The root module passes it from Keycloak → Harbor automatically via
+#     module.keycloak.harbor_client_secret, but it's still listed here for reference.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Keycloak
+# ═══════════════════════════════════════════════════════════════════════════════
+
+keycloak_url            = "http://localhost:8180"
+keycloak_admin_username = "admin"
+keycloak_admin_password = "admin"
+realm_name              = "bigbug"
+
+backend_client_id     = "bigbug-backend"
+backend_client_secret = "bigbug-backend-secret"
+
+frontend_client_id    = "bigbug-frontend"
+frontend_redirect_uris = ["http://localhost:5173/*", "http://localhost:3000/*"]
+
+harbor_client_id                = "harbor"
+harbor_client_secret            = "harbor-oidc-secret"
+harbor_redirect_uris            = ["https://harbor.local:30443/c/oidc/callback", "https://harbor.local:30443/*"]
+harbor_post_logout_redirect_uris = ["https://harbor.local:30443/c/oidc/logout", "https://harbor.local:30443/"]
+harbor_root_url                 = "https://harbor.local:30443"
+
+test_user_username = "bigbug"
+test_user_password = "bigbug"
+test_user_email    = "bigbug@example.com"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Harbor
+# ═══════════════════════════════════════════════════════════════════════════════
+
+harbor_url      = "https://harbor.local"
+harbor_username = "admin"
+harbor_password = "Harbor12345"
+
+harbor_auth_mode          = "oidc_auth"
+harbor_oidc_provider_name = "Keycloak"
+harbor_oidc_endpoint      = "http://localhost:8180/realms/bigbug"
+harbor_oidc_groups_claim  = "groups"
+harbor_oidc_scope         = "openid,profile,email,groups"
+harbor_oidc_verify_cert   = false
+harbor_oidc_auto_onboard  = true
+harbor_oidc_user_claim    = "preferred_username"
+
+gold_images_project_name  = "gold-images"
+gold_images_storage_quota = -1
+
+app_images_project_name  = "app-images"
+app_images_storage_quota = -1
+
+mirrors_project_name  = "mirrors"
+mirrors_storage_quota = -1
+
+replication_schedule    = "0 0 2 * * *"
+dockerhub_registry_name = "docker-hub"
+dockerhub_endpoint_url  = "https://hub.docker.com"
+quay_registry_name      = "quay-io"
+quay_endpoint_url       = "https://quay.io"
+
+webhook_backend_url = "http://localhost:8000/api/webhooks/harbor"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GitLab
+# ═══════════════════════════════════════════════════════════════════════════════
+
+gitlab_url   = "http://localhost:8080"
+gitlab_token = "CHANGE-ME-root-personal-access-token"
+
+mirrors_group_name = "bigbug-mirrors"
+
+backend_user_name     = "BigBug Backend"
+backend_user_username = "bigbug-backend"
+backend_user_email    = "bigbug-backend@localhost.localdomain"
+# backend_user_password — leave null to auto-generate via init.sh
+# backend_user_password = null
+
+backend_token_name       = "bigbug-backend-token"
+backend_token_expires_at = "2027-12-31"
+backend_token_scopes     = ["api", "read_repository", "write_repository"]

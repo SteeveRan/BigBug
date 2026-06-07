@@ -176,11 +176,11 @@ app/models/
 
 ### Docker Compose split
 
-**Решение**: Разделение на `docker-compose.infra.yml` и `docker-compose.app.yml`.
+**Решение**: Разделение на [`infrastructure/docker-compose.yml`](../../infrastructure/docker-compose.yml) (инфраструктура) и корневой [`docker-compose.yml`](../../docker-compose.yml) (приложение).
 
 **Обоснование**:
-- Инфраструктура (PostgreSQL, Keycloak, GitLab) запускается реже
-- Приложение (backend, frontend) пересобирается часто
+- Инфраструктура (postgres-keycloak, Keycloak, GitLab) запускается реже и раз в среду
+- Приложение (postgres-backend, redis, backend, frontend) пересобирается часто
 - Быстрее итерации при разработке
 - Изолирование concerns
 

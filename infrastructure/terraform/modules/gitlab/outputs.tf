@@ -13,6 +13,16 @@ output "mirrors_group_path" {
   value       = gitlab_group.mirrors.full_path
 }
 
+output "backend_user_id" {
+  description = "Backend service account user ID"
+  value       = gitlab_user.backend.id
+}
+
+output "backend_user_username" {
+  description = "Backend service account username"
+  value       = gitlab_user.backend.username
+}
+
 output "backend_token" {
   description = "Backend personal access token (store securely)"
   value       = gitlab_personal_access_token.backend_integration.token

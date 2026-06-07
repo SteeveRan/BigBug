@@ -26,22 +26,30 @@ BigBug/
 │   │   ├── schemas/     # Pydantic schemas
 │   │   └── services/    # Business logic layer
 │   ├── alembic/         # Database migrations
+│   ├── docker/          # Dockerfile + entrypoint
+│   ├── scripts/         # Format, lint, test scripts
 │   ├── tests/           # pytest tests
 │   └── pyproject.toml   # Python dependencies
 ├── frontend/            # React + TypeScript SPA
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
+│   │   ├── hooks/       # Custom React hooks
 │   │   ├── pages/       # Page components
 │   │   ├── router/      # React Router config
-│   │   ├── store/       # Redux + RTK Query
 │   │   ├── services/    # API clients
+│   │   ├── store/       # Redux + RTK Query
+│   │   ├── tests/       # Vitest test suite
 │   │   └── types/       # TypeScript interfaces
+│   ├── docker/          # Dockerfile
+│   ├── scripts/         # Format, lint, test scripts
 │   └── package.json     # Node dependencies
 ├── gitlab-ci/           # GitLab CI/CD templates
 ├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
-│   ├── keycloak/       # OpenTofu Keycloak config
-│   ├── gitlab/         # OpenTofu GitLab config
-│   ├── harbor/         # Harbor deployment (setup + terraform)
+│   ├── docker-compose.yml    # Infrastructure services (Keycloak, GitLab)
+│   ├── init.sh               # Initialization script
+│   ├── update-env.sh         # Environment update script
+│   ├── terraform/            # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
+│   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component templates
 ├── docs/
 │   └── architecture/    # Detailed design docs (for human review)
@@ -174,26 +182,9 @@ yarn build
 **Test structure** ([`src/tests/`](frontend/src/tests/)):
 ```
 src/tests/
-├── unit/                    # Изолированные тесты (функции, хуки, редьюсеры)
-│   ├── authSlice.test.ts
-│   ├── keycloak.service.test.ts
-│   └── useKeycloakAuth.test.tsx
-├── integrations/            # Тесты страниц/компонентов с Redux store и RTK Query моками
-│   ├── setup.ts             # Общий setup (@testing-library/jest-dom)
-│   ├── Admin.test.tsx
-│   ├── AuditLog.test.tsx
-│   ├── AuthenticationSettings.test.tsx
-│   ├── DockerImages.test.tsx
-│   ├── DockerImageDetail.test.tsx
-│   ├── HelmCharts.test.tsx
-│   ├── HelmChartDetail.test.tsx
-│   ├── Integrations.test.tsx
-│   ├── Pipelines.test.tsx
-│   ├── SignatureBadge.test.tsx
-│   ├── SsoCallback.test.tsx
-│   ├── StatusChip.test.tsx
-│   └── VulnerabilityBadge.test.tsx
-└── e2e/                     # E2E тесты (Cypress — planned, пока пусто)
+├── unit/               # Изолированные тесты (функции, хуки, редьюсеры)
+├── integrations/       # Тесты страниц/компонентов с Redux store и RTK Query моками
+└── e2e/                # E2E тесты (Cypress — planned, пока пусто)
 ```
 
 **Где размещать новые тесты:**
@@ -214,18 +205,18 @@ See: [`/plans/development/frontend.md`](plans/development/frontend.md)
 
 **Infrastructure services** (start once):
 ```bash
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f infrastructure/docker-compose.yml up -d
 ```
 
 **Application services** (rebuild often):
 ```bash
-docker compose -f docker-compose.app.yml up -d
+docker compose up -d
 ```
 
 **Full environment**:
 ```bash
-# Legacy single file (deprecated, use split files above)
-docker compose up -d
+# Use init.sh for complete setup
+./infrastructure/init.sh
 ```
 
 See: [`/plans/development/infrastructure.md`](plans/development/infrastructure.md)
@@ -452,15 +443,15 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 
 ```bash
 # 1. Start infrastructure
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f infrastructure/docker-compose.yml up -d
 
 # 2. Wait for services (check http://localhost:8180, http://localhost:8080)
 
-# 3. Initialize Keycloak (if first time)
-cd infrastructure && ./init.sh
+# 3. Initialize infrastructure (Keycloak → Harbor → GitLab)
+./infrastructure/init.sh
 
 # 4. Start application
-docker compose -f docker-compose.app.yml up -d
+docker compose up -d
 
 # Or run locally:
 # Backend
@@ -631,7 +622,7 @@ pip install -e .
 **Database connection failed**:
 ```bash
 # Check PostgreSQL is running
-docker compose -f docker-compose.infra.yml ps postgres-backend
+docker compose ps postgres-backend
 
 # Check connection in .env
 DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
@@ -678,11 +669,11 @@ curl http://localhost:8000/api/auth/sso/config
 
 **Services not starting**:
 ```bash
-# Check logs
-docker compose -f docker-compose.infra.yml logs -f keycloak
+# Check logs (infrastructure)
+docker compose -f infrastructure/docker-compose.yml logs -f keycloak
 
 # Restart service
-docker compose -f docker-compose.infra.yml restart keycloak
+docker compose -f infrastructure/docker-compose.yml restart keycloak
 ```
 
 **Port conflicts**:

@@ -107,30 +107,30 @@ node --version
 
 ```bash
 # Start infrastructure services
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f infrastructure/docker-compose.yml up -d
 
 # Wait for services to be healthy
-docker compose -f docker-compose.infra.yml ps
+docker compose -f infrastructure/docker-compose.yml ps
 
-# Initialize Keycloak and GitLab (optional, with OpenTofu)
-cd examples && ./init.sh
+# Initialize infrastructure (optional, with OpenTofu)
+./infrastructure/init.sh
 
 # Start application services
-docker compose -f docker-compose.app.yml up -d
+docker compose up -d
 ```
 
-**Option B: Legacy single file**
+**Option B: Single-shot via init.sh**
 
 ```bash
-docker compose up -d
+./infrastructure/init.sh
 ```
 
 ### 6. Verify Installation
 
 ```bash
 # Check all services
-docker compose -f docker-compose.infra.yml ps
-docker compose -f docker-compose.app.yml ps
+docker compose -f infrastructure/docker-compose.yml ps
+docker compose ps
 
 # Test backend
 curl http://localhost:8000/docs
@@ -184,7 +184,7 @@ cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
 cd frontend && yarn dev
 
 # Terminal 3: Infrastructure logs
-docker compose -f docker-compose.infra.yml logs -f
+docker compose -f infrastructure/docker-compose.yml logs -f
 ```
 
 ## Common Tasks
@@ -279,7 +279,7 @@ pip install -e .
 **Database connection failed**:
 ```bash
 # Check PostgreSQL is running
-docker compose -f docker-compose.infra.yml ps postgres-backend
+docker compose ps postgres-backend
 
 # Check DATABASE_URL in .env
 echo $DATABASE_URL
@@ -327,14 +327,14 @@ curl http://localhost:8000/docs
 **Services not starting**:
 ```bash
 # Check logs
-docker compose -f docker-compose.infra.yml logs keycloak
+docker compose -f infrastructure/docker-compose.yml logs keycloak
 
 # Restart specific service
-docker compose -f docker-compose.infra.yml restart keycloak
+docker compose -f infrastructure/docker-compose.yml restart keycloak
 
 # Remove volumes and restart (危険: удаляет данные)
-docker compose -f docker-compose.infra.yml down -v
-docker compose -f docker-compose.infra.yml up -d
+docker compose -f infrastructure/docker-compose.yml down -v
+docker compose -f infrastructure/docker-compose.yml up -d
 ```
 
 **Port conflicts**:

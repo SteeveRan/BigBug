@@ -8,7 +8,6 @@
 - [`project-overview.md`](project-overview.md) - краткий обзор платформы BigBug
 - [`tech-stack.md`](tech-stack.md) - технологии, версии, зависимости
 - [`current-state.md`](current-state.md) - текущее состояние, что работает
-- [`repository-structure.md`](repository-structure.md) - структура директорий
 
 ### 🛠️ Development
 - [`development/setup.md`](development/setup.md) - настройка окружения разработки

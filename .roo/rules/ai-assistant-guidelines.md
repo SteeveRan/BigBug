@@ -76,6 +76,47 @@ project/
 └── docs/             # Additional documentation
 ```
 
+### Directory Tree Documentation
+
+When documenting a project's directory structure in markdown:
+
+- **Directories only, no individual files**: list ONLY directories in trees, not per-file breakdowns.
+- **Max 2 levels depth**: root + one nesting level. 3 levels allowed for key structural directories only.
+- **Brief annotations**: one short comment per directory (2-5 words).
+- **Exception — entrypoints/configs**: may include 1-3 top-level key files (main.py, config.py, Dockerfile).
+- **Do NOT mirror the filesystem**: the tree should convey structure, not replace `ls -R`.
+
+WRONG:
+```
+backend/app/
+├── api/
+│   ├── __init__.py
+│   ├── auth.py          # Authentication
+│   ├── projects.py      # GitHub orgs
+│   ├── mirrors.py       # GitLab mirrors
+│   └── ...              # 10 more files
+├── models/
+│   ├── user.py
+│   ├── role.py
+│   └── ...              # 8 more files
+...
+```
+
+CORRECT:
+```
+backend/
+├── alembic/             # DB migrations
+├── app/
+│   ├── api/             # REST API routers
+│   ├── core/            # Security, RBAC, exceptions
+│   ├── models/          # SQLAlchemy models
+│   ├── schemas/         # Pydantic schemas
+│   └── services/        # Business logic
+├── tests/               # pytest tests
+├── Dockerfile
+└── pyproject.toml
+```
+
 ### Configuration Documentation
 
 ```javascript

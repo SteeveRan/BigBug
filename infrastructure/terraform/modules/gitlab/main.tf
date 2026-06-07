@@ -19,9 +19,3 @@ provider "gitlab" {
   token    = var.gitlab_token
   base_url = var.gitlab_url
 }
-
-# Data source to retrieve the root/admin user ID
-# Required for creating personal access tokens
-data "gitlab_user" "root" {
-  username = "root"
-}

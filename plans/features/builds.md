@@ -476,7 +476,7 @@ return (
 curl -H "PRIVATE-TOKEN: glpat-xyz" http://localhost:8080/api/v4/projects
 
 # Проверить GitLab Runner
-docker compose -f docker-compose.infra.yml logs gitlab-runner
+docker compose -f infrastructure/docker-compose.yml logs gitlab-runner
 ```
 
 ### Docker build fails
@@ -488,7 +488,7 @@ Error: Cannot connect to Docker daemon
 GitLab Runner должен использовать Docker-in-Docker (dind):
 
 ```yaml
-# docker-compose.infra.yml
+# infrastructure/docker-compose.yml
 gitlab-runner:
   environment:
     - DOCKER_HOST=tcp://docker:2375

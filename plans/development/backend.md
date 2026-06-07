@@ -17,63 +17,16 @@
 
 ```
 backend/
+├── alembic/            # Миграции БД
 ├── app/
-│   ├── main.py              # Точка входа FastAPI приложения
-│   ├── config.py            # Конфигурация из переменных окружения
-│   ├── database.py          # Async database session management
-│   ├── api/                 # REST API endpoints
-│   │   ├── __init__.py
-│   │   ├── auth.py          # Аутентификация (login, SSO, logout)
-│   │   ├── projects.py      # GitHub организации/проекты
-│   │   ├── mirrors.py       # GitLab зеркала
-│   │   ├── gold_images.py   # Gold Images API
-│   │   ├── app_images.py    # App Images API
-│   │   ├── helm_charts.py   # Helm Charts API
-│   │   ├── docker_images.py # Docker Images API
-│   │   ├── admin.py         # Административные endpoints
-│   │   └── webhooks.py      # Webhooks для GitLab/GitHub
-│   ├── core/                # Базовая функциональность
-│   │   ├── exceptions.py    # Доменные исключения
-│   │   ├── security.py      # JWT, password hashing, dependencies
-│   │   ├── secrets.py       # Fernet encryption для credentials
-│   │   └── rbac.py          # Роли и права доступа
-│   ├── models/              # SQLAlchemy модели (один файл = одна модель)
-│   │   ├── user.py
-│   │   ├── role.py
-│   │   ├── github_org.py
-│   │   ├── github_project.py
-│   │   ├── gitlab_mirror.py
-│   │   ├── gold_image.py
-│   │   ├── app_image.py
-│   │   ├── helm_chart_source.py
-│   │   └── ...
-│   ├── schemas/             # Pydantic модели для валидации
-│   │   ├── auth.py
-│   │   ├── project.py
-│   │   ├── mirror.py
-│   │   ├── image.py
-│   │   ├── helm.py
-│   │   └── docker.py
-│   └── services/            # Бизнес-логика
-│       ├── github.py        # GitHub API интеграция
-│       ├── gitlab.py        # GitLab API интеграция
-│       ├── oidc.py          # OIDC/Keycloak интеграция
-│       ├── build.py         # Gold/App Image builds
-│       ├── helm.py          # Helm Repository синхронизация
-│       ├── docker.py        # Docker Registry синхронизация
-│       └── scheduler.py     # APScheduler задачи
-├── alembic/                 # Миграции базы данных
-│   ├── versions/
-│   ├── env.py
-│   └── script.py.mako
-├── tests/                   # Тесты
-│   ├── conftest.py
-│   ├── test_auth.py
-│   ├── test_projects.py
-│   └── ...
+│   ├── api/            # REST API роутеры
+│   ├── core/           # Безопасность, RBAC
+│   ├── models/         # SQLAlchemy модели
+│   ├── schemas/        # Pydantic схемы
+│   └── services/       # Бизнес-логика
+├── tests/              # pytest тесты
 ├── Dockerfile
-├── entrypoint.sh
-└── pyproject.toml           # Зависимости (uv/pip)
+└── pyproject.toml      # Зависимости
 ```
 
 ## Настройка окружения
@@ -353,15 +306,7 @@ app.include_router(
 
 ### Структура тестов
 
-```
-tests/
-├── conftest.py           # Fixtures (test DB, async client, etc.)
-├── test_auth.py
-├── test_projects.py
-├── test_mirrors.py
-├── test_images.py
-└── test_resource.py
-```
+Тесты в [`backend/tests/`](../../backend/tests/): организованы по модулям (`test_auth.py`, `test_projects.py`, `test_images.py` и т.д.) с общими fixtures в [`conftest.py`](../../backend/tests/conftest.py).
 
 ### Запуск тестов
 
@@ -561,7 +506,7 @@ pip install -e .
 
 ```bash
 # Проверить PostgreSQL
-docker compose -f docker-compose.infra.yml ps postgres-backend
+docker compose ps postgres-backend
 
 # Проверить DATABASE_URL в .env
 echo $DATABASE_URL

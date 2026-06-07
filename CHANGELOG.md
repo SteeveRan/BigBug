@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated Material UI from v6 to v9 (`@mui/material ^9.0.1`, `@mui/icons-material ^9.0.1`)
 - Updated `@emotion/react` to `^11.14.0`, `@emotion/styled` to `^11.14.1`
+- **Реструктуризация инфраструктуры:**
+  - Terraform конфигурации собраны в [`infrastructure/terraform/`](infrastructure/terraform/) с подмодулями в [`infrastructure/terraform/modules/`](infrastructure/terraform/modules/) (keycloak, harbor, gitlab)
+  - Единый `tofu apply` с передачей outputs между модулями (Keycloak → Harbor → GitLab)
+  - Compose разделён: корневой [`docker-compose.yml`](docker-compose.yml) — dev-сборка приложения (postgres-backend, redis, backend, frontend), [`infrastructure/docker-compose.yml`](infrastructure/docker-compose.yml) — инфраструктурные сервисы (postgres-keycloak, keycloak, gitlab, gitlab-runner)
+  - `postgres-backend` и `redis` перенесены из инфраструктурного compose в корневой
+  - Harbor setup файлы (`deploy.sh`, `teardown.sh`, etc.) перенесены из `infrastructure/harbor/setup/` → `infrastructure/harbor/`
+  - [`init.sh`](infrastructure/init.sh) переписан: единый `tofu apply` из `infrastructure/terraform/`, idempotent compose up
+  - [`update-env.sh`](infrastructure/update-env.sh) переписан: читает единый `terraform.tfstate`
+  - Старые директории удалены: `infrastructure/keycloak/`, `infrastructure/gitlab/`, `infrastructure/harbor/terraform/`, `infrastructure/harbor/setup/`
 
 ## [0.7.0] - 2026-06-07
 

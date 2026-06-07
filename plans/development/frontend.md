@@ -18,56 +18,17 @@
 
 ```
 frontend/src/
-├── App.tsx                  # Корневой компонент
-├── main.tsx                 # Точка входа
-├── theme.ts                 # Material UI тема
-├── components/              # Переиспользуемые компоненты
-│   ├── Layout/
-│   │   └── index.tsx        # Основной layout с навигацией
-│   └── StatusChip.tsx       # Чип статуса (OK/Failed/Warning/etc)
-├── pages/                   # Страницы (один компонент = одна папка)
-│   ├── Login/
-│   │   └── index.tsx
-│   ├── SsoCallback/
-│   │   └── index.tsx
-│   ├── Dashboard/
-│   │   └── index.tsx
-│   ├── Projects/
-│   │   ├── index.tsx        # Список проектов
-│   │   └── ProjectDetail.tsx
-│   ├── Mirrors/
-│   │   ├── index.tsx
-│   │   └── MirrorDetail.tsx
-│   ├── GoldImages/
-│   │   └── index.tsx
-│   ├── AppImages/
-│   │   └── index.tsx
-│   ├── HelmCharts/
-│   │   ├── index.tsx
-│   │   └── HelmChartDetail.tsx
-│   ├── DockerImages/
-│   │   ├── index.tsx
-│   │   └── DockerImageDetail.tsx
-│   └── Admin/
-│       └── index.tsx
-├── router/                  # React Router конфигурация
-│   ├── index.tsx            # Маршруты
-│   └── ProtectedRoute.tsx   # Защищённые маршруты
-├── store/                   # Redux + RTK Query
-│   ├── index.ts             # Store конфигурация
-│   ├── api.ts               # RTK Query API endpoints
-│   └── authSlice.ts         # Auth state slice
-├── services/                # Внешние сервисы
-│   └── keycloak.ts          # Keycloak инициализация
-├── hooks/                   # Custom React hooks
-│   └── useKeycloakAuth.ts   # Keycloak auth hook
-├── types/                   # TypeScript типы
-│   └── index.ts             # Все интерфейсы
-└── tests/                   # Тесты
-    ├── setup.ts
-    ├── authSlice.test.ts
-    ├── DockerImages.test.tsx
-    └── ...
+├── components/        # Переиспользуемые UI-компоненты
+├── hooks/             # Custom React hooks
+├── pages/             # Страницы (один компонент = одна папка)
+├── router/            # React Router конфигурация
+├── services/          # Внешние сервисы (Keycloak)
+├── store/             # Redux + RTK Query
+├── tests/             # Vitest тесты
+├── types/             # TypeScript интерфейсы
+├── App.tsx            # Корневой компонент
+├── main.tsx           # Точка входа
+└── theme.ts           # Material UI тема
 ```
 
 ## Настройка окружения

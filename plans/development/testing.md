@@ -14,19 +14,7 @@
 
 ### Структура тестов
 
-```
-backend/tests/
-├── conftest.py              # Fixtures (test DB, client, auth)
-├── test_auth.py             # Тесты аутентификации
-├── test_projects.py         # Тесты GitHub проектов
-├── test_images.py           # Тесты Gold/App Images
-├── test_helm_api.py         # Тесты Helm Charts API
-├── test_helm_service.py     # Тесты Helm service layer
-├── test_docker_api.py       # Тесты Docker Images API
-├── test_docker_service.py   # Тесты Docker service layer
-├── test_oidc.py             # Тесты OIDC интеграции
-└── test_secrets.py          # Тесты шифрования
-```
+Тесты в [`backend/tests/`](../../backend/tests/): организованы по модулям с общими fixtures в [`conftest.py`](../../backend/tests/conftest.py).
 
 **Отсутствующие тесты (нужно написать для RBAC Phase 1)**:
 - `test_rbac_service.py` — тесты `RBACService` (CRUD ролей, permissions, защита builtin-ролей)
@@ -359,26 +347,9 @@ pytest --cov=app --cov-fail-under=80
 
 ```
 frontend/src/tests/
-├── unit/                          # Изолированные тесты (без рендеринга компонентов)
-│   ├── authSlice.test.ts         # Redux slice тесты
-│   ├── keycloak.service.test.ts  # Keycloak сервис
-│   └── useKeycloakAuth.test.tsx  # Keycloak auth hook
-├── integrations/                  # Тесты страниц/компонентов с Redux store и RTK Query моками
-│   ├── setup.ts                  # Общий setup (@testing-library/jest-dom)
-│   ├── Admin.test.tsx
-│   ├── AuditLog.test.tsx
-│   ├── AuthenticationSettings.test.tsx
-│   ├── DockerImages.test.tsx
-│   ├── DockerImageDetail.test.tsx
-│   ├── HelmCharts.test.tsx
-│   ├── HelmChartDetail.test.tsx
-│   ├── Integrations.test.tsx
-│   ├── Pipelines.test.tsx
-│   ├── SignatureBadge.test.tsx
-│   ├── SsoCallback.test.tsx
-│   ├── StatusChip.test.tsx
-│   └── VulnerabilityBadge.test.tsx
-└── e2e/                           # E2E тесты (Cypress — planned, пока пусто)
+├── unit/               # Изолированные тесты (функции, хуки, редьюсеры)
+├── integrations/       # Тесты страниц/компонентов с Redux store и RTK Query моками
+└── e2e/                # E2E тесты (Cypress — planned)
 ```
 
 **Где размещать новые тесты:**
