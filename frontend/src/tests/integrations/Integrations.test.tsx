@@ -17,8 +17,8 @@ import type { Store } from '@reduxjs/toolkit';
 // Mocks — must appear before any imports that use these modules
 // ---------------------------------------------------------------------------
 
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useGetGitlabInstancesQuery: vi.fn(),
@@ -49,7 +49,7 @@ vi.mock('../store/api', async () => {
   };
 });
 
-vi.mock('../hooks/usePermissions', () => ({
+vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: vi.fn(),
 }));
 
@@ -57,16 +57,16 @@ vi.mock('../hooks/usePermissions', () => ({
 // Imports — executed after vi.mock calls are hoisted
 // ---------------------------------------------------------------------------
 
-import { api } from '../store/api';
+import { api } from '../../store/api';
 import {
   useGetGitlabInstancesQuery,
   useCreateGitlabInstanceMutation,
   useUpdateGitlabInstanceMutation,
   useDeleteGitlabInstanceMutation,
   useTestGitlabConnectionMutation,
-} from '../store/api';
-import { usePermissions } from '../hooks/usePermissions';
-import { SettingsIntegrations } from '../pages/Settings/Integrations';
+} from '../../store/api';
+import { usePermissions } from '../../hooks/usePermissions';
+import { SettingsIntegrations } from '../../pages/Settings/Integrations';
 
 // ---------------------------------------------------------------------------
 // Helpers

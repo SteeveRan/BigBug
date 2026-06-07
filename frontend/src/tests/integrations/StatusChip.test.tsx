@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { StatusChip } from '../components/StatusChip';
-import { STATUS_FLAG } from '../types';
+import { StatusChip } from '../../components/StatusChip';
+import { STATUS_FLAG } from '../../types';
 
 describe('StatusChip', () => {
   it('renders OK status', () => {

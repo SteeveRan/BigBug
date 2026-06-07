@@ -19,8 +19,8 @@ import type { Store } from '@reduxjs/toolkit';
 // Mocks — must appear before any imports that use these modules
 // ---------------------------------------------------------------------------
 
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useGetOidcConfigQuery: vi.fn(),
@@ -32,9 +32,9 @@ vi.mock('../store/api', async () => {
 // Imports — executed after vi.mock calls are hoisted
 // ---------------------------------------------------------------------------
 
-import { api, useGetOidcConfigQuery, useUpdateOidcConfigMutation } from '../store/api';
-import { AuthenticationSettings } from '../pages/Settings/Authentication';
-import type { OIDCConfig } from '../types';
+import { api, useGetOidcConfigQuery, useUpdateOidcConfigMutation } from '../../store/api';
+import { AuthenticationSettings } from '../../pages/Settings/Authentication';
+import type { OIDCConfig } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Test data

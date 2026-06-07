@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SignatureBadge } from '../components/SignatureBadge';
+import { SignatureBadge } from '../../components/SignatureBadge';
 
 describe('SignatureBadge', () => {
   it('shows "Signed" when isSigned is true', () => {

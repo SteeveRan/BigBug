@@ -17,8 +17,8 @@ import type { Store } from '@reduxjs/toolkit';
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useGetPipelineRunsQuery: vi.fn(),
@@ -29,7 +29,7 @@ vi.mock('../store/api', async () => {
   };
 });
 
-vi.mock('../hooks/usePermissions', () => ({
+vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: vi.fn(),
 }));
 
@@ -37,17 +37,17 @@ vi.mock('../hooks/usePermissions', () => ({
 // Imports
 // ---------------------------------------------------------------------------
 
-import { api } from '../store/api';
+import { api } from '../../store/api';
 import {
   useGetPipelineRunsQuery,
   useTriggerPipelineMutation,
   useCancelPipelineMutation,
   useRetryPipelineMutation,
   useGetGitlabInstancesQuery,
-} from '../store/api';
-import { usePermissions } from '../hooks/usePermissions';
-import { PipelinesPage } from '../pages/Pipelines';
-import { STATUS_FLAG, type PipelineRun } from '../types';
+} from '../../store/api';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PipelinesPage } from '../../pages/Pipelines';
+import { STATUS_FLAG, type PipelineRun } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers

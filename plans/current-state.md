@@ -1,257 +1,106 @@
-# BigBug - Current State
+# BigBug — Текущее состояние
 
-> Последнее обновление: 2026-06-07
-> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, Phase 2 (Multi-instance Integrations) завершён, Phase 3 (OIDC & Advanced) завершён
+> Обновление: 2026-06-07
 
-## Что работает сейчас
+## Что реализовано
 
-### ✅ Backend API
+### Backend API
 
-**Auth** (`/api/auth/`):
-- `POST /api/auth/login` - локальный логин (username/password → JWT)
-- `GET /api/auth/me` - текущий пользователь
-- `GET /api/auth/sso/config` - конфигурация SSO
-- `POST /api/auth/oidc/exchange` - обмен OIDC кода на JWT
+| Группа | Эндпоинты | Файл |
+|--------|-----------|------|
+| Auth | `POST /login`, `GET /me`, `GET /me/permissions`, `GET /sso/config`, `POST /oidc/exchange` | [`backend/app/api/auth.py`](backend/app/api/auth.py) |
+| Admin | Users CRUD, Roles CRUD, `GET /permissions` | [`backend/app/api/admin.py`](backend/app/api/admin.py) |
+| OIDC Config | `GET/PATCH /auth/admin/oidc-config`, `GET .../public` | [`backend/app/api/auth.py`](backend/app/api/auth.py) |
+| Helm Charts | Источники CRUD, версии, индексация, sync trigger | [`backend/app/api/integrations/helm_repository.py`](backend/app/api/integrations/helm_repository.py) |
+| Docker Images | Источники CRUD, теги, индексация, sync trigger | [`backend/app/api/integrations/docker_registry.py`](backend/app/api/integrations/docker_registry.py) |
+| Mirrors | GitHub→GitLab зеркала, расписания, sync история | [`backend/app/api/mirrors.py`](backend/app/api/mirrors.py) |
+| Gold/App Images | Образы CRUD, версии, build schedules, scan/sign статус | [`backend/app/api/gold_images.py`](backend/app/api/gold_images.py), [`backend/app/api/app_images.py`](backend/app/api/app_images.py) |
+| Projects | GitHub projects | [`backend/app/api/projects.py`](backend/app/api/projects.py) |
+| Integrations | CRUD для 5 типов: GitLab, Harbor, GitHub, Docker Registry, Helm Repository (30 эндпоинтов) | [`backend/app/api/integrations/`](backend/app/api/integrations/) |
+| Pipelines | `GET` список, `POST` trigger, `GET`/{id}, `POST`/{id}/cancel, `POST`/{id}/retry | [`backend/app/api/pipelines.py`](backend/app/api/pipelines.py) |
+| GitLab Components | CRUD компонентов CI/CD | [`backend/app/api/components.py`](backend/app/api/components.py) |
+| Audit Log | `GET` с фильтрацией (user, action, resource, date range) | [`backend/app/api/audit.py`](backend/app/api/audit.py) |
+| Webhooks | GitLab webhook: sync/build/helm/docker статусы | [`backend/app/api/webhooks.py`](backend/app/api/webhooks.py) |
 
-**Helm Charts** (`/api/helm-charts/`):
-- CRUD для источников чартов
-- Индексация (парсинг index.yaml)
-- Просмотр версий и логов синхронизации
-- Триггер GitLab pipeline
+**Сервисный слой** (бизнес-логика): [`backend/app/services/`](backend/app/services/)
+`audit.py`, `build.py`, `cosign.py`, `docker.py`, `github.py`, `gitlab.py`, `harbor_scan.py`, `helm.py`, `integrations.py`, `oidc.py`, `oidc_config.py`, `pipeline.py`, `rbac_service.py`, `scheduler.py`
 
-**Docker Images** (`/api/docker-images/`):
-- CRUD для источников образов
-- Индексация (теги из registry)
-- Просмотр тегов и логов синхронизации
-- Триггер GitLab pipeline
+**Безопасность**: [`backend/app/core/`](backend/app/core/)
+`rbac.py` (permission-based, JWT-кэширование), `rate_limit.py` (fastapi-limiter + pyrate_limiter), `secrets.py` (Fernet-шифрование credentials)
 
-**Mirrors** (`/api/mirrors/`):
-- GitHub → GitLab зеркалирование
-- Управление расписаниями
-- История синхронизации
+### Frontend UI
 
-**Gold/App Images** (`/api/gold-images/`, `/api/app-images/`):
-- CRUD для образов
-- Версионирование
-- Build schedules
+**Страницы** (все в [`frontend/src/pages/`](frontend/src/pages/)):
+- `/` — Dashboard
+- `/login`, `/sso/callback` — аутентификация
+- `/projects` — GitHub проекты
+- `/mirrors` — GitLab зеркала
+- `/gold-images` — Gold образы
+- `/app-images` — App образы
+- `/helm-charts` — Helm чарты (список + детали)
+- `/docker-images` — Docker образы (список + детали)
+- `/pipelines` — Pipeline Runs (запуск, cancel, retry, фильтрация)
+- `/admin` — Users + Roles (кастомные роли с permission-группами)
+- `/settings/authentication` — OIDC настройки
+- `/settings/integrations` — 5 типов интеграций (GitLab/Harbor/GitHub/Docker/Helm)
+- `/settings/audit-log` — аудит (фильтрация, пагинация, детали)
+- `/settings/pipelines` — GitLab CI/CD Components (CRUD)
 
-**Admin** (`/api/admin/`):
-- Управление пользователями
-- Управление ролями
-- `GET /api/admin/permissions` — список всех permissions
-- `GET /api/admin/roles` — список ролей с permissions
-- `POST /api/admin/roles` — создание кастомной роли
-- `PATCH /api/admin/roles/{id}` — обновление роли
-- `DELETE /api/admin/roles/{id}` — удаление кастомной роли
+**Компоненты**: `Layout`, `StatusChip`, `VulnerabilityBadge`, `SignatureBadge`, `ProtectedRoute`, `PermissionGate`
 
-**Auth (расширение)**:
-- `GET /api/auth/me/permissions` — permissions текущего пользователя
+**Hooks**: `usePermissions` (`hasPermission`, `hasAnyPermission`, `hasAllPermissions`), `useKeycloakAuth`
 
-**OIDC Config Admin** (`/api/auth/admin/`):
-- `GET /api/auth/admin/oidc-config` — полная конфигурация OIDC (admin only)
-- `PATCH /api/auth/admin/oidc-config` — обновление конфигурации OIDC
-- `GET /api/auth/admin/oidc-config/public` — конфигурация без client_secret
+### Database
 
-**Webhooks** (`/api/webhooks/`):
-- GitLab webhook для обновления статусов
-- Поддержка 4 типов: sync_log, build_log, helm_sync_log, docker_sync_log
+**Таблицы** (см. [`backend/app/models/`](backend/app/models/) и Alembic миграции):
 
-### ✅ Frontend UI
+| Таблица | Назначение |
+|---------|------------|
+| `users` | Пользователи (local + SSO) |
+| `roles` | Роли с `is_custom`, `created_by_user_id` |
+| `user_roles` | M2M пользователи ↔ роли |
+| `permissions` | 32 permission `resource:action` |
+| `role_permissions` | M2M роли ↔ permissions |
+| `oidc_config` | OIDC конфигурация (Fernet-encrypted client_secret) |
+| `github_orgs`, `github_projects`, `github_releases` | GitHub интеграция |
+| `gitlab_mirrors`, `sync_schedules`, `sync_logs` | Зеркалирование |
+| `gold_images`, `app_images`, `image_versions`, `build_schedules`, `build_logs` | Образы и сборки |
+| `helm_chart_sources`, `helm_chart_versions`, `helm_sync_logs` | Helm чарты |
+| `docker_image_sources`, `docker_image_tags`, `docker_sync_logs` | Docker образы |
+| `gitlab_instances`, `harbor_instances`, `github_instances`, `docker_registry_instances`, `helm_repository_instances` | Multi-instance интеграции |
+| `pipeline_runs` | История запусков GitLab pipelines |
+| `gitlab_components` | GitLab CI/CD компоненты |
+| `audit_logs` | Аудит действий пользователей |
 
-**Страницы**:
-- `/login` - логин (local + SSO)
-- `/sso/callback` - SSO callback
-- `/` - Dashboard
-- `/projects` - GitHub проекты
-- `/mirrors` - GitLab зеркала
-- `/gold-images` - Gold образы
-- `/app-images` - App образы
-- `/helm-charts` - Helm чарты (список + детали)
-- `/docker-images` - Docker образы (список + детали)
-- `/admin` - Admin панель
-- `/settings/authentication` - Настройки аутентификации (OIDC)
+### Infrastructure
 
-**Компоненты**:
-- `Layout` - навигация + sidebar
-- `StatusChip` - унифицированный статус
-- `ProtectedRoute` - защищённые маршруты
-- `PermissionGate` — условный рендер на основе permissions (`permission`/`anyOf`/`allOf` props)
+- **Docker Compose**: `docker-compose.infra.yml` + `docker-compose.app.yml`
+- **Keycloak**: Realm `bigbug`, 3 роли, OpenTofu конфигурация в [`infrastructure/keycloak/`](infrastructure/keycloak/)
+- **GitLab**: OpenTofu конфигурация в [`infrastructure/gitlab/`](infrastructure/gitlab/)
+- **Harbor**: Deployment + Terraform в [`infrastructure/harbor/`](infrastructure/harbor/)
+- **GitLab CI Templates** ([`infrastructure/gitlab-components/`](infrastructure/gitlab-components/)):
+  - `gold-image-template.yml` — build → sign (cosign) → notify
+  - `app-image-template.yml` — build → sign (cosign) → notify
+  - `mirror-template.yml`, `helm-sync-template.yml`, `docker-sync-template.yml`
 
-**Hooks**:
-- `usePermissions` — `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()` из Redux store
+### Тесты
 
-### ✅ Infrastructure
+**Backend** ([`backend/tests/`](backend/tests/)):
+- Unit: `test_audit_service.py`, `test_cosign_service.py`, `test_docker_service.py`, `test_harbor_scan_service.py`, `test_helm_service.py`, `test_integrations.py`, `test_oidc.py`, `test_pipeline_service.py`, `test_secrets.py`
+- E2E: `test_oidc_config.py` (20), `test_integrations.py` (87) + файлы блоков 1-5
 
-**Docker Compose**:
-- `docker-compose.infra.yml` - инфраструктурные сервисы
-- `docker-compose.app.yml` - приложение
-- `docker-compose.yaml` - legacy (deprecated)
+**Frontend** ([`frontend/src/tests/`](frontend/src/tests/)):
+- ✅ Admin, AuditLog, AuthenticationSettings, authSlice, DockerImageDetail, DockerImages, HelmChartDetail, HelmCharts, Integrations, keycloak.service, Pipelines, SignatureBadge, SsoCallback, StatusChip, useKeycloakAuth, VulnerabilityBadge
+- ❌ Отсутствуют: `Login.test.tsx`, `Dashboard.test.tsx`, `Mirrors.test.tsx`, `GoldImages.test.tsx`, `AppImages.test.tsx`, `Projects.test.tsx`
 
-**Keycloak**:
-- Realm `bigbug`
-- Роли: admin, operator, viewer
-- Clients: bigbug-backend (confidential), bigbug-frontend (public + PKCE)
-- OpenTofu конфигурация в `infrastructure/keycloak/`
+## Что осталось
 
-**GitLab**:
-- OpenTofu конфигурация в `infrastructure/gitlab/`
-- Группа для зеркал
-- Personal Access Token для backend
+### Недостающие frontend-тесты
 
-**GitLab CI Templates** (`gitlab-ci/`):
-- `mirror-template.yml` - зеркалирование репозиториев
-- `gold-image-template.yml` - сборка Gold образов
-- `app-image-template.yml` - сборка App образов
-- `helm-sync-template.yml` - синхронизация Helm чартов
-- `docker-sync-template.yml` - синхронизация Docker образов
-
-### ✅ Database
-
-**Текущие таблицы**:
-- `users` - пользователи (local + SSO)
-- `roles` - роли (admin/operator/viewer), расширена полями `is_custom`, `created_by_user_id`
-- `user_roles` - M2M связь
-- `github_orgs` - GitHub организации
-- `github_projects` - GitHub репозитории
-- `github_releases` - релизы для delta tracking
-- `gitlab_mirrors` - GitLab зеркала
-- `sync_schedules` - расписания синхронизации
-- `sync_logs` - история синхронизации
-- `gold_images` - Gold образы
-- `app_images` - App образы
-- `image_versions` - версии образов
-- `build_schedules` - расписания сборок
-- `build_logs` - история сборок
-- `helm_chart_sources` - источники Helm чартов
-- `helm_chart_versions` - версии чартов
-- `helm_sync_logs` - логи синхронизации
-- `docker_image_sources` - источники Docker образов
-- `docker_image_tags` - теги образов
-- `docker_sync_logs` - логи синхронизации
-- `permissions` - 32 permission по паттерну `resource:action`
-- `role_permissions` - M2M роли ↔ permissions
-- `oidc_config` - конфигурация OIDC провайдера (issuer_url, client_id, client_secret, role_mapping JSON)
-
-**Миграции**:
-- `20260605_0449_39774f94ac35_initial_schema.py` - базовая схема
-- `20260605_0747_add_helm_tables.py` - Helm таблицы
-- `20260605_1200_add_docker_tables.py` - Docker таблицы
-- `20260606_1932_bde12d699ca4_add_rbac_permissions.py` - RBAC: permissions, role_permissions, расширение roles
-- `20260607_0106_c7d8e9f0a1b2_add_oidc_config.py` - таблица oidc_config
-
-## ✅ Завершённые этапы рефакторинга
-
-### ✅ RBAC Phase 1 — ЗАВЕРШЁН (2026-06-06)
-
-**Реализовано**:
-
-**Новые таблицы**:
-- `permissions` — 32 permission по паттерну `resource:action` (mirrors, projects, helm, docker, gold_images, app_images, users, roles, system)
-- `role_permissions` — M2M роли ↔ permissions
-- Поля `is_custom`, `created_by_user_id` в таблице `roles`
-
-**Backend**:
-- [`backend/app/core/rbac.py`](../backend/app/core/rbac.py) — `require_permission()` dependency factory с JWT-кэшированием; `require_roles()`, `require_admin()`, `require_operator()`, `require_viewer()` сохранены
-- [`backend/app/services/rbac_service.py`](../backend/app/services/rbac_service.py) — `RBACService`: `get_user_permissions()`, `get_all_permissions()`, `get_all_roles()`, `create_role()`, `update_role()`, `delete_role()`, `assign_permissions_to_role()`; встроенная защита builtin-ролей
-- [`backend/app/schemas/rbac.py`](../backend/app/schemas/rbac.py) — `PermissionOut`, `RoleOut`, `RoleDetailOut`, `RoleCreate`, `RoleUpdate`, `UserPermissionsOut`
-- Permissions вшиты в JWT payload при `login` / `refresh` / `oidc/exchange`; `get_current_user` кэширует их в `user._cached_permissions`
-
-**Admin API**:
-- `GET /api/admin/permissions` — список всех permissions
-- `GET /api/admin/roles` — список ролей с permissions
-- `POST /api/admin/roles` — создание кастомной роли
-- `PATCH /api/admin/roles/{id}` — обновление роли (только кастомные)
-- `DELETE /api/admin/roles/{id}` — удаление роли (только кастомные, без пользователей)
-
-**Auth API (расширение)**:
-- `GET /api/auth/me/permissions` — permissions и роль текущего пользователя
-
-**Frontend**:
-- [`frontend/src/hooks/usePermissions.ts`](../frontend/src/hooks/usePermissions.ts) — `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`
-- [`frontend/src/components/PermissionGate.tsx`](../frontend/src/components/PermissionGate.tsx) — условный рендер с props `permission`, `anyOf`, `allOf`, `fallback`
-
-### ✅ Multi-instance Integrations (Phase 2) — ЗАВЕРШЁН (2026-06-07)
-
-**Реализовано**:
-
-**Новые таблицы**:
-- `gitlab_instances` — несколько GitLab серверов
-- `harbor_instances` — несколько Harbor registry
-- `github_instances` — несколько GitHub конфигураций
-- `docker_registry_instances` — несколько Docker registry
-- `helm_repository_instances` — несколько Helm репозиториев
-
-**Backend**:
-- [`backend/app/schemas/integrations.py`](../backend/app/schemas/integrations.py) — Pydantic схемы для Create/Update/Out всех 5 типов инстансов + `ConnectionTestResult`
-- [`backend/app/services/integrations.py`](../backend/app/services/integrations.py) — `IntegrationsService` (CRUD + test_connection для каждого типа), `ServiceFactory` (API-клиенты)
-- [`backend/app/api/integrations.py`](../backend/app/api/integrations.py) — 30 REST эндпоинтов (6 per type × 5 types), защищены `require_permission("integrations:manage")`
-
-**Frontend**:
-- [`frontend/src/pages/Settings/Integrations/index.tsx`](../frontend/src/pages/Settings/Integrations/index.tsx) — страница с MUI Tabs, 5 панелей (GitLab/Harbor/GitHub/Docker Registry/Helm Repository), каждая с таблицей инстансов и операциями (Add/Edit/Delete/Test Connection)
-
-**Тесты**:
-- Backend unit: 10 тестов (service layer + encryption)
-- Backend e2e: 87 тестов (CRUD + test connection + unauthorized для всех типов)
-- Frontend: 8 тестов (tabs, instances list, CRUD dialog, delete confirmation, test connection success/failure)
-
-**Миграции**:
-- `20260606_2145_a66daaecc2fa_add_integration_instances.py` — gitlab/harbor/github
-- `20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py` — docker registry/helm repo
-- `20260607_0105_a1b2c3d4e5f6_add_integration_instance_fields.py` — verify_ssl, is_active, last_checked_at, status fields
-
-### ✅ OIDC & Advanced (Phase 3) — ЗАВЕРШЁН (2026-06-07)
-
-**Реализовано**:
-
-**Новые таблицы**:
-- `oidc_config` — конфигурация OIDC провайдера: `issuer_url`, `client_id`, `client_secret` (Fernet-зашифрован), `frontend_client_id`, `enabled`, `public_url`, `role_mapping` (JSON)
-
-**Backend**:
-- [`backend/app/models/oidc_config.py`](../backend/app/models/oidc_config.py) — модель `OIDCConfig`
-- [`backend/app/schemas/oidc_config.py`](../backend/app/schemas/oidc_config.py) — `OIDCConfigOut`, `OIDCConfigUpdate`, `OIDCConfigPublicOut`
-- [`backend/app/services/oidc_config.py`](../backend/app/services/oidc_config.py) — `OIDCConfigService`: CRUD + 60-секундный кэш с инвалидацией
-- [`backend/app/services/oidc.py`](../backend/app/services/oidc.py) — `KeycloakOIDCService` рефакторен: читает конфигурацию из БД вместо env vars
-- `role_mapping` (Keycloak roles → BigBug roles) теперь настраивается через UI вместо hardcoded frozenset
-
-**Admin API**:
-- `GET /api/auth/admin/oidc-config` — полная конфигурация (только admin)
-- `PATCH /api/auth/admin/oidc-config` — обновление конфигурации
-- `GET /api/auth/admin/oidc-config/public` — конфигурация без client_secret
-
-**Frontend**:
-- [`frontend/src/pages/Settings/Authentication/index.tsx`](../frontend/src/pages/Settings/Authentication/index.tsx) — страница настроек аутентификации: toggle OIDC, поля (Issuer URL, Client ID, Client Secret, Frontend Client ID, Public URL), таблица Role Mapping (CRUD)
-- RTK Query endpoints: `getOidcConfig`, `updateOidcConfig`
-- Навигационный пункт "Authentication" в Settings sidebar
-- Маскирование client_secret (отображается пустым, отправляется только при изменении)
-
-**Тесты**:
-- Backend e2e: 20 тестов для OIDC Config API ([`backend/tests/e2e/test_oidc_config.py`](../backend/tests/e2e/test_oidc_config.py))
-- Frontend unit: 39 тестов для страницы Authentication Settings ([`frontend/src/tests/AuthenticationSettings.test.tsx`](../frontend/src/tests/AuthenticationSettings.test.tsx)) — 7 категорий
-
-**Миграции**:
-- `20260607_0106_c7d8e9f0a1b2_add_oidc_config.py` — таблица oidc_config
-
-## Что в процессе (рефакторинг)
-
-## Известные ограничения
-
-1. **Базовый RBAC**: 3 предустановленные роли + кастомные (Phase 1 завершён); нет UI для управления кастомными ролями
-2. **Нет Pipeline UI**: управление пайплайнами только через GitLab
-3. **Нет Audit Log**: история изменений не ведётся
-4. **Нет Rate Limiting**: нет защиты от злоупотреблений
-
-## Известные технические особенности
-
-- `keycloak-js` 24.x не типизирует `codeChallenge` → URL для PKCE строится вручную
-- `_NonClosingClient` в `oidc.py` — адаптер для тестирования httpx клиентов
-- `Column` типы в SQLAlchemy дают false-positive в Pylance → `# type: ignore`
-- `select(Role).where(False)` не работает → используется условное ветвление
-
-## Следующие шаги
-
-Согласно [`/docs/architecture/11-migration-strategy.md`](../docs/architecture/11-migration-strategy.md):
-
-1. **Phase 1**: ✅ RBAC Foundation (permissions, custom roles, JWT update) — ЗАВЕРШЁН
-2. **Phase 2**: ✅ Multi-instance integrations (GitLab, Harbor, GitHub, Docker, Helm) — ЗАВЕРШЁН
-3. **Phase 3**: ✅ OIDC & Advanced (configurable OIDC, role mapping) — ЗАВЕРШЁН
-4. **Phase 4**: Harbor integration, Pipeline management UI, Audit logging — следующий приоритет
+Написать unit-тесты для страниц:
+1. [`frontend/src/pages/Login/`](frontend/src/pages/Login/index.tsx) → `Login.test.tsx`
+2. [`frontend/src/pages/Dashboard/`](frontend/src/pages/Dashboard/index.tsx) → `Dashboard.test.tsx`
+3. [`frontend/src/pages/Mirrors/`](frontend/src/pages/Mirrors/index.tsx) → `Mirrors.test.tsx`
+4. [`frontend/src/pages/GoldImages/`](frontend/src/pages/GoldImages/index.tsx) → `GoldImages.test.tsx`
+5. [`frontend/src/pages/AppImages/`](frontend/src/pages/AppImages/index.tsx) → `AppImages.test.tsx`
+6. [`frontend/src/pages/Projects/`](frontend/src/pages/Projects/index.tsx) → `Projects.test.tsx`

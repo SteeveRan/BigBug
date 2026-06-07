@@ -452,20 +452,29 @@ import Layout from '../../components/Layout';
 ```bash
 cd frontend
 
-# Watch mode (для разработки)
-yarn test
+# Все тесты (unit + integrations)
+./scripts/test.sh
 
-# Один запуск
-yarn test:run
+# Только unit
+./scripts/test.sh --unit
+
+# Только integrations
+./scripts/test.sh --integrations
 
 # С покрытием
-yarn test:coverage
+./scripts/test.sh --coverage
+
+# Отладка конкретного теста
+./scripts/test.sh -f DockerImages -t "should render"
+
+# Watch mode (для разработки)
+yarn test
 ```
 
 ### Пример теста компонента
 
 ```typescript
-// src/tests/ResourceList.test.tsx
+// src/tests/integrations/ResourceList.test.tsx
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { store } from '../store';
@@ -531,7 +540,7 @@ yarn lint
 npx tsc --noEmit
 
 # Полная проверка
-yarn format && yarn lint && npx tsc --noEmit && yarn test:run
+yarn format && yarn lint && npx tsc --noEmit && ./scripts/test.sh
 ```
 
 ### Конфигурация ESLint

@@ -6,7 +6,7 @@ import {
   redirectToKeycloakLogin,
   SSO_VERIFIER_KEY,
   base64UrlEncode,
-} from '../services/keycloak';
+} from '../../services/keycloak';
 
 // ---------------------------------------------------------------------------
 // base64UrlEncode unit tests

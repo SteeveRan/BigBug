@@ -4,13 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { BrowserRouter } from 'react-router';
-import { DockerImagesPage } from '../pages/DockerImages';
-import { api } from '../store/api';
-import authReducer from '../store/authSlice';
-import { STATUS_FLAG } from '../types';
+import { DockerImagesPage } from '../../pages/DockerImages';
+import { api } from '../../store/api';
+import authReducer from '../../store/authSlice';
+import { STATUS_FLAG } from '../../types';
 
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useListDockerImagesQuery: vi.fn(),
@@ -23,7 +23,7 @@ import {
   useListDockerImagesQuery,
   useCreateDockerImageMutation,
   useIndexDockerImageMutation,
-} from '../store/api';
+} from '../../store/api';
 
 const mockCreateFn = vi.fn();
 const mockIndexFn = vi.fn();

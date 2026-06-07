@@ -444,7 +444,7 @@ export function AuthenticationSettings() {
                         }
                         placeholder="e.g. bigbug-admin"
                         disabled={isSaving}
-                        inputProps={{ 'aria-label': `Provider role for mapping ${entry.id}` }}
+                        slotProps={{ htmlInput: { 'aria-label': `Provider role for mapping ${entry.id}` } }}
                       />
                     </TableCell>
                     <TableCell>
@@ -457,19 +457,21 @@ export function AuthenticationSettings() {
                         }
                         placeholder="e.g. admin"
                         disabled={isSaving}
-                        inputProps={{ 'aria-label': `BigBug role for mapping ${entry.id}` }}
+                        slotProps={{ htmlInput: { 'aria-label': `BigBug role for mapping ${entry.id}` } }}
                       />
                     </TableCell>
                     <TableCell align="right">
                       <Tooltip title="Remove mapping">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveMapping(entry.id)}
-                          disabled={isSaving}
-                          aria-label={`Remove mapping ${entry.providerRole || '(empty)'}`}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveMapping(entry.id)}
+                            disabled={isSaving}
+                            aria-label={`Remove mapping ${entry.providerRole || '(empty)'}`}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
                       </Tooltip>
                     </TableCell>
                   </TableRow>

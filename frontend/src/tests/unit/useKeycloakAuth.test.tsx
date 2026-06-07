@@ -6,14 +6,14 @@ import { renderHook, waitFor } from '@testing-library/react';
 // so the tests must match that value.
 const DEFAULT_ORIGIN = 'http://localhost:3000';
 
-import { useKeycloakAuth } from '../hooks/useKeycloakAuth';
+import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 
 // Mock RTK Query
-vi.mock('../store/api', () => ({
+vi.mock('../../store/api', () => ({
   useGetSsoConfigQuery: vi.fn(),
 }));
 
-import { useGetSsoConfigQuery } from '../store/api';
+import { useGetSsoConfigQuery } from '../../store/api';
 
 // Mock sessionStorage
 const mockStorage: Record<string, string> = {};

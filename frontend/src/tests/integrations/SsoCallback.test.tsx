@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import { SsoCallbackPage } from '../pages/SsoCallback';
-import authReducer from '../store/authSlice';
+import { SsoCallbackPage } from '../../pages/SsoCallback';
+import authReducer from '../../store/authSlice';
 
 // Mock react-router
 const mockNavigate = vi.fn();
@@ -13,7 +13,7 @@ vi.mock('react-router', () => ({
 
 // Mock useKeycloakAuth
 const mockHandleCallback = vi.fn();
-vi.mock('../hooks/useKeycloakAuth', () => ({
+vi.mock('../../hooks/useKeycloakAuth', () => ({
   useKeycloakAuth: () => ({
     ready: true,
     enabled: true,
@@ -29,8 +29,8 @@ vi.mock('../hooks/useKeycloakAuth', () => ({
 const mockExchange = vi.fn().mockReturnValue({
   unwrap: () => Promise.resolve({ access_token: 'mock-token', refresh_token: 'mock-refresh' }),
 });
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useSsoExchangeMutation: () => [mockExchange, { isLoading: false }],

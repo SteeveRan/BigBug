@@ -235,7 +235,7 @@ cd frontend
 yarn format                # Prettier
 yarn lint                  # ESLint
 npx tsc --noEmit          # Type check
-yarn test:run              # Test
+./scripts/test.sh          # Test (unit + integrations)
 ```
 
 ### Reset Database

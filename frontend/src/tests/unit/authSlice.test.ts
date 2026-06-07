@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import authReducer, { setCredentials, setUser, logout, AuthUser } from '../store/authSlice';
+import authReducer, { setCredentials, setUser, logout, AuthUser } from '../../store/authSlice';
 
 const mockUser: AuthUser = {
   id: 1,

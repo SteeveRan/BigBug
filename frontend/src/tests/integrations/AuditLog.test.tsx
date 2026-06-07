@@ -17,15 +17,15 @@ import type { Store } from '@reduxjs/toolkit';
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useGetAuditLogsQuery: vi.fn(),
   };
 });
 
-vi.mock('../hooks/usePermissions', () => ({
+vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: vi.fn(),
 }));
 
@@ -33,11 +33,11 @@ vi.mock('../hooks/usePermissions', () => ({
 // Imports
 // ---------------------------------------------------------------------------
 
-import { api } from '../store/api';
-import { useGetAuditLogsQuery } from '../store/api';
-import { usePermissions } from '../hooks/usePermissions';
-import AuditLogPage from '../pages/Settings/AuditLog';
-import type { AuditLog } from '../types';
+import { api } from '../../store/api';
+import { useGetAuditLogsQuery } from '../../store/api';
+import { usePermissions } from '../../hooks/usePermissions';
+import AuditLogPage from '../../pages/Settings/AuditLog';
+import type { AuditLog } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers

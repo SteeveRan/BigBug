@@ -73,8 +73,8 @@ BigBug/
 - **Material UI v9** - component library
 - **React Router v7** - routing
 - **ESLint** + `@typescript-eslint` - linting
-- **Vitest** + `@testing-library/react` - unit tests
-- **Cypress** - e2e tests (planned)
+- **Vitest** + `@testing-library/react` + `jsdom` — unit и integration тесты
+- **Cypress** — e2e тесты (planned, [`src/tests/e2e/`](frontend/src/tests/e2e/))
 - **keycloak-js** - SSO adapter
 
 ### Infrastructure (dev)
@@ -154,12 +154,52 @@ npx tsc --noEmit
 yarn lint
 yarn format
 
-# Run tests
-yarn test
+# Run all tests (unit + integrations)
+./scripts/test.sh
+
+# Run specific suites
+./scripts/test.sh --unit          # Только unit
+./scripts/test.sh --integrations  # Только integration
+
+# Run with coverage
+./scripts/test.sh --coverage
+
+# Debug specific test
+./scripts/test.sh -f Admin -t "should render"
 
 # Build for production
 yarn build
 ```
+
+**Test structure** ([`src/tests/`](frontend/src/tests/)):
+```
+src/tests/
+├── unit/                    # Изолированные тесты (функции, хуки, редьюсеры)
+│   ├── authSlice.test.ts
+│   ├── keycloak.service.test.ts
+│   └── useKeycloakAuth.test.tsx
+├── integrations/            # Тесты страниц/компонентов с Redux store и RTK Query моками
+│   ├── setup.ts             # Общий setup (@testing-library/jest-dom)
+│   ├── Admin.test.tsx
+│   ├── AuditLog.test.tsx
+│   ├── AuthenticationSettings.test.tsx
+│   ├── DockerImages.test.tsx
+│   ├── DockerImageDetail.test.tsx
+│   ├── HelmCharts.test.tsx
+│   ├── HelmChartDetail.test.tsx
+│   ├── Integrations.test.tsx
+│   ├── Pipelines.test.tsx
+│   ├── SignatureBadge.test.tsx
+│   ├── SsoCallback.test.tsx
+│   ├── StatusChip.test.tsx
+│   └── VulnerabilityBadge.test.tsx
+└── e2e/                     # E2E тесты (Cypress — planned, пока пусто)
+```
+
+**Где размещать новые тесты:**
+- **Unit**: изолированная логика без рендеринга React-компонентов (редьюсеры, сервисы, утилиты, хуки через `renderHook`). Файл: `src/tests/unit/Имя.test.ts`
+- **Integrations**: тесты страниц и компонентов, которым нужен Redux store, RTK Query моки и jsdom-окружение. Файл: `src/tests/integrations/Имя.test.tsx`
+- **E2E**: пока не реализованы, будут в `src/tests/e2e/`
 
 **Key conventions**:
 - Pages: in [`src/pages/ComponentName/index.tsx`](frontend/src/pages/)
@@ -263,7 +303,7 @@ async def test_feature_success(async_client):
 
 **Frontend** (vitest + testing-library):
 ```typescript
-// src/tests/Component.test.tsx
+// src/tests/unit/Component.test.ts
 import { render, screen } from '@testing-library/react';
 test('renders component', () => {
   render(<Component />);
@@ -276,8 +316,12 @@ test('renders component', () => {
 # Backend
 cd backend && pytest
 
-# Frontend
-cd frontend && yarn test
+# Frontend (через единый скрипт)
+./frontend/scripts/test.sh                  # Все тесты
+./frontend/scripts/test.sh --unit           # Только unit
+./frontend/scripts/test.sh --integrations   # Только integration
+./frontend/scripts/test.sh --coverage       # С покрытием
+./frontend/scripts/test.sh -f Admin -t "should render"  # Отладка конкретного теста
 ```
 
 See: [`/plans/development/testing.md`](plans/development/testing.md)
@@ -437,8 +481,20 @@ cd frontend && yarn dev
 # Backend e2e tests
 ./backend/scripts/test-e2e.sh -v
 
-# Frontend unit tests (Vitest)
-./frontend/scripts/test-unit.sh
+# Frontend tests (все: unit + integrations)
+./frontend/scripts/test.sh
+
+# Frontend — только unit
+./frontend/scripts/test.sh --unit
+
+# Frontend — только integrations
+./frontend/scripts/test.sh --integrations
+
+# Frontend — с покрытием
+./frontend/scripts/test.sh --coverage
+
+# Frontend — отладка конкретного теста
+./frontend/scripts/test.sh -f Pipelines -t "should trigger"
 ```
 
 **Вручную** (требуется активировать окружение):
@@ -492,7 +548,7 @@ alembic history
 # Frontend
 ./frontend/scripts/format.sh
 ./frontend/scripts/lint.sh
-./frontend/scripts/test-unit.sh
+./frontend/scripts/test.sh
 
 # Type check frontend
 export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd frontend && npx tsc --noEmit
@@ -513,7 +569,7 @@ cd frontend
 yarn format                # Prettier
 yarn lint                  # ESLint
 npx tsc --noEmit          # Type check
-yarn test:run              # Test
+yarn vitest run            # Test (все)
 ```
 
 ### Adding New API Endpoint

@@ -3,10 +3,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
-import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail';
-import { api } from '../store/api';
-import authReducer from '../store/authSlice';
-import { STATUS_FLAG } from '../types';
+import { DockerImageDetailPage } from '../../pages/DockerImages/DockerImageDetail';
+import { api } from '../../store/api';
+import authReducer from '../../store/authSlice';
+import { STATUS_FLAG } from '../../types';
 
 // Mock react-router
 const mockNavigate = vi.fn();
@@ -19,8 +19,8 @@ vi.mock('react-router', () => ({
 }));
 
 // Mock RTK Query hooks
-vi.mock('../store/api', async () => {
-  const actual = await vi.importActual('../store/api');
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
     useGetDockerImageQuery: vi.fn(),
@@ -35,7 +35,7 @@ import {
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useIndexDockerImageMutation,
-} from '../store/api';
+} from '../../store/api';
 
 const mockIndexFn = vi.fn();
 

@@ -359,44 +359,62 @@ pytest --cov=app --cov-fail-under=80
 
 ```
 frontend/src/tests/
-├── setup.ts                      # Настройки Vitest
-├── authSlice.test.ts             # Redux slice тесты
-├── StatusChip.test.tsx           # Компонент StatusChip
-├── DockerImages.test.tsx         # Страница Docker Images
-├── DockerImageDetail.test.tsx    # Детали Docker образа
-├── HelmCharts.test.tsx           # Страница Helm Charts
-├── HelmChartDetail.test.tsx      # Детали Helm чарта
-├── SsoCallback.test.tsx          # SSO callback обработка
-├── keycloak.service.test.ts      # Keycloak сервис
-└── useKeycloakAuth.test.tsx      # Keycloak auth hook
+├── unit/                          # Изолированные тесты (без рендеринга компонентов)
+│   ├── authSlice.test.ts         # Redux slice тесты
+│   ├── keycloak.service.test.ts  # Keycloak сервис
+│   └── useKeycloakAuth.test.tsx  # Keycloak auth hook
+├── integrations/                  # Тесты страниц/компонентов с Redux store и RTK Query моками
+│   ├── setup.ts                  # Общий setup (@testing-library/jest-dom)
+│   ├── Admin.test.tsx
+│   ├── AuditLog.test.tsx
+│   ├── AuthenticationSettings.test.tsx
+│   ├── DockerImages.test.tsx
+│   ├── DockerImageDetail.test.tsx
+│   ├── HelmCharts.test.tsx
+│   ├── HelmChartDetail.test.tsx
+│   ├── Integrations.test.tsx
+│   ├── Pipelines.test.tsx
+│   ├── SignatureBadge.test.tsx
+│   ├── SsoCallback.test.tsx
+│   ├── StatusChip.test.tsx
+│   └── VulnerabilityBadge.test.tsx
+└── e2e/                           # E2E тесты (Cypress — planned, пока пусто)
 ```
 
+**Где размещать новые тесты:**
+- **Unit**: изолированная логика (редьюсеры, сервисы, хуки через `renderHook`). Файл: `src/tests/unit/Имя.test.ts`
+- **Integrations**: тесты страниц/компонентов с Redux store и RTK Query моками. Файл: `src/tests/integrations/Имя.test.tsx`
+- **E2E**: пока не реализованы, будут в `src/tests/e2e/`
+
 **Отсутствующие тесты (нужно написать для RBAC Phase 1)**:
-- `usePermissions.test.ts` — тесты хука `usePermissions` (`hasPermission`, `hasAnyPermission`, `hasAllPermissions`)
-- `PermissionGate.test.tsx` — тесты компонента `PermissionGate` (условный рендер, `permission`/`anyOf`/`allOf`, fallback)
+- `unit/usePermissions.test.ts` — тесты хука `usePermissions`
+- `integrations/PermissionGate.test.tsx` — тесты компонента `PermissionGate`
 
 ### Запуск тестов
 
 ```bash
 cd frontend
 
-# Watch mode (автоматический перезапуск)
-yarn test
+# Все тесты (unit + integrations)
+./scripts/test.sh
 
-# Один запуск
-yarn test:run
+# Только unit
+./scripts/test.sh --unit
+
+# Только integrations
+./scripts/test.sh --integrations
 
 # С покрытием
-yarn test:coverage
+./scripts/test.sh --coverage
 
-# Конкретный файл
-yarn test DockerImages.test.tsx
+# Отладка конкретного теста
+./scripts/test.sh -f DockerImages -t "should render"
+
+# Watch mode (для разработки)
+yarn test
 
 # UI mode (интерактивный)
 yarn test --ui
-
-# Только failed тесты
-yarn test --run --reporter=verbose --changed
 ```
 
 ### Конфигурация
@@ -412,101 +430,72 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: './src/tests/setup.ts',
+    setupFiles: ['./src/tests/integrations/setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
-      exclude: ['node_modules/', 'src/tests/'],
+      reporter: ['text', 'json', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['node_modules/', 'src/tests/**', 'src/main.tsx'],
     },
   },
 });
 ```
 
-В [`src/tests/setup.ts`](../../frontend/src/tests/setup.ts):
+В [`src/tests/integrations/setup.ts`](../../frontend/src/tests/integrations/setup.ts):
 
 ```typescript
-import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-
-// Cleanup после каждого теста
-afterEach(() => {
-  cleanup();
-});
-
-// Mock environment variables
-vi.mock('import.meta', () => ({
-  env: {
-    VITE_API_URL: 'http://localhost:8000',
-    VITE_KEYCLOAK_URL: 'http://localhost:8180',
-    VITE_KEYCLOAK_REALM: 'bigbug',
-    VITE_KEYCLOAK_CLIENT_ID: 'bigbug-frontend',
-  },
-}));
 ```
 
 ### Примеры тестов
 
-#### Тестирование компонента
+#### Unit: тестирование хука
 
 ```typescript
-// src/tests/StatusChip.test.tsx
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import StatusChip from '../components/StatusChip';
+// src/tests/unit/useKeycloakAuth.test.ts
+import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 
-describe('StatusChip', () => {
-  it('renders OK status with green color', () => {
-    render(<StatusChip status={0} />);
-    const chip = screen.getByText('OK');
-    expect(chip).toBeInTheDocument();
-    expect(chip).toHaveClass('MuiChip-colorSuccess');
-  });
-  
-  it('renders Failed status with red color', () => {
-    render(<StatusChip status={1} />);
-    const chip = screen.getByText('Failed');
-    expect(chip).toBeInTheDocument();
-    expect(chip).toHaveClass('MuiChip-colorError');
-  });
-  
-  it('renders custom label', () => {
-    render(<StatusChip status={0} label="Synced" />);
-    expect(screen.getByText('Synced')).toBeInTheDocument();
+describe('useKeycloakAuth', () => {
+  it('initializes with loading state', () => {
+    const { result } = renderHook(() => useKeycloakAuth());
+    expect(result.current.ready).toBe(false);
+    expect(result.current.authenticated).toBe(false);
   });
 });
 ```
 
-#### Тестирование страницы с API
+#### Integration: тестирование страницы с API
 
 ```typescript
-// src/tests/DockerImages.test.tsx
+// src/tests/integrations/DockerImages.test.tsx
 import { render, screen, waitFor } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
-import DockerImages from '../pages/DockerImages';
-import { store } from '../store';
+import DockerImages from '../../pages/DockerImages';
 
 // Mock RTK Query
-vi.mock('../store/api', () => ({
-  useGetDockerSourcesQuery: () => ({
+vi.mock('../../store/api', () => ({
+  useListDockerImagesQuery: () => ({
     data: [
-      {
-        id: 1,
-        name: 'nginx',
-        registry_url: 'https://registry.hub.docker.com',
-        status_flag: 0,
-        status_text: 'OK',
-        created_at: '2024-01-01T00:00:00Z',
-      },
+      { id: 1, name: 'nginx', registry_url: 'https://registry.hub.docker.com',
+        status_flag: 0, status_text: 'OK', created_at: '2024-01-01T00:00:00Z' },
     ],
     isLoading: false,
+    isError: false,
     error: null,
   }),
-  useDeleteDockerSourceMutation: () => [vi.fn(), { isLoading: false }],
-  useSyncDockerSourceMutation: () => [vi.fn(), { isLoading: false }],
 }));
+
+describe('DockerImages', () => {
+  it('renders docker image list', async () => {
+    render(<DockerImages />);
+    await waitFor(() => {
+      expect(screen.getByText('nginx')).toBeInTheDocument();
+    });
+  });
+});
 
 describe('DockerImages', () => {
   const renderComponent = () => {
@@ -673,8 +662,8 @@ jobs:
         with:
           node-version: '26'
       - run: cd frontend && yarn install
-      - run: cd frontend && yarn test:run
-      - run: cd frontend && yarn test:coverage
+      - run: cd frontend && ./scripts/test.sh
+      - run: cd frontend && ./scripts/test.sh --coverage
 ```
 
 ## Best Practices
