@@ -1,7 +1,7 @@
 # BigBug - Current State
 
-> Последнее обновление: 2026-06-06
-> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, идёт рефакторинг архитектуры
+> Последнее обновление: 2026-06-07
+> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, Phase 2 (Multi-instance Integrations) завершён
 
 ## Что работает сейчас
 
@@ -162,30 +162,43 @@
 - [`frontend/src/hooks/usePermissions.ts`](../frontend/src/hooks/usePermissions.ts) — `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`
 - [`frontend/src/components/PermissionGate.tsx`](../frontend/src/components/PermissionGate.tsx) — условный рендер с props `permission`, `anyOf`, `allOf`, `fallback`
 
+### ✅ Multi-instance Integrations (Phase 2) — ЗАВЕРШЁН (2026-06-07)
+
+**Реализовано**:
+
+**Новые таблицы**:
+- `gitlab_instances` — несколько GitLab серверов
+- `harbor_instances` — несколько Harbor registry
+- `github_instances` — несколько GitHub конфигураций
+- `docker_registry_instances` — несколько Docker registry
+- `helm_repository_instances` — несколько Helm репозиториев
+
+**Backend**:
+- [`backend/app/schemas/integrations.py`](../backend/app/schemas/integrations.py) — Pydantic схемы для Create/Update/Out всех 5 типов инстансов + `ConnectionTestResult`
+- [`backend/app/services/integrations.py`](../backend/app/services/integrations.py) — `IntegrationsService` (CRUD + test_connection для каждого типа), `ServiceFactory` (API-клиенты)
+- [`backend/app/api/integrations.py`](../backend/app/api/integrations.py) — 30 REST эндпоинтов (6 per type × 5 types), защищены `require_permission("integrations:manage")`
+
+**Frontend**:
+- [`frontend/src/pages/Settings/Integrations/index.tsx`](../frontend/src/pages/Settings/Integrations/index.tsx) — страница с MUI Tabs, 5 панелей (GitLab/Harbor/GitHub/Docker Registry/Helm Repository), каждая с таблицей инстансов и операциями (Add/Edit/Delete/Test Connection)
+
+**Тесты**:
+- Backend unit: 10 тестов (service layer + encryption)
+- Backend e2e: 87 тестов (CRUD + test connection + unauthorized для всех типов)
+- Frontend: 8 тестов (tabs, instances list, CRUD dialog, delete confirmation, test connection success/failure)
+
+**Миграции**:
+- `20260606_2145_a66daaecc2fa_add_integration_instances.py` — gitlab/harbor/github
+- `20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py` — docker registry/helm repo
+- `20260607_0105_a1b2c3d4e5f6_add_integration_instance_fields.py` — verify_ssl, is_active, last_checked_at, status fields
+
 ## Что в процессе (рефакторинг)
-
-### 🚧 Multi-instance Integrations (Phase 2)
-
-**Цель**: Управление несколькими инстансами GitLab/Harbor/GitHub через UI
-
-**Новые таблицы** (планируются):
-- `gitlab_instances` - несколько GitLab серверов
-- `harbor_instances` - несколько Harbor registry
-- `github_integrations` - GitHub конфигурации
-- `docker_registry_integrations` - Docker registry
-- `helm_repository_integrations` - Helm репозитории
-- `oidc_config` - OIDC конфигурация
-
-**Текущее состояние**: конфигурации жёстко закодированы в `.env`
 
 ## Известные ограничения
 
-1. **Одиночные интеграции**: только один GitLab, один GitHub, один Docker registry
-2. **Базовый RBAC**: 3 предустановленные роли + кастомные (Phase 1 завершён); нет UI для управления кастомными ролями
-3. **Нет Harbor**: Harbor интеграция не реализована
-4. **Нет Pipeline UI**: управление пайплайнами только через GitLab
-5. **Нет Audit Log**: история изменений не ведётся
-6. **Нет Rate Limiting**: нет защиты от злоупотреблений
+1. **Базовый RBAC**: 3 предустановленные роли + кастомные (Phase 1 завершён); нет UI для управления кастомными ролями
+2. **Нет Pipeline UI**: управление пайплайнами только через GitLab
+3. **Нет Audit Log**: история изменений не ведётся
+4. **Нет Rate Limiting**: нет защиты от злоупотреблений
 
 ## Известные технические особенности
 
@@ -199,6 +212,6 @@
 Согласно [`/docs/architecture/11-migration-strategy.md`](../docs/architecture/11-migration-strategy.md):
 
 1. **Phase 1**: ✅ RBAC Foundation (permissions, custom roles, JWT update) — ЗАВЕРШЁН
-2. **Phase 2**: Multi-instance integrations (GitLab, Harbor, GitHub, Docker, Helm)
+2. **Phase 2**: ✅ Multi-instance integrations (GitLab, Harbor, GitHub, Docker, Helm) — ЗАВЕРШЁН
 3. **Phase 3**: OIDC & Advanced (configurable OIDC, role mapping)
 4. **Phase 4**: Polish (audit log, rate limiting, Admin UI)

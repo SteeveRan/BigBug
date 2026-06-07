@@ -5,6 +5,54 @@ All notable changes to BigBug will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-07
+
+### Added
+
+- **Multi-instance Integrations (Phase 2):**
+  - Модели для управления несколькими инстансами интеграций: [`GitlabInstance`](backend/app/models/gitlab_instance.py), [`HarborInstance`](backend/app/models/harbor_instance.py), [`GithubInstance`](backend/app/models/github_instance.py), [`DockerRegistryInstance`](backend/app/models/docker_registry_instance.py), [`HelmRepositoryInstance`](backend/app/models/helm_repository_instance.py)
+  - Поля `name`, `url`, `token` (Fernet-шифрование), `is_default`, `is_active`, `verify_ssl`, `status_flag`, `status_text`, `last_checked_at` во всех моделях инстансов
+  - Миграция [`20260606_2145_a66daaecc2fa_add_integration_instances.py`](backend/alembic/versions/20260606_2145_a66daaecc2fa_add_integration_instances.py) — создание таблиц `gitlab_instances`, `harbor_instances`, `github_instances`
+  - Миграция [`20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py`](backend/alembic/versions/20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py) — создание таблиц `docker_registry_instances`, `helm_repository_instances`
+  - Миграция [`20260607_0105_a1b2c3d4e5f6_add_integration_instance_fields.py`](backend/alembic/versions/20260607_0105_a1b2c3d4e5f6_add_integration_instance_fields.py) — добавление полей `verify_ssl`, `is_active`, `last_checked_at`, `status_flag`, `status_text`
+  - Pydantic схемы в [`backend/app/schemas/integrations.py`](backend/app/schemas/integrations.py): `*Create`, `*Update`, `*Out`, `ConnectionTestResult` для всех 5 типов инстансов; `_DatetimeStrOut` mixin для конвертации datetime→isoformat
+  - [`IntegrationsService`](backend/app/services/integrations.py) — CRUD + `test_connection()` для каждого типа инстанса (httpx для проверки connectivity)
+  - [`ServiceFactory`](backend/app/services/integrations.py) — статическое создание API-клиентов (GitLab/GitHub/Harbor/Docker/Helm) с передачей расшифрованных credentials
+
+- **Integrations REST API:**
+  - `GET/POST /api/integrations/gitlab` — список/создание GitLab инстансов
+  - `GET/PATCH/DELETE /api/integrations/gitlab/{id}` — CRUD одного инстанса
+  - `POST /api/integrations/gitlab/{id}/test` — тест соединения (httpx → GitLab API `/version`)
+  - Аналогичные эндпоинты для Harbor, GitHub, Docker Registry, Helm Repository (по 6 эндпоинтов × 5 типов = 30 endpoints)
+  - RBAC: все эндпоинты защищены через `require_permission("integrations:manage")`
+
+- **Frontend UI — Settings > Integrations:**
+  - [`SettingsIntegrations`](frontend/src/pages/Settings/Integrations/index.tsx) — страница с MUI Tabs (GitLab / Harbor / GitHub / Docker Registry / Helm Repository)
+  - `GitlabPanel` / `HarborPanel` / `GithubPanel` / `DockerRegistryPanel` / `HelmRepositoryPanel` — панели с таблицами инстансов, кнопками Add Instance / Edit / Delete / Test Connection
+  - Диалоги `*Dialog` для каждого типа — форма с полями (Name, URL, Token, Verify SSL, Active, Default), валидация URL, создание/обновление
+  - `handleDelete` с `window.confirm()` подтверждением удаления
+  - `handleTest` — тест соединения с отображением success/error в Snackbar (MUI Alert)
+
+- **Тесты:**
+  - Backend unit: [`test_integrations.py`](backend/tests/unit/test_integrations.py) — 50 тестов (10 per integration type: CRUD + шифрование + test connection + duplicate detection)
+  - Backend e2e: [`test_integrations.py`](backend/tests/e2e/test_integrations.py) — 35 тестов (7 per integration type: CRUD + test connection + unauthorized)
+  - Frontend: [`Integrations.test.tsx`](frontend/src/tests/Integrations.test.tsx) — 8 тестов (табы, список инстансов, диалог создания, редактирование, удаление с confirm, test connection success/failure, permission gate)
+  - Всего backend-тестов: 197 (110 unit + 87 e2e), все проходят
+  - Frontend-тесты: 73 проходят, 1 предсуществующий flaky тест (`SsoCallback.test.tsx` — таймаут загрузки Vite worker при полном прогоне)
+
+### Changed
+
+- **Реорганизация тестов:**
+  - Тесты разделены на `tests/unit/` (6 файлов, 110 тестов) и `tests/e2e/` (7 файлов, 87 тестов)
+  - Каждая директория имеет собственный `conftest.py` с моком `ENCRYPTION_KEY`
+  - `e2e` маркер зарегистрирован в [`pyproject.toml`](backend/pyproject.toml)
+  - Скрипты [`test-unit.sh`](backend/scripts/test-unit.sh) и [`test-e2e.sh`](backend/scripts/test-e2e.sh) обновлены для запуска из соответствующих директорий
+  - [`seeded_permissions`](backend/tests/e2e/conftest.py:44) fixture (`autouse=True`) — гарантирует наличие permissions для admin-роли во всех e2e тестах
+
+- **Pydantic схемы:** поля `created_at`, `updated_at`, `last_checked_at` в `*Out` схемах объявлены как `str` (isoformat), с автоматической конвертацией из `datetime` через `_DatetimeStrOut` mixin
+
+[0.6.0]: https://github.com/user/BigBug/compare/v0.5.0...v0.6.0
+
 ## [0.5.0] - 2026-06-06
 
 ### Added
@@ -313,7 +361,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - [`ProtectedRoute`](frontend/src/router/ProtectedRoute.tsx) — guard для аутентифицированных маршрутов
   - [`Layout`](frontend/src/components/Layout/index.tsx) — боковое меню с навигацией
 
-[Unreleased]: https://github.com/user/BigBug/compare/v0.5.0...HEAD
 [0.5.0]: https://github.com/user/BigBug/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/user/BigBug/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/user/BigBug/compare/v0.2.0...v0.3.0
