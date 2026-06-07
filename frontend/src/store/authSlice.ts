@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 /**
  * Декодирует JWT токен и извлекает массив permissions.
@@ -11,31 +11,31 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
  */
 function parseJwtPermissions(token: string): string[] {
   try {
-    const base64Payload = token.split('.')[1]
-    const jsonPayload = atob(base64Payload)
-    const payload = JSON.parse(jsonPayload)
-    return Array.isArray(payload.permissions) ? payload.permissions : []
+    const base64Payload = token.split('.')[1];
+    const jsonPayload = atob(base64Payload);
+    const payload = JSON.parse(jsonPayload);
+    return Array.isArray(payload.permissions) ? payload.permissions : [];
   } catch {
-    return []
+    return [];
   }
 }
 
 export interface AuthUser {
-  id: number
-  username: string
-  email: string
-  roles: string[]
-  is_active: boolean
+  id: number;
+  username: string;
+  email: string;
+  roles: string[];
+  is_active: boolean;
 }
 
 interface AuthState {
-  user: AuthUser | null
-  accessToken: string | null
-  refreshToken: string | null
-  isAuthenticated: boolean
-  isLoading: boolean
+  user: AuthUser | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
   /** RBAC permissions extracted from JWT (populated in Phase 2) */
-  permissions: string[]
+  permissions: string[];
 }
 
 const initialState: AuthState = {
@@ -45,7 +45,7 @@ const initialState: AuthState = {
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
   permissions: [],
-}
+};
 
 const authSlice = createSlice({
   name: 'auth',
@@ -55,36 +55,35 @@ const authSlice = createSlice({
       state,
       action: PayloadAction<{ accessToken: string; refreshToken: string; user: AuthUser }>
     ) => {
-      state.accessToken = action.payload.accessToken
-      state.refreshToken = action.payload.refreshToken
-      state.user = action.payload.user
-      state.isAuthenticated = true
-      state.permissions = parseJwtPermissions(action.payload.accessToken)
-      localStorage.setItem('access_token', action.payload.accessToken)
-      localStorage.setItem('refresh_token', action.payload.refreshToken)
+      state.accessToken = action.payload.accessToken;
+      state.refreshToken = action.payload.refreshToken;
+      state.user = action.payload.user;
+      state.isAuthenticated = true;
+      state.permissions = parseJwtPermissions(action.payload.accessToken);
+      localStorage.setItem('access_token', action.payload.accessToken);
+      localStorage.setItem('refresh_token', action.payload.refreshToken);
     },
     setUser: (state, action: PayloadAction<AuthUser>) => {
-      state.user = action.payload
-      state.isAuthenticated = true
+      state.user = action.payload;
+      state.isAuthenticated = true;
     },
     logout: (state) => {
-      state.user = null
-      state.accessToken = null
-      state.refreshToken = null
-      state.isAuthenticated = false
-      state.permissions = []
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.permissions = [];
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
-      state.isLoading = action.payload
+      state.isLoading = action.payload;
     },
   },
-})
+});
 
-export const { setCredentials, setUser, logout, setLoading } = authSlice.actions
-export default authSlice.reducer
+export const { setCredentials, setUser, logout, setLoading } = authSlice.actions;
+export default authSlice.reducer;
 
 /** Selector: returns the RBAC permissions string[] from auth state */
-export const selectUserPermissions = (state: { auth: AuthState }) =>
-  state.auth.permissions
+export const selectUserPermissions = (state: { auth: AuthState }) => state.auth.permissions;

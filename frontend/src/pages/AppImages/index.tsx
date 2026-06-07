@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -15,62 +15,64 @@ import {
   DialogActions,
   TextField,
   MenuItem,
-} from '@mui/material'
-import { Add as AddIcon, Build as BuildIcon } from '@mui/icons-material'
+} from '@mui/material';
+import { Add as AddIcon, Build as BuildIcon } from '@mui/icons-material';
 import {
   useListAppImagesQuery,
   useCreateAppImageMutation,
   useTriggerAppBuildMutation,
   useListGoldImagesQuery,
-} from '../../store/api'
-import { AppImage, GoldImage } from '../../types'
+} from '../../store/api';
+import { AppImage, GoldImage } from '../../types';
 
 export function AppImagesPage() {
-  const { data: images = [], isLoading } = useListAppImagesQuery()
-  const { data: goldImages = [] } = useListGoldImagesQuery()
-  const [createImage] = useCreateAppImageMutation()
-  const [triggerBuild] = useTriggerAppBuildMutation()
+  const { data: images = [], isLoading } = useListAppImagesQuery();
+  const { data: goldImages = [] } = useListGoldImagesQuery();
+  const [createImage] = useCreateAppImageMutation();
+  const [triggerBuild] = useTriggerAppBuildMutation();
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [buildOpen, setBuildOpen] = useState<number | null>(null)
+  const [createOpen, setCreateOpen] = useState(false);
+  const [buildOpen, setBuildOpen] = useState<number | null>(null);
   const [form, setForm] = useState({
     name: '',
     description: '',
     dockerfile: '',
     gold_image_id: '',
-  })
-  const [buildForm, setBuildForm] = useState({ version_tag: 'latest', arch: 'amd64' })
-  const [submitting, setSubmitting] = useState(false)
+  });
+  const [buildForm, setBuildForm] = useState({ version_tag: 'latest', arch: 'amd64' });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = async () => {
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       await createImage({
         ...form,
         gold_image_id: form.gold_image_id ? Number(form.gold_image_id) : undefined,
-      }).unwrap()
-      setCreateOpen(false)
-      setForm({ name: '', description: '', dockerfile: '', gold_image_id: '' })
+      }).unwrap();
+      setCreateOpen(false);
+      setForm({ name: '', description: '', dockerfile: '', gold_image_id: '' });
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleBuild = async () => {
-    if (buildOpen === null) return
-    setSubmitting(true)
+    if (buildOpen === null) return;
+    setSubmitting(true);
     try {
-      await triggerBuild({ id: buildOpen, ...buildForm }).unwrap()
-      setBuildOpen(null)
+      await triggerBuild({ id: buildOpen, ...buildForm }).unwrap();
+      setBuildOpen(null);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">App Images</Typography>
+        <Typography variant="h5" fontWeight="bold">
+          App Images
+        </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
           New App Image
         </Button>
@@ -81,12 +83,14 @@ export function AppImagesPage() {
       ) : (
         <Grid container spacing={3}>
           {(images as AppImage[]).map((image) => {
-            const goldImage = (goldImages as GoldImage[]).find((g) => g.id === image.gold_image_id)
+            const goldImage = (goldImages as GoldImage[]).find((g) => g.id === image.gold_image_id);
             return (
               <Grid key={image.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Card>
                   <CardContent>
-                    <Typography variant="h6" mb={1}>{image.name}</Typography>
+                    <Typography variant="h6" mb={1}>
+                      {image.name}
+                    </Typography>
                     {goldImage && (
                       <Chip
                         label={`Base: ${goldImage.name}`}
@@ -121,8 +125,8 @@ export function AppImagesPage() {
                       size="small"
                       startIcon={<BuildIcon />}
                       onClick={() => {
-                        setBuildForm({ version_tag: 'latest', arch: 'amd64' })
-                        setBuildOpen(image.id)
+                        setBuildForm({ version_tag: 'latest', arch: 'amd64' });
+                        setBuildOpen(image.id);
                       }}
                     >
                       Build
@@ -130,7 +134,7 @@ export function AppImagesPage() {
                   </CardActions>
                 </Card>
               </Grid>
-            )
+            );
           })}
           {images.length === 0 && (
             <Grid size={12}>
@@ -147,25 +151,41 @@ export function AppImagesPage() {
         <DialogTitle>New App Image</DialogTitle>
         <DialogContent>
           <TextField
-            label="Name" fullWidth margin="normal" value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} required
+            label="Name"
+            fullWidth
+            margin="normal"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
           />
           <TextField
-            select label="Base Gold Image" fullWidth margin="normal"
+            select
+            label="Base Gold Image"
+            fullWidth
+            margin="normal"
             value={form.gold_image_id}
             onChange={(e) => setForm({ ...form, gold_image_id: e.target.value })}
           >
             <MenuItem value="">None</MenuItem>
             {(goldImages as GoldImage[]).map((g) => (
-              <MenuItem key={g.id} value={String(g.id)}>{g.name}</MenuItem>
+              <MenuItem key={g.id} value={String(g.id)}>
+                {g.name}
+              </MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Description" fullWidth margin="normal" value={form.description}
+            label="Description"
+            fullWidth
+            margin="normal"
+            value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
           <TextField
-            label="Dockerfile" fullWidth margin="normal" multiline rows={6}
+            label="Dockerfile"
+            fullWidth
+            margin="normal"
+            multiline
+            rows={6}
             value={form.dockerfile}
             onChange={(e) => setForm({ ...form, dockerfile: e.target.value })}
             placeholder="FROM base-image:latest&#10;COPY . /app"
@@ -173,8 +193,7 @@ export function AppImagesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate}
-            disabled={!form.name || submitting}>
+          <Button variant="contained" onClick={handleCreate} disabled={!form.name || submitting}>
             {submitting ? <CircularProgress size={20} /> : 'Create'}
           </Button>
         </DialogActions>
@@ -185,11 +204,17 @@ export function AppImagesPage() {
         <DialogTitle>Trigger Build</DialogTitle>
         <DialogContent>
           <TextField
-            label="Version Tag" fullWidth margin="normal" value={buildForm.version_tag}
+            label="Version Tag"
+            fullWidth
+            margin="normal"
+            value={buildForm.version_tag}
             onChange={(e) => setBuildForm({ ...buildForm, version_tag: e.target.value })}
           />
           <TextField
-            label="Architecture" fullWidth margin="normal" value={buildForm.arch}
+            label="Architecture"
+            fullWidth
+            margin="normal"
+            value={buildForm.arch}
             onChange={(e) => setBuildForm({ ...buildForm, arch: e.target.value })}
             placeholder="amd64, arm64, arm/v7"
           />
@@ -202,5 +227,5 @@ export function AppImagesPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

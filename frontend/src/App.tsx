@@ -1,7 +1,7 @@
-import { BrowserRouter } from 'react-router'
-import { ThemeProvider, CssBaseline } from '@mui/material'
-import { theme } from './theme'
-import { AppRouter } from './router'
+import { BrowserRouter } from 'react-router';
+import { ThemeProvider, CssBaseline } from '@mui/material';
+import { theme } from './theme';
+import { AppRouter } from './router';
 
 export default function App() {
   return (
@@ -11,5 +11,5 @@ export default function App() {
         <AppRouter />
       </BrowserRouter>
     </ThemeProvider>
-  )
+  );
 }

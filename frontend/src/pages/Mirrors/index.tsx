@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Box,
   Typography,
@@ -19,45 +19,51 @@ import {
   TextField,
   Tooltip,
   IconButton,
-} from '@mui/material'
-import { Add as AddIcon, PlayArrow as SyncIcon } from '@mui/icons-material'
+} from '@mui/material';
+import { Add as AddIcon, PlayArrow as SyncIcon } from '@mui/icons-material';
 import {
   useListMirrorsQuery,
   useImportMirrorMutation,
   useTriggerSyncMutation,
-} from '../../store/api'
-import { GitlabMirror } from '../../types'
-import { StatusChip } from '../../components/StatusChip'
+} from '../../store/api';
+import { GitlabMirror } from '../../types';
+import { StatusChip } from '../../components/StatusChip';
 
 export function MirrorsPage() {
-  const navigate = useNavigate()
-  const { data: mirrors = [], isLoading } = useListMirrorsQuery()
-  const [importMirror] = useImportMirrorMutation()
-  const [triggerSync] = useTriggerSyncMutation()
+  const navigate = useNavigate();
+  const { data: mirrors = [], isLoading } = useListMirrorsQuery();
+  const [importMirror] = useImportMirrorMutation();
+  const [triggerSync] = useTriggerSyncMutation();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [githubUrl, setGithubUrl] = useState('')
-  const [gitlabUrl, setGitlabUrl] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [gitlabUrl, setGitlabUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleImport = async () => {
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await importMirror({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap()
-      setDialogOpen(false)
+      await importMirror({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap();
+      setDialogOpen(false);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">GitLab Mirrors</Typography>
+        <Typography variant="h5" fontWeight="bold">
+          GitLab Mirrors
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => { setGithubUrl(''); setGitlabUrl(''); setDialogOpen(true) }}
+          onClick={() => {
+            setGithubUrl('');
+            setGitlabUrl('');
+            setDialogOpen(true);
+          }}
         >
           Import Mirror
         </Button>
@@ -96,9 +102,7 @@ export function MirrorsPage() {
                   </TableCell>
                   <TableCell>{mirror.mirrored_branch}</TableCell>
                   <TableCell>
-                    {mirror.last_sync_at
-                      ? new Date(mirror.last_sync_at).toLocaleString()
-                      : '—'}
+                    {mirror.last_sync_at ? new Date(mirror.last_sync_at).toLocaleString() : '—'}
                   </TableCell>
                   <TableCell>{mirror.last_synced_release_tag ?? '—'}</TableCell>
                   <TableCell>
@@ -164,5 +168,5 @@ export function MirrorsPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

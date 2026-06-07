@@ -7,9 +7,9 @@
  * @relatedFiles ../components/PermissionGate.tsx
  */
 
-import { useCallback } from 'react'
-import { useAppSelector } from '../store'
-import { selectUserPermissions } from '../store/authSlice'
+import { useCallback } from 'react';
+import { useAppSelector } from '../store';
+import { selectUserPermissions } from '../store/authSlice';
 
 /**
  * usePermissions hook — checks user permissions from Redux store.
@@ -24,31 +24,31 @@ import { selectUserPermissions } from '../store/authSlice'
  *   if (hasAllPermissions(["mirrors:read", "helm:read"])) { ... }
  */
 export function usePermissions() {
-  const permissions = useAppSelector(selectUserPermissions)
+  const permissions = useAppSelector(selectUserPermissions);
 
   /** Check if the user has a specific permission */
   const hasPermission = useCallback(
     (permission: string): boolean => {
-      return permissions.includes(permission)
+      return permissions.includes(permission);
     },
     [permissions]
-  )
+  );
 
   /** Check if the user has at least one of the required permissions (OR logic) */
   const hasAnyPermission = useCallback(
     (requiredPermissions: string[]): boolean => {
-      return requiredPermissions.some((p) => permissions.includes(p))
+      return requiredPermissions.some((p) => permissions.includes(p));
     },
     [permissions]
-  )
+  );
 
   /** Check if the user has all of the required permissions (AND logic) */
   const hasAllPermissions = useCallback(
     (requiredPermissions: string[]): boolean => {
-      return requiredPermissions.every((p) => permissions.includes(p))
+      return requiredPermissions.every((p) => permissions.includes(p));
     },
     [permissions]
-  )
+  );
 
   return {
     /** Current permissions string[] (e.g. ["mirrors:read", "helm:write"]) */
@@ -59,5 +59,5 @@ export function usePermissions() {
     hasAnyPermission,
     /** Check if user has ALL of the given permissions (AND) */
     hasAllPermissions,
-  }
+  };
 }

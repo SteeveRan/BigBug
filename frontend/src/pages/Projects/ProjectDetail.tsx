@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router';
 import {
   Box,
   Typography,
@@ -11,37 +11,41 @@ import {
   Grid,
   TextField,
   Divider,
-} from '@mui/material'
-import { ArrowBack, Refresh, OpenInNew } from '@mui/icons-material'
-import { useGetProjectQuery, useUpdateProjectMutation, useRefreshProjectMutation } from '../../store/api'
-import { GithubProject } from '../../types'
+} from '@mui/material';
+import { ArrowBack, Refresh, OpenInNew } from '@mui/icons-material';
+import {
+  useGetProjectQuery,
+  useUpdateProjectMutation,
+  useRefreshProjectMutation,
+} from '../../store/api';
+import { GithubProject } from '../../types';
 
 export function ProjectDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const projectId = Number(id)
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const projectId = Number(id);
 
-  const { data: project, isLoading } = useGetProjectQuery(projectId)
-  const [updateProject] = useUpdateProjectMutation()
-  const [refreshProject, { isLoading: refreshing }] = useRefreshProjectMutation()
+  const { data: project, isLoading } = useGetProjectQuery(projectId);
+  const [updateProject] = useUpdateProjectMutation();
+  const [refreshProject, { isLoading: refreshing }] = useRefreshProjectMutation();
 
-  const [editDesc, setEditDesc] = useState(false)
-  const [customDesc, setCustomDesc] = useState('')
+  const [editDesc, setEditDesc] = useState(false);
+  const [customDesc, setCustomDesc] = useState('');
 
-  const p = project as GithubProject | undefined
+  const p = project as GithubProject | undefined;
 
   const handleEditDesc = () => {
-    setCustomDesc(p?.custom_description ?? p?.description ?? '')
-    setEditDesc(true)
-  }
+    setCustomDesc(p?.custom_description ?? p?.description ?? '');
+    setEditDesc(true);
+  };
 
   const handleSaveDesc = async () => {
-    await updateProject({ id: projectId, data: { custom_description: customDesc } })
-    setEditDesc(false)
-  }
+    await updateProject({ id: projectId, data: { custom_description: customDesc } });
+    setEditDesc(false);
+  };
 
-  if (isLoading) return <CircularProgress />
-  if (!p) return <Typography>Project not found</Typography>
+  if (isLoading) return <CircularProgress />;
+  if (!p) return <Typography>Project not found</Typography>;
 
   return (
     <Box>
@@ -75,7 +79,14 @@ export function ProjectDetailPage() {
         <Grid size={{ xs: 12, md: 8 }}>
           <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  mb: 2,
+                }}
+              >
                 <Typography variant="h6">Description</Typography>
                 {!editDesc && (
                   <Button size="small" onClick={handleEditDesc}>
@@ -113,7 +124,9 @@ export function ProjectDetailPage() {
           {p.readme_md && (
             <Card>
               <CardContent>
-                <Typography variant="h6" mb={2}>README</Typography>
+                <Typography variant="h6" mb={2}>
+                  README
+                </Typography>
                 <Box
                   component="pre"
                   sx={{
@@ -137,40 +150,46 @@ export function ProjectDetailPage() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" mb={2}>Details</Typography>
+              <Typography variant="h6" mb={2}>
+                Details
+              </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Organization</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Organization
+                  </Typography>
                   <Typography variant="body2">{p.org.login}</Typography>
                 </Box>
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Default Branch</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Default Branch
+                  </Typography>
                   <Typography variant="body2">{p.default_branch}</Typography>
                 </Box>
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary">License</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    License
+                  </Typography>
+                  <Typography variant="body2">{p.license_name ?? p.license_spdx ?? '—'}</Typography>
+                </Box>
+                <Divider />
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Last Synced
+                  </Typography>
                   <Typography variant="body2">
-                    {p.license_name ?? p.license_spdx ?? '—'}
+                    {p.last_synced_at ? new Date(p.last_synced_at).toLocaleString() : 'Never'}
                   </Typography>
                 </Box>
                 <Divider />
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Last Synced</Typography>
-                  <Typography variant="body2">
-                    {p.last_synced_at
-                      ? new Date(p.last_synced_at).toLocaleString()
-                      : 'Never'}
+                  <Typography variant="caption" color="text.secondary">
+                    GitHub Updated
                   </Typography>
-                </Box>
-                <Divider />
-                <Box>
-                  <Typography variant="caption" color="text.secondary">GitHub Updated</Typography>
                   <Typography variant="body2">
-                    {p.github_updated_at
-                      ? new Date(p.github_updated_at).toLocaleString()
-                      : '—'}
+                    {p.github_updated_at ? new Date(p.github_updated_at).toLocaleString() : '—'}
                   </Typography>
                 </Box>
                 <Divider />
@@ -185,5 +204,5 @@ export function ProjectDetailPage() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

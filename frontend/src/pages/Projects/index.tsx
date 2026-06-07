@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Box,
   Typography,
@@ -20,63 +20,63 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-} from '@mui/material'
+} from '@mui/material';
 import {
   Add as AddIcon,
   Refresh as RefreshIcon,
   OpenInNew as OpenIcon,
   Warning as StaleIcon,
-} from '@mui/icons-material'
+} from '@mui/icons-material';
 import {
   useListProjectsQuery,
   useCreateProjectMutation,
   useImportProjectMutation,
   useRefreshProjectMutation,
-} from '../../store/api'
-import { GithubProject } from '../../types'
+} from '../../store/api';
+import { GithubProject } from '../../types';
 
 export function ProjectsPage() {
-  const navigate = useNavigate()
-  const { data: projects = [], isLoading } = useListProjectsQuery()
-  const [createProject] = useCreateProjectMutation()
-  const [importProject] = useImportProjectMutation()
-  const [refreshProject] = useRefreshProjectMutation()
+  const navigate = useNavigate();
+  const { data: projects = [], isLoading } = useListProjectsQuery();
+  const [createProject] = useCreateProjectMutation();
+  const [importProject] = useImportProjectMutation();
+  const [refreshProject] = useRefreshProjectMutation();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [githubUrl, setGithubUrl] = useState('')
-  const [gitlabUrl, setGitlabUrl] = useState('')
-  const [isImport, setIsImport] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [gitlabUrl, setGitlabUrl] = useState('');
+  const [isImport, setIsImport] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAdd = () => {
-    setIsImport(false)
-    setGithubUrl('')
-    setGitlabUrl('')
-    setDialogOpen(true)
-  }
+    setIsImport(false);
+    setGithubUrl('');
+    setGitlabUrl('');
+    setDialogOpen(true);
+  };
 
   const handleImport = () => {
-    setIsImport(true)
-    setGithubUrl('')
-    setGitlabUrl('')
-    setDialogOpen(true)
-  }
+    setIsImport(true);
+    setGithubUrl('');
+    setGitlabUrl('');
+    setDialogOpen(true);
+  };
 
   const handleSubmit = async () => {
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       if (isImport) {
-        await importProject({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap()
+        await importProject({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap();
       } else {
-        await createProject({ github_url: githubUrl }).unwrap()
+        await createProject({ github_url: githubUrl }).unwrap();
       }
-      setDialogOpen(false)
+      setDialogOpen(false);
     } catch {
       // error handled by RTK Query
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Box>
@@ -149,14 +149,13 @@ export function ProjectsPage() {
                   </TableCell>
                   <TableCell>
                     {project.is_archived && <Chip label="Archived" size="small" color="default" />}
-                    {project.is_fork && <Chip label="Fork" size="small" color="info" sx={{ ml: 0.5 }} />}
+                    {project.is_fork && (
+                      <Chip label="Fork" size="small" color="info" sx={{ ml: 0.5 }} />
+                    )}
                   </TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <Tooltip title="Refresh from GitHub">
-                      <IconButton
-                        size="small"
-                        onClick={() => refreshProject(project.id)}
-                      >
+                      <IconButton size="small" onClick={() => refreshProject(project.id)}>
                         <RefreshIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -213,15 +212,11 @@ export function ProjectsPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={!githubUrl || submitting}
-          >
+          <Button variant="contained" onClick={handleSubmit} disabled={!githubUrl || submitting}>
             {submitting ? <CircularProgress size={20} /> : isImport ? 'Import' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

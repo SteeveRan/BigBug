@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router'
+import { useState } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router';
 import {
   Box,
   Drawer,
@@ -17,7 +17,7 @@ import {
   MenuItem,
   Divider,
   Chip,
-} from '@mui/material'
+} from '@mui/material';
 import {
   Dashboard as DashboardIcon,
   GitHub as GitHubIcon,
@@ -27,14 +27,16 @@ import {
   Sailing as HelmIcon,
   Dock as DockerIcon,
   AdminPanelSettings as AdminIcon,
+  Settings as SettingsIcon,
   Menu as MenuIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
-} from '@mui/icons-material'
-import { useAppDispatch, useAppSelector } from '../../store'
-import { logout } from '../../store/authSlice'
+} from '@mui/icons-material';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { logout } from '../../store/authSlice';
+import { PermissionGate } from '../PermissionGate';
 
-const DRAWER_WIDTH = 240
+const DRAWER_WIDTH = 240;
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
@@ -44,25 +46,23 @@ const navItems = [
   { label: 'App Images', path: '/app-images', icon: <AppImageIcon /> },
   { label: 'Helm Charts', path: '/helm-charts', icon: <HelmIcon /> },
   { label: 'Docker Images', path: '/docker-images', icon: <DockerIcon /> },
-]
+];
 
-const adminItems = [
-  { label: 'Admin', path: '/admin', icon: <AdminIcon /> },
-]
+const adminItems = [{ label: 'Admin', path: '/admin', icon: <AdminIcon /> }];
 
 export function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const navigate = useNavigate()
-  const location = useLocation()
-  const dispatch = useAppDispatch()
-  const user = useAppSelector((state) => state.auth.user)
-  const isAdmin = user?.roles.includes('admin') ?? false
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const isAdmin = user?.roles.includes('admin') ?? false;
 
   const handleLogout = () => {
-    dispatch(logout())
-    navigate('/login')
-  }
+    dispatch(logout());
+    navigate('/login');
+  };
 
   const drawer = (
     <Box>
@@ -85,6 +85,22 @@ export function Layout() {
           </ListItem>
         ))}
       </List>
+      <Divider />
+      <List>
+        <PermissionGate permission="integrations:manage">
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={location.pathname === '/settings/integrations'}
+              onClick={() => navigate('/settings/integrations')}
+            >
+              <ListItemIcon>
+                <SettingsIcon />
+              </ListItemIcon>
+              <ListItemText primary="Settings" />
+            </ListItemButton>
+          </ListItem>
+        </PermissionGate>
+      </List>
       {isAdmin && (
         <>
           <Divider />
@@ -104,15 +120,11 @@ export function Layout() {
         </>
       )}
     </Box>
-  )
+  );
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar
-        position="fixed"
-        sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        elevation={1}
-      >
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }} elevation={1}>
         <Toolbar>
           <IconButton
             color="inherit"
@@ -133,19 +145,12 @@ export function Layout() {
                 color="secondary"
                 sx={{ mr: 2, textTransform: 'capitalize' }}
               />
-              <IconButton
-                color="inherit"
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-              >
+              <IconButton color="inherit" onClick={(e) => setAnchorEl(e.currentTarget)}>
                 <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
                   {user.username[0].toUpperCase()}
                 </Avatar>
               </IconButton>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={() => setAnchorEl(null)}
-              >
+              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
                 <MenuItem disabled>
                   <PersonIcon sx={{ mr: 1 }} fontSize="small" />
                   {user.username}
@@ -167,13 +172,19 @@ export function Layout() {
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
           ModalProps={{ keepMounted: true }}
-          sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}
+          sx={{
+            display: { xs: 'block', sm: 'none' },
+            '& .MuiDrawer-paper': { width: DRAWER_WIDTH },
+          }}
         >
           {drawer}
         </Drawer>
         <Drawer
           variant="permanent"
-          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' } }}
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
+          }}
           open
         >
           {drawer}
@@ -193,5 +204,5 @@ export function Layout() {
         <Outlet />
       </Box>
     </Box>
-  )
+  );
 }

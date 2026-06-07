@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router'
+import { useParams, useNavigate } from 'react-router';
 import {
   Box,
   Typography,
@@ -15,36 +15,38 @@ import {
   Paper,
   Divider,
   Link,
-} from '@mui/material'
-import { ArrowBack, Refresh, OpenInNew } from '@mui/icons-material'
+} from '@mui/material';
+import { ArrowBack, Refresh, OpenInNew } from '@mui/icons-material';
 import {
   useGetHelmChartQuery,
   useGetHelmChartVersionsQuery,
   useGetHelmChartLogsQuery,
   useIndexHelmChartMutation,
-} from '../../store/api'
-import { HelmChartSourceDetail, HelmChartVersion, HelmSyncLog } from '../../types'
-import { StatusChip } from '../../components/StatusChip'
+} from '../../store/api';
+import { HelmChartSourceDetail, HelmChartVersion, HelmSyncLog } from '../../types';
+import { StatusChip } from '../../components/StatusChip';
 
 export function HelmChartDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const chartId = Number(id)
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const chartId = Number(id);
 
-  const { data: chart, isLoading } = useGetHelmChartQuery(chartId)
-  const { data: versions = [] } = useGetHelmChartVersionsQuery(chartId)
-  const { data: logs = [] } = useGetHelmChartLogsQuery(chartId)
-  const [indexChart, { isLoading: indexing }] = useIndexHelmChartMutation()
+  const { data: chart, isLoading } = useGetHelmChartQuery(chartId);
+  const { data: versions = [] } = useGetHelmChartVersionsQuery(chartId);
+  const { data: logs = [] } = useGetHelmChartLogsQuery(chartId);
+  const [indexChart, { isLoading: indexing }] = useIndexHelmChartMutation();
 
-  const c = chart as HelmChartSourceDetail | undefined
+  const c = chart as HelmChartSourceDetail | undefined;
 
-  if (isLoading) return <CircularProgress />
-  if (!c) return <Typography>Helm chart source not found</Typography>
+  if (isLoading) return <CircularProgress />;
+  if (!c) return <Typography>Helm chart source not found</Typography>;
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/helm-charts')}>Back</Button>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/helm-charts')}>
+          Back
+        </Button>
         <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
           {c.name}
         </Typography>
@@ -70,29 +72,45 @@ export function HelmChartDetailPage() {
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         <Card sx={{ flex: '1 1 300px' }}>
           <CardContent>
-            <Typography variant="h6" mb={2}>Source Info</Typography>
+            <Typography variant="h6" mb={2}>
+              Source Info
+            </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box>
-                <Typography variant="caption" color="text.secondary">Status</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Status
+                </Typography>
                 <Box mt={0.5}>
-                  <StatusChip statusFlag={c.status_flag as 0|1|2|3|4} statusText={c.status_text} />
+                  <StatusChip
+                    statusFlag={c.status_flag as 0 | 1 | 2 | 3 | 4}
+                    statusText={c.status_text}
+                  />
                 </Box>
               </Box>
               <Divider />
               <Box>
-                <Typography variant="caption" color="text.secondary">Repository URL</Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Repository URL
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'monospace', fontSize: '0.8rem', wordBreak: 'break-all' }}
+                >
                   {c.repo_url}
                 </Typography>
               </Box>
               <Divider />
               <Box>
-                <Typography variant="caption" color="text.secondary">Description</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Description
+                </Typography>
                 <Typography variant="body2">{c.description ?? '—'}</Typography>
               </Box>
               <Divider />
               <Box>
-                <Typography variant="caption" color="text.secondary">Last Synced</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Last Synced
+                </Typography>
                 <Typography variant="body2">
                   {c.last_synced_at ? new Date(c.last_synced_at).toLocaleString() : 'Never'}
                 </Typography>
@@ -101,7 +119,9 @@ export function HelmChartDetailPage() {
                 <>
                   <Divider />
                   <Box>
-                    <Typography variant="caption" color="text.secondary">GitLab Project</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      GitLab Project
+                    </Typography>
                     <Typography variant="body2">
                       <Link href={c.gitlab_project_url} target="_blank" rel="noopener noreferrer">
                         {c.gitlab_project_id ?? c.gitlab_project_url}
@@ -116,7 +136,9 @@ export function HelmChartDetailPage() {
 
         <Card sx={{ flex: '2 1 500px' }}>
           <CardContent>
-            <Typography variant="h6" mb={2}>Chart Versions ({versions.length})</Typography>
+            <Typography variant="h6" mb={2}>
+              Chart Versions ({versions.length})
+            </Typography>
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
               <Table size="small" stickyHeader>
                 <TableHead>
@@ -136,7 +158,9 @@ export function HelmChartDetailPage() {
                         </Typography>
                         {v.description && (
                           <Typography variant="caption" color="text.secondary">
-                            {v.description.length > 80 ? v.description.slice(0, 80) + '…' : v.description}
+                            {v.description.length > 80
+                              ? v.description.slice(0, 80) + '…'
+                              : v.description}
                           </Typography>
                         )}
                       </TableCell>
@@ -148,7 +172,10 @@ export function HelmChartDetailPage() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <StatusChip statusFlag={v.status_flag as 0|1|2|3|4} statusText={v.status_text} />
+                          <StatusChip
+                            statusFlag={v.status_flag as 0 | 1 | 2 | 3 | 4}
+                            statusText={v.status_text}
+                          />
                           {v.is_synced && (
                             <Typography variant="caption" color="success.main" fontWeight="bold">
                               ✓ Synced
@@ -176,7 +203,9 @@ export function HelmChartDetailPage() {
 
       <Card sx={{ mt: 3 }}>
         <CardContent>
-          <Typography variant="h6" mb={2}>Sync History</Typography>
+          <Typography variant="h6" mb={2}>
+            Sync History
+          </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
@@ -199,11 +228,14 @@ export function HelmChartDetailPage() {
                           #{log.pipeline_id}
                         </Button>
                       ) : (
-                        log.pipeline_id ?? '—'
+                        (log.pipeline_id ?? '—')
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusChip statusFlag={log.status_flag as 0|1|2|3|4} statusText={log.status_text} />
+                      <StatusChip
+                        statusFlag={log.status_flag as 0 | 1 | 2 | 3 | 4}
+                        statusText={log.status_text}
+                      />
                     </TableCell>
                     <TableCell>
                       {log.started_at && log.finished_at
@@ -215,7 +247,9 @@ export function HelmChartDetailPage() {
                 {logs.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} align="center">
-                      <Typography color="text.secondary" py={2}>No sync history yet</Typography>
+                      <Typography color="text.secondary" py={2}>
+                        No sync history yet
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -225,5 +259,5 @@ export function HelmChartDetailPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

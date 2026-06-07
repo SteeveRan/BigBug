@@ -7,24 +7,24 @@
  * @relatedFiles ../hooks/usePermissions.ts
  */
 
-import type { ReactNode, ReactElement } from 'react'
-import { usePermissions } from '../hooks/usePermissions'
+import type { ReactNode, ReactElement } from 'react';
+import { usePermissions } from '../hooks/usePermissions';
 
 interface PermissionGateProps {
   /** Single permission required (e.g. "mirrors:write") */
-  permission?: string
+  permission?: string;
 
   /** Render children if user has ANY of these permissions (OR logic) */
-  anyOf?: string[]
+  anyOf?: string[];
 
   /** Render children if user has ALL of these permissions (AND logic) */
-  allOf?: string[]
+  allOf?: string[];
 
   /** Content to render if the permission check fails (default: null) */
-  fallback?: ReactNode
+  fallback?: ReactNode;
 
   /** Content to render if the permission check passes */
-  children: ReactNode
+  children: ReactNode;
 }
 
 /**
@@ -58,23 +58,23 @@ export function PermissionGate({
   fallback = null,
   children,
 }: PermissionGateProps): ReactElement | null {
-  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions()
+  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
 
-  let hasAccess = true
+  let hasAccess = true;
 
   if (permission) {
-    hasAccess = hasPermission(permission)
+    hasAccess = hasPermission(permission);
   } else if (anyOf) {
-    hasAccess = hasAnyPermission(anyOf)
+    hasAccess = hasAnyPermission(anyOf);
   } else if (allOf) {
-    hasAccess = hasAllPermissions(allOf)
+    hasAccess = hasAllPermissions(allOf);
   }
 
   if (!hasAccess) {
-    return fallback !== null ? <>{fallback}</> : null
+    return fallback !== null ? <>{fallback}</> : null;
   }
 
-  return <>{children}</>
+  return <>{children}</>;
 }
 
-export default PermissionGate
+export default PermissionGate;

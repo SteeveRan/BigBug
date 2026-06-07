@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -14,52 +14,54 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-} from '@mui/material'
-import { Add as AddIcon, Build as BuildIcon } from '@mui/icons-material'
+} from '@mui/material';
+import { Add as AddIcon, Build as BuildIcon } from '@mui/icons-material';
 import {
   useListGoldImagesQuery,
   useCreateGoldImageMutation,
   useTriggerGoldBuildMutation,
-} from '../../store/api'
-import { GoldImage } from '../../types'
+} from '../../store/api';
+import { GoldImage } from '../../types';
 
 export function GoldImagesPage() {
-  const { data: images = [], isLoading } = useListGoldImagesQuery()
-  const [createImage] = useCreateGoldImageMutation()
-  const [triggerBuild] = useTriggerGoldBuildMutation()
+  const { data: images = [], isLoading } = useListGoldImagesQuery();
+  const [createImage] = useCreateGoldImageMutation();
+  const [triggerBuild] = useTriggerGoldBuildMutation();
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [buildOpen, setBuildOpen] = useState<number | null>(null)
-  const [form, setForm] = useState({ name: '', os_family: '', description: '', dockerfile: '' })
-  const [buildForm, setBuildForm] = useState({ version_tag: 'latest', arch: 'amd64' })
-  const [submitting, setSubmitting] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false);
+  const [buildOpen, setBuildOpen] = useState<number | null>(null);
+  const [form, setForm] = useState({ name: '', os_family: '', description: '', dockerfile: '' });
+  const [buildForm, setBuildForm] = useState({ version_tag: 'latest', arch: 'amd64' });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = async () => {
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await createImage(form).unwrap()
-      setCreateOpen(false)
-      setForm({ name: '', os_family: '', description: '', dockerfile: '' })
+      await createImage(form).unwrap();
+      setCreateOpen(false);
+      setForm({ name: '', os_family: '', description: '', dockerfile: '' });
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleBuild = async () => {
-    if (buildOpen === null) return
-    setSubmitting(true)
+    if (buildOpen === null) return;
+    setSubmitting(true);
     try {
-      await triggerBuild({ id: buildOpen, ...buildForm }).unwrap()
-      setBuildOpen(null)
+      await triggerBuild({ id: buildOpen, ...buildForm }).unwrap();
+      setBuildOpen(null);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">Gold Images</Typography>
+        <Typography variant="h5" fontWeight="bold">
+          Gold Images
+        </Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
           New Gold Image
         </Button>
@@ -101,7 +103,10 @@ export function GoldImagesPage() {
                   <Button
                     size="small"
                     startIcon={<BuildIcon />}
-                    onClick={() => { setBuildForm({ version_tag: 'latest', arch: 'amd64' }); setBuildOpen(image.id) }}
+                    onClick={() => {
+                      setBuildForm({ version_tag: 'latest', arch: 'amd64' });
+                      setBuildOpen(image.id);
+                    }}
                   >
                     Build
                   </Button>
@@ -123,22 +128,48 @@ export function GoldImagesPage() {
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>New Gold Image</DialogTitle>
         <DialogContent>
-          <TextField label="Name" fullWidth margin="normal" value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <TextField label="OS Family" fullWidth margin="normal" value={form.os_family}
+          <TextField
+            label="Name"
+            fullWidth
+            margin="normal"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+          <TextField
+            label="OS Family"
+            fullWidth
+            margin="normal"
+            value={form.os_family}
             onChange={(e) => setForm({ ...form, os_family: e.target.value })}
-            placeholder="ubuntu, alpine, debian..." required />
-          <TextField label="Description" fullWidth margin="normal" value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <TextField label="Dockerfile" fullWidth margin="normal" multiline rows={6}
+            placeholder="ubuntu, alpine, debian..."
+            required
+          />
+          <TextField
+            label="Description"
+            fullWidth
+            margin="normal"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+          <TextField
+            label="Dockerfile"
+            fullWidth
+            margin="normal"
+            multiline
+            rows={6}
             value={form.dockerfile}
             onChange={(e) => setForm({ ...form, dockerfile: e.target.value })}
-            placeholder="FROM ubuntu:22.04&#10;RUN apt-get update" />
+            placeholder="FROM ubuntu:22.04&#10;RUN apt-get update"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate}
-            disabled={!form.name || !form.os_family || submitting}>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            disabled={!form.name || !form.os_family || submitting}
+          >
             {submitting ? <CircularProgress size={20} /> : 'Create'}
           </Button>
         </DialogActions>
@@ -148,11 +179,21 @@ export function GoldImagesPage() {
       <Dialog open={buildOpen !== null} onClose={() => setBuildOpen(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Trigger Build</DialogTitle>
         <DialogContent>
-          <TextField label="Version Tag" fullWidth margin="normal" value={buildForm.version_tag}
-            onChange={(e) => setBuildForm({ ...buildForm, version_tag: e.target.value })} />
-          <TextField label="Architecture" fullWidth margin="normal" value={buildForm.arch}
+          <TextField
+            label="Version Tag"
+            fullWidth
+            margin="normal"
+            value={buildForm.version_tag}
+            onChange={(e) => setBuildForm({ ...buildForm, version_tag: e.target.value })}
+          />
+          <TextField
+            label="Architecture"
+            fullWidth
+            margin="normal"
+            value={buildForm.arch}
             onChange={(e) => setBuildForm({ ...buildForm, arch: e.target.value })}
-            placeholder="amd64, arm64, arm/v7" />
+            placeholder="amd64, arm64, arm/v7"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setBuildOpen(null)}>Cancel</Button>
@@ -162,5 +203,5 @@ export function GoldImagesPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

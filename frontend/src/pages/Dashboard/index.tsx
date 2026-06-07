@@ -1,13 +1,18 @@
-import { Grid, Card, CardContent, Typography, Box, CircularProgress } from '@mui/material'
+import { Grid, Card, CardContent, Typography, Box, CircularProgress } from '@mui/material';
 import {
   GitHub as GitHubIcon,
   SwapHoriz as MirrorIcon,
   Layers as GoldImageIcon,
   Apps as AppImageIcon,
-} from '@mui/icons-material'
-import { useListProjectsQuery, useListMirrorsQuery, useListGoldImagesQuery, useListAppImagesQuery } from '../../store/api'
-import { StatusChip } from '../../components/StatusChip'
-import { GitlabMirror, STATUS_FLAG } from '../../types'
+} from '@mui/icons-material';
+import {
+  useListProjectsQuery,
+  useListMirrorsQuery,
+  useListGoldImagesQuery,
+  useListAppImagesQuery,
+} from '../../store/api';
+import { StatusChip } from '../../components/StatusChip';
+import { GitlabMirror, STATUS_FLAG } from '../../types';
 
 function StatCard({
   title,
@@ -15,10 +20,10 @@ function StatCard({
   icon,
   isLoading,
 }: {
-  title: string
-  count: number
-  icon: React.ReactNode
-  isLoading: boolean
+  title: string;
+  count: number;
+  icon: React.ReactNode;
+  isLoading: boolean;
 }) {
   return (
     <Card>
@@ -36,21 +41,21 @@ function StatCard({
         </Box>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export function DashboardPage() {
-  const { data: projects = [], isLoading: loadingProjects } = useListProjectsQuery()
-  const { data: mirrors = [], isLoading: loadingMirrors } = useListMirrorsQuery()
-  const { data: goldImages = [], isLoading: loadingGold } = useListGoldImagesQuery()
-  const { data: appImages = [], isLoading: loadingApp } = useListAppImagesQuery()
+  const { data: projects = [], isLoading: loadingProjects } = useListProjectsQuery();
+  const { data: mirrors = [], isLoading: loadingMirrors } = useListMirrorsQuery();
+  const { data: goldImages = [], isLoading: loadingGold } = useListGoldImagesQuery();
+  const { data: appImages = [], isLoading: loadingApp } = useListAppImagesQuery();
 
   const staleMirrors = (mirrors as GitlabMirror[]).filter(
     (m) => m.status_flag === STATUS_FLAG.WARNING
-  )
+  );
   const failedMirrors = (mirrors as GitlabMirror[]).filter(
     (m) => m.status_flag === STATUS_FLAG.FAILED
-  )
+  );
 
   return (
     <Box>
@@ -145,5 +150,5 @@ export function DashboardPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

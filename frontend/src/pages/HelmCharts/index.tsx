@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Box,
   Typography,
@@ -19,45 +19,50 @@ import {
   TextField,
   Tooltip,
   IconButton,
-} from '@mui/material'
-import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material'
+} from '@mui/material';
+import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import {
   useListHelmChartsQuery,
   useCreateHelmChartMutation,
   useIndexHelmChartMutation,
-} from '../../store/api'
-import { HelmChartSource } from '../../types'
-import { StatusChip } from '../../components/StatusChip'
+} from '../../store/api';
+import { HelmChartSource } from '../../types';
+import { StatusChip } from '../../components/StatusChip';
 
 export function HelmChartsPage() {
-  const navigate = useNavigate()
-  const { data: charts = [], isLoading } = useListHelmChartsQuery()
-  const [createChart] = useCreateHelmChartMutation()
-  const [indexChart] = useIndexHelmChartMutation()
+  const navigate = useNavigate();
+  const { data: charts = [], isLoading } = useListHelmChartsQuery();
+  const [createChart] = useCreateHelmChartMutation();
+  const [indexChart] = useIndexHelmChartMutation();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [form, setForm] = useState({ name: '', repo_url: '', description: '' })
-  const [submitting, setSubmitting] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState({ name: '', repo_url: '', description: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = async () => {
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await createChart(form).unwrap()
-      setDialogOpen(false)
-      setForm({ name: '', repo_url: '', description: '' })
+      await createChart(form).unwrap();
+      setDialogOpen(false);
+      setForm({ name: '', repo_url: '', description: '' });
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">Helm Charts</Typography>
+        <Typography variant="h5" fontWeight="bold">
+          Helm Charts
+        </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onClick={() => { setForm({ name: '', repo_url: '', description: '' }); setDialogOpen(true) }}
+          onClick={() => {
+            setForm({ name: '', repo_url: '', description: '' });
+            setDialogOpen(true);
+          }}
         >
           Add Chart Source
         </Button>
@@ -96,14 +101,15 @@ export function HelmChartsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+                    >
                       {chart.repo_url}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    {chart.last_synced_at
-                      ? new Date(chart.last_synced_at).toLocaleString()
-                      : '—'}
+                    {chart.last_synced_at ? new Date(chart.last_synced_at).toLocaleString() : '—'}
                   </TableCell>
                   <TableCell>
                     <StatusChip
@@ -175,5 +181,5 @@ export function HelmChartsPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

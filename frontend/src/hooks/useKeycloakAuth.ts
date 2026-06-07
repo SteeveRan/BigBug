@@ -10,25 +10,22 @@
  * @relatedFiles ../pages/Login/index.tsx, ../pages/SsoCallback/index.tsx
  */
 
-import { useEffect, useState, useCallback } from 'react'
-import { useGetSsoConfigQuery } from '../store/api'
-import {
-  redirectToKeycloakLogin,
-  SSO_VERIFIER_KEY,
-} from '../services/keycloak'
+import { useEffect, useState, useCallback } from 'react';
+import { useGetSsoConfigQuery } from '../store/api';
+import { redirectToKeycloakLogin, SSO_VERIFIER_KEY } from '../services/keycloak';
 
 /** Redirect URI the Keycloak public client is configured to accept. */
-const SSO_REDIRECT_URI = `${window.location.origin}/sso/callback`
+const SSO_REDIRECT_URI = `${window.location.origin}/sso/callback`;
 
 interface SsoState {
   /** Whether the SSO config has been fetched and processed. */
-  ready: boolean
+  ready: boolean;
   /** `true` when the backend reports SSO is enabled. */
-  enabled: boolean
+  enabled: boolean;
   /** SSO configuration (url, realm, clientId) */
-  config: { url: string; realm: string; client_id: string } | null
+  config: { url: string; realm: string; client_id: string } | null;
   /** Any error that occurred during initialisation. */
-  error: string | null
+  error: string | null;
 }
 
 /**
@@ -41,22 +38,22 @@ interface SsoState {
  */
 export function useKeycloakAuth() {
   // NOTE: we call the query unconditionally — RTK Query deduplicates it.
-  const { data: config, isLoading, isError, error } = useGetSsoConfigQuery()
+  const { data: config, isLoading, isError, error } = useGetSsoConfigQuery();
 
   const [state, setState] = useState<SsoState>({
     ready: false,
     enabled: false,
     config: null,
     error: null,
-  })
+  });
 
   useEffect(() => {
-    if (isLoading) return
+    if (isLoading) return;
 
     // API error or config not available → treat as disabled.
     if (isError || !config || !config.enabled) {
-      setState({ ready: true, enabled: false, config: null, error: null })
-      return
+      setState({ ready: true, enabled: false, config: null, error: null });
+      return;
     }
 
     setState({
@@ -64,22 +61,22 @@ export function useKeycloakAuth() {
       enabled: true,
       config: { url: config.url, realm: config.realm, client_id: config.client_id },
       error: null,
-    })
-  }, [isLoading, isError, config, error])
+    });
+  }, [isLoading, isError, config, error]);
 
   /** Start the PKCE redirect. */
   const login = useCallback(async () => {
     if (!state.config) {
-      console.error('[useKeycloakAuth] login() called but SSO config not available')
-      return
+      console.error('[useKeycloakAuth] login() called but SSO config not available');
+      return;
     }
     await redirectToKeycloakLogin(
       state.config.url,
       state.config.realm,
       state.config.client_id,
       SSO_REDIRECT_URI
-    )
-  }, [state.config])
+    );
+  }, [state.config]);
 
   /**
    * After the Keycloak redirect the browser lands on /sso/callback with
@@ -89,26 +86,26 @@ export function useKeycloakAuth() {
   const handleCallback = useCallback(():
     | { code: string; redirect_uri: string; code_verifier: string }
     | { error: string } => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const errorParam = params.get('error')
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const errorParam = params.get('error');
 
     if (errorParam) {
-      const desc = params.get('error_description') || errorParam
-      return { error: desc }
+      const desc = params.get('error_description') || errorParam;
+      return { error: desc };
     }
 
     if (!code) {
-      return { error: 'Authorization code missing from callback URL' }
+      return { error: 'Authorization code missing from callback URL' };
     }
 
-    const verifier = sessionStorage.getItem(SSO_VERIFIER_KEY)
+    const verifier = sessionStorage.getItem(SSO_VERIFIER_KEY);
     if (!verifier) {
-      return { error: 'PKCE code_verifier not found in sessionStorage — possible stale callback' }
+      return { error: 'PKCE code_verifier not found in sessionStorage — possible stale callback' };
     }
 
-    return { code, redirect_uri: SSO_REDIRECT_URI, code_verifier: verifier }
-  }, [])
+    return { code, redirect_uri: SSO_REDIRECT_URI, code_verifier: verifier };
+  }, []);
 
   return {
     ready: state.ready,
@@ -116,5 +113,5 @@ export function useKeycloakAuth() {
     error: state.error,
     login,
     handleCallback,
-  }
+  };
 }

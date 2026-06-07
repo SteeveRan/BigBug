@@ -1,24 +1,26 @@
-import { Routes, Route, Navigate } from 'react-router'
-import { useAppSelector } from '../store'
-import { Layout } from '../components/Layout'
-import { ProtectedRoute } from './ProtectedRoute'
-import { LoginPage } from '../pages/Login'
-import { SsoCallbackPage } from '../pages/SsoCallback'
-import { DashboardPage } from '../pages/Dashboard'
-import { ProjectsPage } from '../pages/Projects'
-import { ProjectDetailPage } from '../pages/Projects/ProjectDetail'
-import { MirrorsPage } from '../pages/Mirrors'
-import { MirrorDetailPage } from '../pages/Mirrors/MirrorDetail'
-import { GoldImagesPage } from '../pages/GoldImages'
-import { AppImagesPage } from '../pages/AppImages'
-import { HelmChartsPage } from '../pages/HelmCharts'
-import { HelmChartDetailPage } from '../pages/HelmCharts/HelmChartDetail'
-import { DockerImagesPage } from '../pages/DockerImages'
-import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail'
-import { AdminPage } from '../pages/Admin'
+import { Routes, Route, Navigate } from 'react-router';
+import { useAppSelector } from '../store';
+import { Layout } from '../components/Layout';
+import { ProtectedRoute } from './ProtectedRoute';
+import { PermissionGate } from '../components/PermissionGate';
+import { LoginPage } from '../pages/Login';
+import { SsoCallbackPage } from '../pages/SsoCallback';
+import { DashboardPage } from '../pages/Dashboard';
+import { ProjectsPage } from '../pages/Projects';
+import { ProjectDetailPage } from '../pages/Projects/ProjectDetail';
+import { MirrorsPage } from '../pages/Mirrors';
+import { MirrorDetailPage } from '../pages/Mirrors/MirrorDetail';
+import { GoldImagesPage } from '../pages/GoldImages';
+import { AppImagesPage } from '../pages/AppImages';
+import { HelmChartsPage } from '../pages/HelmCharts';
+import { HelmChartDetailPage } from '../pages/HelmCharts/HelmChartDetail';
+import { DockerImagesPage } from '../pages/DockerImages';
+import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail';
+import { AdminPage } from '../pages/Admin';
+import SettingsIntegrations from '../pages/Settings/Integrations';
 
 export function AppRouter() {
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated)
+  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
 
   return (
     <Routes>
@@ -47,8 +49,16 @@ export function AppRouter() {
         <Route path="docker-images" element={<DockerImagesPage />} />
         <Route path="docker-images/:id" element={<DockerImageDetailPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route
+          path="settings/integrations"
+          element={
+            <PermissionGate permission="integrations:manage">
+              <SettingsIntegrations />
+            </PermissionGate>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  )
+  );
 }

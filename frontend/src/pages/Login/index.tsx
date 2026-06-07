@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   Box,
   Card,
@@ -10,53 +10,53 @@ import {
   Alert,
   CircularProgress,
   Divider,
-} from '@mui/material'
-import { useAppDispatch } from '../../store'
-import { setCredentials } from '../../store/authSlice'
-import { useLoginMutation } from '../../store/api'
-import { useKeycloakAuth } from '../../hooks/useKeycloakAuth'
+} from '@mui/material';
+import { useAppDispatch } from '../../store';
+import { setCredentials } from '../../store/authSlice';
+import { useLoginMutation } from '../../store/api';
+import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 
 export function LoginPage() {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const dispatch = useAppDispatch()
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const [login, { isLoading }] = useLoginMutation()
-  const { ready, enabled, login: ssoLogin } = useKeycloakAuth()
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [login, { isLoading }] = useLoginMutation();
+  const { ready, enabled, login: ssoLogin } = useKeycloakAuth();
 
   // Propagate error query param from SSO callback failures.
   useEffect(() => {
-    const param = searchParams.get('error')
+    const param = searchParams.get('error');
     if (param) {
-      setError(param)
+      setError(param);
       // Clean up the URL so the message doesn't survive a refresh.
-      navigate('/login', { replace: true })
+      navigate('/login', { replace: true });
     }
-  }, [searchParams, navigate])
+  }, [searchParams, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
     try {
-      const result = await login({ username, password }).unwrap()
+      const result = await login({ username, password }).unwrap();
       const meResponse = await fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${result.access_token}` },
-      })
-      const me = await meResponse.json()
+      });
+      const me = await meResponse.json();
       dispatch(
         setCredentials({
           accessToken: result.access_token,
           refreshToken: result.refresh_token,
           user: me,
-        }),
-      )
-      navigate('/')
+        })
+      );
+      navigate('/');
     } catch {
-      setError('Invalid username or password')
+      setError('Invalid username or password');
     }
-  }
+  };
 
   return (
     <Box
@@ -119,12 +119,7 @@ export function LoginPage() {
           {ready && enabled && (
             <>
               <Divider sx={{ my: 2 }}>or</Divider>
-              <Button
-                variant="outlined"
-                fullWidth
-                size="large"
-                onClick={ssoLogin}
-              >
+              <Button variant="outlined" fullWidth size="large" onClick={ssoLogin}>
                 Sign in with SSO
               </Button>
             </>
@@ -132,5 +127,5 @@ export function LoginPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }
