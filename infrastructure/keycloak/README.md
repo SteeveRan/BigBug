@@ -11,6 +11,7 @@ This configuration provisions the following resources in Keycloak:
 | **Realm** | `bigbug` | BigBug application realm |
 | **Client** | `bigbug-backend` | Confidential client for FastAPI backend (client secret auth) |
 | **Client** | `bigbug-frontend` | Public client for React SPA (PKCE S256 enforced) |
+| **Client** | `harbor` | Confidential client for Harbor Registry OIDC SSO |
 | **Role** | `admin` | Full access + user/role management |
 | **Role** | `operator` | Manage projects, mirrors, images, helm charts, docker images |
 | **Role** | `viewer` | Read-only access to all resources |
@@ -31,6 +32,14 @@ This configuration provisions the following resources in Keycloak:
 - Redirect URIs: `http://localhost:5173/*`, `http://localhost:5173/sso-callback`
 - No implicit flow, no client secret
 
+**Harbor (confidential):**
+- `client_id`: `harbor`
+- `access_type`: confidential
+- Standard flow + direct access grants enabled
+- Used by Harbor Registry for OIDC SSO authentication
+- Redirect URIs: `https://harbor.local:30443/c/oidc/callback`, `https://harbor.local:30443/*`
+- Post logout redirect URIs: `https://harbor.local:30443/c/oidc/logout`, `https://harbor.local:30443/`
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -43,6 +52,11 @@ This configuration provisions the following resources in Keycloak:
 | `backend_client_secret` | — | Backend client secret (sensitive) |
 | `frontend_client_id` | `bigbug-frontend` | Frontend client ID |
 | `frontend_redirect_uris` | `["http://localhost:5173/*", "http://localhost:5173/sso-callback"]` | Valid redirect URIs |
+| `harbor_client_id` | `harbor` | Harbor client ID |
+| `harbor_client_secret` | — | Harbor client secret (sensitive) |
+| `harbor_redirect_uris` | `["https://harbor.local:30443/c/oidc/callback", ...]` | Harbor redirect URIs |
+| `harbor_post_logout_redirect_uris` | `["https://harbor.local:30443/c/oidc/logout", ...]` | Harbor post-logout URIs |
+| `harbor_root_url` | `https://harbor.local:30443` | Harbor root URL |
 | `test_user_username` | `bigbug` | Test user username |
 | `test_user_password` | — | Test user password (sensitive) |
 | `test_user_email` | `bigbug@example.com` | Test user email |
@@ -80,7 +94,7 @@ tofu apply
 2. Login: `admin` / `admin`
 3. Select realm "bigbug" (dropdown top-left)
 4. Navigate to:
-   - **Clients** → `bigbug-backend`, `bigbug-frontend`
+   - **Clients** → `bigbug-backend`, `bigbug-frontend`, `harbor`
    - **Realm roles** → admin, operator, viewer
    - **Users** → `bigbug` (with role admin)
 
@@ -110,6 +124,7 @@ tofu destroy
 | `realm_url` | Full realm URL |
 | `backend_client_id` | Backend client ID |
 | `frontend_client_id` | Frontend client ID |
+| `harbor_client_id` | Harbor client ID |
 | `test_user_username` | Test user username |
 
 Use `tofu output` to view all outputs.

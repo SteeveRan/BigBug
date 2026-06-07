@@ -56,7 +56,7 @@ Each CI robot account grants:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `harbor_url` | `https://harbor.local:30443` | Harbor instance URL |
+| `harbor_url` | `https://harbor.local` | Harbor instance URL |
 | `harbor_username` | `admin` | Harbor admin username |
 | `harbor_password` | — | Harbor admin password (sensitive) |
 
@@ -94,7 +94,7 @@ Each CI robot account grants:
 | `dockerhub_endpoint_url` | `https://hub.docker.com` | Docker Hub endpoint |
 | `quay_registry_name` | `quay-io` | Quay.io registry entry name |
 | `quay_endpoint_url` | `https://quay.io` | Quay.io endpoint |
-| `replication_schedule` | `""` | Cron schedule (empty = manual only) |
+| `replication_schedule` | `0 0 2 * * *` | Cron schedule — ежедневно в 02:00 UTC (6-польный: sec min hour day month weekday) |
 
 ### Webhooks
 
@@ -167,7 +167,7 @@ docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'
 
 ### Verify in Harbor UI
 
-1. Open https://harbor.local:30443
+1. Open https://harbor.local
 2. Login as `admin` / your admin password
 3. Navigate to:
    - **Projects** → `gold-images` (private), `app-images` (public), `mirrors` (public)
@@ -286,7 +286,7 @@ infrastructure/terraform/harbor/
 
 ```bash
 # Check Harbor health
-curl -k -u admin:Harbor12345 https://harbor.local:30443/api/v2.0/health
+curl -k -u admin:Harbor12345 https://harbor.local/api/v2.0/health
 
 # Ensure deploy.sh ran successfully
 kubectl get pods -n harbor

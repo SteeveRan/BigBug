@@ -15,72 +15,38 @@
 
 ## Шаг 1: Создание OIDC Client в Keycloak
 
-### 1.1 Войти в Keycloak Admin Console
+> **Примечание:** Клиент `harbor` создаётся **автоматически** через OpenTofu при инициализации Keycloak ([`clients.tf`](../../keycloak/clients.tf)). Ручное создание не требуется. Секрет клиента задаётся в `terraform.tfvars` → `harbor_client_secret`.
 
-- URL: `http://localhost:8180`
-- Username: `admin`
-- Password: `admin`
-
-### 1.2 Выбрать Realm
-
-Убедитесь, что выбран realm `bigbug` (выпадающий список в левом верхнем углу). Если realm не создан — выполните инициализацию:
+### 1.1 Инициализация Keycloak через OpenTofu
 
 ```bash
 cd ../keycloak
 cp terraform.tfvars.example terraform.tfvars
+# Убедитесь, что в terraform.tfvars задан harbor_client_secret
 tofu init && tofu apply
 ```
 
-### 1.3 Создать новый Client
+### 1.2 Проверка клиента (опционально)
 
-1. Перейдите: **Clients** → **Create client**
-2. Заполните поля:
+1. Войдите в Keycloak Admin Console: `http://localhost:8180` (admin / admin)
+2. Выберите realm `bigbug`
+3. Перейдите: **Clients** → `harbor`
+4. На вкладке **Credentials** можно посмотреть/скопировать `client_secret`
 
-| Поле | Значение | Примечание |
-|------|----------|------------|
-| Client type | `OpenID Connect` | Протокол OIDC |
-| Client ID | `harbor` | Идентификатор клиента для Harbor |
-| Name | `Harbor Registry` | Человекочитаемое имя |
-| Description | `OIDC client for Harbor container registry SSO` | Описание |
-
-3. Нажмите **Next**
-
-### 1.4 Настройка Capability Config
+### 1.3 Конфигурация клиента (создаётся автоматически)
 
 | Поле | Значение |
 |------|----------|
-| Client authentication | `On` |
-| Authorization | `Off` |
-| Authentication flow | ✅ Standard flow |
-| | ✅ Direct access grants |
-| | ❌ Implicit flow |
-| | ❌ Service accounts roles |
-
-Нажмите **Next**.
-
-### 1.5 Настройка Login Settings
-
-| Поле | Значение |
-|------|----------|
+| Client ID | `harbor` |
+| Name | `Harbor Registry` |
+| Access type | `confidential` |
+| Standard flow | ✅ |
+| Direct access grants | ✅ |
+| Implicit flow | ❌ |
 | Root URL | `https://harbor.local:30443` |
-| Home URL | `https://harbor.local:30443` |
-| Valid redirect URIs | `https://harbor.local:30443/c/oidc/callback` |
-| | `https://harbor.local:30443/*` |
-| Valid post logout redirect URIs | `https://harbor.local:30443/c/oidc/logout` |
-| | `https://harbor.local:30443/` |
+| Valid redirect URIs | `https://harbor.local:30443/c/oidc/callback`, `https://harbor.local:30443/*` |
+| Post logout redirect URIs | `https://harbor.local:30443/c/oidc/logout`, `https://harbor.local:30443/` |
 | Web origins | `https://harbor.local:30443` |
-
-Нажмите **Save**.
-
-### 1.6 Получение Client Secret
-
-1. После сохранения перейдите на вкладку **Credentials**
-2. Скопируйте значение **Client Secret** — оно понадобится для конфигурации Harbor
-
-```
-Client ID:     harbor
-Client Secret: <скопировать отсюда>
-```
 
 ## Шаг 2: Конфигурация Harbor OIDC
 
@@ -313,8 +279,8 @@ curl -s -k -u admin:Harbor12345 \
 |----------|----------|----------|
 | Keycloak URL | `http://localhost:8180` | [`docker-compose.infra.yml`](../../docker-compose.infra.yml) |
 | Realm | `bigbug` | [`realm.tf`](../keycloak/realm.tf) |
-| Client ID | `harbor` | Создаётся вручную (этот гайд) |
-| Client Secret | `<генерируется>` | Keycloak → Clients → harbor → Credentials |
+| Client ID | `harbor` | Создаётся автоматически через OpenTofu ([`clients.tf`](../../keycloak/clients.tf)) |
+| Client Secret | `<из terraform.tfvars>` | Задаётся в `harbor_client_secret` |
 | OIDC Endpoint | `http://localhost:8180/realms/bigbug` | Формируется из Keycloak URL + Realm |
 | Redirect URI | `https://harbor.local:30443/c/oidc/callback` | Стандартный путь Harbor OIDC callback |
 | Harbor Admin | `admin` / `Harbor12345` | [`harbor-values.yaml`](harbor-values.yaml) |

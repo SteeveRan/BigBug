@@ -55,6 +55,42 @@ variable "frontend_redirect_uris" {
   ]
 }
 
+variable "harbor_client_id" {
+  description = "Harbor client ID (confidential, for Harbor OIDC SSO)"
+  type        = string
+  default     = "harbor"
+}
+
+variable "harbor_client_secret" {
+  description = "Harbor client secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "harbor_redirect_uris" {
+  description = "Harbor valid redirect URIs"
+  type        = list(string)
+  default     = [
+    "https://harbor.local:30443/c/oidc/callback",
+    "https://harbor.local:30443/*",
+  ]
+}
+
+variable "harbor_post_logout_redirect_uris" {
+  description = "Harbor valid post logout redirect URIs"
+  type        = list(string)
+  default     = [
+    "https://harbor.local:30443/c/oidc/logout",
+    "https://harbor.local:30443/",
+  ]
+}
+
+variable "harbor_root_url" {
+  description = "Harbor root URL"
+  type        = string
+  default     = "https://harbor.local:30443"
+}
+
 variable "test_user_username" {
   description = "Test user username"
   type        = string

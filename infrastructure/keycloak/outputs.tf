@@ -28,6 +28,11 @@ output "frontend_client_id" {
   value       = keycloak_openid_client.frontend.client_id
 }
 
+output "harbor_client_id" {
+  description = "Harbor OIDC client ID"
+  value       = keycloak_openid_client.harbor.client_id
+}
+
 output "test_user_username" {
   description = "Test user username"
   value       = keycloak_user.test_admin.username

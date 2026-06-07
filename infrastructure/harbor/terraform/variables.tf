@@ -6,9 +6,9 @@
 # ─── Harbor Connection ───────────────────────────────────────────────────────
 
 variable "harbor_url" {
-  description = "Harbor instance URL (e.g. https://harbor.local:30443)"
+  description = "Harbor instance URL (e.g. https://harbor.local)"
   type        = string
-  default     = "https://harbor.local:30443"
+  default     = "https://harbor.local"
 }
 
 variable "harbor_username" {
@@ -151,9 +151,9 @@ variable "quay_endpoint_url" {
 }
 
 variable "replication_schedule" {
-  description = "Cron schedule for replication policies (empty = manual only)"
+  description = "Cron schedule for replication policies (6-field cron: sec min hour day month weekday)"
   type        = string
-  default     = ""
+  default     = "0 0 2 * * *"
 }
 
 # ─── Webhooks ────────────────────────────────────────────────────────────────

@@ -93,5 +93,5 @@ output "webhook_id" {
 
 output "registry_url" {
   description = "Harbor registry base URL (for docker login)"
-  value       = replace(var.harbor_url, "/^https://(.+?):\\d+$/", "$1")
+  value       = replace(var.harbor_url, "/^https?://([^/:]+)(:\\d+)?$/", "$1")
 }
