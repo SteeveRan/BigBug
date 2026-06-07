@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest_asyncio.fixture
 async def sample_helm_source(db_session: AsyncSession):

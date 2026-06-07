@@ -153,7 +153,7 @@ class TestJWKSCache:
 
 
 @pytest.mark.asyncio
-async def test_exchange_code_success(db_session, mock_http_client):
+async def test_exchange_code_success(db_session, mock_http_client, test_oidc_config):
     """Successful authorization-code exchange returns token set."""
     token_response = {
         "access_token": "at-abc",
@@ -167,7 +167,9 @@ async def test_exchange_code_success(db_session, mock_http_client):
     mock_response.json.return_value = token_response
     mock_http_client.post.return_value = mock_response
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     result = await service.exchange_code("code-42", "http://localhost/cb", "vrfy")
 
     assert result == token_response
@@ -175,24 +177,28 @@ async def test_exchange_code_success(db_session, mock_http_client):
 
 
 @pytest.mark.asyncio
-async def test_exchange_code_invalid(db_session, mock_http_client):
+async def test_exchange_code_invalid(db_session, mock_http_client, test_oidc_config):
     """A non-200 response from Keycloak raises OIDCExchangeError."""
     mock_response = MagicMock()
     mock_response.status_code = 400
     mock_response.text = '{"error":"invalid_grant"}'
     mock_http_client.post.return_value = mock_response
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     with pytest.raises(OIDCExchangeError, match="rejected"):
         await service.exchange_code("bad-code", "http://localhost/cb", "vrfy")
 
 
 @pytest.mark.asyncio
-async def test_exchange_code_network_error(db_session, mock_http_client):
+async def test_exchange_code_network_error(db_session, mock_http_client, test_oidc_config):
     """Network errors are wrapped in OIDCExchangeError."""
     mock_http_client.post.side_effect = httpx.ConnectError("no route to host")
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     with pytest.raises(OIDCExchangeError, match="identity provider"):
         await service.exchange_code("code-1", "http://localhost/cb", "vrfy")
 
@@ -201,7 +207,9 @@ async def test_exchange_code_network_error(db_session, mock_http_client):
 
 
 @pytest.mark.asyncio
-async def test_validate_id_token_success(db_session, rsa_keys, mock_http_client, monkeypatch):
+async def test_validate_id_token_success(
+    db_session, rsa_keys, mock_http_client, monkeypatch, test_oidc_config
+):
     """A properly signed ID token with valid claims passes validation."""
     private_pem, public_pem = rsa_keys
     id_token = _sign_id_token(private_pem)
@@ -211,7 +219,12 @@ async def test_validate_id_token_success(db_session, rsa_keys, mock_http_client,
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
+    service = KeycloakOIDCService(
+        db_session,
+        http_client=mock_http_client,
+        jwks_cache=jwks_cache,
+        _oidc_config=test_oidc_config,
+    )
     claims = await service.validate_id_token(id_token)
 
     assert claims.subject == "kc-user-001"
@@ -221,7 +234,7 @@ async def test_validate_id_token_success(db_session, rsa_keys, mock_http_client,
 
 
 @pytest.mark.asyncio
-async def test_validate_id_token_expired(db_session, rsa_keys, mock_http_client):
+async def test_validate_id_token_expired(db_session, rsa_keys, mock_http_client, test_oidc_config):
     """An expired ID token raises OIDCInvalidTokenError."""
     private_pem, public_pem = rsa_keys
     id_token = _sign_id_token(private_pem, expired=True)
@@ -230,13 +243,20 @@ async def test_validate_id_token_expired(db_session, rsa_keys, mock_http_client)
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
+    service = KeycloakOIDCService(
+        db_session,
+        http_client=mock_http_client,
+        jwks_cache=jwks_cache,
+        _oidc_config=test_oidc_config,
+    )
     with pytest.raises(OIDCInvalidTokenError, match="validation failed"):
         await service.validate_id_token(id_token)
 
 
 @pytest.mark.asyncio
-async def test_validate_id_token_bad_signature(db_session, rsa_keys, mock_http_client):
+async def test_validate_id_token_bad_signature(
+    db_session, rsa_keys, mock_http_client, test_oidc_config
+):
     """Token signed with a different key must be rejected."""
     _, public_pem = rsa_keys
     wrong_priv, _ = _build_rsa_keypair()
@@ -246,7 +266,12 @@ async def test_validate_id_token_bad_signature(db_session, rsa_keys, mock_http_c
     jwks_cache = _JWKSCache(ttl_seconds=600)
     jwks_cache.set(jwks)
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client, jwks_cache=jwks_cache)
+    service = KeycloakOIDCService(
+        db_session,
+        http_client=mock_http_client,
+        jwks_cache=jwks_cache,
+        _oidc_config=test_oidc_config,
+    )
     with pytest.raises(OIDCInvalidTokenError):
         await service.validate_id_token(id_token)
 
@@ -255,7 +280,9 @@ async def test_validate_id_token_bad_signature(db_session, rsa_keys, mock_http_c
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_new(db_session, mock_http_client, seeded_roles):
+async def test_provision_or_update_user_new(
+    db_session, mock_http_client, seeded_roles, test_oidc_config
+):
     """A new SSO user is created with the correct claims and roles."""
     claims = OIDCClaims(
         subject="kc-new-user",
@@ -263,7 +290,9 @@ async def test_provision_or_update_user_new(db_session, mock_http_client, seeded
         email="new_user@example.com",
         roles=frozenset({"operator", "viewer"}),
     )
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     user = await service.provision_or_update_user(claims)
 
     assert user.id is not None
@@ -284,7 +313,9 @@ async def test_provision_or_update_user_new(db_session, mock_http_client, seeded
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_existing(db_session, mock_http_client, seeded_roles):
+async def test_provision_or_update_user_existing(
+    db_session, mock_http_client, seeded_roles, test_oidc_config
+):
     """An existing SSO user is updated instead of duplicated."""
     # Pre-create the user
     user = User(
@@ -306,7 +337,9 @@ async def test_provision_or_update_user_existing(db_session, mock_http_client, s
         email="updated@example.com",
         roles=frozenset({"admin"}),
     )
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     updated = await service.provision_or_update_user(claims)
 
     assert updated.id == user.id
@@ -323,7 +356,9 @@ async def test_provision_or_update_user_existing(db_session, mock_http_client, s
 
 
 @pytest.mark.asyncio
-async def test_provision_or_update_user_find_by_email(db_session, mock_http_client, seeded_roles):
+async def test_provision_or_update_user_find_by_email(
+    db_session, mock_http_client, seeded_roles, test_oidc_config
+):
     """If no Keycloak sub matches, the user is found by email."""
     user = User(
         username="email_user",
@@ -340,7 +375,9 @@ async def test_provision_or_update_user_find_by_email(db_session, mock_http_clie
         email="link-me@example.com",
         roles=frozenset({"viewer"}),
     )
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     linked = await service.provision_or_update_user(claims)
 
     assert linked.id == user.id
@@ -351,7 +388,9 @@ async def test_provision_or_update_user_find_by_email(db_session, mock_http_clie
 
 
 @pytest.mark.asyncio
-async def test_sync_roles_add_and_remove(db_session, mock_http_client, seeded_roles):
+async def test_sync_roles_add_and_remove(
+    db_session, mock_http_client, seeded_roles, test_oidc_config
+):
     """_sync_roles adds new roles and removes revoked ones."""
     user = User(
         username="roles_test",
@@ -365,7 +404,9 @@ async def test_sync_roles_add_and_remove(db_session, mock_http_client, seeded_ro
     db_session.add(UserRole(user_id=user.id, role_id=seeded_roles["admin"].id))
     await db_session.commit()
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     # Desired: only operator (admin should be removed, operator added)
     await service._sync_roles(user, frozenset({"operator"}))
     await db_session.flush()
@@ -377,7 +418,9 @@ async def test_sync_roles_add_and_remove(db_session, mock_http_client, seeded_ro
 
 
 @pytest.mark.asyncio
-async def test_sync_roles_unknown_ignored(db_session, mock_http_client, seeded_roles):
+async def test_sync_roles_unknown_ignored(
+    db_session, mock_http_client, seeded_roles, test_oidc_config
+):
     """Roles not present in the DB are silently ignored."""
     user = User(
         username="unknown_role_test",
@@ -388,7 +431,9 @@ async def test_sync_roles_unknown_ignored(db_session, mock_http_client, seeded_r
     db_session.add(user)
     await db_session.commit()
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     await service._sync_roles(user, frozenset({"viewer", "super-admin"}))
     await db_session.flush()
 
@@ -398,7 +443,7 @@ async def test_sync_roles_unknown_ignored(db_session, mock_http_client, seeded_r
 
 
 @pytest.mark.asyncio
-async def test_sync_roles_none(db_session, mock_http_client, seeded_roles):
+async def test_sync_roles_none(db_session, mock_http_client, seeded_roles, test_oidc_config):
     """An empty desired_roles set clears all role assignments."""
     user = User(
         username="clear_roles",
@@ -411,7 +456,9 @@ async def test_sync_roles_none(db_session, mock_http_client, seeded_roles):
     db_session.add(UserRole(user_id=user.id, role_id=seeded_roles["viewer"].id))
     await db_session.commit()
 
-    service = KeycloakOIDCService(db_session, http_client=mock_http_client)
+    service = KeycloakOIDCService(
+        db_session, http_client=mock_http_client, _oidc_config=test_oidc_config
+    )
     await service._sync_roles(user, frozenset())
     await db_session.flush()
 

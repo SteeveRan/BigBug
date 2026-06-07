@@ -26,8 +26,8 @@ fi
 
 cd "$BACKEND_DIR"
 
-echo "=== Running unit tests (pytest -m \"not e2e\") ==="
-"$VENV_PYTHON" -m pytest tests/ -v -m "not e2e" "$@"
+echo "=== Running unit tests (tests/unit/) ==="
+"$VENV_PYTHON" -m pytest tests/unit/ -v "$@"
 
 echo ""
 echo "=== Done ==="

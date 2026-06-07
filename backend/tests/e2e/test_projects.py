@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest_asyncio.fixture
 async def sample_project(db_session: AsyncSession):

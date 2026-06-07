@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest_asyncio.fixture
 async def sample_docker_source(db_session: AsyncSession):

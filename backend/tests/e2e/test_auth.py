@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest.mark.asyncio
 async def test_login_success(client: AsyncClient, admin_user):

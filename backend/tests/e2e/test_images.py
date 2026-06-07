@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.app_image import AppImage
 from app.models.gold_image import GoldImage
 
+pytestmark = pytest.mark.e2e
+
 
 @pytest.fixture
 async def sample_gold_image(db_session: AsyncSession):
