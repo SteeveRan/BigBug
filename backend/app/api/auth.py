@@ -4,13 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.exceptions import (
     OIDCExchangeError,
     OIDCInvalidTokenError,
     OIDCProvisioningError,
 )
-from app.core.rbac import get_current_user
+from app.core.rbac import get_current_user, require_admin
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -27,8 +26,10 @@ from app.schemas.auth import (
     TokenResponse,
     UserOut,
 )
+from app.schemas.oidc_config import OIDCConfigOut, OIDCConfigPublic, OIDCConfigUpdate
 from app.schemas.rbac import UserPermissionsOut
 from app.services.oidc import KeycloakOIDCService
+from app.services.oidc_config import OIDCConfigService
 from app.services.rbac_service import RBACService
 
 logger = logging.getLogger(__name__)
@@ -131,21 +132,24 @@ async def get_my_permissions(
 
 
 @router.get("/sso/config", response_model=SSOConfig)
-async def sso_config():
+async def sso_config(db: AsyncSession = Depends(get_db)):
     """
     Expose the public OIDC parameters needed to bootstrap keycloak-js.
 
+    Reads from the database-backed OIDC config with automatic fallback to
+    environment variables when the DB row doesn't exist yet.
+
     SSO is considered enabled only when a frontend client ID and a public URL
     are configured, so the frontend can hide the button in pure-local deployments.
-
-    WHY keycloak_public_url: Backend uses internal Docker hostname for
-    server-to-server communication, but browser needs publicly accessible URL.
     """
+    service = OIDCConfigService(db)
+    config = await service.get_active_config_cached()
+
     return SSOConfig(
-        enabled=bool(settings.keycloak_frontend_client_id and settings.keycloak_public_url),
-        url=settings.keycloak_public_url,
-        realm=settings.keycloak_realm,
-        client_id=settings.keycloak_frontend_client_id,
+        enabled=config.enabled,
+        url=config.public_url or "",
+        realm="bigbug",  # realm is hard-coded; not configurable via DB
+        client_id=config.frontend_client_id,
     )
 
 
@@ -195,3 +199,64 @@ async def oidc_exchange(data: OIDCExchangeRequest, db: AsyncSession = Depends(ge
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
     )
+
+
+# ── Admin OIDC configuration ────────────────────────────────────────
+
+
+@router.get(
+    "/admin/oidc-config",
+    response_model=OIDCConfigOut,
+    dependencies=[Depends(require_admin())],
+)
+async def get_oidc_config(db: AsyncSession = Depends(get_db)):
+    """
+    Return the full OIDC configuration (admin only).
+
+    ``client_secret`` is masked — the real encrypted value is never
+    returned via the API.
+    """
+    service = OIDCConfigService(db)
+    config = await service.get_config()
+    return config
+
+
+@router.patch(
+    "/admin/oidc-config",
+    response_model=OIDCConfigOut,
+    dependencies=[Depends(require_admin())],
+)
+async def update_oidc_config(
+    data: OIDCConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update the OIDC configuration (admin only).
+
+    ``client_secret`` is encrypted at rest via Fernet.  Updating any field
+    immediately invalidates the process-wide cache so the OIDC service
+    picks up the new values on the next request.
+    """
+    service = OIDCConfigService(db)
+    config = await service.update_config(
+        issuer_url=data.issuer_url,
+        client_id=data.client_id,
+        client_secret=data.client_secret,
+        frontend_client_id=data.frontend_client_id,
+        enabled=data.enabled,
+        public_url=data.public_url,
+        role_mapping=data.role_mapping,
+    )
+    return config
+
+
+@router.get(
+    "/admin/oidc-config/public",
+    response_model=OIDCConfigPublic,
+    dependencies=[Depends(require_admin())],
+)
+async def get_oidc_config_public(db: AsyncSession = Depends(get_db)):
+    """Return the OIDC config subset for admin UI previews (no secret)."""
+    service = OIDCConfigService(db)
+    config = await service.get_config()
+    return config

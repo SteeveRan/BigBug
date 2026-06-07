@@ -1,9 +1,11 @@
 """
-@file gitlab_instance.py
-@description GitLab instance model — stores connection details for multiple
-             GitLab instances. The access token is encrypted at rest via Fernet.
+@file helm_repository_instance.py
+@description Helm Repository instance model — stores connection details for
+             multiple Helm chart repositories. Password is encrypted at rest
+             via Fernet.
 @dependencies app.database.Base, app.core.secrets (via service layer)
-@relatedFiles ./harbor_instance.py, ./github_instance.py, ../../schemas/integrations.py
+@relatedFiles ./docker_registry_instance.py, ./harbor_instance.py,
+              ../../schemas/integrations.py
 """
 
 from datetime import UTC, datetime
@@ -13,17 +15,17 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from app.database import Base
 
 
-class GitlabInstance(Base):
-    __tablename__ = "gitlab_instances"
+class HelmRepositoryInstance(Base):
+    __tablename__ = "helm_repository_instances"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
-    url = Column(String(512), nullable=False)
-    token = Column(Text, nullable=True)  # Fernet-encrypted at rest
+    url = Column(String(500), nullable=False)  # e.g. https://charts.example.com
+    username = Column(String(255), nullable=True)
+    password = Column(Text, nullable=True)  # Fernet-encrypted at rest
     is_active = Column(Boolean, default=True, nullable=False)
-    verify_ssl = Column(Boolean, default=True, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
-    default_group_id = Column(Integer, nullable=True)
+    verify_ssl = Column(Boolean, default=True, nullable=False)
     last_checked_at = Column(DateTime(timezone=True), nullable=True)
     status_flag = Column(
         Integer, default=0, nullable=False
@@ -37,4 +39,4 @@ class GitlabInstance(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<GitlabInstance(id={self.id}, name='{self.name}', url='{self.url}')>"
+        return f"<HelmRepositoryInstance(id={self.id}, name='{self.name}', url='{self.url}')>"

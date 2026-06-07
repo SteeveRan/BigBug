@@ -3,6 +3,7 @@ from app.models.build_log import BuildLog
 from app.models.build_schedule import BuildSchedule
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
+from app.models.docker_registry_instance import DockerRegistryInstance
 from app.models.docker_sync_log import DockerSyncLog
 from app.models.github_instance import GithubInstance
 from app.models.github_org import GithubOrg
@@ -14,8 +15,10 @@ from app.models.gold_image import GoldImage
 from app.models.harbor_instance import HarborInstance
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
+from app.models.helm_repository_instance import HelmRepositoryInstance
 from app.models.helm_sync_log import HelmSyncLog
 from app.models.image_version import ImageVersion
+from app.models.oidc_config import OIDCConfig
 from app.models.permission import Permission, role_permissions
 from app.models.role import Role, UserRole
 from app.models.sync_log import SyncLog
@@ -44,8 +47,11 @@ __all__ = [
     "BuildLog",
     "HelmChartSource",
     "HelmChartVersion",
+    "HelmRepositoryInstance",
     "HelmSyncLog",
     "DockerImageSource",
     "DockerImageTag",
+    "DockerRegistryInstance",
     "DockerSyncLog",
+    "OIDCConfig",
 ]

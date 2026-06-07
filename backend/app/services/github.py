@@ -1,5 +1,20 @@
+"""
+@file github.py
+@description GitHub project service — import/repository discovery, metadata
+             refresh, and release syncing. Supports multi-instance: accepts an
+             optional ``instance`` parameter; falls back to the first active DB
+             instance, then to settings.GITHUB_TOKEN for backward compatibility.
+@dependencies PyGithub, app.config.settings, app.core.secrets,
+              app.services.integrations.get_default_github_instance
+@relatedFiles ../models/github_instance.py, ../models/github_project.py,
+              ../core/secrets.py, ./integrations.py
+"""
+
+from __future__ import annotations
+
 import re
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from github import Github, GithubException
 from sqlalchemy import select
@@ -7,13 +22,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.core.secrets import decrypt_secret
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
 
+if TYPE_CHECKING:
+    from app.models.github_instance import GithubInstance
+
 
 def _parse_github_url(url: str) -> tuple[str, str]:
-    """Parse GitHub URL and return (owner, repo) tuple."""
+    """Parse a GitHub URL and return (owner, repo) tuple."""
     patterns = [
         r"github\.com[:/]([^/]+)/([^/\.]+?)(?:\.git)?$",
     ]
@@ -25,16 +44,62 @@ def _parse_github_url(url: str) -> tuple[str, str]:
 
 
 class GitHubService:
-    def _get_client(self) -> Github:
-        if not settings.github_token:
-            return Github()
-        return Github(settings.github_token)
+    """Service for interacting with GitHub instances."""
 
-    async def import_project_from_url(self, github_url: str, db: AsyncSession) -> GithubProject:
+    # ------------------------------------------------------------------
+    # Instance resolution
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    async def get_default_instance(db: AsyncSession) -> GithubInstance | None:
+        """Return the first active GitHub instance from the database."""
+        from app.services.integrations import get_default_github_instance
+
+        return await get_default_github_instance(db)
+
+    # ------------------------------------------------------------------
+    # Client factory
+    # ------------------------------------------------------------------
+
+    def _get_client(self, instance: GithubInstance | None = None) -> Github:
+        """
+        Build a PyGithub client.
+
+        Priority:
+        1. ``instance`` — use its *decrypted* token.
+        2. ``settings.github_token`` (fallback).
+        3. Unauthenticated ``Github()`` if neither is available.
+        """
+        if instance is not None:
+            token = decrypt_secret(instance.token) if instance.token else None
+            if token:
+                return Github(token)
+            return Github()
+
+        # Backward-compatible fallback
+        if settings.github_token:
+            return Github(settings.github_token)
+        return Github()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def import_project_from_url(
+        self,
+        github_url: str,
+        db: AsyncSession,
+        *,
+        instance: GithubInstance | None = None,
+    ) -> GithubProject:
+        """Discover a GitHub repository and persist it as a project."""
         owner, repo_name = _parse_github_url(github_url)
 
+        if instance is None:
+            instance = await self.get_default_instance(db)
+
         try:
-            gh = self._get_client()
+            gh = self._get_client(instance)
             gh_repo = gh.get_repo(f"{owner}/{repo_name}")
         except GithubException as e:
             raise ExternalServiceError("GitHub", str(e)) from e
@@ -103,11 +168,19 @@ class GitHubService:
         await db.refresh(project)
         return project
 
-    async def refresh_project(self, project: GithubProject, db: AsyncSession) -> None:
+    async def refresh_project(
+        self,
+        project: GithubProject,
+        db: AsyncSession,
+        *,
+        instance: GithubInstance | None = None,
+    ) -> None:
         """Re-fetch metadata from GitHub for an existing project."""
-        owner, repo_name = project.full_name.split("/", 1)
+        if instance is None:
+            instance = await self.get_default_instance(db)
+
         try:
-            gh = self._get_client()
+            gh = self._get_client(instance)
             gh_repo = gh.get_repo(project.full_name)
         except GithubException as e:
             raise ExternalServiceError("GitHub", str(e)) from e
@@ -158,4 +231,5 @@ class GitHubService:
             pass
 
 
+# Module-level singleton (backward-compatible)
 github_service = GitHubService()

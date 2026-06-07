@@ -59,7 +59,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-
+markers = [
+    "e2e: end-to-end tests (require infrastructure)",
+]
 [tool.ruff]
 line-length = 100
 target-version = "py314"

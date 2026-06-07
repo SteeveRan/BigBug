@@ -25,6 +25,7 @@ import logging
 import time
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 from jose import JWTError, jwt
@@ -40,6 +41,9 @@ from app.core.exceptions import (
 from app.core.rbac import RoleName
 from app.models.role import Role, UserRole
 from app.models.user import User
+
+if TYPE_CHECKING:
+    from app.services.oidc_config import _CachedOIDCConfig
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +100,14 @@ class KeycloakOIDCService:
     A single instance is cheap to build per request; the JWKS cache is shared at
     module level via :data:`_jwks_cache` so token validations across requests
     reuse the fetched keys.
+
+    Configuration is read from the DB-backed :class:`OIDCConfigService` with a
+    60-second TTL cache; the ``_oidc_config`` parameter lets tests inject an
+    override without touching the database.
     """
+
+    # Hard-coded — the realm is not (yet) configurable via the DB.
+    _REALM: str = "bigbug"
 
     def __init__(
         self,
@@ -104,13 +115,37 @@ class KeycloakOIDCService:
         *,
         http_client: httpx.AsyncClient | None = None,
         jwks_cache: _JWKSCache | None = None,
+        _oidc_config: _CachedOIDCConfig | None = None,
     ) -> None:
         self._db = db
-        # Allow injecting a client/cache in tests; default to module singletons.
+        # Allow injecting a client/cache/config in tests; default to module
+        # singletons / DB lookup.
         self._http_client = http_client
         self._jwks_cache = jwks_cache or _jwks_cache
+        self._injected_oidc_config = _oidc_config
+
+    async def _get_oidc_config(self) -> _CachedOIDCConfig:
+        """
+        Return the active OIDC configuration snapshot.
+
+        Uses an injected override when available (tests), otherwise reads
+        from the DB-backed cache with a 60-second TTL.  Falls back to
+        ``settings.*`` when no DB row exists.
+        """
+        if self._injected_oidc_config is not None:
+            return self._injected_oidc_config
+
+        from app.services.oidc_config import OIDCConfigService  # noqa: PLC0415
+
+        service = OIDCConfigService(self._db)
+        return await service.get_active_config_cached()
 
     # --- public API -----------------------------------------------------------
+
+    async def is_configured(self) -> bool:
+        """Return ``True`` when OIDC is both enabled and has an issuer URL."""
+        config = await self._get_oidc_config()
+        return config.enabled and bool(config.issuer_url)
 
     async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
         """
@@ -120,6 +155,7 @@ class KeycloakOIDCService:
         Raises:
             OIDCExchangeError: on network failure or a non-2xx token response.
         """
+        config = await self._get_oidc_config()
         # IMPORTANT: The authorization code was issued to the frontend
         # (public) client, so the exchange must use the same client_id and
         # NEVER include a client_secret — public clients rely on PKCE alone.
@@ -128,12 +164,13 @@ class KeycloakOIDCService:
             "code": code,
             "redirect_uri": redirect_uri,
             "code_verifier": code_verifier,
-            "client_id": settings.keycloak_frontend_client_id,
+            "client_id": config.frontend_client_id,
         }
+        token_url = f"{config.issuer_url}/realms/{self._REALM}/protocol/openid-connect/token"
 
         try:
             async with self._client() as client:
-                response = await client.post(settings.keycloak_token_url, data=data)
+                response = await client.post(token_url, data=data)
         except httpx.HTTPError as exc:
             logger.warning("oidc_token_exchange_network_error", extra={"error": str(exc)})
             raise OIDCExchangeError("Could not reach the identity provider") from exc
@@ -159,12 +196,13 @@ class KeycloakOIDCService:
         Raises:
             OIDCInvalidTokenError: on any signature/issuer/audience/expiry error.
         """
+        config = await self._get_oidc_config()
         jwks = await self._get_jwks()
         try:
             # Decode WITHOUT issuer/audience first to inspect the token and
             # produce a helpful log message that pinpoints the exact mismatch.
             unverified = jwt.get_unverified_claims(id_token)
-            expected_iss = self._issuer()
+            expected_iss = self._issuer(config)
             token_iss = unverified.get("iss", "")
             token_aud = unverified.get("aud", "")
             logger.debug(
@@ -173,7 +211,7 @@ class KeycloakOIDCService:
                     "token_iss": token_iss,
                     "expected_iss": expected_iss,
                     "token_aud": token_aud,
-                    "expected_aud": settings.keycloak_frontend_client_id,
+                    "expected_aud": config.frontend_client_id,
                 },
             )
         except JWTError:
@@ -185,8 +223,8 @@ class KeycloakOIDCService:
                 jwks,
                 # Keycloak signs tokens with RS256 by default.
                 algorithms=["RS256"],
-                audience=settings.keycloak_frontend_client_id,
-                issuer=self._issuer(),
+                audience=config.frontend_client_id,
+                issuer=self._issuer(config),
                 # WHY: at_hash links the ID token to an access token we don't
                 # validate here, so skip that specific check to avoid spurious
                 # failures while keeping signature/exp/aud/iss enforcement.
@@ -200,7 +238,7 @@ class KeycloakOIDCService:
                     "token_iss": token_iss,
                     "expected_iss": expected_iss,
                     "token_aud": token_aud,
-                    "expected_aud": settings.keycloak_frontend_client_id,
+                    "expected_aud": config.frontend_client_id,
                 },
             )
             raise OIDCInvalidTokenError("ID token validation failed") from exc
@@ -246,9 +284,13 @@ class KeycloakOIDCService:
         cached = self._jwks_cache.get()
         if cached is not None:
             return cached
+
+        config = await self._get_oidc_config()
+        jwks_url = f"{config.issuer_url}/realms/{self._REALM}/protocol/openid-connect/certs"
+
         try:
             async with self._client() as client:
-                response = await client.get(settings.keycloak_jwks_url)
+                response = await client.get(jwks_url)
                 response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.warning("oidc_jwks_fetch_failed", extra={"error": str(exc)})
@@ -258,12 +300,13 @@ class KeycloakOIDCService:
         return keys
 
     @staticmethod
-    def _issuer() -> str:
+    def _issuer(config: _CachedOIDCConfig) -> str:
         # IMPORTANT: Keycloak with KC_HOSTNAME_STRICT=false determines the iss
         # claim from the Host header of the initiating request. The browser
         # connects via the public URL, so the token carries the public issuer.
         # We must validate against the same issuer.
-        return f"{settings.keycloak_public_url}/realms/{settings.keycloak_realm}"
+        public_url = config.public_url or config.issuer_url
+        return f"{public_url}/realms/{KeycloakOIDCService._REALM}"
 
     @staticmethod
     def _extract_claims(payload: dict) -> OIDCClaims:

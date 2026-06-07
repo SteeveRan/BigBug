@@ -22,6 +22,10 @@ class HarborInstance(Base):
     username = Column(String(255), nullable=False)
     password = Column(Text, nullable=True)  # Fernet-encrypted at rest
     is_active = Column(Boolean, default=True, nullable=False)
+    verify_ssl = Column(Boolean, default=True, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    default_project = Column(String(255), nullable=True)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
     status_flag = Column(
         Integer, default=0, nullable=False
     )  # 0=OK,1=Failed,2=Warning,3=In Progress,4=Pending
