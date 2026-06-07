@@ -87,6 +87,5 @@ backend_user_email    = "bigbug-backend@localhost.localdomain"
 # backend_user_password — leave null to auto-generate via init.sh
 # backend_user_password = null
 
-backend_token_name       = "bigbug-backend-token"
-backend_token_expires_at = "2027-12-31"
-backend_token_scopes     = ["api", "read_repository", "write_repository"]
+backend_token_name   = "bigbug-backend-token"
+backend_token_scopes = ["api", "read_repository", "write_repository"]

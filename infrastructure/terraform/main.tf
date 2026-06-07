@@ -116,7 +116,6 @@ module "gitlab" {
   backend_user_email    = var.backend_user_email
   backend_user_password = var.backend_user_password
 
-  backend_token_name       = var.backend_token_name
-  backend_token_expires_at = var.backend_token_expires_at
-  backend_token_scopes     = var.backend_token_scopes
+  backend_token_name   = var.backend_token_name
+  backend_token_scopes = var.backend_token_scopes
 }

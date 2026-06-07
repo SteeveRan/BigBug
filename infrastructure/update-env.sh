@@ -91,7 +91,7 @@ if [[ -n "${KC_BACKEND_SECRET}" ]]; then
     update_env_var "KEYCLOAK_CLIENT_SECRET" "${KC_BACKEND_SECRET}"
 fi
 if [[ -n "${KC_FRONTEND_ID}" ]]; then
-    update_env_var "KEYCLOAK_FRONTEND_CLIENT_ID" "${KC_FRONTEND_ID}"
+    update_env_var "KEYCLOAK_CLIENT_ID_FRONTEND" "${KC_FRONTEND_ID}"
 fi
 
 log "  Reading GitLab outputs..."

@@ -52,12 +52,6 @@ variable "backend_token_name" {
   default     = "bigbug-backend-token"
 }
 
-variable "backend_token_expires_at" {
-  description = "Expiration date for backend PAT (ISO 8601 format)"
-  type        = string
-  default     = "2027-12-31"
-}
-
 variable "backend_token_scopes" {
   description = "Scopes for the backend PAT"
   type        = list(string)

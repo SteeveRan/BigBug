@@ -107,6 +107,16 @@ run_migrations() {
     log INFO "Migrations applied"
 }
 
+# WHY: Seeding the admin user after migrations guarantees the first
+# administrator exists for bootstrapping. The Python script is idempotent —
+# it exits cleanly when an admin already exists.
+seed_admin() {
+    log INFO "Seeding admin user (idempotent)"
+    if ! python3 /app/docker/seed_admin.py; then
+        log WARN "Admin seeding returned non-zero (see above) — continuing"
+    fi
+}
+
 # WHY: `--reload` is only safe and useful in development, where the source tree
 # is bind-mounted into the container. In production the watcher wastes CPU and
 # can lead to inconsistent worker state on partial writes.
@@ -134,11 +144,13 @@ main() {
         app:start)
             wait_for_db
             run_migrations
+            seed_admin
             start_app
             ;;
         app:init)
             wait_for_db
             run_migrations
+            seed_admin
             log INFO "Initialization complete, exiting (app:init)"
             ;;
         *)

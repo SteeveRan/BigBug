@@ -59,5 +59,5 @@ def rate_limit(rate_string: str):
         return _noop_dependency
 
     rate = _parse_rate(rate_string)
-    limiter = Limiter(rates=[rate])
+    limiter = Limiter([rate])
     return RateLimiter(limiter=limiter, callback=_rate_limit_exceeded_callback)
