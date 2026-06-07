@@ -105,8 +105,7 @@ function createTestStore(): Store {
     reducer: {
       [api.reducerPath]: api.reducer,
     },
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat(api.middleware),
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(api.middleware),
   });
 }
 
@@ -266,8 +265,7 @@ describe('SettingsIntegrations', () => {
     });
 
     const mockUpdateFn = vi.fn().mockReturnValue({
-      unwrap: () =>
-        Promise.resolve({ ...mockGitlabInstance1, name: 'gitlab-prod-updated' }),
+      unwrap: () => Promise.resolve({ ...mockGitlabInstance1, name: 'gitlab-prod-updated' }),
     });
     (useUpdateGitlabInstanceMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockUpdateFn,
@@ -368,9 +366,7 @@ describe('SettingsIntegrations', () => {
 
     // Wait for the snackbar with success message (just "Connection successful")
     await waitFor(() => {
-      expect(
-        screen.getByText('Connection successful'),
-      ).toBeInTheDocument();
+      expect(screen.getByText('Connection successful')).toBeInTheDocument();
     });
 
     expect(mockTestFn).toHaveBeenCalledWith(1);

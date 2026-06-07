@@ -5,6 +5,37 @@ All notable changes to BigBug will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-06-07
+
+### Added
+
+- **OIDC & Advanced (Phase 3):**
+  - OIDC/SSO configuration management via database and UI
+  - New `OIDCConfig` model with fields: `issuer_url`, `client_id`, `client_secret` (Fernet-encrypted), `frontend_client_id`, `enabled`, `public_url`, `role_mapping` (JSON)
+  - Alembic migration [`20260607_0106_c7d8e9f0a1b2_add_oidc_config.py`](backend/alembic/versions/20260607_0106_c7d8e9f0a1b2_add_oidc_config.py) — создание таблицы `oidc_config`
+  - [`OIDCConfigService`](backend/app/services/oidc_config.py) — CRUD + 60-секундный кэш конфигурации с инвалидацией
+  - API эндпоинты для управления OIDC конфигурацией (только admin):
+    - `GET /api/auth/admin/oidc-config` — полная конфигурация
+    - `PATCH /api/auth/admin/oidc-config` — обновление конфигурации
+    - `GET /api/auth/admin/oidc-config/public` — конфигурация без `client_secret`
+  - Authentication Settings страница [`/settings/authentication`](frontend/src/pages/Settings/Authentication/index.tsx):
+    - Toggle включения/отключения OIDC
+    - Поля: Issuer URL, Client ID, Client Secret, Frontend Client ID, Public URL
+    - CRUD-таблица Role Mapping (Provider Role → BigBug Role)
+    - Маскирование `client_secret` (отображается пустым, отправляется только при изменении)
+  - RTK Query эндпоинты: `getOidcConfig`, `updateOidcConfig` в [`store/api.ts`](frontend/src/store/api.ts)
+  - Навигационный пункт "Authentication" в Settings sidebar ([`Layout`](frontend/src/components/Layout/index.tsx))
+  - Backend e2e тесты: 20 тестов для OIDC Config API ([`test_oidc_config.py`](backend/tests/e2e/test_oidc_config.py))
+  - Frontend unit тесты: 39 тестов для Authentication Settings (7 категорий) ([`AuthenticationSettings.test.tsx`](frontend/src/tests/AuthenticationSettings.test.tsx))
+
+### Changed
+
+- Рефакторинг [`KeycloakOIDCService`](backend/app/services/oidc.py) — читает OIDC конфигурацию из БД вместо env vars
+- OIDC провайдер теперь можно изменить в runtime без перезапуска сервера
+- Role mapping (Keycloak roles → BigBug roles) теперь настраивается через UI вместо hardcoded frozenset
+
+[0.7.0]: https://github.com/user/BigBug/compare/v0.6.0...v0.7.0
+
 ## [0.6.0] - 2026-06-07
 
 ### Added

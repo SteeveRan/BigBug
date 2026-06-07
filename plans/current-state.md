@@ -1,7 +1,7 @@
 # BigBug - Current State
 
 > Последнее обновление: 2026-06-07
-> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, Phase 2 (Multi-instance Integrations) завершён
+> Статус: Блоки 1-5 завершены, RBAC Phase 1 реализован, Phase 2 (Multi-instance Integrations) завершён, Phase 3 (OIDC & Advanced) завершён
 
 ## Что работает сейчас
 
@@ -47,6 +47,11 @@
 **Auth (расширение)**:
 - `GET /api/auth/me/permissions` — permissions текущего пользователя
 
+**OIDC Config Admin** (`/api/auth/admin/`):
+- `GET /api/auth/admin/oidc-config` — полная конфигурация OIDC (admin only)
+- `PATCH /api/auth/admin/oidc-config` — обновление конфигурации OIDC
+- `GET /api/auth/admin/oidc-config/public` — конфигурация без client_secret
+
 **Webhooks** (`/api/webhooks/`):
 - GitLab webhook для обновления статусов
 - Поддержка 4 типов: sync_log, build_log, helm_sync_log, docker_sync_log
@@ -64,6 +69,7 @@
 - `/helm-charts` - Helm чарты (список + детали)
 - `/docker-images` - Docker образы (список + детали)
 - `/admin` - Admin панель
+- `/settings/authentication` - Настройки аутентификации (OIDC)
 
 **Компоненты**:
 - `Layout` - навигация + sidebar
@@ -124,12 +130,14 @@
 - `docker_sync_logs` - логи синхронизации
 - `permissions` - 32 permission по паттерну `resource:action`
 - `role_permissions` - M2M роли ↔ permissions
+- `oidc_config` - конфигурация OIDC провайдера (issuer_url, client_id, client_secret, role_mapping JSON)
 
 **Миграции**:
 - `20260605_0449_39774f94ac35_initial_schema.py` - базовая схема
 - `20260605_0747_add_helm_tables.py` - Helm таблицы
 - `20260605_1200_add_docker_tables.py` - Docker таблицы
 - `20260606_1932_bde12d699ca4_add_rbac_permissions.py` - RBAC: permissions, role_permissions, расширение roles
+- `20260607_0106_c7d8e9f0a1b2_add_oidc_config.py` - таблица oidc_config
 
 ## ✅ Завершённые этапы рефакторинга
 
@@ -191,6 +199,38 @@
 - `20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py` — docker registry/helm repo
 - `20260607_0105_a1b2c3d4e5f6_add_integration_instance_fields.py` — verify_ssl, is_active, last_checked_at, status fields
 
+### ✅ OIDC & Advanced (Phase 3) — ЗАВЕРШЁН (2026-06-07)
+
+**Реализовано**:
+
+**Новые таблицы**:
+- `oidc_config` — конфигурация OIDC провайдера: `issuer_url`, `client_id`, `client_secret` (Fernet-зашифрован), `frontend_client_id`, `enabled`, `public_url`, `role_mapping` (JSON)
+
+**Backend**:
+- [`backend/app/models/oidc_config.py`](../backend/app/models/oidc_config.py) — модель `OIDCConfig`
+- [`backend/app/schemas/oidc_config.py`](../backend/app/schemas/oidc_config.py) — `OIDCConfigOut`, `OIDCConfigUpdate`, `OIDCConfigPublicOut`
+- [`backend/app/services/oidc_config.py`](../backend/app/services/oidc_config.py) — `OIDCConfigService`: CRUD + 60-секундный кэш с инвалидацией
+- [`backend/app/services/oidc.py`](../backend/app/services/oidc.py) — `KeycloakOIDCService` рефакторен: читает конфигурацию из БД вместо env vars
+- `role_mapping` (Keycloak roles → BigBug roles) теперь настраивается через UI вместо hardcoded frozenset
+
+**Admin API**:
+- `GET /api/auth/admin/oidc-config` — полная конфигурация (только admin)
+- `PATCH /api/auth/admin/oidc-config` — обновление конфигурации
+- `GET /api/auth/admin/oidc-config/public` — конфигурация без client_secret
+
+**Frontend**:
+- [`frontend/src/pages/Settings/Authentication/index.tsx`](../frontend/src/pages/Settings/Authentication/index.tsx) — страница настроек аутентификации: toggle OIDC, поля (Issuer URL, Client ID, Client Secret, Frontend Client ID, Public URL), таблица Role Mapping (CRUD)
+- RTK Query endpoints: `getOidcConfig`, `updateOidcConfig`
+- Навигационный пункт "Authentication" в Settings sidebar
+- Маскирование client_secret (отображается пустым, отправляется только при изменении)
+
+**Тесты**:
+- Backend e2e: 20 тестов для OIDC Config API ([`backend/tests/e2e/test_oidc_config.py`](../backend/tests/e2e/test_oidc_config.py))
+- Frontend unit: 39 тестов для страницы Authentication Settings ([`frontend/src/tests/AuthenticationSettings.test.tsx`](../frontend/src/tests/AuthenticationSettings.test.tsx)) — 7 категорий
+
+**Миграции**:
+- `20260607_0106_c7d8e9f0a1b2_add_oidc_config.py` — таблица oidc_config
+
 ## Что в процессе (рефакторинг)
 
 ## Известные ограничения
@@ -213,5 +253,5 @@
 
 1. **Phase 1**: ✅ RBAC Foundation (permissions, custom roles, JWT update) — ЗАВЕРШЁН
 2. **Phase 2**: ✅ Multi-instance integrations (GitLab, Harbor, GitHub, Docker, Helm) — ЗАВЕРШЁН
-3. **Phase 3**: OIDC & Advanced (configurable OIDC, role mapping)
-4. **Phase 4**: Polish (audit log, rate limiting, Admin UI)
+3. **Phase 3**: ✅ OIDC & Advanced (configurable OIDC, role mapping) — ЗАВЕРШЁН
+4. **Phase 4**: Harbor integration, Pipeline management UI, Audit logging — следующий приоритет

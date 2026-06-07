@@ -22,6 +22,8 @@ import type {
   HelmRepositoryInstanceCreate,
   HelmRepositoryInstanceUpdate,
   ConnectionTestResult,
+  OIDCConfig,
+  OIDCConfigUpdate,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -51,6 +53,7 @@ export const api = createApi({
     'Permissions',
     'Roles',
     'Integration',
+    'OIDCConfig',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -497,6 +500,21 @@ export const api = createApi({
       query: (id) => ({ url: `/integrations/helm-repository/${id}/test`, method: 'POST' }),
       invalidatesTags: ['Integration'],
     }),
+
+    // ──── OIDC Configuration ──────────────────────────────────────────────
+
+    getOidcConfig: builder.query<OIDCConfig, void>({
+      query: () => '/auth/admin/oidc-config',
+      providesTags: ['OIDCConfig'],
+    }),
+    updateOidcConfig: builder.mutation<OIDCConfig, OIDCConfigUpdate>({
+      query: (data) => ({
+        url: '/auth/admin/oidc-config',
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['OIDCConfig'],
+    }),
   }),
 });
 
@@ -589,4 +607,6 @@ export const {
   useUpdateHelmRepositoryInstanceMutation,
   useDeleteHelmRepositoryInstanceMutation,
   useTestHelmRepositoryConnectionMutation,
+  useGetOidcConfigQuery,
+  useUpdateOidcConfigMutation,
 } = api;

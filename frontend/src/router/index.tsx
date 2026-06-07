@@ -18,6 +18,7 @@ import { DockerImagesPage } from '../pages/DockerImages';
 import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail';
 import { AdminPage } from '../pages/Admin';
 import SettingsIntegrations from '../pages/Settings/Integrations';
+import { AuthenticationSettings } from '../pages/Settings/Authentication';
 
 export function AppRouter() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
@@ -54,6 +55,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="integrations:manage">
               <SettingsIntegrations />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="settings/authentication"
+          element={
+            <PermissionGate permission="integrations:manage">
+              <AuthenticationSettings />
             </PermissionGate>
           }
         />

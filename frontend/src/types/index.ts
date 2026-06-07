@@ -483,3 +483,28 @@ export interface HelmRepositoryInstanceUpdate {
   verify_ssl?: boolean | null;
   is_default?: boolean | null;
 }
+
+// ──── OIDC Configuration Types ─────────────────────────────────────────────
+
+export interface OIDCConfig {
+  id: number;
+  issuer_url: string;
+  client_id: string;
+  client_secret: string; // будет "********" в ответе
+  frontend_client_id: string;
+  enabled: boolean;
+  public_url: string | null;
+  role_mapping: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OIDCConfigUpdate {
+  issuer_url?: string;
+  client_id?: string;
+  client_secret?: string;
+  frontend_client_id?: string;
+  enabled?: boolean;
+  public_url?: string | null;
+  role_mapping?: Record<string, string>;
+}

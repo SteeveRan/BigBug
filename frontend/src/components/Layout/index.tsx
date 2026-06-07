@@ -96,7 +96,18 @@ export function Layout() {
               <ListItemIcon>
                 <SettingsIcon />
               </ListItemIcon>
-              <ListItemText primary="Settings" />
+              <ListItemText primary="Integrations" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={location.pathname === '/settings/authentication'}
+              onClick={() => navigate('/settings/authentication')}
+            >
+              <ListItemIcon>
+                <SettingsIcon />
+              </ListItemIcon>
+              <ListItemText primary="Authentication" />
             </ListItemButton>
           </ListItem>
         </PermissionGate>
