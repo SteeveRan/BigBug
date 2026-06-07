@@ -6,7 +6,7 @@
 @relatedFiles ../../schemas/pipeline.py, ../../services/pipeline.py
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -26,11 +26,11 @@ class GitLabComponent(Base):
     version = Column(String(64), nullable=True)
     inputs_schema = Column(JSON, nullable=True)  # JSON Schema for component inputs
     is_enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

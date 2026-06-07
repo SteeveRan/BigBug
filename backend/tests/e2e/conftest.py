@@ -25,6 +25,9 @@ REQUIRED_PERMISSIONS = [
     {"name": "integrations:manage", "description": "Manage GitLab, Harbor, GitHub instances"},
     {"name": "docker_registry:manage", "description": "Manage Docker Registry instances"},
     {"name": "helm_repository:manage", "description": "Manage Helm Repository instances"},
+    {"name": "pipelines:read", "description": "Read pipeline runs"},
+    {"name": "pipelines:manage", "description": "Trigger and manage pipeline runs"},
+    {"name": "users:read", "description": "Read users and audit logs"},
 ]
 
 
@@ -82,3 +85,15 @@ async def seeded_permissions(db_session: AsyncSession):
             )
 
     await db_session.commit()
+
+
+@pytest_asyncio.fixture
+async def auth_headers(admin_token: str) -> dict[str, str]:
+    """Authorization headers for admin user."""
+    return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest_asyncio.fixture
+async def viewer_headers(viewer_token: str) -> dict[str, str]:
+    """Authorization headers for viewer user (least-privileged)."""
+    return {"Authorization": f"Bearer {viewer_token}"}

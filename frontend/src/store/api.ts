@@ -31,6 +31,12 @@ import type {
   GitLabComponentCreate,
   GitLabComponentUpdate,
   AuditLogList,
+  VulnerabilityScanResult,
+  ScanRequest,
+  SignImageRequest,
+  SignImageResult,
+  VerifyImageRequest,
+  VerifyImageResult,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -191,6 +197,49 @@ export const api = createApi({
       query: ({ id, ...body }) => ({ url: `/gold-images/${id}/build`, method: 'POST', body }),
       invalidatesTags: ['BuildLog'],
     }),
+    scanGoldImageVersion: builder.mutation<
+      VulnerabilityScanResult,
+      { imageId: number; versionId: number } & ScanRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/gold-images/${imageId}/versions/${versionId}/scan`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['GoldImage'],
+    }),
+    getGoldImageScanResults: builder.mutation<
+      VulnerabilityScanResult,
+      { imageId: number; versionId: number } & ScanRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/gold-images/${imageId}/versions/${versionId}/scan/results`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['GoldImage'],
+    }),
+    signGoldImageVersion: builder.mutation<
+      SignImageResult,
+      { imageId: number; versionId: number } & SignImageRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/gold-images/${imageId}/versions/${versionId}/sign`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['GoldImage'],
+    }),
+    verifyGoldImageVersion: builder.mutation<
+      VerifyImageResult,
+      { imageId: number; versionId: number } & VerifyImageRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/gold-images/${imageId}/versions/${versionId}/verify`,
+        method: 'POST',
+        body,
+      }),
+    }),
 
     // App Images
     listAppImages: builder.query<unknown[], void>({
@@ -216,6 +265,38 @@ export const api = createApi({
     triggerAppBuild: builder.mutation<unknown, { id: number; version_tag: string; arch: string }>({
       query: ({ id, ...body }) => ({ url: `/app-images/${id}/build`, method: 'POST', body }),
       invalidatesTags: ['BuildLog'],
+    }),
+    scanAppImageVersion: builder.mutation<
+      VulnerabilityScanResult,
+      { imageId: number; versionId: number } & ScanRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/app-images/${imageId}/versions/${versionId}/scan`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['AppImage'],
+    }),
+    signAppImageVersion: builder.mutation<
+      SignImageResult,
+      { imageId: number; versionId: number } & SignImageRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/app-images/${imageId}/versions/${versionId}/sign`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['AppImage'],
+    }),
+    verifyAppImageVersion: builder.mutation<
+      VerifyImageResult,
+      { imageId: number; versionId: number } & VerifyImageRequest
+    >({
+      query: ({ imageId, versionId, ...body }) => ({
+        url: `/app-images/${imageId}/versions/${versionId}/verify`,
+        method: 'POST',
+        body,
+      }),
     }),
 
     // Helm Charts
@@ -614,12 +695,19 @@ export const {
   useUpdateGoldImageMutation,
   useDeleteGoldImageMutation,
   useTriggerGoldBuildMutation,
+  useScanGoldImageVersionMutation,
+  useGetGoldImageScanResultsMutation,
+  useSignGoldImageVersionMutation,
+  useVerifyGoldImageVersionMutation,
   useListAppImagesQuery,
   useGetAppImageQuery,
   useCreateAppImageMutation,
   useUpdateAppImageMutation,
   useDeleteAppImageMutation,
   useTriggerAppBuildMutation,
+  useScanAppImageVersionMutation,
+  useSignAppImageVersionMutation,
+  useVerifyAppImageVersionMutation,
   useListUsersQuery,
   useCreateUserMutation,
   useUpdateUserMutation,

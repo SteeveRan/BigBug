@@ -6,7 +6,7 @@
 @relatedFiles ../../schemas/pipeline.py, ../../services/pipeline.py
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -29,7 +29,7 @@ class PipelineRun(Base):
     status_text = Column(String(255), default="Pending", nullable=False)
     duration = Column(Integer, nullable=True)  # seconds
     web_url = Column(String(1024), nullable=True)  # link to GitLab pipeline page
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
 

@@ -1,7 +1,7 @@
 """Audit logging service."""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,7 @@ class AuditService:
                 resource_name=resource_name,
                 details=details,
                 ip_address=ip_address,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
             db.add(log_entry)
             await db.commit()

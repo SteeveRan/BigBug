@@ -374,7 +374,7 @@ async def update_component(
     if is_enabled is not None:
         component.is_enabled = is_enabled
 
-    component.updated_at = datetime.utcnow()
+    component.updated_at = datetime.now(UTC)
     await db.commit()
     await db.refresh(component)
     return component

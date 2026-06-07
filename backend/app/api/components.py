@@ -23,7 +23,7 @@ from app.services import pipeline as pipeline_service
 router = APIRouter()
 
 
-@router.get("/", response_model=list[GitLabComponentOut])
+@router.get("", response_model=list[GitLabComponentOut])
 async def list_components(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("pipelines:read")),
@@ -33,7 +33,7 @@ async def list_components(
     return [GitLabComponentOut.model_validate(c) for c in components]
 
 
-@router.post("/", response_model=GitLabComponentOut, status_code=201)
+@router.post("", response_model=GitLabComponentOut, status_code=201)
 async def create_component(
     data: GitLabComponentCreate,
     db: AsyncSession = Depends(get_db),

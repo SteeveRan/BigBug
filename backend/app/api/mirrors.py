@@ -1,5 +1,3 @@
-import asyncio
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,17 +67,15 @@ async def create_mirror(
     await db.refresh(mirror)
 
     # Audit log: mirror created
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=None,
-            username="system",
-            action="create",
-            resource_type="mirror",
-            resource_id=mirror.id,
-            resource_name=mirror.gitlab_url,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username="system",
+        action="create",
+        resource_type="mirror",
+        resource_id=mirror.id,
+        resource_name=mirror.gitlab_url,
+        ip_address=request.client.host if request.client else None,
     )
 
     return mirror
@@ -121,17 +117,15 @@ async def update_mirror(
     await db.refresh(mirror)
 
     # Audit log: mirror updated
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=None,
-            username="system",
-            action="update",
-            resource_type="mirror",
-            resource_id=mirror.id,
-            resource_name=mirror.gitlab_url,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username="system",
+        action="update",
+        resource_type="mirror",
+        resource_id=mirror.id,
+        resource_name=mirror.gitlab_url,
+        ip_address=request.client.host if request.client else None,
     )
 
     return mirror
@@ -154,17 +148,15 @@ async def delete_mirror(
     await db.commit()
 
     # Audit log: mirror deleted
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=None,
-            username="system",
-            action="delete",
-            resource_type="mirror",
-            resource_id=mirror_id,
-            resource_name=mirror_url,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username="system",
+        action="delete",
+        resource_type="mirror",
+        resource_id=mirror_id,
+        resource_name=mirror_url,
+        ip_address=request.client.host if request.client else None,
     )
 
 
@@ -186,17 +178,15 @@ async def trigger_sync(
     sync_log = await gitlab_service.trigger_sync(mirror, db, triggered_by="manual")
 
     # Audit log: mirror sync triggered
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=None,
-            username="system",
-            action="sync",
-            resource_type="mirror",
-            resource_id=mirror.id,
-            resource_name=mirror.gitlab_url,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username="system",
+        action="sync",
+        resource_type="mirror",
+        resource_id=mirror.id,
+        resource_name=mirror.gitlab_url,
+        ip_address=request.client.host if request.client else None,
     )
 
     return sync_log

@@ -3,6 +3,36 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class SignImageRequest(BaseModel):
+    """Request body for cosign image signing."""
+
+    image_reference: str
+    cosign_private_key: str
+
+
+class VerifyImageRequest(BaseModel):
+    """Request body for cosign signature verification."""
+
+    image_reference: str
+    cosign_public_key: str
+
+
+class SignImageResult(BaseModel):
+    """Response from cosign image signing."""
+
+    signed: bool
+    image: str
+    note: str | None = None
+
+
+class VerifyImageResult(BaseModel):
+    """Response from cosign signature verification."""
+
+    verified: bool
+    image: str
+    error: str | None = None
+
+
 class GoldImageOut(BaseModel):
     id: int
     name: str
@@ -79,6 +109,8 @@ class ImageVersionOut(BaseModel):
     is_signed: bool
     status_flag: int
     status_text: str | None
+    vulnerabilities: int | None = None
+    vulnerability_severity: str | None = None
     built_at: datetime | None
     created_at: datetime
 

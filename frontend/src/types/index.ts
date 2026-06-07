@@ -120,6 +120,8 @@ export interface ImageVersion {
   is_signed: boolean;
   status_flag: number;
   status_text: string | null;
+  vulnerabilities?: number | null;
+  vulnerability_severity?: string | null;
   built_at: string | null;
   created_at: string;
 }
@@ -598,4 +600,48 @@ export interface AuditLog {
 export interface AuditLogList {
   items: AuditLog[];
   total: number;
+}
+
+// ──── Vulnerability Scanning Types ──────────────────────────────────────────
+
+export interface VulnerabilityScanResult {
+  total: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  negligible?: number;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'none' | 'unknown' | null;
+  message?: string;
+}
+
+export interface ScanRequest {
+  harbor_instance_id: number;
+  project_name: string;
+  repository_name: string;
+  artifact_digest: string;
+}
+
+// ──── Cosign Signing Types ────────────────────────────────────────────────────
+
+export interface SignImageRequest {
+  image_reference: string;
+  cosign_private_key: string;
+}
+
+export interface VerifyImageRequest {
+  image_reference: string;
+  cosign_public_key: string;
+}
+
+export interface SignImageResult {
+  signed: boolean;
+  image: string;
+  note?: string;
+}
+
+export interface VerifyImageResult {
+  verified: boolean;
+  image: string;
+  error?: string;
 }

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -69,15 +68,13 @@ async def login(
     }
 
     # Audit log: login
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=user.id,
-            username=user.username,
-            action="login",
-            resource_type="auth",
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="login",
+        resource_type="auth",
+        ip_address=request.client.host if request.client else None,
     )
 
     return TokenResponse(
@@ -224,15 +221,13 @@ async def oidc_exchange(
     }
 
     # Audit log: SSO login
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=user.id,
-            username=user.username,
-            action="login",
-            resource_type="auth",
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="login",
+        resource_type="auth",
+        ip_address=request.client.host if request.client else None,
     )
 
     return TokenResponse(

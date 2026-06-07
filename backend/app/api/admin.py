@@ -1,5 +1,3 @@
-import asyncio
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,17 +76,15 @@ async def create_user(
     await db.refresh(user)
 
     # Audit log: user created
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=user.id,
-            username=user.username,
-            action="create",
-            resource_type="user",
-            resource_id=user.id,
-            resource_name=user.username,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="create",
+        resource_type="user",
+        resource_id=user.id,
+        resource_name=user.username,
+        ip_address=request.client.host if request.client else None,
     )
 
     return UserOut(
@@ -131,17 +127,15 @@ async def update_user(
     await db.refresh(user)
 
     # Audit log: user updated
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=user.id,
-            username=user.username,
-            action="update",
-            resource_type="user",
-            resource_id=user.id,
-            resource_name=user.username,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=user.id,
+        username=user.username,
+        action="update",
+        resource_type="user",
+        resource_id=user.id,
+        resource_name=user.username,
+        ip_address=request.client.host if request.client else None,
     )
 
     return UserOut(
@@ -170,17 +164,15 @@ async def delete_user(
     await db.commit()
 
     # Audit log: user deleted
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=user_id,
-            username=username,
-            action="delete",
-            resource_type="user",
-            resource_id=user_id,
-            resource_name=username,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=user_id,
+        username=username,
+        action="delete",
+        resource_type="user",
+        resource_id=user_id,
+        resource_name=username,
+        ip_address=request.client.host if request.client else None,
     )
 
 
@@ -248,17 +240,15 @@ async def create_role(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
     # Audit log: role created
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=current_user.id,
-            username=current_user.username,
-            action="create",
-            resource_type="role",
-            resource_id=role.id,
-            resource_name=role.name,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="create",
+        resource_type="role",
+        resource_id=role.id,
+        resource_name=role.name,
+        ip_address=request.client.host if request.client else None,
     )
 
     return role
@@ -289,17 +279,15 @@ async def update_role(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 
     # Audit log: role updated
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=current_user.id,
-            username=current_user.username,
-            action="update",
-            resource_type="role",
-            resource_id=role.id,
-            resource_name=role.name,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="update",
+        resource_type="role",
+        resource_id=role.id,
+        resource_name=role.name,
+        ip_address=request.client.host if request.client else None,
     )
 
     return role
@@ -327,15 +315,13 @@ async def delete_role(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
     # Audit log: role deleted
-    asyncio.create_task(
-        AuditService.log_event(
-            db,
-            user_id=current_user.id,
-            username=current_user.username,
-            action="delete",
-            resource_type="role",
-            resource_id=role_id,
-            resource_name=role_name,
-            ip_address=request.client.host if request.client else None,
-        )
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="delete",
+        resource_type="role",
+        resource_id=role_id,
+        resource_name=role_name,
+        ip_address=request.client.host if request.client else None,
     )

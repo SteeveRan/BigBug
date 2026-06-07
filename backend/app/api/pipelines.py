@@ -19,7 +19,7 @@ from app.services import pipeline as pipeline_service
 router = APIRouter()
 
 
-@router.get("/", response_model=PipelineRunList)
+@router.get("", response_model=PipelineRunList)
 async def list_pipeline_runs(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -39,7 +39,7 @@ async def list_pipeline_runs(
     )
 
 
-@router.post("/", response_model=PipelineRunOut, status_code=201)
+@router.post("", response_model=PipelineRunOut, status_code=201)
 async def trigger_pipeline(
     data: PipelineRunCreate,
     db: AsyncSession = Depends(get_db),

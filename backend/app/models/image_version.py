@@ -46,6 +46,12 @@ class ImageVersion(Base):
     status_flag = Column(Integer, nullable=False, default=4)
     status_text = Column(String(500), nullable=True)
 
+    # Vulnerability scanning (from Harbor)
+    vulnerabilities = Column(Integer, nullable=True)  # Total CVE count
+    vulnerability_severity = Column(
+        String(20), nullable=True
+    )  # Worst severity: none/low/medium/high/critical
+
     built_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

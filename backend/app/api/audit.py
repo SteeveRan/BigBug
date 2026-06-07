@@ -14,7 +14,7 @@ from app.services.audit import AuditService
 router = APIRouter()
 
 
-@router.get("/", response_model=AuditLogList)
+@router.get("", response_model=AuditLogList)
 async def get_audit_logs(
     user_id: int | None = Query(None),
     action: str | None = Query(None),

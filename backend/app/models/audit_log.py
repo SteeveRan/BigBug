@@ -1,6 +1,6 @@
 """Audit log model."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -26,6 +26,6 @@ class AuditLog(Base):
         JSON, nullable=True
     )  # {"before": {...}, "after": {...}, "changed_fields": [...]}
     ip_address = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
     user = relationship("User", lazy="select")
