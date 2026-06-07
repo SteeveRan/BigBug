@@ -297,13 +297,13 @@ export function AuthenticationSettings() {
         >
           <Typography variant="h6">OIDC / SSO Configuration</Typography>
           <FormControlLabel
-            control={
-              <Switch
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                inputProps={{ 'aria-label': 'Enable SSO / OIDC' }}
-              />
-            }
+          control={
+            <Switch
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              slotProps={{ input: { 'aria-label': 'Enable SSO / OIDC' } }}
+            />
+          }
             label={enabled ? 'Enabled' : 'Disabled'}
             labelPlacement="start"
           />

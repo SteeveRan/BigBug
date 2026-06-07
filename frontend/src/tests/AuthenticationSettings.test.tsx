@@ -211,7 +211,7 @@ describe('AuthenticationSettings', () => {
 
     it('switch reflects enabled state (false)', () => {
       renderAuthenticationPage();
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       expect(switchEl).not.toBeChecked();
       expect(screen.getByText('Disabled')).toBeInTheDocument();
     });
@@ -224,7 +224,7 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
       renderAuthenticationPage();
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       expect(switchEl).toBeChecked();
       expect(screen.getByText('Enabled')).toBeInTheDocument();
     });
@@ -411,7 +411,7 @@ describe('AuthenticationSettings', () => {
 
     it('toggling the SSO switch enables save button', async () => {
       renderAuthenticationPage();
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
     });
@@ -420,7 +420,7 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
       expect(screen.getByText('Disabled')).toBeInTheDocument();
 
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
       expect(screen.getByText('Enabled')).toBeInTheDocument();
       expect(switchEl).toBeChecked();
@@ -515,7 +515,7 @@ describe('AuthenticationSettings', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Add Mapping' }));
 
       // Toggle SSO switch to make the form dirty and trigger dirty detection
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
 
       // Verify save button is enabled before clicking
@@ -568,7 +568,7 @@ describe('AuthenticationSettings', () => {
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://new-issuer.example.com');
 
-      const switchEl = screen.getByRole('checkbox', { name: 'Enable SSO / OIDC' });
+      const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
 
       await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));

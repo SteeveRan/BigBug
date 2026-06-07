@@ -70,7 +70,7 @@ BigBug/
 - **Vite** - build tool
 - **Yarn 4.3.1** - package manager
 - **Redux Toolkit** + **RTK Query** - state management
-- **Material UI v6** - component library
+- **Material UI v9** - component library
 - **React Router v7** - routing
 - **ESLint** + `@typescript-eslint` - linting
 - **Vitest** + `@testing-library/react` - unit tests

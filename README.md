@@ -134,7 +134,7 @@ Services will start on:
 ### Frontend
 - **React 19** + **TypeScript** — UI framework
 - **Redux Toolkit** + **RTK Query** — state management and API layer
-- **Material UI v6** — component library
+- **Material UI v9** — component library
 - **React Router v7** — client-side routing
 - **Vite** — build tool with HMR
 - **keycloak-js** — Keycloak OIDC adapter

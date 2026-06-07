@@ -5,6 +5,12 @@ All notable changes to BigBug will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Updated Material UI from v6 to v9 (`@mui/material ^9.0.1`, `@mui/icons-material ^9.0.1`)
+- Updated `@emotion/react` to `^11.14.0`, `@emotion/styled` to `^11.14.1`
+
 ## [0.7.0] - 2026-06-07
 
 ### Added
