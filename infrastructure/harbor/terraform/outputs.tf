@@ -86,7 +86,7 @@ output "quay_registry_id" {
 
 output "webhook_id" {
   description = "Backend notification webhook ID"
-  value       = harbor_webhook.backend_notifications.id
+  value       = harbor_project_webhook.backend_notifications.id
 }
 
 # ─── Registry URLs (for docker login) ────────────────────────────────────────
