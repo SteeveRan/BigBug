@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,7 @@ from app.schemas.mirror import (
     UpdateMirrorRequest,
     UpdateSyncScheduleRequest,
 )
+from app.services.audit import AuditService
 
 router = APIRouter()
 
@@ -45,6 +48,7 @@ async def get_mirror(
 @router.post("", response_model=GitlabMirrorOut, status_code=status.HTTP_201_CREATED)
 async def create_mirror(
     data: CreateMirrorRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
@@ -63,6 +67,21 @@ async def create_mirror(
 
     await db.commit()
     await db.refresh(mirror)
+
+    # Audit log: mirror created
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=None,
+            username="system",
+            action="create",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.gitlab_url,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return mirror
 
 
@@ -84,6 +103,7 @@ async def import_mirror(
 async def update_mirror(
     mirror_id: int,
     data: UpdateMirrorRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
@@ -99,12 +119,28 @@ async def update_mirror(
 
     await db.commit()
     await db.refresh(mirror)
+
+    # Audit log: mirror updated
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=None,
+            username="system",
+            action="update",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.gitlab_url,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return mirror
 
 
 @router.delete("/{mirror_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_mirror(
     mirror_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
@@ -112,13 +148,30 @@ async def delete_mirror(
     mirror = result.scalar_one_or_none()
     if not mirror:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mirror not found")
+
+    mirror_url = mirror.gitlab_url
     await db.delete(mirror)
     await db.commit()
+
+    # Audit log: mirror deleted
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=None,
+            username="system",
+            action="delete",
+            resource_type="mirror",
+            resource_id=mirror_id,
+            resource_name=mirror_url,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/{mirror_id}/sync", response_model=SyncLogOut)
 async def trigger_sync(
     mirror_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
@@ -131,6 +184,21 @@ async def trigger_sync(
     from app.services.gitlab import gitlab_service
 
     sync_log = await gitlab_service.trigger_sync(mirror, db, triggered_by="manual")
+
+    # Audit log: mirror sync triggered
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=None,
+            username="system",
+            action="sync",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.gitlab_url,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return sync_log
 
 

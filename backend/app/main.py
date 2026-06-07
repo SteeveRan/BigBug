@@ -6,12 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import (
     admin,
     app_images,
+    audit,
     auth,
+    components,
     docker_images,
     gold_images,
     helm_charts,
     integrations,
     mirrors,
+    pipelines,
     projects,
     schedules,
     webhooks,
@@ -60,6 +63,9 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(helm_charts.router, prefix="/api/helm-charts", tags=["helm-charts"])
 app.include_router(docker_images.router, prefix="/api/docker-images", tags=["docker-images"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
+app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
+app.include_router(components.router, prefix="/api/components", tags=["components"])
+app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
 
 
 @app.get("/api/health", tags=["health"])

@@ -17,6 +17,8 @@ dependencies = [
     "alembic>=1.13.0",
     # Redis
     "redis>=5.0.0",
+    # Rate limiting
+    "fastapi-limiter>=0.2.0",
     # Auth
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.0.0",

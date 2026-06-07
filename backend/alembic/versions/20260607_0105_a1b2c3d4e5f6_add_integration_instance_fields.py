@@ -1,7 +1,7 @@
 """add_integration_instance_fields
 
 Revision ID: a1b2c3d4e5f6
-Revises: a66daaecc2fa
+Revises: b0714dde902c
 Create Date: 2026-06-07 01:05:00.000000+00:00
 
 Adds missing fields to integration instance tables:
@@ -18,7 +18,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = "a66daaecc2fa"
+down_revision: Union[str, None] = "b0714dde902c"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

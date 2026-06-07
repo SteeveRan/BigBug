@@ -26,7 +26,7 @@ fi
 cd "$BACKEND_DIR"
 
 echo "=== Running e2e tests (tests/e2e/) ==="
-"$VENV_PYTHON" -m pytest tests/e2e/ -v "$@"
+ENVIRONMENT=test "$VENV_PYTHON" -m pytest tests/e2e/ -v "$@"
 
 echo ""
 echo "=== Done ==="

@@ -4,12 +4,14 @@
              GitLab, Harbor, GitHub. All endpoints require
              ``integrations:manage`` permission.
 @dependencies app.services.integrations (GitlabInstanceService,
-              HarborInstanceService, GithubInstanceService),
-              app.core.rbac (require_permission), app.schemas.integrations
+               HarborInstanceService, GithubInstanceService),
+               app.core.rbac (require_permission), app.schemas.integrations
 @relatedFiles ../services/integrations.py, ../schemas/integrations.py
 """
 
-from fastapi import APIRouter, Depends, status
+import asyncio
+
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
@@ -34,6 +36,7 @@ from app.schemas.integrations import (
     HelmRepositoryInstanceOut,
     HelmRepositoryInstanceUpdate,
 )
+from app.services.audit import AuditService
 from app.services.integrations import (
     DockerRegistryInstanceService,
     GithubInstanceService,
@@ -68,13 +71,14 @@ async def list_gitlab_instances(
 @router.post("/gitlab", response_model=GitlabInstanceOut, status_code=status.HTTP_201_CREATED)
 async def create_gitlab_instance(
     data: GitlabInstanceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Register a new GitLab instance."""
     service = GitlabInstanceService(db)
     try:
-        return await service.create_instance(
+        result = await service.create_instance(
             name=data.name,
             url=data.url,
             token=data.token,
@@ -85,6 +89,21 @@ async def create_gitlab_instance(
         )
     except ConflictError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
 
 
 @router.get("/gitlab/{instance_id}", response_model=GitlabInstanceOut)
@@ -105,13 +124,14 @@ async def get_gitlab_instance(
 async def update_gitlab_instance(
     instance_id: int,
     data: GitlabInstanceUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Update an existing GitLab instance (partial)."""
     service = GitlabInstanceService(db)
     try:
-        return await service.update_instance(
+        result = await service.update_instance(
             instance_id=instance_id,
             name=data.name,
             url=data.url,
@@ -124,19 +144,54 @@ async def update_gitlab_instance(
     except (NotFoundError, ConflictError) as e:
         raise e
 
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
+
 
 @router.delete("/gitlab/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_gitlab_instance(
     instance_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Delete a GitLab instance."""
     service = GitlabInstanceService(db)
     try:
+        instance = await service.get_instance(instance_id)
+        instance_name = instance.name
+    except NotFoundError:
+        instance_name = f"gitlab_{instance_id}"
+
+    try:
         await service.delete_instance(instance_id)
     except NotFoundError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="integration",
+            resource_id=instance_id,
+            resource_name=instance_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/gitlab/{instance_id}/test", response_model=ConnectionTestResult)
@@ -171,13 +226,14 @@ async def list_harbor_instances(
 @router.post("/harbor", response_model=HarborInstanceOut, status_code=status.HTTP_201_CREATED)
 async def create_harbor_instance(
     data: HarborInstanceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Register a new Harbor instance."""
     service = HarborInstanceService(db)
     try:
-        return await service.create_instance(
+        result = await service.create_instance(
             name=data.name,
             url=data.url,
             username=data.username,
@@ -189,6 +245,21 @@ async def create_harbor_instance(
         )
     except ConflictError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
 
 
 @router.get("/harbor/{instance_id}", response_model=HarborInstanceOut)
@@ -209,13 +280,14 @@ async def get_harbor_instance(
 async def update_harbor_instance(
     instance_id: int,
     data: HarborInstanceUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Update an existing Harbor instance (partial)."""
     service = HarborInstanceService(db)
     try:
-        return await service.update_instance(
+        result = await service.update_instance(
             instance_id=instance_id,
             name=data.name,
             url=data.url,
@@ -229,19 +301,54 @@ async def update_harbor_instance(
     except (NotFoundError, ConflictError) as e:
         raise e
 
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
+
 
 @router.delete("/harbor/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_harbor_instance(
     instance_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Delete a Harbor instance."""
     service = HarborInstanceService(db)
     try:
+        instance = await service.get_instance(instance_id)
+        instance_name = instance.name
+    except NotFoundError:
+        instance_name = f"harbor_{instance_id}"
+
+    try:
         await service.delete_instance(instance_id)
     except NotFoundError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="integration",
+            resource_id=instance_id,
+            resource_name=instance_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/harbor/{instance_id}/test", response_model=ConnectionTestResult)
@@ -276,13 +383,14 @@ async def list_github_instances(
 @router.post("/github", response_model=GithubInstanceOut, status_code=status.HTTP_201_CREATED)
 async def create_github_instance(
     data: GithubInstanceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Register a new GitHub instance (token)."""
     service = GithubInstanceService(db)
     try:
-        return await service.create_instance(
+        result = await service.create_instance(
             name=data.name,
             token=data.token,
             is_active=data.is_active,
@@ -290,6 +398,21 @@ async def create_github_instance(
         )
     except ConflictError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
 
 
 @router.get("/github/{instance_id}", response_model=GithubInstanceOut)
@@ -310,13 +433,14 @@ async def get_github_instance(
 async def update_github_instance(
     instance_id: int,
     data: GithubInstanceUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Update an existing GitHub instance (partial)."""
     service = GithubInstanceService(db)
     try:
-        return await service.update_instance(
+        result = await service.update_instance(
             instance_id=instance_id,
             name=data.name,
             token=data.token,
@@ -326,19 +450,54 @@ async def update_github_instance(
     except (NotFoundError, ConflictError) as e:
         raise e
 
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
+
 
 @router.delete("/github/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_github_instance(
     instance_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    current_user: User = _manage,
 ):
     """Delete a GitHub instance."""
     service = GithubInstanceService(db)
     try:
+        instance = await service.get_instance(instance_id)
+        instance_name = instance.name
+    except NotFoundError:
+        instance_name = f"github_{instance_id}"
+
+    try:
         await service.delete_instance(instance_id)
     except NotFoundError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="integration",
+            resource_id=instance_id,
+            resource_name=instance_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/github/{instance_id}/test", response_model=ConnectionTestResult)
@@ -377,13 +536,14 @@ async def list_docker_registry_instances(
 )
 async def create_docker_registry_instance(
     data: DockerRegistryInstanceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_docker_registry,
+    current_user: User = _manage_docker_registry,
 ):
     """Register a new Docker Registry instance."""
     service = DockerRegistryInstanceService(db)
     try:
-        return await service.create_instance(
+        result = await service.create_instance(
             name=data.name,
             url=data.url,
             username=data.username,
@@ -394,6 +554,21 @@ async def create_docker_registry_instance(
         )
     except ConflictError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
 
 
 @router.get("/docker-registry/{instance_id}", response_model=DockerRegistryInstanceOut)
@@ -414,13 +589,14 @@ async def get_docker_registry_instance(
 async def update_docker_registry_instance(
     instance_id: int,
     data: DockerRegistryInstanceUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_docker_registry,
+    current_user: User = _manage_docker_registry,
 ):
     """Update an existing Docker Registry instance (partial)."""
     service = DockerRegistryInstanceService(db)
     try:
-        return await service.update_instance(
+        result = await service.update_instance(
             instance_id=instance_id,
             name=data.name,
             url=data.url,
@@ -433,19 +609,54 @@ async def update_docker_registry_instance(
     except (NotFoundError, ConflictError) as e:
         raise e
 
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
+
 
 @router.delete("/docker-registry/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_docker_registry_instance(
     instance_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_docker_registry,
+    current_user: User = _manage_docker_registry,
 ):
     """Delete a Docker Registry instance."""
     service = DockerRegistryInstanceService(db)
     try:
+        instance = await service.get_instance(instance_id)
+        instance_name = instance.name
+    except NotFoundError:
+        instance_name = f"docker_registry_{instance_id}"
+
+    try:
         await service.delete_instance(instance_id)
     except NotFoundError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="integration",
+            resource_id=instance_id,
+            resource_name=instance_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/docker-registry/{instance_id}/test", response_model=ConnectionTestResult)
@@ -484,13 +695,14 @@ async def list_helm_repository_instances(
 )
 async def create_helm_repository_instance(
     data: HelmRepositoryInstanceCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_helm_repository,
+    current_user: User = _manage_helm_repository,
 ):
     """Register a new Helm Repository instance."""
     service = HelmRepositoryInstanceService(db)
     try:
-        return await service.create_instance(
+        result = await service.create_instance(
             name=data.name,
             url=data.url,
             username=data.username,
@@ -501,6 +713,21 @@ async def create_helm_repository_instance(
         )
     except ConflictError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
 
 
 @router.get("/helm-repository/{instance_id}", response_model=HelmRepositoryInstanceOut)
@@ -521,13 +748,14 @@ async def get_helm_repository_instance(
 async def update_helm_repository_instance(
     instance_id: int,
     data: HelmRepositoryInstanceUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_helm_repository,
+    current_user: User = _manage_helm_repository,
 ):
     """Update an existing Helm Repository instance (partial)."""
     service = HelmRepositoryInstanceService(db)
     try:
-        return await service.update_instance(
+        result = await service.update_instance(
             instance_id=instance_id,
             name=data.name,
             url=data.url,
@@ -540,19 +768,54 @@ async def update_helm_repository_instance(
     except (NotFoundError, ConflictError) as e:
         raise e
 
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="integration",
+            resource_id=result.id,
+            resource_name=result.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return result
+
 
 @router.delete("/helm-repository/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_helm_repository_instance(
     instance_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage_helm_repository,
+    current_user: User = _manage_helm_repository,
 ):
     """Delete a Helm Repository instance."""
     service = HelmRepositoryInstanceService(db)
     try:
+        instance = await service.get_instance(instance_id)
+        instance_name = instance.name
+    except NotFoundError:
+        instance_name = f"helm_repository_{instance_id}"
+
+    try:
         await service.delete_instance(instance_id)
     except NotFoundError as e:
         raise e
+
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="integration",
+            resource_id=instance_id,
+            resource_name=instance_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 @router.post("/helm-repository/{instance_id}/test", response_model=ConnectionTestResult)

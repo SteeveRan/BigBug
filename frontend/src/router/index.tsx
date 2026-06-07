@@ -19,6 +19,9 @@ import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail';
 import { AdminPage } from '../pages/Admin';
 import SettingsIntegrations from '../pages/Settings/Integrations';
 import { AuthenticationSettings } from '../pages/Settings/Authentication';
+import AuditLogPage from '../pages/Settings/AuditLog';
+import { PipelinesPage } from '../pages/Pipelines';
+import { GitLabComponentsPage } from '../pages/Settings/Pipelines';
 
 export function AppRouter() {
   const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
@@ -63,6 +66,23 @@ export function AppRouter() {
           element={
             <PermissionGate permission="integrations:manage">
               <AuthenticationSettings />
+            </PermissionGate>
+          }
+        />
+        <Route path="pipelines" element={<PipelinesPage />} />
+        <Route
+          path="settings/pipelines/components"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitLabComponentsPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="settings/audit-log"
+          element={
+            <PermissionGate permission="users:read">
+              <AuditLogPage />
             </PermissionGate>
           }
         />

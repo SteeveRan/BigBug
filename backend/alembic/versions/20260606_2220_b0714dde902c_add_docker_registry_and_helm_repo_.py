@@ -1,7 +1,7 @@
 """add_docker_registry_and_helm_repo_instances
 
 Revision ID: b0714dde902c
-Revises: a1b2c3d4e5f6
+Revises: a66daaecc2fa
 Create Date: 2026-06-06 22:20:16.318694+00:00
 
 Creates two tables for managed Docker Registry and Helm Repository
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "b0714dde902c"
-down_revision: Union[str, None] = "a1b2c3d4e5f6"
+down_revision: Union[str, None] = "a66daaecc2fa"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

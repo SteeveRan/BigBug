@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,7 @@ from app.models.role import Role, UserRole
 from app.models.user import User
 from app.schemas.auth import UserCreate, UserOut, UserUpdate
 from app.schemas.rbac import PermissionOut, RoleCreate, RoleDetailOut, RoleUpdate
+from app.services.audit import AuditService
 from app.services.rbac_service import RBACService
 
 router = APIRouter()
@@ -42,6 +45,7 @@ async def list_users(
 @router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def create_user(
     data: UserCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin()),
 ):
@@ -72,6 +76,21 @@ async def create_user(
 
     await db.commit()
     await db.refresh(user)
+
+    # Audit log: user created
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=user.id,
+            username=user.username,
+            action="create",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.username,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return UserOut(
         id=user.id,
         username=user.username,
@@ -85,6 +104,7 @@ async def create_user(
 async def update_user(
     user_id: int,
     data: UserUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin()),
 ):
@@ -109,6 +129,21 @@ async def update_user(
 
     await db.commit()
     await db.refresh(user)
+
+    # Audit log: user updated
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=user.id,
+            username=user.username,
+            action="update",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.username,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return UserOut(
         id=user.id,
         username=user.username,
@@ -121,6 +156,7 @@ async def update_user(
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin()),
 ):
@@ -128,8 +164,24 @@ async def delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    username = user.username
     await db.delete(user)
     await db.commit()
+
+    # Audit log: user deleted
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=user_id,
+            username=username,
+            action="delete",
+            resource_type="user",
+            resource_id=user_id,
+            resource_name=username,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
 
 
 # ------------------------------------------------------------------
@@ -179,13 +231,14 @@ async def get_role(
 @router.post("/roles", response_model=RoleDetailOut, status_code=status.HTTP_201_CREATED)
 async def create_role(
     data: RoleCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("roles:write")),
 ):
     """Create a new custom role with permissions."""
     service = RBACService(db)
     try:
-        return await service.create_role(
+        role = await service.create_role(
             name=data.name,
             description=data.description,
             permission_names=data.permission_names,
@@ -194,18 +247,35 @@ async def create_role(
     except PermissionNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
+    # Audit log: role created
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="create",
+            resource_type="role",
+            resource_id=role.id,
+            resource_name=role.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return role
+
 
 @router.patch("/roles/{role_id}", response_model=RoleDetailOut)
 async def update_role(
     role_id: int,
     data: RoleUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("roles:write")),
+    current_user: User = Depends(require_permission("roles:write")),
 ):
     """Update an existing custom role. Built-in roles cannot be modified."""
     service = RBACService(db)
     try:
-        return await service.update_role(
+        role = await service.update_role(
             role_id=role_id,
             name=data.name,
             description=data.description,
@@ -218,15 +288,35 @@ async def update_role(
     except CannotModifyBuiltinRoleError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 
+    # Audit log: role updated
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="update",
+            resource_type="role",
+            resource_id=role.id,
+            resource_name=role.name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
+    return role
+
 
 @router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(
     role_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("roles:delete")),
+    current_user: User = Depends(require_permission("roles:delete")),
 ):
     """Delete a custom role. Built-in roles and roles with users cannot be deleted."""
     service = RBACService(db)
+    # Get role name before deletion for audit
+    role = await service.get_role_by_id(role_id)
+    role_name = role.name if role else f"role_{role_id}"
     try:
         await service.delete_role(role_id)
     except RoleNotFoundError as e:
@@ -235,3 +325,17 @@ async def delete_role(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except RoleHasUsersError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    # Audit log: role deleted
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=current_user.id,
+            username=current_user.username,
+            action="delete",
+            resource_type="role",
+            resource_id=role_id,
+            resource_name=role_name,
+            ip_address=request.client.host if request.client else None,
+        )
+    )

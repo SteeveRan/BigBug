@@ -1,4 +1,5 @@
 from app.models.app_image import AppImage
+from app.models.audit_log import AuditLog
 from app.models.build_log import BuildLog
 from app.models.build_schedule import BuildSchedule
 from app.models.docker_image_source import DockerImageSource
@@ -9,6 +10,7 @@ from app.models.github_instance import GithubInstance
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
+from app.models.gitlab_component import GitLabComponent
 from app.models.gitlab_instance import GitlabInstance
 from app.models.gitlab_mirror import GitlabMirror
 from app.models.gold_image import GoldImage
@@ -20,6 +22,7 @@ from app.models.helm_sync_log import HelmSyncLog
 from app.models.image_version import ImageVersion
 from app.models.oidc_config import OIDCConfig
 from app.models.permission import Permission, role_permissions
+from app.models.pipeline_run import PipelineRun
 from app.models.role import Role, UserRole
 from app.models.sync_log import SyncLog
 from app.models.sync_schedule import SyncSchedule
@@ -31,6 +34,7 @@ __all__ = [
     "UserRole",
     "Permission",
     "role_permissions",
+    "AuditLog",
     "GithubInstance",
     "GithubOrg",
     "GithubProject",
@@ -54,4 +58,6 @@ __all__ = [
     "DockerRegistryInstance",
     "DockerSyncLog",
     "OIDCConfig",
+    "PipelineRun",
+    "GitLabComponent",
 ]

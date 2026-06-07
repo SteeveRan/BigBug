@@ -1,14 +1,17 @@
+import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.exceptions import (
     OIDCExchangeError,
     OIDCInvalidTokenError,
     OIDCProvisioningError,
 )
+from app.core.rate_limit import rate_limit
 from app.core.rbac import get_current_user, require_admin
 from app.core.security import (
     create_access_token,
@@ -28,6 +31,7 @@ from app.schemas.auth import (
 )
 from app.schemas.oidc_config import OIDCConfigOut, OIDCConfigPublic, OIDCConfigUpdate
 from app.schemas.rbac import UserPermissionsOut
+from app.services.audit import AuditService
 from app.services.oidc import KeycloakOIDCService
 from app.services.oidc_config import OIDCConfigService
 from app.services.rbac_service import RBACService
@@ -38,7 +42,12 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: Request,
+    data: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(rate_limit(settings.rate_limit_login)),
+):
     result = await db.execute(select(User).where(User.username == data.username))
     user = result.scalar_one_or_none()
 
@@ -58,6 +67,19 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
         "username": user.username,
         "permissions": permissions,
     }
+
+    # Audit log: login
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=user.id,
+            username=user.username,
+            action="login",
+            resource_type="auth",
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),
@@ -154,7 +176,12 @@ async def sso_config(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/oidc/exchange", response_model=TokenResponse)
-async def oidc_exchange(data: OIDCExchangeRequest, db: AsyncSession = Depends(get_db)):
+async def oidc_exchange(
+    request: Request,
+    data: OIDCExchangeRequest,
+    db: AsyncSession = Depends(get_db),
+    _rl: None = Depends(rate_limit(settings.rate_limit_oidc_exchange)),
+):
     """
     Complete the SSO login: exchange the authorization code at Keycloak,
     validate the returned ID token, provision/update the local user, and issue
@@ -195,6 +222,19 @@ async def oidc_exchange(data: OIDCExchangeRequest, db: AsyncSession = Depends(ge
         "username": user.username,
         "permissions": permissions,
     }
+
+    # Audit log: SSO login
+    asyncio.create_task(
+        AuditService.log_event(
+            db,
+            user_id=user.id,
+            username=user.username,
+            action="login",
+            resource_type="auth",
+            ip_address=request.client.host if request.client else None,
+        )
+    )
+
     return TokenResponse(
         access_token=create_access_token(token_data),
         refresh_token=create_refresh_token(token_data),

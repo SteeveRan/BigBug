@@ -24,6 +24,13 @@ import type {
   ConnectionTestResult,
   OIDCConfig,
   OIDCConfigUpdate,
+  PipelineRun,
+  PipelineRunCreate,
+  PipelineRunList,
+  GitLabComponent,
+  GitLabComponentCreate,
+  GitLabComponentUpdate,
+  AuditLogList,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -54,6 +61,9 @@ export const api = createApi({
     'Roles',
     'Integration',
     'OIDCConfig',
+    'Pipeline',
+    'Component',
+    'AuditLog',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -515,6 +525,66 @@ export const api = createApi({
       }),
       invalidatesTags: ['OIDCConfig'],
     }),
+
+    // ──── Pipeline Runs ───────────────────────────────────────────────────
+
+    getPipelineRuns: builder.query<PipelineRunList, { page?: number; status?: number }>({
+      query: (params) => ({ url: '/pipelines', params }),
+      providesTags: ['Pipeline'],
+    }),
+    getPipelineRun: builder.query<PipelineRun, number>({
+      query: (id) => `/pipelines/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Pipeline', id }],
+    }),
+    triggerPipeline: builder.mutation<PipelineRun, PipelineRunCreate>({
+      query: (data) => ({ url: '/pipelines', method: 'POST', body: data }),
+      invalidatesTags: ['Pipeline'],
+    }),
+    cancelPipeline: builder.mutation<PipelineRun, number>({
+      query: (id) => ({ url: `/pipelines/${id}/cancel`, method: 'POST' }),
+      invalidatesTags: ['Pipeline'],
+    }),
+    retryPipeline: builder.mutation<PipelineRun, number>({
+      query: (id) => ({ url: `/pipelines/${id}/retry`, method: 'POST' }),
+      invalidatesTags: ['Pipeline'],
+    }),
+
+    // ──── GitLab Components ───────────────────────────────────────────────
+
+    getComponents: builder.query<GitLabComponent[], void>({
+      query: () => '/components',
+      providesTags: ['Component'],
+    }),
+    createComponent: builder.mutation<GitLabComponent, GitLabComponentCreate>({
+      query: (data) => ({ url: '/components', method: 'POST', body: data }),
+      invalidatesTags: ['Component'],
+    }),
+    updateComponent: builder.mutation<GitLabComponent, { id: number; data: GitLabComponentUpdate }>({
+      query: ({ id, data }) => ({ url: `/components/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Component', id }, 'Component'],
+    }),
+    deleteComponent: builder.mutation<void, number>({
+      query: (id) => ({ url: `/components/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Component'],
+    }),
+
+    // ──── Audit Logs ────────────────────────────────────────────────────────
+
+    getAuditLogs: builder.query<
+      AuditLogList,
+      {
+        user_id?: number;
+        action?: string;
+        resource_type?: string;
+        date_from?: string;
+        date_to?: string;
+        page?: number;
+        page_size?: number;
+      }
+    >({
+      query: (params) => ({ url: '/admin/audit-logs', params }),
+      providesTags: ['AuditLog'],
+    }),
   }),
 });
 
@@ -609,4 +679,14 @@ export const {
   useTestHelmRepositoryConnectionMutation,
   useGetOidcConfigQuery,
   useUpdateOidcConfigMutation,
+  useGetPipelineRunsQuery,
+  useGetPipelineRunQuery,
+  useTriggerPipelineMutation,
+  useCancelPipelineMutation,
+  useRetryPipelineMutation,
+  useGetComponentsQuery,
+  useCreateComponentMutation,
+  useUpdateComponentMutation,
+  useDeleteComponentMutation,
+  useGetAuditLogsQuery,
 } = api;

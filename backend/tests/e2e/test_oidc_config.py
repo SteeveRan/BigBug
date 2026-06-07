@@ -50,9 +50,7 @@ class TestGetOidcConfig:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_oidc_config_as_operator(
-        self, client: AsyncClient, operator_token: str
-    ):
+    async def test_get_oidc_config_as_operator(self, client: AsyncClient, operator_token: str):
         """Request from operator (non-admin) returns 403."""
         response = await client.get(
             "/api/auth/admin/oidc-config", headers=auth_headers(operator_token)
@@ -60,9 +58,7 @@ class TestGetOidcConfig:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_get_oidc_config_as_admin(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_get_oidc_config_as_admin(self, client: AsyncClient, admin_token: str):
         """Admin request returns 200 with full config."""
         response = await client.get(
             "/api/auth/admin/oidc-config", headers=auth_headers(admin_token)
@@ -113,9 +109,7 @@ class TestUpdateOidcConfig:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_update_oidc_config_as_operator(
-        self, client: AsyncClient, operator_token: str
-    ):
+    async def test_update_oidc_config_as_operator(self, client: AsyncClient, operator_token: str):
         """Request from operator (non-admin) returns 403."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -125,9 +119,7 @@ class TestUpdateOidcConfig:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_admin_update_issuer_url(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_issuer_url(self, client: AsyncClient, admin_token: str):
         """Admin updates issuer_url → 200, returns updated config."""
         new_url = "https://keycloak-updated.example.com"
         response = await client.patch(
@@ -141,9 +133,7 @@ class TestUpdateOidcConfig:
         assert data["client_secret"] == "********"
 
     @pytest.mark.asyncio
-    async def test_admin_update_enabled(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_enabled(self, client: AsyncClient, admin_token: str):
         """Admin sets enabled=True → 200."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -155,9 +145,7 @@ class TestUpdateOidcConfig:
         assert data["enabled"] is True
 
     @pytest.mark.asyncio
-    async def test_admin_update_client_secret(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_client_secret(self, client: AsyncClient, admin_token: str):
         """Admin updates client_secret → 200, secret is masked in response."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -170,9 +158,7 @@ class TestUpdateOidcConfig:
         assert data["client_secret"] == "********"
 
     @pytest.mark.asyncio
-    async def test_admin_update_role_mapping(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_role_mapping(self, client: AsyncClient, admin_token: str):
         """Admin updates role_mapping → 200, mapping is persisted."""
         new_mapping = {
             "admin": "platform-admin",
@@ -196,9 +182,7 @@ class TestUpdateOidcConfig:
         assert get_resp.json()["role_mapping"] == new_mapping
 
     @pytest.mark.asyncio
-    async def test_admin_update_multiple_fields(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_multiple_fields(self, client: AsyncClient, admin_token: str):
         """Admin updates multiple fields simultaneously → 200."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -220,9 +204,7 @@ class TestUpdateOidcConfig:
         assert data["public_url"] == "https://public.example.com"
 
     @pytest.mark.asyncio
-    async def test_admin_update_invalid_type(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_invalid_type(self, client: AsyncClient, admin_token: str):
         """Sending a wrong type (e.g. integer for issuer_url) returns 422."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -232,9 +214,7 @@ class TestUpdateOidcConfig:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_admin_update_unknown_field_ignored(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_admin_update_unknown_field_ignored(self, client: AsyncClient, admin_token: str):
         """Unknown fields in the JSON body are ignored (200, not 422)."""
         response = await client.patch(
             "/api/auth/admin/oidc-config",
@@ -262,9 +242,7 @@ class TestGetOidcConfigPublic:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_public_as_operator(
-        self, client: AsyncClient, operator_token: str
-    ):
+    async def test_public_as_operator(self, client: AsyncClient, operator_token: str):
         """Operator request returns 403."""
         response = await client.get(
             "/api/auth/admin/oidc-config/public",
@@ -273,9 +251,7 @@ class TestGetOidcConfigPublic:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_public_as_admin(
-        self, client: AsyncClient, admin_token: str
-    ):
+    async def test_public_as_admin(self, client: AsyncClient, admin_token: str):
         """Admin request returns 200 with only public fields."""
         response = await client.get(
             "/api/auth/admin/oidc-config/public",
@@ -347,13 +323,9 @@ class TestSsoConfig:
         assert "client_id" in data
 
     @pytest.mark.asyncio
-    async def test_sso_config_as_authenticated_user(
-        self, client: AsyncClient, operator_token: str
-    ):
+    async def test_sso_config_as_authenticated_user(self, client: AsyncClient, operator_token: str):
         """Authenticated users also get 200 from the public SSO endpoint."""
-        response = await client.get(
-            "/api/auth/sso/config", headers=auth_headers(operator_token)
-        )
+        response = await client.get("/api/auth/sso/config", headers=auth_headers(operator_token))
         assert response.status_code == 200
         data = response.json()
         assert "enabled" in data

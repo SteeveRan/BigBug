@@ -508,3 +508,94 @@ export interface OIDCConfigUpdate {
   public_url?: string | null;
   role_mapping?: Record<string, string>;
 }
+
+// ──── Pipeline Run Types ──────────────────────────────────────────────────
+
+export interface PipelineRun {
+  id: number;
+  gitlab_instance_id: number;
+  gitlab_project_id: number;
+  gitlab_pipeline_id: number | null;
+  triggered_by_user_id: number | null;
+  trigger_type: 'manual' | 'scheduled' | 'webhook';
+  ref: string;
+  variables: Record<string, string>;
+  status_flag: number; // 0=OK, 1=Failed, 3=Running, 4=Pending
+  status_text: string;
+  duration: number | null;
+  web_url: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface PipelineRunCreate {
+  gitlab_instance_id: number;
+  gitlab_project_id: number;
+  ref: string;
+  variables?: Record<string, string>;
+}
+
+export interface PipelineRunList {
+  items: PipelineRun[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+// ──── GitLab Component Types ──────────────────────────────────────────────
+
+export interface GitLabComponent {
+  id: number;
+  name: string;
+  description: string | null;
+  gitlab_instance_id: number;
+  project_path: string;
+  component_path: string;
+  version: string | null;
+  inputs_schema: Record<string, unknown> | null;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GitLabComponentCreate {
+  name: string;
+  description?: string;
+  gitlab_instance_id: number;
+  project_path: string;
+  component_path: string;
+  version?: string;
+  inputs_schema?: Record<string, unknown>;
+}
+
+export interface GitLabComponentUpdate {
+  name?: string;
+  description?: string | null;
+  gitlab_instance_id?: number;
+  project_path?: string;
+  component_path?: string;
+  version?: string | null;
+  inputs_schema?: Record<string, unknown> | null;
+  is_enabled?: boolean;
+}
+
+// ──── Audit Log Types ────────────────────────────────────────────────────────
+
+export interface AuditLog {
+  id: number;
+  user_id: number | null;
+  username: string;
+  action: string;
+  resource_type: string;
+  resource_id: number | null;
+  resource_name: string | null;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface AuditLogList {
+  items: AuditLog[];
+  total: number;
+}

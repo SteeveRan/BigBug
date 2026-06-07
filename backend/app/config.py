@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     # Stale threshold
     default_stale_threshold_days: int = 30
 
+    # Rate Limiting
+    rate_limit_enabled: bool = True
+    rate_limit_login: str = "5/minute"
+    rate_limit_oidc_exchange: str = "3/minute"
+    rate_limit_global: str = "100/minute"
+
     @property
     def keycloak_openid_config_url(self) -> str:
         return f"{self.keycloak_url}/realms/{self.keycloak_realm}/.well-known/openid-configuration"

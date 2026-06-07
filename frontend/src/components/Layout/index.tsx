@@ -26,6 +26,7 @@ import {
   Apps as AppImageIcon,
   Sailing as HelmIcon,
   Dock as DockerIcon,
+  PlayArrow as PipelinesIcon,
   AdminPanelSettings as AdminIcon,
   Settings as SettingsIcon,
   Menu as MenuIcon,
@@ -46,6 +47,7 @@ const navItems = [
   { label: 'App Images', path: '/app-images', icon: <AppImageIcon /> },
   { label: 'Helm Charts', path: '/helm-charts', icon: <HelmIcon /> },
   { label: 'Docker Images', path: '/docker-images', icon: <DockerIcon /> },
+  { label: 'Pipelines', path: '/pipelines', icon: <PipelinesIcon /> },
 ];
 
 const adminItems = [{ label: 'Admin', path: '/admin', icon: <AdminIcon /> }];
@@ -67,7 +69,7 @@ export function Layout() {
   const drawer = (
     <Box>
       <Toolbar>
-        <Typography variant="h6" fontWeight="bold" color="primary">
+        <Typography variant="h6" sx={{ fontWeight: 'bold' }} color="primary">
           BigBug
         </Typography>
       </Toolbar>
@@ -108,6 +110,28 @@ export function Layout() {
                 <SettingsIcon />
               </ListItemIcon>
               <ListItemText primary="Authentication" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={location.pathname === '/settings/pipelines/components'}
+              onClick={() => navigate('/settings/pipelines/components')}
+            >
+              <ListItemIcon>
+                <SettingsIcon />
+              </ListItemIcon>
+              <ListItemText primary="GitLab Components" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={location.pathname === '/settings/audit-log'}
+              onClick={() => navigate('/settings/audit-log')}
+            >
+              <ListItemIcon>
+                <SettingsIcon />
+              </ListItemIcon>
+              <ListItemText primary="Audit Log" />
             </ListItemButton>
           </ListItem>
         </PermissionGate>

@@ -12,6 +12,7 @@ from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_sync_log import HelmSyncLog
 from app.models.image_version import ImageVersion
 from app.models.sync_log import SyncLog
+from app.services import pipeline as pipeline_service
 
 router = APIRouter()
 
@@ -144,5 +145,17 @@ async def gitlab_webhook(
 
         await db.commit()
         return {"status": "ok", "type": "docker_sync_log", "id": docker_sync_log.id}
+
+    # Try to find matching PipelineRun
+    pipeline_run = await pipeline_service.update_pipeline_status(
+        db,
+        gitlab_pipeline_id=int(pipeline_id),
+        status=pipeline_status,
+        web_url=pipeline_url,
+        duration=pipeline.get("duration"),
+    )
+
+    if pipeline_run:
+        return {"status": "ok", "type": "pipeline_run", "id": pipeline_run.id}
 
     return {"status": "ignored", "reason": "no matching log found for pipeline_id"}

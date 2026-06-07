@@ -27,7 +27,7 @@ fi
 cd "$BACKEND_DIR"
 
 echo "=== Running unit tests (tests/unit/) ==="
-"$VENV_PYTHON" -m pytest tests/unit/ -v "$@"
+ENVIRONMENT=test "$VENV_PYTHON" -m pytest tests/unit/ -v "$@"
 
 echo ""
 echo "=== Done ==="
