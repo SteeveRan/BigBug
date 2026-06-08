@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { BrowserRouter } from 'react-router';
+import { App } from 'antd';
 import { HelmChartsPage } from '../../pages/HelmCharts';
 import { api } from '../../store/api';
 import authReducer from '../../store/authSlice';
@@ -79,14 +80,16 @@ describe('HelmChartsPage', () => {
   });
 
   function renderPage() {
-    return render(
-      <Provider store={store}>
-        <BrowserRouter>
-          <HelmChartsPage />
-        </BrowserRouter>
-      </Provider>
-    );
-  }
+      return render(
+        <Provider store={store}>
+          <BrowserRouter>
+            <App>
+              <HelmChartsPage />
+            </App>
+          </BrowserRouter>
+        </Provider>
+      );
+    }
 
   it('renders the Helm Charts heading', () => {
     renderPage();
@@ -114,9 +117,10 @@ describe('HelmChartsPage', () => {
 
     const dialog = within(screen.getByRole('dialog'));
     expect(screen.getByText('Add Helm Chart Source')).toBeInTheDocument();
-    expect(dialog.getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
-    expect(dialog.getByRole('textbox', { name: 'Repository URL' })).toBeInTheDocument();
-    expect(dialog.getByRole('textbox', { name: 'Description' })).toBeInTheDocument();
+    // antd Input uses placeholder
+    expect(dialog.getByPlaceholderText('Name (e.g. stable)')).toBeInTheDocument();
+    expect(dialog.getByPlaceholderText('Repository URL (e.g. https://charts.helm.sh/stable)')).toBeInTheDocument();
+    expect(dialog.getByPlaceholderText('Description')).toBeInTheDocument();
   });
 
   it('submits the create form', async () => {
@@ -130,9 +134,9 @@ describe('HelmChartsPage', () => {
     const dialog = within(screen.getByRole('dialog'));
 
     // Fill the form
-    await user.type(dialog.getByRole('textbox', { name: 'Name' }), 'bitnami');
+    await user.type(dialog.getByPlaceholderText('Name (e.g. stable)'), 'bitnami');
     await user.type(
-      dialog.getByRole('textbox', { name: 'Repository URL' }),
+      dialog.getByPlaceholderText('Repository URL (e.g. https://charts.helm.sh/stable)'),
       'https://charts.bitnami.com/bitnami'
     );
 
@@ -151,7 +155,8 @@ describe('HelmChartsPage', () => {
     renderPage();
 
     // Находим кнопку Refresh (Re-index) по tooltip title
-    const reindexButton = screen.getByRole('button', { name: /Re-index now/i });
+    // Icon-only button with aria-label="reload" icon inside — accessible name is "reload"
+    const reindexButton = screen.getByRole('button', { name: 'reload' });
     await user.click(reindexButton);
 
     expect(mockIndexFn).toHaveBeenCalledWith(1);
@@ -164,8 +169,9 @@ describe('HelmChartsPage', () => {
       isError: false,
     });
 
-    renderPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('shows empty state when no charts', () => {

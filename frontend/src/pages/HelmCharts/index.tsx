@@ -1,26 +1,28 @@
+/**
+ * @file index.tsx
+ * @description Страница списка Helm Charts: таблица с columns/dataSource, модальное окно добавления
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  App,
   Tooltip,
-  IconButton,
-} from '@mui/material';
-import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+  Space,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  PlusOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import {
   useListHelmChartsQuery,
   useCreateHelmChartMutation,
@@ -31,6 +33,7 @@ import { StatusChip } from '../../components/StatusChip';
 
 export function HelmChartsPage() {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { data: charts = [], isLoading } = useListHelmChartsQuery();
   const [createChart] = useCreateHelmChartMutation();
   const [indexChart] = useIndexHelmChartMutation();
@@ -43,143 +46,141 @@ export function HelmChartsPage() {
     setSubmitting(true);
     try {
       await createChart(form).unwrap();
+      message.success('Helm chart source added successfully');
       setDialogOpen(false);
       setForm({ name: '', repo_url: '', description: '' });
+    } catch {
+      // error handled by RTK Query
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleOpenDialog = () => {
+    setForm({ name: '', repo_url: '', description: '' });
+    setDialogOpen(true);
+  };
+
+  const columns: ColumnsType<HelmChartSource> = [
+    {
+      title: 'Name',
+      key: 'name',
+      render: (_: unknown, record: HelmChartSource) => (
+        <Flex vertical>
+          <Typography.Text strong>{record.name}</Typography.Text>
+          {record.description && (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {record.description}
+            </Typography.Text>
+          )}
+        </Flex>
+      ),
+    },
+    {
+      title: 'Repository URL',
+      dataIndex: 'repo_url',
+      key: 'repo_url',
+      render: (val: string) => (
+        <Typography.Text code style={{ fontSize: '0.8rem' }}>
+          {val}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Last Synced',
+      dataIndex: 'last_synced_at',
+      key: 'last_synced_at',
+      render: (val: string | null) =>
+        val ? new Date(val).toLocaleString() : '—',
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: HelmChartSource) => (
+        <StatusChip
+          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+          statusText={record.status_text}
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: HelmChartSource) => (
+        <Tooltip title="Re-index now">
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              indexChart(record.id);
+            }}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
+
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
           Helm Charts
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setForm({ name: '', repo_url: '', description: '' });
-            setDialogOpen(true);
-          }}
-        >
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenDialog}>
           Add Chart Source
         </Button>
-      </Box>
+      </Flex>
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Repository URL</TableCell>
-                <TableCell>Last Synced</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(charts as HelmChartSource[]).map((chart) => (
-                <TableRow
-                  key={chart.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/helm-charts/${chart.id}`)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {chart.name}
-                    </Typography>
-                    {chart.description && (
-                      <Typography variant="caption" color="text.secondary">
-                        {chart.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                    >
-                      {chart.repo_url}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {chart.last_synced_at ? new Date(chart.last_synced_at).toLocaleString() : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip
-                      statusFlag={chart.status_flag as 0 | 1 | 2 | 3 | 4}
-                      statusText={chart.status_text}
-                    />
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Re-index now">
-                      <IconButton size="small" onClick={() => indexChart(chart.id)}>
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {charts.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <Typography color="text.secondary" py={3}>
-                      No Helm chart sources yet. Add one to get started.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={charts as HelmChartSource[]}
+          rowKey="id"
+          loading={isLoading}
+          onRow={(record) => ({
+            onClick: () => navigate(`/helm-charts/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+          pagination={false}
+          locale={{ emptyText: 'No Helm chart sources yet. Add one to get started.' }}
+        />
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Helm Chart Source</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            fullWidth
-            margin="normal"
+      {/* ── Create Modal ────────────────────────────────────────────────────── */}
+      <Modal
+        title="Add Helm Chart Source"
+        open={dialogOpen}
+        onOk={handleCreate}
+        onCancel={() => setDialogOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !form.name || !form.repo_url }}
+        okText="Add"
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="Name (e.g. stable)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="stable"
             required
           />
-          <TextField
-            label="Repository URL"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Repository URL (e.g. https://charts.helm.sh/stable)"
             value={form.repo_url}
             onChange={(e) => setForm({ ...form, repo_url: e.target.value })}
-            placeholder="https://charts.helm.sh/stable"
             required
           />
-          <TextField
-            label="Description"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!form.name || !form.repo_url || submitting}
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Space>
+      </Modal>
+    </Flex>
   );
 }

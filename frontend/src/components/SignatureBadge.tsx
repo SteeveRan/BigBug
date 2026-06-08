@@ -1,46 +1,62 @@
 /**
  * @file SignatureBadge.tsx
- * @description Displays cosign signature status:
- *              - 🔒 Green lock: signed
- *              - 🔓 Gray lock: not signed
- * @dependencies @mui/material, @mui/icons-material
+ * @description Displays cosign signature status using Ant Design Tag.
+ *              - Green: Signed & Verified
+ *              - Orange: Signed only
+ *              - Red: Not Signed
+ *
+ * @dependencies antd, @ant-design/icons
  * @relatedFiles ../pages/GoldImages/index.tsx, ../pages/AppImages/index.tsx
  */
-import React from 'react';
-import { Chip, Tooltip } from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
+import { Tag, Tooltip } from 'antd';
+import { SafetyCertificateOutlined, CheckCircleOutlined } from '@ant-design/icons';
 
 interface SignatureBadgeProps {
-  isSigned: boolean;
+  /** Whether the image is signed (new API) */
+  signed?: boolean;
+  /** Whether the signature is verified (new API) */
+  verified?: boolean;
+  // ── Backward-compatible (old) props ──────────────────────────────────────
+  /** @deprecated Use `signed` instead */
+  isSigned?: boolean;
+  /** @deprecated Raw cosign signature string (shown in tooltip) */
   signature?: string | null;
 }
 
-export const SignatureBadge: React.FC<SignatureBadgeProps> = ({
+export function SignatureBadge({
+  signed,
+  verified,
   isSigned,
   signature,
-}) => {
-  if (isSigned) {
+}: SignatureBadgeProps) {
+  const effectiveSigned = signed ?? isSigned ?? false;
+  const effectiveVerified = verified ?? false;
+
+  if (effectiveSigned && effectiveVerified) {
+    return (
+      <Tooltip title={signature ? `Signed & Verified: ${signature}` : 'Image is signed and verified'}>
+        <Tag icon={<SafetyCertificateOutlined />} color="success">
+          Signed & Verified
+        </Tag>
+      </Tooltip>
+    );
+  }
+
+  if (effectiveSigned) {
     return (
       <Tooltip title={signature ? `Signed: ${signature}` : 'Image is signed with cosign'}>
-        <Chip
-          label="Signed"
-          size="small"
-          color="success"
-          icon={<LockIcon />}
-        />
+        <Tag icon={<CheckCircleOutlined />} color="warning">
+          Signed
+        </Tag>
       </Tooltip>
     );
   }
 
   return (
     <Tooltip title="Image is not signed">
-      <Chip
-        label="Unsigned"
-        size="small"
-        color="default"
-        icon={<LockOpenIcon />}
-      />
+      <Tag color="error">Not Signed</Tag>
     </Tooltip>
   );
-};
+}
+
+export default SignatureBadge;

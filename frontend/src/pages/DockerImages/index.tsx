@@ -1,32 +1,38 @@
+/**
+ * @file index.tsx
+ * @description Страница списка Docker Images: таблица с columns/dataSource, модальное окно добавления
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  IconButton,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  App,
   Tooltip,
-} from '@mui/material';
-import { Add as AddIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import { useListDockerImagesQuery, useCreateDockerImageMutation } from '../../store/api';
+  Space,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  PlusOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
+import {
+  useListDockerImagesQuery,
+  useCreateDockerImageMutation,
+} from '../../store/api';
 import { DockerImageSource } from '../../types';
 import { StatusChip } from '../../components/StatusChip';
 
 export function DockerImagesPage() {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { data: sources = [], isLoading } = useListDockerImagesQuery();
   const [createSource] = useCreateDockerImageMutation();
 
@@ -48,155 +54,146 @@ export function DockerImagesPage() {
         description: form.description || undefined,
         image_name: form.image_name || undefined,
       }).unwrap();
+      message.success('Docker registry added successfully');
       setDialogOpen(false);
       setForm({ name: '', registry_url: '', description: '', image_name: '' });
+    } catch {
+      // error handled by RTK Query
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleOpenDialog = () => {
+    setForm({ name: '', registry_url: '', description: '', image_name: '' });
+    setDialogOpen(true);
+  };
+
+  const columns: ColumnsType<DockerImageSource> = [
+    {
+      title: 'Name',
+      key: 'name',
+      render: (_: unknown, record: DockerImageSource) => (
+        <Flex vertical>
+          <Typography.Text strong>{record.name}</Typography.Text>
+          {record.description && (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {record.description}
+            </Typography.Text>
+          )}
+        </Flex>
+      ),
+    },
+    {
+      title: 'Registry URL',
+      dataIndex: 'registry_url',
+      key: 'registry_url',
+      render: (val: string) => (
+        <Typography.Text code style={{ fontSize: '0.8rem' }}>
+          {val}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Last Synced',
+      dataIndex: 'last_synced_at',
+      key: 'last_synced_at',
+      render: (val: string | null) =>
+        val ? new Date(val).toLocaleString() : '—',
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: DockerImageSource) => (
+        <StatusChip
+          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+          statusText={record.status_text}
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: DockerImageSource) => (
+        <Tooltip title="Go to details">
+          <Button
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/docker-images/${record.id}`);
+            }}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
+
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
           Docker Images
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setForm({ name: '', registry_url: '', description: '', image_name: '' });
-            setDialogOpen(true);
-          }}
-        >
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenDialog}>
           Add Registry
         </Button>
-      </Box>
+      </Flex>
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Registry URL</TableCell>
-                <TableCell>Last Synced</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(sources as DockerImageSource[]).map((source) => (
-                <TableRow
-                  key={source.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/docker-images/${source.id}`)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {source.name}
-                    </Typography>
-                    {source.description && (
-                      <Typography variant="caption" color="text.secondary">
-                        {source.description}
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                    >
-                      {source.registry_url}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {source.last_synced_at ? new Date(source.last_synced_at).toLocaleString() : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip
-                      statusFlag={source.status_flag as 0 | 1 | 2 | 3 | 4}
-                      statusText={source.status_text}
-                    />
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Go to details">
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/docker-images/${source.id}`)}
-                      >
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {sources.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <Typography color="text.secondary" py={3}>
-                      No Docker image sources yet. Add a registry to get started.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={sources as DockerImageSource[]}
+          rowKey="id"
+          loading={isLoading}
+          onRow={(record) => ({
+            onClick: () => navigate(`/docker-images/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+          pagination={false}
+          locale={{ emptyText: 'No Docker image sources yet. Add a registry to get started.' }}
+        />
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Docker Registry</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            fullWidth
-            margin="normal"
+      {/* ── Create Modal ────────────────────────────────────────────────────── */}
+      <Modal
+        title="Add Docker Registry"
+        open={dialogOpen}
+        onOk={handleCreate}
+        onCancel={() => setDialogOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !form.name || !form.registry_url }}
+        okText="Add"
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="Name (e.g. Docker Hub)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Docker Hub"
             required
           />
-          <TextField
-            label="Registry URL"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Registry URL (e.g. https://registry-1.docker.io)"
             value={form.registry_url}
             onChange={(e) => setForm({ ...form, registry_url: e.target.value })}
-            placeholder="https://registry-1.docker.io"
             required
           />
-          <TextField
-            label="Image Name (optional)"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Image Name — optional (e.g. library/nginx)"
             value={form.image_name}
             onChange={(e) => setForm({ ...form, image_name: e.target.value })}
-            placeholder="library/nginx"
-            helperText="Specific image to index immediately after creation"
           />
-          <TextField
-            label="Description"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!form.name || !form.registry_url || submitting}
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Space>
+      </Modal>
+    </Flex>
   );
 }

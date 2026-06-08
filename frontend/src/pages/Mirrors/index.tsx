@@ -1,26 +1,28 @@
+/**
+ * @file index.tsx
+ * @description Страница списка GitLab зеркал: таблица с columns/dataSource, модальное окно импорта
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  App,
   Tooltip,
-  IconButton,
-} from '@mui/material';
-import { Add as AddIcon, PlayArrow as SyncIcon } from '@mui/icons-material';
+  Space,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  PlusOutlined,
+  PlayCircleOutlined,
+} from '@ant-design/icons';
 import {
   useListMirrorsQuery,
   useImportMirrorMutation,
@@ -31,6 +33,7 @@ import { StatusChip } from '../../components/StatusChip';
 
 export function MirrorsPage() {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { data: mirrors = [], isLoading } = useListMirrorsQuery();
   const [importMirror] = useImportMirrorMutation();
   const [triggerSync] = useTriggerSyncMutation();
@@ -44,129 +47,135 @@ export function MirrorsPage() {
     setSubmitting(true);
     try {
       await importMirror({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap();
+      message.success('Mirror imported successfully');
       setDialogOpen(false);
+    } catch {
+      // error handled by RTK Query
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleOpenDialog = () => {
+    setGithubUrl('');
+    setGitlabUrl('');
+    setDialogOpen(true);
+  };
+
+  const columns: ColumnsType<GitlabMirror> = [
+    {
+      title: 'GitLab Project',
+      key: 'project',
+      render: (_: unknown, record: GitlabMirror) => (
+        <Flex vertical>
+          <Typography.Link onClick={() => navigate(`/mirrors/${record.id}`)}>
+            {record.gitlab_name ?? record.gitlab_url}
+          </Typography.Link>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {record.gitlab_namespace}
+          </Typography.Text>
+        </Flex>
+      ),
+    },
+    {
+      title: 'Branch',
+      dataIndex: 'mirrored_branch',
+      key: 'branch',
+    },
+    {
+      title: 'Last Sync',
+      dataIndex: 'last_sync_at',
+      key: 'last_sync_at',
+      render: (val: string | null) =>
+        val ? new Date(val).toLocaleString() : '—',
+    },
+    {
+      title: 'Last Release Tag',
+      dataIndex: 'last_synced_release_tag',
+      key: 'last_synced_release_tag',
+      render: (val: string | null) => val ?? '—',
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: GitlabMirror) => (
+        <StatusChip
+          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+          statusText={record.status_text}
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: GitlabMirror) => (
+        <Tooltip title="Trigger sync now">
+          <Button
+            size="small"
+            icon={<PlayCircleOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerSync(record.id);
+            }}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
+
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
           GitLab Mirrors
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setGithubUrl('');
-            setGitlabUrl('');
-            setDialogOpen(true);
-          }}
-        >
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenDialog}>
           Import Mirror
         </Button>
-      </Box>
+      </Flex>
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>GitLab Project</TableCell>
-                <TableCell>Branch</TableCell>
-                <TableCell>Last Sync</TableCell>
-                <TableCell>Last Release Tag</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(mirrors as GitlabMirror[]).map((mirror) => (
-                <TableRow
-                  key={mirror.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/mirrors/${mirror.id}`)}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {mirror.gitlab_name ?? mirror.gitlab_url}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {mirror.gitlab_namespace}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{mirror.mirrored_branch}</TableCell>
-                  <TableCell>
-                    {mirror.last_sync_at ? new Date(mirror.last_sync_at).toLocaleString() : '—'}
-                  </TableCell>
-                  <TableCell>{mirror.last_synced_release_tag ?? '—'}</TableCell>
-                  <TableCell>
-                    <StatusChip
-                      statusFlag={mirror.status_flag as 0 | 1 | 2 | 3 | 4}
-                      statusText={mirror.status_text}
-                    />
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Trigger sync now">
-                      <IconButton size="small" onClick={() => triggerSync(mirror.id)}>
-                        <SyncIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {mirrors.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography color="text.secondary" py={3}>
-                      No mirrors yet. Import a mirror to get started.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={mirrors as GitlabMirror[]}
+          rowKey="id"
+          loading={isLoading}
+          onRow={(record) => ({
+            onClick: () => navigate(`/mirrors/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+          pagination={false}
+          locale={{ emptyText: 'No mirrors yet. Import a mirror to get started.' }}
+        />
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Import Mirror</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="GitHub URL"
-            fullWidth
-            margin="normal"
+      {/* ── Import Modal ────────────────────────────────────────────────────── */}
+      <Modal
+        title="Import Mirror"
+        open={dialogOpen}
+        onOk={handleImport}
+        onCancel={() => setDialogOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !githubUrl || !gitlabUrl }}
+        okText="Import"
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="https://github.com/owner/repo"
             value={githubUrl}
             onChange={(e) => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/owner/repo"
-            required
           />
-          <TextField
-            label="GitLab URL"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="https://gitlab.example.com/namespace/repo"
             value={gitlabUrl}
             onChange={(e) => setGitlabUrl(e.target.value)}
-            placeholder="https://gitlab.example.com/namespace/repo"
-            required
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleImport}
-            disabled={!githubUrl || !gitlabUrl || submitting}
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Import'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Space>
+      </Modal>
+    </Flex>
   );
 }

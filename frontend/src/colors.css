@@ -1,0 +1,35 @@
+/**
+ * @file colors.css
+ * @description CSS-переменные BigBug для кастомных компонентов вне Ant Design.
+ *              Переключаются через data-атрибут `data-theme` на <html>,
+ *              который устанавливается ThemeContext.
+ * @dependencies none
+ * @relatedFiles contexts/ThemeContext.tsx, theme.ts
+ */
+
+:root,
+[data-theme='dark'] {
+  --bigbug-bg-primary: #0F0F1A;
+  --bigbug-bg-surface: #1A1A2E;
+  --bigbug-bg-elevated: #25253E;
+  --bigbug-bg-sider: #0A0A14;
+  --bigbug-border-color: #2D2D45;
+  --bigbug-text-primary: #F1F0FB;
+  --bigbug-text-secondary: #A0A0B8;
+  --bigbug-brand: #7C3AED;
+  --bigbug-brand-hover: #8B5CF6;
+  --bigbug-brand-text: #A78BFA;
+}
+
+[data-theme='light'] {
+  --bigbug-bg-primary: #FAFAFE;
+  --bigbug-bg-surface: #FFFFFF;
+  --bigbug-bg-elevated: #FFFFFF;
+  --bigbug-bg-sider: #F3F0F8;
+  --bigbug-border-color: #E5E0F0;
+  --bigbug-text-primary: #1A1A2E;
+  --bigbug-text-secondary: #5C5C78;
+  --bigbug-brand: #7C3AED;
+  --bigbug-brand-hover: #6D28D9;
+  --bigbug-brand-text: #6D28D9;
+}

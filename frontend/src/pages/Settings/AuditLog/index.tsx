@@ -1,44 +1,36 @@
 /**
  * @file Settings/AuditLog/index.tsx
- * @description Audit log viewer page with filters, pagination, and detail dialog.
+ * @description Audit log viewer page with filters, pagination, and detail modal.
  *              Shows all mutating operations across the system.
- * @dependencies @mui/material, ../../store/api, ../../types
+ * @dependencies antd, ../../store/api, ../../types
  * @relatedFiles ../../store/api.ts, ../../types/index.ts
  */
 
 import { useState, useCallback } from 'react';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  CircularProgress,
-  Pagination,
-} from '@mui/material';
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  Select,
+  Tag,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import type { AuditLog } from '../../../types';
 import { useGetAuditLogsQuery } from '../../../store/api';
 
-const ACTION_COLORS: Record<string, 'success' | 'primary' | 'error' | 'secondary' | 'warning'> = {
-  create: 'success',
-  update: 'primary',
-  delete: 'error',
-  login: 'secondary',
-  logout: 'secondary',
-  sync: 'warning',
-  build: 'warning',
+const ACTION_COLORS: Record<string, string> = {
+  create: 'green',
+  update: 'blue',
+  delete: 'red',
+  login: 'purple',
+  logout: 'purple',
+  sync: 'orange',
+  build: 'orange',
 };
 
 const ACTION_OPTIONS = [
@@ -75,7 +67,10 @@ export default function AuditLogPage() {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
-  const [filters, setFilters] = useState<Record<string, string | number>>({ page: 1, page_size: 50 });
+  const [filters, setFilters] = useState<Record<string, string | number>>({
+    page: 1,
+    page_size: 50,
+  });
 
   const { data, isLoading, isFetching } = useGetAuditLogsQuery(filters);
 
@@ -89,171 +84,162 @@ export default function AuditLogPage() {
     setPage(1);
   }, [action, resourceType, dateFrom, dateTo]);
 
-  const handlePageChange = useCallback(
-    (_: React.ChangeEvent<unknown>, value: number) => {
-      setPage(value);
-      setFilters((prev) => ({ ...prev, page: value }));
-    },
-    [],
-  );
-
   const pages = data ? Math.ceil(data.total / 50) : 1;
 
+  const columns: ColumnsType<AuditLog> = [
+    {
+      title: 'Timestamp',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (text: string) => formatTimestamp(text),
+    },
+    { title: 'User', dataIndex: 'username', key: 'username' },
+    {
+      title: 'Action',
+      dataIndex: 'action',
+      key: 'action',
+      render: (text: string) => (
+        <Tag color={ACTION_COLORS[text] || 'default'}>{text}</Tag>
+      ),
+    },
+    { title: 'Resource Type', dataIndex: 'resource_type', key: 'resource_type' },
+    {
+      title: 'Resource Name',
+      key: 'resource_name',
+      render: (_: unknown, record: AuditLog) => record.resource_name || '-',
+    },
+    {
+      title: 'Details',
+      key: 'details',
+      render: (_: unknown, record: AuditLog) =>
+        record.details ? (
+          <Button size="small" type="link" onClick={() => setSelectedLog(record)}>
+            View
+          </Button>
+        ) : (
+          '-'
+        ),
+    },
+    {
+      title: 'IP Address',
+      key: 'ip_address',
+      render: (_: unknown, record: AuditLog) => record.ip_address || '-',
+    },
+  ];
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
+    <Flex vertical gap={16}>
+      <Typography.Title level={4} style={{ margin: 0 }}>
         Audit Log
-      </Typography>
+      </Typography.Title>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label="Date From"
+      <Flex gap={12} wrap="wrap" align="center">
+        <Input
           type="datetime-local"
-          size="small"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
+          style={{ width: 200 }}
         />
-        <TextField
-          label="Date To"
+        <Input
           type="datetime-local"
-          size="small"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
+          style={{ width: 200 }}
         />
-        <TextField
-          select
-          label="Action"
-          size="small"
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-          sx={{ minWidth: 130 }}
-        >
-          {ACTION_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Resource Type"
-          size="small"
-          value={resourceType}
-          onChange={(e) => setResourceType(e.target.value)}
-          sx={{ minWidth: 160 }}
-        >
-          {RESOURCE_OPTIONS.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <Button variant="contained" onClick={handleApplyFilters} disabled={isFetching}>
+        <Select
+          placeholder="Action"
+          value={action || undefined}
+          onChange={(v) => setAction(v ?? '')}
+          options={ACTION_OPTIONS}
+          style={{ minWidth: 130 }}
+        />
+        <Select
+          placeholder="Resource Type"
+          value={resourceType || undefined}
+          onChange={(v) => setResourceType(v ?? '')}
+          options={RESOURCE_OPTIONS}
+          style={{ minWidth: 160 }}
+        />
+        <Button type="primary" onClick={handleApplyFilters} loading={isFetching}>
           Apply Filters
         </Button>
-      </Box>
+      </Flex>
 
       {/* Loading */}
       {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <Flex justify="center" style={{ padding: '40px 0' }}>
+          <Spin />
+        </Flex>
       )}
 
       {/* Empty state */}
       {!isLoading && data && data.items.length === 0 && (
-        <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+        <Typography.Text type="secondary" style={{ padding: '40px 0', textAlign: 'center', display: 'block' }}>
           No audit logs found
-        </Typography>
+        </Typography.Text>
       )}
 
-      {/* Table */}
+      {/* Table + Pagination */}
       {!isLoading && data && data.items.length > 0 && (
-        <>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Timestamp</TableCell>
-                  <TableCell>User</TableCell>
-                  <TableCell>Action</TableCell>
-                  <TableCell>Resource Type</TableCell>
-                  <TableCell>Resource Name</TableCell>
-                  <TableCell>Details</TableCell>
-                  <TableCell>IP Address</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.items.map((log) => (
-                  <TableRow key={log.id} hover>
-                    <TableCell>{formatTimestamp(log.created_at)}</TableCell>
-                    <TableCell>{log.username}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={log.action}
-                        size="small"
-                        color={ACTION_COLORS[log.action] || 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>{log.resource_type}</TableCell>
-                    <TableCell>{log.resource_name || '-'}</TableCell>
-                    <TableCell>
-                      {log.details ? (
-                        <Button size="small" onClick={() => setSelectedLog(log)}>
-                          View
-                        </Button>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell>{log.ip_address || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Pagination */}
-          {pages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <Pagination count={pages} page={page} onChange={handlePageChange} />
-            </Box>
-          )}
-        </>
+        <Card>
+          <Table
+            columns={columns}
+            dataSource={data.items}
+            rowKey="id"
+            pagination={
+              pages > 1
+                ? {
+                    current: page,
+                    total: data.total,
+                    pageSize: 50,
+                    onChange: (p) => {
+                      setPage(p);
+                      setFilters((prev) => ({ ...prev, page: p }));
+                    },
+                    showSizeChanger: false,
+                  }
+                : false
+            }
+            size="small"
+          />
+        </Card>
       )}
 
-      {/* Details Dialog */}
-      <Dialog open={Boolean(selectedLog)} onClose={() => setSelectedLog(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Audit Log Details</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Timestamp: {selectedLog && formatTimestamp(selectedLog.created_at)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              User: {selectedLog?.username}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Action: {selectedLog?.action} | Resource: {selectedLog?.resource_type}
-              {selectedLog?.resource_name ? ` / ${selectedLog.resource_name}` : ''}
-            </Typography>
-          </Box>
-          <Paper
-            variant="outlined"
-            sx={{ p: 2, bgcolor: 'grey.100', maxHeight: 400, overflow: 'auto' }}
+      {/* Details Modal */}
+      <Modal
+        title="Audit Log Details"
+        open={Boolean(selectedLog)}
+        onCancel={() => setSelectedLog(null)}
+        footer={[
+          <Button key="close" onClick={() => setSelectedLog(null)}>
+            Close
+          </Button>,
+        ]}
+        width={640}
+      >
+        <Flex vertical gap={8}>
+          <Typography.Text>
+            <strong>Timestamp:</strong> {selectedLog && formatTimestamp(selectedLog.created_at)}
+          </Typography.Text>
+          <Typography.Text>
+            <strong>User:</strong> {selectedLog?.username}
+          </Typography.Text>
+          <Typography.Text>
+            <strong>Action:</strong> {selectedLog?.action} | <strong>Resource:</strong>{' '}
+            {selectedLog?.resource_type}
+            {selectedLog?.resource_name ? ` / ${selectedLog.resource_name}` : ''}
+          </Typography.Text>
+          <Card
+            size="small"
+            styles={{ body: { backgroundColor: '#fafafa', maxHeight: 400, overflow: 'auto' } }}
           >
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {selectedLog?.details ? JSON.stringify(selectedLog.details, null, 2) : 'No details'}
             </pre>
-          </Paper>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSelectedLog(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          </Card>
+        </Flex>
+      </Modal>
+    </Flex>
   );
 }

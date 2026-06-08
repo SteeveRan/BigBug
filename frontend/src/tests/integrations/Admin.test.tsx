@@ -1,7 +1,7 @@
 /**
  * @file Admin.test.tsx
- * @description Unit tests for the Admin page with Users and Roles tabs
- * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router
+ * @description Unit tests for the Admin page with Users and Roles tabs (Ant Design)
+ * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router, antd
  * @relatedFiles ../pages/Admin/index.tsx, ../store/api.ts, ../hooks/usePermissions.ts
  */
 
@@ -12,6 +12,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Store } from '@reduxjs/toolkit';
+import { App } from 'antd';
 
 // ---------------------------------------------------------------------------
 // Mocks — must appear before any imports that use these modules
@@ -111,7 +112,9 @@ function renderAdminPage() {
     ...render(
       <Provider store={store}>
         <BrowserRouter>
-          <AdminPage />
+          <App>
+            <AdminPage />
+          </App>
         </BrowserRouter>
       </Provider>
     ),
@@ -188,10 +191,9 @@ describe('AdminPage', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument();
     expect(screen.getByText('Manage users, roles, and permissions for the BigBug platform.')).toBeInTheDocument();
 
-    // Tabs
-    const tabList = screen.getByRole('tablist');
-    expect(within(tabList).getByText('Users')).toBeInTheDocument();
-    expect(within(tabList).getByText('Roles')).toBeInTheDocument();
+    // antd Tabs render with role="tab"
+    expect(screen.getByRole('tab', { name: 'Users' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Roles' })).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -217,6 +219,7 @@ describe('AdminPage', () => {
 
     renderAdminPage();
 
+    // antd Table renders column headers as <th>
     expect(screen.getByText('Username')).toBeInTheDocument();
     expect(screen.getByText('Email')).toBeInTheDocument();
     // "Roles" appears both in tab and table column header — use getAllByText
@@ -237,7 +240,7 @@ describe('AdminPage', () => {
 
     renderAdminPage();
 
-    // "admin" appears as username and role chip — use getAllByText
+    // "admin" appears as username and role Tag — use getAllByText
     expect(screen.getAllByText('admin').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('admin@bigbug.dev')).toBeInTheDocument();
     expect(screen.getAllByText('operator').length).toBeGreaterThanOrEqual(1);
@@ -261,15 +264,16 @@ describe('AdminPage', () => {
     const addButton = screen.getByText('Add User');
     await userEvent.click(addButton);
 
+    // antd Modal has role="dialog"
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    // "Add User" appears as button text and dialog title — scope to dialog
+    // "Add User" appears as button text (still in DOM) AND dialog title — scope to dialog
     expect(within(dialog).getByText('Add User')).toBeInTheDocument();
 
-    // Form fields
-    expect(screen.getByLabelText(/^Username/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Email/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Password/)).toBeInTheDocument();
+    // Form fields — use placeholders since antd Input has no label
+    expect(within(dialog).getByPlaceholderText('Username')).toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText('Email')).toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText('Password')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -278,10 +282,12 @@ describe('AdminPage', () => {
   it('switches to Roles tab and shows Role Management', async () => {
     renderAdminPage();
 
+    // antd Tabs — click the tab by role
     const rolesTab = screen.getByRole('tab', { name: 'Roles' });
     await userEvent.click(rolesTab);
 
     expect(screen.getByText('Role Management')).toBeInTheDocument();
+    // "Create Role" appears once as a button in empty Roles tab
     expect(screen.getByText('Create Role')).toBeInTheDocument();
   });
 
@@ -349,13 +355,16 @@ describe('AdminPage', () => {
     const rolesTab = screen.getByRole('tab', { name: 'Roles' });
     await userEvent.click(rolesTab);
 
-    // Find the row containing "Builtin" badge
-    const rows = screen.getAllByRole('row');
-    const builtinRow = rows.find((row) => within(row).queryByText('Builtin'));
+    // Find the row containing "Builtin" Tag — antd uses .ant-table-row
+    const rows = document.querySelectorAll('.ant-table-row');
+    let builtinRow: Element | null = null;
+    rows.forEach((row) => {
+      if (row.textContent?.includes('Builtin')) builtinRow = row;
+    });
     expect(builtinRow).toBeTruthy();
 
-    // All IconButtons in the builtin row should be disabled
-    const buttons = within(builtinRow!).getAllByRole('button');
+    // All tooltip-wrapped buttons in the builtin row should be disabled
+    const buttons = builtinRow!.querySelectorAll('button');
     expect(buttons.length).toBeGreaterThanOrEqual(2);
     buttons.forEach((btn) => expect(btn).toBeDisabled());
   });
@@ -376,13 +385,17 @@ describe('AdminPage', () => {
     const rolesTab = screen.getByRole('tab', { name: 'Roles' });
     await userEvent.click(rolesTab);
 
-    // Find the row containing "Custom" badge
-    const rows = screen.getAllByRole('row');
-    const customRow = rows.find((row) => within(row).queryByText('Custom'));
+    // Find the row containing "Custom" Tag
+    // Find the row containing "Custom" Tag
+    const rowsForCustom = document.querySelectorAll('.ant-table-row');
+    let customRow: Element | null = null;
+    rowsForCustom.forEach((row) => {
+      if (row.textContent?.includes('Custom')) customRow = row;
+    });
     expect(customRow).toBeTruthy();
 
-    // All IconButtons in the custom row should be enabled
-    const buttons = within(customRow!).getAllByRole('button');
+    // All buttons in the custom row should be enabled
+    const buttons = customRow!.querySelectorAll('button');
     expect(buttons.length).toBeGreaterThanOrEqual(2);
     buttons.forEach((btn) => expect(btn).not.toBeDisabled());
   });
@@ -401,14 +414,14 @@ describe('AdminPage', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    // "Create Role" appears as button text and dialog title — scope to dialog
+    // "Create Role" appears as button text (still visible) AND dialog title — scope to dialog
     expect(within(dialog).getByText('Create Role')).toBeInTheDocument();
-    // "Permissions" appears as table column header AND dialog subtitle — scope to dialog
+    // "Permissions" as section heading
     expect(within(dialog).getByText('Permissions')).toBeInTheDocument();
 
-    // Name and Description fields — MUI adds asterisk for required fields
-    expect(screen.getByLabelText(/^Name/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toBeInTheDocument();
+    // Name and Description fields — use placeholders
+    expect(within(dialog).getByPlaceholderText('Name')).toBeInTheDocument();
+    expect(within(dialog).getByPlaceholderText('Description')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -427,17 +440,20 @@ describe('AdminPage', () => {
     const rolesTab = screen.getByRole('tab', { name: 'Roles' });
     await userEvent.click(rolesTab);
 
-    // Find the row containing "Custom" badge, then click the first enabled button
-    const rows = screen.getAllByRole('row');
-    const customRow = rows.find((row) => within(row).queryByText('Custom'));
+    // Find the row containing "Custom" Tag, then click the first enabled button
+    const rows = document.querySelectorAll('.ant-table-row');
+    let customRow: Element | null = null;
+    rows.forEach((row) => {
+      if (row.textContent?.includes('Custom')) customRow = row;
+    });
     expect(customRow).toBeTruthy();
-    const buttons = within(customRow!).getAllByRole('button');
-    // First button is Edit (EditIcon), second is Delete (DeleteIcon)
+    const buttons = customRow!.querySelectorAll('button');
+    // First button is Edit, second is Delete
     await userEvent.click(buttons[0]);
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText(/Edit Role: dev_lead/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Edit Role: dev_lead/)).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

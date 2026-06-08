@@ -1,243 +1,256 @@
-import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router';
+import { Layout as AntLayout, Menu, Dropdown, Avatar, Tag, Typography, Button, Space } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-  Box,
-  Drawer,
-  AppBar,
-  Toolbar,
-  Typography,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  Avatar,
-  Menu,
-  MenuItem,
-  Divider,
-  Chip,
-} from '@mui/material';
-import {
-  Dashboard as DashboardIcon,
-  GitHub as GitHubIcon,
-  SwapHoriz as MirrorIcon,
-  Layers as GoldImageIcon,
-  Apps as AppImageIcon,
-  Sailing as HelmIcon,
-  Dock as DockerIcon,
-  PlayArrow as PipelinesIcon,
-  AdminPanelSettings as AdminIcon,
-  Settings as SettingsIcon,
-  Menu as MenuIcon,
-  Logout as LogoutIcon,
-  Person as PersonIcon,
-} from '@mui/icons-material';
+  DashboardOutlined,
+  SyncOutlined,
+  GithubOutlined,
+  CodeOutlined,
+  ContainerOutlined,
+  BuildOutlined,
+  GoldOutlined,
+  AppstoreOutlined,
+  ThunderboltOutlined,
+  PlayCircleOutlined,
+  BlockOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  ApiOutlined,
+  LockOutlined,
+  AuditOutlined,
+  LogoutOutlined,
+  UserOutlined,
+  SunOutlined,
+  MoonOutlined,
+} from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../store/authSlice';
-import { PermissionGate } from '../PermissionGate';
+import { useThemeMode } from '../../contexts/ThemeContext';
 
-const DRAWER_WIDTH = 240;
+const { Header, Content, Sider } = AntLayout;
 
-const navItems = [
-  { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
-  { label: 'Projects', path: '/projects', icon: <GitHubIcon /> },
-  { label: 'Mirrors', path: '/mirrors', icon: <MirrorIcon /> },
-  { label: 'Gold Images', path: '/gold-images', icon: <GoldImageIcon /> },
-  { label: 'App Images', path: '/app-images', icon: <AppImageIcon /> },
-  { label: 'Helm Charts', path: '/helm-charts', icon: <HelmIcon /> },
-  { label: 'Docker Images', path: '/docker-images', icon: <DockerIcon /> },
-  { label: 'Pipelines', path: '/pipelines', icon: <PipelinesIcon /> },
-];
+/**
+ * @file Layout/index.tsx
+ * @description Главный каркас приложения BigBug.
+ *              Sider с новым многоуровневым меню (группы: Mirroring, Builds, Pipelines, Administration).
+ *              Header с градиентным логотипом, ThemeToggle и пользовательским Dropdown.
+ *              Поддерживает светлую/тёмную тему через useThemeMode().
+ * @dependencies antd, @ant-design/icons, react-router, @reduxjs/toolkit, ../../contexts/ThemeContext
+ * @relatedFiles ../../store/index.ts, ../../store/authSlice.ts, ../../contexts/ThemeContext.tsx, ../../theme.ts
+ */
 
-const adminItems = [{ label: 'Admin', path: '/admin', icon: <AdminIcon /> }];
+/**
+ * Compute the selected menu key from the current URL path.
+ * For detail pages (/mirroring/repositories/123), returns the parent prefix (/mirroring/repositories).
+ */
+function computeSelectedKey(pathname: string): string[] {
+  // Remove trailing slash
+  const normalized = pathname.replace(/\/$/, '') || '/';
+
+  // Top-level exact matches
+  if (normalized === '/overview') return ['/overview'];
+
+  // For nested paths — match the first two segments as the parent menu key
+  // e.g. /mirroring/repositories/123 → /mirroring/repositories
+  // e.g. /admin/users → /admin/users
+  const segments = normalized.split('/').filter(Boolean);
+  if (segments.length >= 2) {
+    const parentKey = '/' + segments.slice(0, 2).join('/');
+    return [parentKey];
+  }
+
+  return [normalized];
+}
 
 export function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
-  const isAdmin = user?.roles.includes('admin') ?? false;
+  const { mode, toggleTheme } = useThemeMode();
+
+  const isDark = mode === 'dark';
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
   };
 
-  const drawer = (
-    <Box>
-      <Toolbar>
-        <Typography variant="h6" sx={{ fontWeight: 'bold' }} color="primary">
-          BigBug
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {navItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-      <Divider />
-      <List>
-        <PermissionGate permission="integrations:manage">
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname === '/settings/integrations'}
-              onClick={() => navigate('/settings/integrations')}
-            >
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="Integrations" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname === '/settings/authentication'}
-              onClick={() => navigate('/settings/authentication')}
-            >
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="Authentication" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname === '/settings/pipelines/components'}
-              onClick={() => navigate('/settings/pipelines/components')}
-            >
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="GitLab Components" />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={location.pathname === '/settings/audit-log'}
-              onClick={() => navigate('/settings/audit-log')}
-            >
-              <ListItemIcon>
-                <SettingsIcon />
-              </ListItemIcon>
-              <ListItemText primary="Audit Log" />
-            </ListItemButton>
-          </ListItem>
-        </PermissionGate>
-      </List>
-      {isAdmin && (
-        <>
-          <Divider />
-          <List>
-            {adminItems.map((item) => (
-              <ListItem key={item.path} disablePadding>
-                <ListItemButton
-                  selected={location.pathname === item.path}
-                  onClick={() => navigate(item.path)}
-                >
-                  <ListItemIcon>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-    </Box>
-  );
+  const selectedKeys = computeSelectedKey(location.pathname);
+
+  // ── Menu items ─────────────────────────────────────────────
+  const menuItems: MenuProps['items'] = [
+    {
+      key: '/overview',
+      icon: <DashboardOutlined />,
+      label: 'Overview',
+    },
+    {
+      key: 'group-mirroring',
+      label: (
+        <span>
+          <SyncOutlined style={{ marginRight: 8 }} />
+          Mirroring
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/mirroring/repositories', icon: <GithubOutlined />, label: 'Repositories' },
+        { key: '/mirroring/helm-charts', icon: <CodeOutlined />, label: 'Helm Charts' },
+        { key: '/mirroring/docker-images', icon: <ContainerOutlined />, label: 'Docker Images' },
+      ],
+    },
+    {
+      key: 'group-builds',
+      label: (
+        <span>
+          <BuildOutlined style={{ marginRight: 8 }} />
+          Builds
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/builds/gold-images', icon: <GoldOutlined />, label: 'Gold Images' },
+        { key: '/builds/app-images', icon: <AppstoreOutlined />, label: 'App Images' },
+      ],
+    },
+    {
+      key: 'group-pipelines',
+      label: (
+        <span>
+          <ThunderboltOutlined style={{ marginRight: 8 }} />
+          Pipelines
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/pipelines/runs', icon: <PlayCircleOutlined />, label: 'Pipeline Runs' },
+        { key: '/pipelines/components', icon: <BlockOutlined />, label: 'GitLab Components' },
+      ],
+    },
+    {
+      key: 'group-administration',
+      label: (
+        <span>
+          <SafetyOutlined style={{ marginRight: 8 }} />
+          Administration
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/admin/users', icon: <TeamOutlined />, label: 'Users & Roles' },
+        { key: '/admin/integrations', icon: <ApiOutlined />, label: 'Integrations' },
+        { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
+        { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
+      ],
+    },
+  ];
+
+  // ── User dropdown ──────────────────────────────────────────
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Sign Out',
+      onClick: handleLogout,
+    },
+  ];
+
+  const roleColorMap: Record<string, string> = {
+    admin: 'red',
+    operator: 'blue',
+    viewer: 'green',
+  };
+
+  const userRole = user?.roles[0] ?? 'viewer';
+
+  // Theme-aware colors matching theme.ts tokens
+  const headerBg = isDark ? '#1A1A2E' : '#FFFFFF';
+  const headerTextColor = isDark ? '#F1F0FB' : '#1A1A2E';
+  const headerSecondaryText = isDark ? '#A0A0B8' : '#5C5C78';
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }} elevation={1}>
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+    <AntLayout style={{ minHeight: '100vh' }}>
+      <Sider collapsible breakpoint="lg">
+        <div
+          style={{
+            height: 48,
+            margin: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Typography.Title
+            level={4}
+            style={{
+              margin: 0,
+              background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 50%, #C4B5FD 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
           >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            DevOps Sync & Build Service
-          </Typography>
-          {user && (
-            <>
-              <Chip
-                label={user.roles[0] ?? 'viewer'}
-                size="small"
-                color="secondary"
-                sx={{ mr: 2, textTransform: 'capitalize' }}
-              />
-              <IconButton color="inherit" onClick={(e) => setAnchorEl(e.currentTarget)}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                  {user.username[0].toUpperCase()}
-                </Avatar>
-              </IconButton>
-              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-                <MenuItem disabled>
-                  <PersonIcon sx={{ mr: 1 }} fontSize="small" />
-                  {user.username}
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleLogout}>
-                  <LogoutIcon sx={{ mr: 1 }} fontSize="small" />
-                  Logout
-                </MenuItem>
-              </Menu>
-            </>
-          )}
-        </Toolbar>
-      </AppBar>
-
-      <Box component="nav" sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}>
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { width: DRAWER_WIDTH },
+            BigBug
+          </Typography.Title>
+        </div>
+        <Menu
+          theme={isDark ? 'dark' : 'light'}
+          mode="inline"
+          selectedKeys={selectedKeys}
+          items={menuItems}
+          onClick={({ key }) => navigate(key)}
+        />
+      </Sider>
+      <AntLayout>
+        <Header
+          style={{
+            padding: '0 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: headerBg,
           }}
         >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
-          mt: '64px',
-          minHeight: 'calc(100vh - 64px)',
-        }}
-      >
-        <Outlet />
-      </Box>
-    </Box>
+          <Space>
+            <Typography.Title
+              level={4}
+              style={{ margin: 0, color: headerTextColor }}
+            >
+              BigBug
+            </Typography.Title>
+          </Space>
+          <Space size="middle">
+            <Button
+              type="text"
+              icon={isDark ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggleTheme}
+              style={{ color: headerSecondaryText }}
+              title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            />
+            {user && (
+              <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Avatar size="small" icon={<UserOutlined />}>
+                    {user.username[0].toUpperCase()}
+                  </Avatar>
+                  <span style={{ color: headerTextColor }}>{user.username}</span>
+                  <Tag color={roleColorMap[userRole] ?? 'default'}>{userRole}</Tag>
+                </div>
+              </Dropdown>
+            )}
+          </Space>
+        </Header>
+        <Content style={{ padding: 24 }}>
+          <Outlet />
+        </Content>
+      </AntLayout>
+    </AntLayout>
   );
 }

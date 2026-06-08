@@ -3,48 +3,37 @@
  * @description Admin page with two tabs: Users and Roles management.
  *              Roles tab provides full CRUD with 34 permission checkboxes
  *              grouped by resource, builtin-role protection, and delete confirmation.
- * @dependencies @mui/material, @mui/icons-material, ../../store/api, ../../types, ../../components/PermissionGate
+ * @dependencies antd, @ant-design/icons, ../../store/api, ../../types, ../../components/PermissionGate
  * @relatedFiles ../../store/api.ts, ../../types/index.ts, ../../components/PermissionGate.tsx
  */
 
 import { useState, useCallback } from 'react';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  IconButton,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  Select,
   Switch,
-  FormControlLabel,
-  FormGroup,
   Checkbox,
   Tooltip,
-  Snackbar,
-  Alert,
+  App,
   Tabs,
-  Tab,
-} from '@mui/material';
+  Tag,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Lock as LockIcon,
-} from '@mui/icons-material';
+  PlusOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  LockOutlined,
+} from '@ant-design/icons';
 
-import type { Role, RoleCreate, RoleUpdate } from '../../types';
+import type { Role, RoleCreate, RoleUpdate, User } from '../../types';
 import {
   useListUsersQuery,
   useCreateUserMutation,
@@ -56,7 +45,6 @@ import {
   useDeleteRoleMutation,
 } from '../../store/api';
 import { PermissionGate } from '../../components/PermissionGate';
-import type { User } from '../../types';
 
 // ─── Permission groups (34 permissions in 9 resource groups) ────────────────
 
@@ -129,26 +117,17 @@ function permissionLabel(perm: string): string {
   return `${action} → ${resource}`;
 }
 
-// ─── Snackbar state ──────────────────────────────────────────────────────────
-
-interface SnackbarState {
-  open: boolean;
-  message: string;
-  severity: 'success' | 'error';
-}
-
-const EMPTY_SNACKBAR: SnackbarState = { open: false, message: '', severity: 'success' };
-
-// ─── Tab panel helper ────────────────────────────────────────────────────────
-
-function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
-  if (value !== index) return null;
-  return <Box sx={{ pt: 3 }}>{children}</Box>;
+/** Map MUI chip colour semantics to Ant Design Tag colour values */
+function roleTagColor(role: string): string {
+  if (role === 'admin') return 'red';
+  if (role === 'operator') return 'orange';
+  return 'default';
 }
 
 // ─── Users Tab ───────────────────────────────────────────────────────────────
 
 function UsersTab() {
+  const { message, modal } = App.useApp();
   const { data: users = [], isLoading } = useListUsersQuery();
   const [createUser] = useCreateUserMutation();
   const [updateUser] = useUpdateUserMutation();
@@ -157,11 +136,6 @@ function UsersTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ username: '', email: '', password: '', roles: 'viewer' });
   const [submitting, setSubmitting] = useState(false);
-  const [snackbar, setSnackbar] = useState<SnackbarState>(EMPTY_SNACKBAR);
-
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
 
   const handleCreate = async () => {
     setSubmitting(true);
@@ -174,13 +148,13 @@ function UsersTab() {
       }).unwrap();
       setCreateOpen(false);
       setForm({ username: '', email: '', password: '', roles: 'viewer' });
-      showSnackbar(`User "${form.username}" created successfully`, 'success');
+      message.success(`User "${form.username}" created successfully`);
     } catch (err: unknown) {
-      const message =
+      const detail =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to create user')
           : 'Failed to create user';
-      showSnackbar(message, 'error');
+      message.error(detail);
     } finally {
       setSubmitting(false);
     }
@@ -189,199 +163,184 @@ function UsersTab() {
   const handleToggleActive = async (user: User) => {
     try {
       await updateUser({ id: user.id, data: { is_active: !user.is_active } }).unwrap();
-      showSnackbar(
+      message.success(
         `User "${user.username}" ${user.is_active ? 'deactivated' : 'activated'}`,
-        'success'
       );
     } catch (err: unknown) {
-      const message =
+      const detail =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to update user')
           : 'Failed to update user';
-      showSnackbar(message, 'error');
+      message.error(detail);
     }
   };
 
-  const handleDelete = async (user: User) => {
-    if (!confirm(`Delete user "${user.username}"?`)) return;
-    try {
-      await deleteUser(user.id).unwrap();
-      showSnackbar(`User "${user.username}" deleted`, 'success');
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'data' in err
-          ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to delete user')
-          : 'Failed to delete user';
-      showSnackbar(message, 'error');
-    }
+  const handleDelete = (user: User) => {
+    modal.confirm({
+      title: 'Delete User',
+      content: `Are you sure you want to delete user "${user.username}"?`,
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          await deleteUser(user.id).unwrap();
+          message.success(`User "${user.username}" deleted`);
+        } catch (err: unknown) {
+          const detail =
+            err && typeof err === 'object' && 'data' in err
+              ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to delete user')
+              : 'Failed to delete user';
+          message.error(detail);
+        }
+      },
+    });
   };
 
-  const roleColor = (role: string): 'error' | 'warning' | 'default' => {
-    if (role === 'admin') return 'error';
-    if (role === 'operator') return 'warning';
-    return 'default';
-  };
+  const columns: ColumnsType<User> = [
+    {
+      title: 'Username',
+      key: 'username',
+      render: (_: unknown, record: User) => (
+        <Typography.Text strong>{record.username}</Typography.Text>
+      ),
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: 'Roles',
+      key: 'roles',
+      render: (_: unknown, record: User) => (
+        <Flex gap={4} wrap="wrap">
+          {record.roles.map((role) => (
+            <Tag key={role} color={roleTagColor(role)}>
+              {role}
+            </Tag>
+          ))}
+        </Flex>
+      ),
+    },
+    {
+      title: 'Active',
+      key: 'active',
+      render: (_: unknown, record: User) => (
+        <Switch
+          checked={record.is_active}
+          onChange={() => handleToggleActive(record)}
+          size="small"
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: User) => (
+        <Tooltip title="Delete user">
+          <Button
+            size="small"
+            danger
+            type="text"
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">User Management</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+    <Flex vertical gap={16}>
+      {/* Header */}
+      <Flex justify="space-between" align="center">
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          User Management
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
           Add User
         </Button>
-      </Box>
+      </Flex>
 
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Username</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Roles</TableCell>
-                <TableCell>Active</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(users as User[]).map((user) => (
-                <TableRow key={user.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {user.username}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {user.roles.map((role) => (
-                        <Chip key={role} label={role} size="small" color={roleColor(role)} />
-                      ))}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={user.is_active}
-                      onChange={() => handleToggleActive(user)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Delete user">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(user)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {users.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    <Typography color="text.secondary" sx={{ py: 3 }}>
-                      No users found
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* Table */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={users as User[]}
+          rowKey="id"
+          loading={isLoading}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: 'No users found' }}
+        />
+      </Card>
 
-      {/* Create User Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add User</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Username"
-            fullWidth
-            margin="normal"
+      {/* Create User Modal */}
+      <Modal
+        title="Add User"
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setCreateOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="create"
+            type="primary"
+            loading={submitting}
+            onClick={handleCreate}
+            disabled={!form.username || !form.email || !form.password || submitting}
+          >
+            Create
+          </Button>,
+        ]}
+      >
+        <Flex vertical gap={16}>
+          <Input
+            placeholder="Username"
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             required
           />
-          <TextField
-            label="Email"
+          <Input
+            placeholder="Email"
             type="email"
-            fullWidth
-            margin="normal"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
           />
-          <TextField
-            label="Password"
-            type="password"
-            fullWidth
-            margin="normal"
+          <Input.Password
+            placeholder="Password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
           />
-          <TextField
-            select
-            label="Role"
-            fullWidth
-            margin="normal"
+          <Select
             value={form.roles}
-            onChange={(e) => setForm({ ...form, roles: e.target.value })}
-            slotProps={{ select: { native: true } }}
-          >
-            <option value="viewer">Viewer</option>
-            <option value="operator">Operator</option>
-            <option value="admin">Admin</option>
-          </TextField>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={!form.username || !form.email || !form.password || submitting}
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(EMPTY_SNACKBAR)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar(EMPTY_SNACKBAR)}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+            onChange={(v) => setForm({ ...form, roles: v })}
+            options={[
+              { label: 'Viewer', value: 'viewer' },
+              { label: 'Operator', value: 'operator' },
+              { label: 'Admin', value: 'admin' },
+            ]}
+            style={{ width: '100%' }}
+          />
+        </Flex>
+      </Modal>
+    </Flex>
   );
 }
 
 // ─── Roles Tab ───────────────────────────────────────────────────────────────
 
 function RolesTab() {
+  const { message } = App.useApp();
   const { data: roles = [], isLoading } = useGetAllRolesQuery();
   const [createRole] = useCreateRoleMutation();
   const [updateRole] = useUpdateRoleMutation();
   const [deleteRole] = useDeleteRoleMutation();
-
-  // Snackbar
-  const [snackbar, setSnackbar] = useState<SnackbarState>(EMPTY_SNACKBAR);
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
 
   // Create/Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -402,34 +361,32 @@ function RolesTab() {
     (group: PermissionGroup): boolean => {
       return group.permissions.every((p) => selectedPermissions.includes(p));
     },
-    [selectedPermissions]
+    [selectedPermissions],
   );
 
   const isGroupSomeSelected = useCallback(
     (group: PermissionGroup): boolean => {
       return group.permissions.some((p) => selectedPermissions.includes(p));
     },
-    [selectedPermissions]
+    [selectedPermissions],
   );
 
   const handleToggleGroup = useCallback(
     (group: PermissionGroup, select: boolean) => {
       setSelectedPermissions((prev) => {
         if (select) {
-          // Add all group permissions not already selected
           const toAdd = group.permissions.filter((p) => !prev.includes(p));
           return [...prev, ...toAdd];
         }
-        // Remove all group permissions
         return prev.filter((p) => !group.permissions.includes(p));
       });
     },
-    []
+    [],
   );
 
   const handleTogglePermission = useCallback((perm: string) => {
     setSelectedPermissions((prev) =>
-      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]
+      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm],
     );
   }, []);
 
@@ -470,7 +427,7 @@ function RolesTab() {
           permission_names: selectedPermissions,
         };
         await updateRole({ id: editingRole.id, data }).unwrap();
-        showSnackbar(`Role "${dialogName.trim()}" updated successfully`, 'success');
+        message.success(`Role "${dialogName.trim()}" updated successfully`);
       } else {
         const data: RoleCreate = {
           name: dialogName.trim(),
@@ -478,15 +435,15 @@ function RolesTab() {
           permission_names: selectedPermissions,
         };
         await createRole(data).unwrap();
-        showSnackbar(`Role "${dialogName.trim()}" created successfully`, 'success');
+        message.success(`Role "${dialogName.trim()}" created successfully`);
       }
       handleCloseDialog();
     } catch (err: unknown) {
-      const message =
+      const detail =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to save role')
           : 'Failed to save role';
-      showSnackbar(message, 'error');
+      message.error(detail);
     } finally {
       setIsSaving(false);
     }
@@ -509,313 +466,276 @@ function RolesTab() {
     setIsDeleting(true);
     try {
       await deleteRole(deletingRole.id).unwrap();
-      showSnackbar(`Role "${deletingRole.name}" deleted successfully`, 'success');
+      message.success(`Role "${deletingRole.name}" deleted successfully`);
       handleCloseDelete();
     } catch (err: unknown) {
-      const message =
+      const detail =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to delete role')
           : 'Failed to delete role';
-      showSnackbar(message, 'error');
+      message.error(detail);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // ─── Permission label lookup ──────────────────────────────────────────────
+  // ─── Table columns ────────────────────────────────────────────────────────
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const columns: ColumnsType<Role> = [
+    {
+      title: 'Name',
+      key: 'name',
+      render: (_: unknown, record: Role) => (
+        <Flex align="center" gap={8}>
+          {!record.is_custom && (
+            <Tooltip title="Built-in role — cannot be modified">
+              <LockOutlined style={{ color: 'rgba(0,0,0,0.45)' }} />
+            </Tooltip>
+          )}
+          <Typography.Text strong>{record.name}</Typography.Text>
+        </Flex>
+      ),
+    },
+    {
+      title: 'Description',
+      key: 'description',
+      render: (_: unknown, record: Role) => (
+        <Typography.Text type="secondary">
+          {record.description ?? '—'}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Type',
+      key: 'type',
+      render: (_: unknown, record: Role) => (
+        <Tag color={record.is_custom ? 'blue' : 'default'}>
+          {record.is_custom ? 'Custom' : 'Builtin'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Permissions',
+      key: 'permissions',
+      render: (_: unknown, record: Role) => (
+        <Tag>{record.permissions.length}</Tag>
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: Role) => (
+        <Flex gap={4} justify="flex-end">
+          <PermissionGate permission="roles:write">
+            <Tooltip
+              title={record.is_custom ? 'Edit role' : 'Built-in roles cannot be edited'}
+            >
+              <Button
+                size="small"
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => handleOpenEdit(record)}
+                disabled={!record.is_custom}
+              />
+            </Tooltip>
+          </PermissionGate>
+          <PermissionGate permission="roles:delete">
+            <Tooltip
+              title={record.is_custom ? 'Delete role' : 'Built-in roles cannot be deleted'}
+            >
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleOpenDelete(record)}
+                disabled={!record.is_custom}
+              />
+            </Tooltip>
+          </PermissionGate>
+        </Flex>
+      ),
+    },
+  ];
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
-      </Box>
+      <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Spin />
+      </Flex>
     );
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">Role Management</Typography>
+    <Flex vertical gap={16}>
+      {/* Header */}
+      <Flex justify="space-between" align="center">
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          Role Management
+        </Typography.Title>
         <PermissionGate permission="roles:write">
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenCreate}>
             Create Role
           </Button>
         </PermissionGate>
-      </Box>
+      </Flex>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Permissions</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {(roles as Role[]).map((role) => (
-              <TableRow key={role.id} hover>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {!role.is_custom && (
-                      <Tooltip title="Built-in role — cannot be modified">
-                        <LockIcon fontSize="small" color="action" />
-                      </Tooltip>
-                    )}
-                    <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                      {role.name}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {role.description ?? '—'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={role.is_custom ? 'Custom' : 'Builtin'}
-                    size="small"
-                    color={role.is_custom ? 'primary' : 'default'}
-                    variant={role.is_custom ? 'filled' : 'outlined'}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={`${role.permissions.length}`}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <PermissionGate permission="roles:write">
-                    <Tooltip title={role.is_custom ? 'Edit role' : 'Built-in roles cannot be edited'}>
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenEdit(role)}
-                          disabled={!role.is_custom}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </PermissionGate>
-                  <PermissionGate permission="roles:delete">
-                    <Tooltip title={role.is_custom ? 'Delete role' : 'Built-in roles cannot be deleted'}>
-                      <span>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleOpenDelete(role)}
-                          disabled={!role.is_custom}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                  </PermissionGate>
-                </TableCell>
-              </TableRow>
-            ))}
-            {roles.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Typography color="text.secondary" sx={{ py: 3 }}>
-                    No roles found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* Table */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={roles as Role[]}
+          rowKey="id"
+          pagination={false}
+          size="small"
+          locale={{ emptyText: 'No roles found' }}
+        />
+      </Card>
 
-      {/* ─── Create / Edit Role Dialog ─────────────────────────────────────── */}
-      <Dialog
+      {/* ─── Create / Edit Role Modal ──────────────────────────────────────── */}
+      <Modal
+        title={editingRole ? `Edit Role: ${editingRole.name}` : 'Create Role'}
         open={dialogOpen}
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          {editingRole ? `Edit Role: ${editingRole.name}` : 'Create Role'}
-        </DialogTitle>
-        <DialogContent dividers>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Name & Description */}
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <TextField
-                label="Name"
-                value={dialogName}
-                onChange={(e) => setDialogName(e.target.value)}
-                required
-                disabled={isSaving}
-                sx={{ flex: '1 1 240px' }}
-                helperText="Lowercase, alphanumeric with underscores (e.g. dev_lead)"
-              />
-              <TextField
-                label="Description"
-                value={dialogDescription}
-                onChange={(e) => setDialogDescription(e.target.value)}
-                disabled={isSaving}
-                sx={{ flex: '2 1 360px' }}
-                helperText="Optional. Human-readable description of the role."
-              />
-            </Box>
-
-            {/* Permissions grouped by resource */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Permissions
-              </Typography>
-              {PERMISSION_GROUPS.map((group) => (
-                <Paper
-                  key={group.label}
-                  variant="outlined"
-                  sx={{ p: 1.5, mb: 1.5 }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      mb: 0.5,
-                    }}
-                  >
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                      {group.label}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={() => handleToggleGroup(group, true)}
-                        disabled={isSaving || isGroupAllSelected(group)}
-                        sx={{ minWidth: 'auto', textTransform: 'none' }}
-                      >
-                        Select All
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="text"
-                        onClick={() => handleToggleGroup(group, false)}
-                        disabled={isSaving || !isGroupSomeSelected(group)}
-                        sx={{ minWidth: 'auto', textTransform: 'none' }}
-                      >
-                        Deselect All
-                      </Button>
-                    </Box>
-                  </Box>
-                  <FormGroup row>
-                    {group.permissions.map((perm) => (
-                      <FormControlLabel
-                        key={perm}
-                        control={
-                          <Checkbox
-                            checked={selectedPermissions.includes(perm)}
-                            onChange={() => handleTogglePermission(perm)}
-                            disabled={isSaving}
-                            size="small"
-                          />
-                        }
-                        label={permissionLabel(perm)}
-                        sx={{ minWidth: 180 }}
-                      />
-                    ))}
-                  </FormGroup>
-                </Paper>
-              ))}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} disabled={isSaving}>
+        onCancel={handleCloseDialog}
+        width={720}
+        footer={[
+          <Button key="cancel" onClick={handleCloseDialog} disabled={isSaving}>
             Cancel
-          </Button>
+          </Button>,
           <Button
-            variant="contained"
+            key="save"
+            type="primary"
+            loading={isSaving}
             onClick={handleSaveRole}
             disabled={!dialogName.trim() || isSaving}
           >
-            {isSaving ? <CircularProgress size={20} /> : editingRole ? 'Save' : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ─── Delete Confirmation Dialog ────────────────────────────────────── */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDelete} maxWidth="xs" fullWidth>
-        <DialogTitle>Delete Role</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete role "{deletingRole?.name}"?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDelete} disabled={isDeleting}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleConfirmDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting ? <CircularProgress size={20} /> : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ─── Snackbar ──────────────────────────────────────────────────────── */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(EMPTY_SNACKBAR)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            {editingRole ? 'Save' : 'Create'}
+          </Button>,
+        ]}
       >
-        <Alert
-          onClose={() => setSnackbar(EMPTY_SNACKBAR)}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+        <Flex vertical gap={16}>
+          {/* Name & Description */}
+          <Flex gap={12} wrap="wrap">
+            <div style={{ flex: '1 1 240px' }}>
+              <Input
+                placeholder="Name"
+                value={dialogName}
+                onChange={(e) => setDialogName(e.target.value)}
+                disabled={isSaving}
+              />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Lowercase, alphanumeric with underscores (e.g. dev_lead)
+              </Typography.Text>
+            </div>
+            <div style={{ flex: '2 1 360px' }}>
+              <Input
+                placeholder="Description"
+                value={dialogDescription}
+                onChange={(e) => setDialogDescription(e.target.value)}
+                disabled={isSaving}
+              />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Optional. Human-readable description of the role.
+              </Typography.Text>
+            </div>
+          </Flex>
+
+          {/* Permissions grouped by resource */}
+          <Flex vertical gap={12}>
+            <Typography.Text strong>Permissions</Typography.Text>
+            {PERMISSION_GROUPS.map((group) => (
+              <Card
+                key={group.label}
+                size="small"
+                title={
+                  <Typography.Text strong>{group.label}</Typography.Text>
+                }
+                extra={
+                  <Flex gap={4}>
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() => handleToggleGroup(group, true)}
+                      disabled={isSaving || isGroupAllSelected(group)}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      size="small"
+                      type="link"
+                      onClick={() => handleToggleGroup(group, false)}
+                      disabled={isSaving || !isGroupSomeSelected(group)}
+                    >
+                      Deselect All
+                    </Button>
+                  </Flex>
+                }
+              >
+                <Checkbox.Group
+                  style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}
+                  options={group.permissions.map((perm) => ({
+                    label: permissionLabel(perm),
+                    value: perm,
+                  }))}
+                  value={selectedPermissions.filter((p) =>
+                    group.permissions.includes(p),
+                  )}
+                  onChange={(checkedValues: string[]) => {
+                    const otherPerms = selectedPermissions.filter(
+                      (p) => !group.permissions.includes(p),
+                    );
+                    setSelectedPermissions([...otherPerms, ...checkedValues]);
+                  }}
+                />
+              </Card>
+            ))}
+          </Flex>
+        </Flex>
+      </Modal>
+
+      {/* ─── Delete Confirmation Modal ─────────────────────────────────────── */}
+      <Modal
+        title="Delete Role"
+        open={deleteDialogOpen}
+        onCancel={handleCloseDelete}
+        onOk={handleConfirmDelete}
+        confirmLoading={isDeleting}
+        okText="Delete"
+        okButtonProps={{ danger: true }}
+        cancelText="Cancel"
+        cancelButtonProps={{ disabled: isDeleting }}
+      >
+        <Typography.Text>
+          Are you sure you want to delete role &ldquo;{deletingRole?.name}&rdquo;?
+        </Typography.Text>
+      </Modal>
+    </Flex>
   );
 }
 
 // ─── Main AdminPage ──────────────────────────────────────────────────────────
 
 export function AdminPage() {
-  const [tabIndex, setTabIndex] = useState(0);
-
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Admin
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-        Manage users, roles, and permissions for the BigBug platform.
-      </Typography>
+    <Flex vertical gap={16}>
+      <div>
+        <Typography.Title level={3} style={{ marginBottom: 4 }}>
+          Admin
+        </Typography.Title>
+        <Typography.Text type="secondary">
+          Manage users, roles, and permissions for the BigBug platform.
+        </Typography.Text>
+      </div>
 
-      <Tabs value={tabIndex} onChange={(_, newVal) => setTabIndex(newVal)}>
-        <Tab label="Users" />
-        <Tab label="Roles" />
-      </Tabs>
-
-      <TabPanel value={tabIndex} index={0}>
-        <UsersTab />
-      </TabPanel>
-      <TabPanel value={tabIndex} index={1}>
-        <RolesTab />
-      </TabPanel>
-    </Box>
+      <Tabs
+        defaultActiveKey="users"
+        items={[
+          { key: 'users', label: 'Users', children: <UsersTab /> },
+          { key: 'roles', label: 'Roles', children: <RolesTab /> },
+        ]}
+      />
+    </Flex>
   );
 }
 

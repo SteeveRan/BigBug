@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { App } from 'antd';
 import { DockerImageDetailPage } from '../../pages/DockerImages/DockerImageDetail';
 import { api } from '../../store/api';
 import authReducer from '../../store/authSlice';
@@ -13,6 +14,9 @@ const mockNavigate = vi.fn();
 vi.mock('react-router', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: '1' }),
+  useLocation: () => ({ pathname: '/mirroring/docker-images/1', search: '', hash: '', state: null }),
+  Navigate: ({ to }: { to: string }) => <div data-testid="navigate" data-to={to} />,
+  Outlet: () => <div data-testid="outlet" />,
   Link: ({ children, ...props }: Record<string, unknown>) => (
     <a {...props}>{children as React.ReactNode}</a>
   ),
@@ -155,7 +159,9 @@ describe('DockerImageDetailPage', () => {
   function renderPage() {
     return render(
       <Provider store={store}>
-        <DockerImageDetailPage />
+        <App>
+          <DockerImageDetailPage />
+        </App>
       </Provider>
     );
   }
@@ -175,10 +181,13 @@ describe('DockerImageDetailPage', () => {
   it('renders tags table with Image, Tag, Architecture, Size columns', () => {
     renderPage();
     expect(screen.getByText('Image Tags (3)')).toBeInTheDocument();
-    expect(screen.getByText('Image')).toBeInTheDocument();
-    expect(screen.getByText('Tag')).toBeInTheDocument();
-    expect(screen.getByText('Architecture')).toBeInTheDocument();
-    expect(screen.getByText('Size')).toBeInTheDocument();
+    // "Image" appears as column header AND in "Index Image" button text — use getAllByText
+    expect(screen.getAllByText('Image').length).toBeGreaterThanOrEqual(1);
+    // "Tag" also appears in hidden measurement div — use getAllByText
+    expect(screen.getAllByText('Tag').length).toBeGreaterThanOrEqual(1);
+    // "Architecture" and "Size" also appear in hidden measurement divs — use getAllByText
+    expect(screen.getAllByText('Architecture').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Size').length).toBeGreaterThanOrEqual(1);
 
     // Tag data
     expect(screen.getByText('1.25-alpine')).toBeInTheDocument();
@@ -220,10 +229,11 @@ describe('DockerImageDetailPage', () => {
     // Dialog should appear
     const dialog = within(screen.getByRole('dialog'));
     expect(screen.getByText('Index Image Tags')).toBeInTheDocument();
-    expect(dialog.getByRole('textbox', { name: 'Image Name' })).toBeInTheDocument();
+    // antd Input uses placeholder, not aria-label
+    expect(dialog.getByPlaceholderText('Image Name (e.g. library/nginx)')).toBeInTheDocument();
 
     // Fill image name
-    await user.type(dialog.getByRole('textbox', { name: 'Image Name' }), 'library/redis');
+    await user.type(dialog.getByPlaceholderText('Image Name (e.g. library/nginx)'), 'library/redis');
 
     // Submit
     await user.click(dialog.getByRole('button', { name: /^Index$/ }));
@@ -252,8 +262,9 @@ describe('DockerImageDetailPage', () => {
       isError: false,
     });
 
-    renderPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('shows not found when source is null', () => {

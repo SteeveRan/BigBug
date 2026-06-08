@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { BrowserRouter } from 'react-router';
+import { App } from 'antd';
 import { DockerImagesPage } from '../../pages/DockerImages';
 import { api } from '../../store/api';
 import authReducer from '../../store/authSlice';
@@ -81,7 +82,9 @@ describe('DockerImagesPage', () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <DockerImagesPage />
+          <App>
+            <DockerImagesPage />
+          </App>
         </BrowserRouter>
       </Provider>
     );
@@ -111,13 +114,13 @@ describe('DockerImagesPage', () => {
 
     const dialog = within(screen.getByRole('dialog'));
     expect(screen.getByText('Add Docker Registry')).toBeInTheDocument();
-    // Проверяем, что image_name поле есть и оно опциональное
-    const imageNameInput = dialog.getByRole('textbox', { name: /Image Name/i });
+    // antd Input uses placeholder, not aria-label
+    const imageNameInput = dialog.getByPlaceholderText('Image Name — optional (e.g. library/nginx)');
     expect(imageNameInput).toBeInTheDocument();
 
-    // Name и Registry URL помечены как required
-    expect(dialog.getByRole('textbox', { name: 'Name' })).toBeRequired();
-    expect(dialog.getByRole('textbox', { name: 'Registry URL' })).toBeRequired();
+    // Name и Registry URL — antd required prop adds aria-required
+    expect(dialog.getByPlaceholderText('Name (e.g. Docker Hub)').closest('input')).toBeRequired();
+    expect(dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)').closest('input')).toBeRequired();
   });
 
   it('submits create form with optional image_name', async () => {
@@ -129,12 +132,12 @@ describe('DockerImagesPage', () => {
 
     const dialog = within(screen.getByRole('dialog'));
 
-    await user.type(dialog.getByRole('textbox', { name: 'Name' }), 'Private Hub');
+    await user.type(dialog.getByPlaceholderText('Name (e.g. Docker Hub)'), 'Private Hub');
     await user.type(
-      dialog.getByRole('textbox', { name: 'Registry URL' }),
+      dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)'),
       'https://registry.example.com'
     );
-    await user.type(dialog.getByRole('textbox', { name: /Image Name/i }), 'library/nginx');
+    await user.type(dialog.getByPlaceholderText('Image Name — optional (e.g. library/nginx)'), 'library/nginx');
 
     await user.click(dialog.getByRole('button', { name: /^Add$/ }));
 
@@ -155,9 +158,9 @@ describe('DockerImagesPage', () => {
 
     const dialog = within(screen.getByRole('dialog'));
 
-    await user.type(dialog.getByRole('textbox', { name: 'Name' }), 'Private Hub');
+    await user.type(dialog.getByPlaceholderText('Name (e.g. Docker Hub)'), 'Private Hub');
     await user.type(
-      dialog.getByRole('textbox', { name: 'Registry URL' }),
+      dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)'),
       'https://registry.example.com'
     );
 
@@ -178,8 +181,9 @@ describe('DockerImagesPage', () => {
       isError: false,
     });
 
-    renderPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('shows empty state when no sources', () => {

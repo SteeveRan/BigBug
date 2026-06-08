@@ -12,6 +12,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Store } from '@reduxjs/toolkit';
+import { App } from 'antd';
 
 // ---------------------------------------------------------------------------
 // Mocks — must appear before any imports that use these modules
@@ -116,7 +117,9 @@ function renderIntegrationsPage() {
     ...render(
       <Provider store={store}>
         <BrowserRouter>
-          <SettingsIntegrations />
+          <App>
+            <SettingsIntegrations />
+          </App>
         </BrowserRouter>
       </Provider>
     ),
@@ -227,10 +230,10 @@ describe('SettingsIntegrations', () => {
     expect(dialog).toBeInTheDocument();
     expect(screen.getByText('Add GitLab Instance')).toBeInTheDocument();
 
-    // Fill in the form — labels are "Name", "URL", "Token" (MUI appends " *" for required fields)
-    const nameInput = screen.getByLabelText(/^Name/);
-    const urlInput = screen.getByLabelText(/^URL/);
-    const tokenInput = screen.getByLabelText(/^Token/);
+    // Fill in the form — antd Input uses placeholder, not HTML label
+    const nameInput = screen.getByPlaceholderText('Name');
+    const urlInput = screen.getByPlaceholderText('https://gitlab.example.com');
+    const tokenInput = screen.getByPlaceholderText('Token');
 
     await userEvent.type(nameInput, 'new-gitlab');
     await userEvent.type(urlInput, 'https://new.gitlab.com');
@@ -283,8 +286,8 @@ describe('SettingsIntegrations', () => {
     expect(dialog).toBeInTheDocument();
     expect(screen.getByText('Edit GitLab Instance')).toBeInTheDocument();
 
-    // Name field should be pre-filled with instance name (label is "Name")
-    const nameInput = screen.getByLabelText(/^Name/) as HTMLInputElement;
+    // Name field should be pre-filled with instance name (antd Input, find by placeholder)
+    const nameInput = screen.getByPlaceholderText('Name') as HTMLInputElement;
     expect(nameInput.value).toBe('gitlab-prod');
 
     // Clear and type a new name

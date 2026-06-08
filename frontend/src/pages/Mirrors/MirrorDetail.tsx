@@ -1,25 +1,28 @@
+/**
+ * @file MirrorDetail.tsx
+ * @description Детальная страница GitLab зеркала: метаданные, расписание синхронизации, история синхронизаций
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
-  Box,
-  Typography,
   Card,
-  CardContent,
+  Typography,
   Button,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  Flex,
   Switch,
-  FormControlLabel,
-  TextField,
-  Divider,
-} from '@mui/material';
-import { ArrowBack, PlayArrow, OpenInNew } from '@mui/icons-material';
-import { useState } from 'react';
+  Descriptions,
+  Table,
+  Input,
+  Spin,
+  Space,
+} from 'antd';
+import {
+  ArrowLeftOutlined,
+  PlayCircleOutlined,
+  LinkOutlined,
+} from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 import {
   useGetMirrorQuery,
   useGetMirrorLogsQuery,
@@ -63,184 +66,156 @@ export function MirrorDetailPage() {
     });
   };
 
-  if (isLoading) return <CircularProgress />;
-  if (!m) return <Typography>Mirror not found</Typography>;
+  const logColumns: ColumnsType<SyncLog> = [
+    {
+      title: 'Date',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (val: string) => new Date(val).toLocaleString(),
+    },
+    {
+      title: 'Triggered By',
+      dataIndex: 'triggered_by',
+      key: 'triggered_by',
+      render: (val: string | null) => val ?? '—',
+    },
+    {
+      title: 'Pipeline',
+      key: 'pipeline',
+      render: (_: unknown, record: SyncLog) =>
+        record.pipeline_url ? (
+          <Button size="small" type="link" href={record.pipeline_url} target="_blank">
+            #{record.pipeline_id}
+          </Button>
+        ) : (
+          (record.pipeline_id ?? '—')
+        ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: SyncLog) => (
+        <StatusChip
+          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+          statusText={record.status_text}
+        />
+      ),
+    },
+    {
+      title: 'Duration',
+      key: 'duration',
+      render: (_: unknown, record: SyncLog) =>
+        record.started_at && record.finished_at
+          ? `${Math.round((new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000)}s`
+          : '—',
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <Flex justify="center" style={{ padding: 48 }}>
+        <Spin size="large" />
+      </Flex>
+    );
+  }
+  if (!m) return <Typography.Title level={5}>Mirror not found</Typography.Title>;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/mirrors')}>
-          Back
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex align="center" gap={12} wrap="wrap">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/mirrors')}>
+          Back to Mirrors
         </Button>
-        <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
+        <Typography.Title level={4} style={{ margin: 0, flex: 1 }}>
           {m.gitlab_name ?? m.gitlab_url}
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<PlayArrow />}
-          onClick={() => triggerSync(mirrorId)}
-          disabled={syncing}
-        >
-          Sync Now
-        </Button>
-        <Button
-          startIcon={<OpenInNew />}
-          href={m.gitlab_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outlined"
-        >
-          GitLab
-        </Button>
-      </Box>
+        </Typography.Title>
+        <Space>
+          <Button
+            type="primary"
+            icon={<PlayCircleOutlined />}
+            loading={syncing}
+            onClick={() => triggerSync(mirrorId)}
+          >
+            Sync Now
+          </Button>
+          <Button
+            icon={<LinkOutlined />}
+            href={m.gitlab_url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitLab
+          </Button>
+        </Space>
+      </Flex>
 
-      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ flex: '1 1 300px' }}>
-          <CardContent>
-            <Typography variant="h6" mb={2}>
-              Mirror Info
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Status
-                </Typography>
-                <Box mt={0.5}>
-                  <StatusChip
-                    statusFlag={m.status_flag as 0 | 1 | 2 | 3 | 4}
-                    statusText={m.status_text}
-                  />
-                </Box>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Branch
-                </Typography>
-                <Typography variant="body2">{m.mirrored_branch}</Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Last Sync
-                </Typography>
-                <Typography variant="body2">
-                  {m.last_sync_at ? new Date(m.last_sync_at).toLocaleString() : 'Never'}
-                </Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Last Synced Release
-                </Typography>
-                <Typography variant="body2">{m.last_synced_release_tag ?? '—'}</Typography>
-              </Box>
-            </Box>
-          </CardContent>
+      {/* ── Info & Schedule Cards ───────────────────────────────────────────── */}
+      <Flex gap={16} wrap="wrap">
+        <Card title="Mirror Info" style={{ flex: '1 1 300px' }}>
+          <Descriptions column={1} size="small">
+            <Descriptions.Item label="Status">
+              <StatusChip
+                statusFlag={m.status_flag as 0 | 1 | 2 | 3 | 4}
+                statusText={m.status_text}
+              />
+            </Descriptions.Item>
+            <Descriptions.Item label="Branch">{m.mirrored_branch}</Descriptions.Item>
+            <Descriptions.Item label="Last Sync">
+              {m.last_sync_at ? new Date(m.last_sync_at).toLocaleString() : 'Never'}
+            </Descriptions.Item>
+            <Descriptions.Item label="Last Synced Release">
+              {m.last_synced_release_tag ?? '—'}
+            </Descriptions.Item>
+          </Descriptions>
         </Card>
 
         {s && (
-          <Card sx={{ flex: '1 1 300px' }}>
-            <CardContent>
-              <Typography variant="h6" mb={2}>
-                Schedule
-              </Typography>
-              <FormControlLabel
-                control={<Switch checked={s.is_enabled} onChange={handleToggleEnabled} />}
-                label="Enable scheduled sync"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={s.use_default_schedule}
-                    onChange={handleToggleDefault}
-                    disabled={!s.is_enabled}
-                  />
-                }
-                label="Use default schedule"
-              />
+          <Card title="Schedule" style={{ flex: '1 1 300px' }}>
+            <Flex vertical gap={12}>
+              <Flex align="center" justify="space-between">
+                <Typography.Text>Enable scheduled sync</Typography.Text>
+                <Switch checked={s.is_enabled} onChange={handleToggleEnabled} />
+              </Flex>
+              <Flex align="center" justify="space-between">
+                <Typography.Text>Use default schedule</Typography.Text>
+                <Switch
+                  checked={s.use_default_schedule}
+                  onChange={handleToggleDefault}
+                  disabled={!s.is_enabled}
+                />
+              </Flex>
               {!s.use_default_schedule && s.is_enabled && (
-                <Box sx={{ mt: 2 }}>
-                  <TextField
-                    label="Cron Expression"
-                    size="small"
+                <Space.Compact style={{ width: '100%' }}>
+                  <Input
                     value={cronExpr || s.cron_expression || ''}
                     onChange={(e) => setCronExpr(e.target.value)}
                     placeholder="0 2 * * *"
-                    fullWidth
                   />
-                  <Button size="small" sx={{ mt: 1 }} onClick={handleSaveCron}>
-                    Save
-                  </Button>
-                </Box>
+                  <Button onClick={handleSaveCron}>Save</Button>
+                </Space.Compact>
               )}
               {s.last_run_at && (
-                <Typography variant="caption" color="text.secondary" display="block" mt={2}>
+                <Typography.Text type="secondary">
                   Last run: {new Date(s.last_run_at).toLocaleString()}
-                </Typography>
+                </Typography.Text>
               )}
-            </CardContent>
+            </Flex>
           </Card>
         )}
-      </Box>
+      </Flex>
 
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" mb={2}>
-            Sync History
-          </Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Triggered By</TableCell>
-                  <TableCell>Pipeline</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Duration</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(logs as SyncLog[]).map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
-                    <TableCell>{log.triggered_by ?? '—'}</TableCell>
-                    <TableCell>
-                      {log.pipeline_url ? (
-                        <Button size="small" href={log.pipeline_url} target="_blank">
-                          #{log.pipeline_id}
-                        </Button>
-                      ) : (
-                        (log.pipeline_id ?? '—')
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip
-                        statusFlag={log.status_flag as 0 | 1 | 2 | 3 | 4}
-                        statusText={log.status_text}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {log.started_at && log.finished_at
-                        ? `${Math.round((new Date(log.finished_at).getTime() - new Date(log.started_at).getTime()) / 1000)}s`
-                        : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {logs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      <Typography color="text.secondary" py={2}>
-                        No sync history yet
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
+      {/* ── Sync History Table ───────────────────────────────────────────────── */}
+      <Card title="Sync History">
+        <Table
+          columns={logColumns}
+          dataSource={logs as SyncLog[]}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          locale={{ emptyText: 'No sync history yet' }}
+        />
       </Card>
-    </Box>
+    </Flex>
   );
 }

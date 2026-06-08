@@ -15,9 +15,9 @@ describe('SignatureBadge', () => {
     expect(screen.getByText(/signed/i)).toBeInTheDocument();
   });
 
-  it('shows "Unsigned" when isSigned is false', () => {
+  it('shows "Not Signed" when isSigned is false', () => {
     render(<SignatureBadge isSigned={false} />);
-    expect(screen.getByText(/unsigned/i)).toBeInTheDocument();
+    expect(screen.getByText(/not signed/i)).toBeInTheDocument();
   });
 
   it('renders with signature prop', () => {
@@ -25,8 +25,8 @@ describe('SignatureBadge', () => {
     expect(screen.getByText(/signed/i)).toBeInTheDocument();
   });
 
-  it('renders unsigned with null signature', () => {
+  it('renders not signed with null signature', () => {
     render(<SignatureBadge isSigned={false} signature={null} />);
-    expect(screen.getByText(/unsigned/i)).toBeInTheDocument();
+    expect(screen.getByText(/not signed/i)).toBeInTheDocument();
   });
 });

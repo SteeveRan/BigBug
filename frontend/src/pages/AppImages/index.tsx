@@ -1,40 +1,37 @@
+/**
+ * @file index.tsx
+ * @description Страница App Images: карточки образов в сетке Row/Col, раскрывающиеся версии в Table, модальные окна для CRUD/scan/sign
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useState } from 'react';
 import {
-  Box,
+  Card,
   Typography,
   Button,
-  Card,
-  CardContent,
-  CardActions,
-  Grid,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  Snackbar,
-  Alert,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  Tag,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  Select,
+  App,
+  Row,
+  Col,
   Collapse,
-  IconButton,
-} from '@mui/material';
+  Table,
+  Tooltip,
+  Space,
+} from 'antd';
+import type { CollapseProps } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
-  Add as AddIcon,
-  Build as BuildIcon,
-  Security as SecurityIcon,
-  Lock as LockIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-} from '@mui/icons-material';
+  PlusOutlined,
+  BuildOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from '@ant-design/icons';
 import {
   useListAppImagesQuery,
   useCreateAppImageMutation,
@@ -46,9 +43,11 @@ import {
 } from '../../store/api';
 import { VulnerabilityBadge } from '../../components/VulnerabilityBadge';
 import { SignatureBadge } from '../../components/SignatureBadge';
+import { StatusChip } from '../../components/StatusChip';
 import type { AppImage, GoldImage, ImageVersion, HarborInstance } from '../../types';
 
 export function AppImagesPage() {
+  const { message } = App.useApp();
   const { data: images = [], isLoading } = useListAppImagesQuery();
   const { data: goldImages = [] } = useListGoldImagesQuery();
   const { data: harborInstances = [] } = useGetHarborInstancesQuery();
@@ -91,11 +90,6 @@ export function AppImagesPage() {
     cosign_private_key: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({ open: false, message: '', severity: 'success' });
 
   const handleCreate = async () => {
     setSubmitting(true);
@@ -106,6 +100,9 @@ export function AppImagesPage() {
       }).unwrap();
       setCreateOpen(false);
       setForm({ name: '', description: '', dockerfile: '', gold_image_id: '' });
+      message.success('App image created successfully');
+    } catch {
+      message.error('Failed to create app image');
     } finally {
       setSubmitting(false);
     }
@@ -117,6 +114,9 @@ export function AppImagesPage() {
     try {
       await triggerBuild({ id: buildOpen, ...buildForm }).unwrap();
       setBuildOpen(null);
+      message.success('Build triggered successfully');
+    } catch {
+      message.error('Failed to trigger build');
     } finally {
       setSubmitting(false);
     }
@@ -135,9 +135,9 @@ export function AppImagesPage() {
         artifact_digest: scanForm.artifact_digest,
       }).unwrap();
       setScanOpen(null);
-      setSnackbar({ open: true, message: 'Scan triggered successfully', severity: 'success' });
+      message.success('Scan triggered successfully');
     } catch {
-      setSnackbar({ open: true, message: 'Scan trigger failed', severity: 'error' });
+      message.error('Scan trigger failed');
     } finally {
       setSubmitting(false);
     }
@@ -154,9 +154,9 @@ export function AppImagesPage() {
         cosign_private_key: signForm.cosign_private_key,
       }).unwrap();
       setSignOpen(null);
-      setSnackbar({ open: true, message: 'Image signed successfully', severity: 'success' });
+      message.success('Image signed successfully');
     } catch {
-      setSnackbar({ open: true, message: 'Image signing failed', severity: 'error' });
+      message.error('Image signing failed');
     } finally {
       setSubmitting(false);
     }
@@ -191,64 +191,183 @@ export function AppImagesPage() {
     }
   };
 
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          App Images
-        </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-          New App Image
-        </Button>
-      </Box>
+  const versionColumns: ColumnsType<ImageVersion> = [
+    {
+      title: 'Tag',
+      dataIndex: 'version_tag',
+      key: 'version_tag',
+    },
+    {
+      title: 'Arch',
+      dataIndex: 'arch',
+      key: 'arch',
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: ImageVersion) => (
+        <StatusChip
+          status={record.status_flag}
+          statusText={record.status_text ?? undefined}
+        />
+      ),
+    },
+    {
+      title: 'Security',
+      key: 'security',
+      render: (_: unknown, record: ImageVersion) => (
+        <VulnerabilityBadge
+          count={record.vulnerabilities}
+          severity={record.vulnerability_severity}
+          compact
+        />
+      ),
+    },
+    {
+      title: 'Signature',
+      key: 'signature',
+      render: (_: unknown, record: ImageVersion) => (
+        <SignatureBadge
+          isSigned={record.is_signed}
+          signature={record.cosign_signature}
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: unknown, record: ImageVersion, _index: number) => {
+        const image = (images as AppImage[]).find((img) => img.id === record.app_image_id);
+        const imageName = image?.name ?? 'image';
+        return (
+          <Space size={4}>
+            <Tooltip title="Sign image">
+              <Button
+                size="small"
+                icon={<SafetyCertificateOutlined />}
+                onClick={() => {
+                  setSignForm({
+                    image_reference: record.registry_url
+                      ? `${record.registry_url}/${imageName}:${record.version_tag}`
+                      : `${imageName}:${record.version_tag}`,
+                    cosign_private_key: '',
+                  });
+                  setSignOpen({
+                    imageId: record.app_image_id ?? 0,
+                    versionId: record.id,
+                    registryUrl: record.registry_url,
+                    versionTag: record.version_tag,
+                  });
+                }}
+              />
+            </Tooltip>
+            <Tooltip title="Scan for vulnerabilities">
+              <Button
+                size="small"
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  setScanForm({
+                    harbor_instance_id: '',
+                    project_name: '',
+                    repository_name: '',
+                    artifact_digest: record.sha256_digest || '',
+                  });
+                  setScanOpen({
+                    imageId: record.app_image_id ?? 0,
+                    versionId: record.id,
+                  });
+                }}
+              />
+            </Tooltip>
+          </Space>
+        );
+      },
+    },
+  ];
 
+  // Build the Collapse items array for each image card
+  const buildVersionCollapseItems = (imageId: number): CollapseProps['items'] => {
+    const imageVersions = versions[imageId];
+    const isLoadingVersions = loadingVersions.has(imageId);
+    const label = `Versions (${imageVersions?.length ?? 0})`;
+
+    return [
+      {
+        key: 'versions',
+        label,
+        children: isLoadingVersions ? (
+          <Spin size="small" />
+        ) : imageVersions?.length ? (
+          <Table
+            columns={versionColumns}
+            dataSource={imageVersions}
+            rowKey="id"
+            size="small"
+            pagination={false}
+          />
+        ) : (
+          <Typography.Text type="secondary">No versions built yet.</Typography.Text>
+        ),
+      },
+    ];
+  };
+
+  const goldImageOptions = (goldImages as GoldImage[]).map((g) => ({
+    value: g.name,
+    label: g.name,
+  }));
+
+  const harborOptions = (harborInstances as HarborInstance[]).map((h) => ({
+    value: String(h.id),
+    label: `${h.name} (${h.url})`,
+  }));
+
+  return (
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          App Images
+        </Typography.Title>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          Add App Image
+        </Button>
+      </Flex>
+
+      {/* ── Card Grid ───────────────────────────────────────────────────────── */}
       {isLoading ? (
-        <CircularProgress />
+        <Flex justify="center" style={{ padding: 48 }}>
+          <Spin size="large" />
+        </Flex>
+      ) : images.length === 0 ? (
+        <Card>
+          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}>
+            No app images yet. Create one to get started.
+          </Typography.Text>
+        </Card>
       ) : (
-        <Grid container spacing={3}>
+        <Row gutter={[16, 16]}>
           {(images as AppImage[]).map((image) => {
             const goldImage = (goldImages as GoldImage[]).find((g) => g.id === image.gold_image_id);
             return (
-              <Grid key={image.id} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" mb={1}>
-                      {image.name}
-                    </Typography>
-                    {goldImage && (
-                      <Chip
-                        label={`Base: ${goldImage.name}`}
-                        size="small"
-                        color="secondary"
-                        variant="outlined"
-                        sx={{ mb: 1 }}
-                      />
-                    )}
-                    <Typography variant="body2" color="text.secondary" mb={2}>
-                      {image.description ?? 'No description'}
-                    </Typography>
-                    {image.dockerfile && (
-                      <Box
-                        component="pre"
-                        sx={{
-                          fontSize: '0.7rem',
-                          bgcolor: 'grey.100',
-                          p: 1,
-                          borderRadius: 1,
-                          maxHeight: 80,
-                          overflow: 'hidden',
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {image.dockerfile.slice(0, 200)}
-                      </Box>
-                    )}
-                  </CardContent>
-                  <CardActions sx={{ justifyContent: 'space-between' }}>
-                    <Box>
+              <Col key={image.id} xs={24} sm={12} lg={8}>
+                <Card
+                  title={
+                    <Flex vertical gap={4}>
+                      <Typography.Text strong>{image.name}</Typography.Text>
+                      {goldImage && (
+                        <Tag color="purple" style={{ width: 'fit-content' }}>
+                          Base: {goldImage.name}
+                        </Tag>
+                      )}
+                    </Flex>
+                  }
+                  actions={[
+                    <Tooltip title="Trigger build" key="build">
                       <Button
+                        type="text"
                         size="small"
-                        startIcon={<BuildIcon />}
+                        icon={<BuildOutlined />}
                         onClick={() => {
                           setBuildForm({ version_tag: 'latest', arch: 'amd64' });
                           setBuildOpen(image.id);
@@ -256,356 +375,195 @@ export function AppImagesPage() {
                       >
                         Build
                       </Button>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={() => toggleExpand(image.id)}
-                      aria-label="Toggle versions"
+                    </Tooltip>,
+                    <Tooltip title="Edit image" key="edit">
+                      <Button type="text" size="small" icon={<EditOutlined />} />
+                    </Tooltip>,
+                    <Tooltip title="Delete image" key="delete">
+                      <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                    </Tooltip>,
+                  ]}
+                >
+                  <Flex vertical gap={12}>
+                    <Typography.Paragraph
+                      type="secondary"
+                      style={{ margin: 0 }}
+                      ellipsis={{ rows: 2 }}
                     >
-                      {expandedImage === image.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                    </IconButton>
-                  </CardActions>
+                      {image.description ?? 'No description'}
+                    </Typography.Paragraph>
 
-                  {/* Versions table (expandable) */}
-                  <Collapse in={expandedImage === image.id} timeout="auto" unmountOnExit>
-                    <Box sx={{ px: 2, pb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" mb={1}>
-                        Versions
-                      </Typography>
-                      {loadingVersions.has(image.id) ? (
-                        <CircularProgress size={20} />
-                      ) : versions[image.id]?.length ? (
-                        <TableContainer component={Paper} variant="outlined">
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>Tag</TableCell>
-                                <TableCell>Arch</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell>Security</TableCell>
-                                <TableCell>Signature</TableCell>
-                                <TableCell>Actions</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {versions[image.id].map((version) => (
-                                <TableRow key={version.id}>
-                                  <TableCell>{version.version_tag}</TableCell>
-                                  <TableCell>{version.arch}</TableCell>
-                                  <TableCell>
-                                    <Chip
-                                      label={version.status_text || 'Pending'}
-                                      size="small"
-                                      color={
-                                        version.status_flag === 0
-                                          ? 'success'
-                                          : version.status_flag === 1
-                                            ? 'error'
-                                            : version.status_flag === 3
-                                              ? 'info'
-                                              : 'default'
-                                      }
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <VulnerabilityBadge
-                                      count={version.vulnerabilities}
-                                      severity={version.vulnerability_severity}
-                                      compact
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <SignatureBadge
-                                      isSigned={version.is_signed ?? false}
-                                      signature={version.cosign_signature}
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <IconButton
-                                      size="small"
-                                      color="primary"
-                                      onClick={() => {
-                                        setSignForm({
-                                          image_reference: version.registry_url
-                                            ? `${version.registry_url}/${image.name}:${version.version_tag}`
-                                            : `${image.name}:${version.version_tag}`,
-                                          cosign_private_key: '',
-                                        });
-                                        setSignOpen({
-                                          imageId: image.id,
-                                          versionId: version.id,
-                                          registryUrl: version.registry_url,
-                                          versionTag: version.version_tag,
-                                        });
-                                      }}
-                                      title="Sign image"
-                                    >
-                                      <LockIcon fontSize="small" />
-                                    </IconButton>
-                                    <IconButton
-                                      size="small"
-                                      color="primary"
-                                      onClick={() => {
-                                        setScanForm({
-                                          harbor_instance_id: '',
-                                          project_name: '',
-                                          repository_name: '',
-                                          artifact_digest: version.sha256_digest || '',
-                                        });
-                                        setScanOpen({
-                                          imageId: image.id,
-                                          versionId: version.id,
-                                        });
-                                      }}
-                                      title="Scan for vulnerabilities"
-                                    >
-                                      <SecurityIcon fontSize="small" />
-                                    </IconButton>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          No versions built yet.
-                        </Typography>
-                      )}
-                    </Box>
-                  </Collapse>
+                    {image.dockerfile && (
+                      <Typography.Paragraph
+                        code
+                        style={{
+                          fontSize: '0.75rem',
+                          maxHeight: 80,
+                          overflow: 'hidden',
+                          margin: 0,
+                        }}
+                      >
+                        {image.dockerfile.slice(0, 200)}
+                      </Typography.Paragraph>
+                    )}
+
+                    <Collapse
+                      size="small"
+                      ghost
+                      items={buildVersionCollapseItems(image.id)}
+                      activeKey={expandedImage === image.id ? ['versions'] : []}
+                      onChange={() => toggleExpand(image.id)}
+                    />
+                  </Flex>
                 </Card>
-              </Grid>
+              </Col>
             );
           })}
-          {images.length === 0 && (
-            <Grid size={12}>
-              <Typography color="text.secondary" textAlign="center" py={4}>
-                No app images yet. Create one to get started.
-              </Typography>
-            </Grid>
-          )}
-        </Grid>
+        </Row>
       )}
 
-      {/* Create Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New App Image</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            fullWidth
-            margin="normal"
+      {/* ── Create Modal ────────────────────────────────────────────────────── */}
+      <Modal
+        title="New App Image"
+        open={createOpen}
+        onOk={handleCreate}
+        onCancel={() => setCreateOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !form.name }}
+        okText="Create"
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="Name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
-          <TextField
-            select
-            label="Base Gold Image"
-            fullWidth
-            margin="normal"
-            value={form.gold_image_id}
-            onChange={(e) => setForm({ ...form, gold_image_id: e.target.value })}
-          >
-            <MenuItem value="">None</MenuItem>
-            {(goldImages as GoldImage[]).map((g) => (
-              <MenuItem key={g.id} value={String(g.id)}>
-                {g.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Description"
-            fullWidth
-            margin="normal"
+          <Select
+            placeholder="Base Gold Image"
+            style={{ width: '100%' }}
+            allowClear
+            value={form.gold_image_id || undefined}
+            onChange={(value) => setForm({ ...form, gold_image_id: value ?? '' })}
+            options={goldImageOptions}
+          />
+          <Input
+            placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
-          <TextField
-            label="Dockerfile"
-            fullWidth
-            margin="normal"
-            multiline
+          <Input.TextArea
+            placeholder="FROM base-image:latest\nCOPY . /app"
             rows={6}
             value={form.dockerfile}
             onChange={(e) => setForm({ ...form, dockerfile: e.target.value })}
-            placeholder="FROM base-image:latest&#10;COPY . /app"
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreate} disabled={!form.name || submitting}>
-            {submitting ? <CircularProgress size={20} /> : 'Create'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Space>
+      </Modal>
 
-      {/* Build Dialog */}
-      <Dialog open={buildOpen !== null} onClose={() => setBuildOpen(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Trigger Build</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Version Tag"
-            fullWidth
-            margin="normal"
+      {/* ── Build Modal ─────────────────────────────────────────────────────── */}
+      <Modal
+        title="Trigger Build"
+        open={buildOpen !== null}
+        onOk={handleBuild}
+        onCancel={() => setBuildOpen(null)}
+        confirmLoading={submitting}
+        okText="Build"
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="Version Tag"
             value={buildForm.version_tag}
             onChange={(e) => setBuildForm({ ...buildForm, version_tag: e.target.value })}
           />
-          <TextField
-            label="Architecture"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Architecture (amd64, arm64, arm/v7)"
             value={buildForm.arch}
             onChange={(e) => setBuildForm({ ...buildForm, arch: e.target.value })}
-            placeholder="amd64, arm64, arm/v7"
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setBuildOpen(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleBuild} disabled={submitting}>
-            {submitting ? <CircularProgress size={20} /> : 'Build'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Space>
+      </Modal>
 
-      {/* Scan Dialog */}
-      <Dialog
+      {/* ── Scan Modal ──────────────────────────────────────────────────────── */}
+      <Modal
+        title="Scan for Vulnerabilities"
         open={scanOpen !== null}
-        onClose={() => setScanOpen(null)}
-        maxWidth="sm"
-        fullWidth
+        onOk={handleScan}
+        onCancel={() => setScanOpen(null)}
+        confirmLoading={submitting}
+        okButtonProps={{
+          disabled:
+            !scanForm.harbor_instance_id ||
+            !scanForm.project_name ||
+            !scanForm.repository_name ||
+            !scanForm.artifact_digest,
+        }}
+        okText="Scan"
+        cancelText="Cancel"
       >
-        <DialogTitle>Scan for Vulnerabilities</DialogTitle>
-        <DialogContent>
-          <TextField
-            select
-            label="Harbor Instance"
-            fullWidth
-            margin="normal"
-            value={scanForm.harbor_instance_id}
-            onChange={(e) =>
-              setScanForm({ ...scanForm, harbor_instance_id: e.target.value })
-            }
-            required
-          >
-            {(harborInstances as HarborInstance[]).map((h) => (
-              <MenuItem key={h.id} value={String(h.id)}>
-                {h.name} ({h.url})
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Project Name"
-            fullWidth
-            margin="normal"
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Select
+            placeholder="Harbor Instance"
+            style={{ width: '100%' }}
+            value={scanForm.harbor_instance_id || undefined}
+            onChange={(value) => setScanForm({ ...scanForm, harbor_instance_id: value })}
+            options={harborOptions}
+          />
+          <Input
+            placeholder="Project Name"
             value={scanForm.project_name}
             onChange={(e) => setScanForm({ ...scanForm, project_name: e.target.value })}
             required
           />
-          <TextField
-            label="Repository Name"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Repository Name"
             value={scanForm.repository_name}
             onChange={(e) => setScanForm({ ...scanForm, repository_name: e.target.value })}
             required
           />
-          <TextField
-            label="Artifact Digest (sha256)"
-            fullWidth
-            margin="normal"
+          <Input
+            placeholder="Artifact Digest (sha256:abc123...)"
             value={scanForm.artifact_digest}
             onChange={(e) => setScanForm({ ...scanForm, artifact_digest: e.target.value })}
             required
-            placeholder="sha256:abc123..."
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setScanOpen(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<SecurityIcon />}
-            onClick={handleScan}
-            disabled={
-              !scanForm.harbor_instance_id ||
-              !scanForm.project_name ||
-              !scanForm.repository_name ||
-              !scanForm.artifact_digest ||
-              submitting
-            }
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Scan'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Space>
+      </Modal>
 
-      {/* Sign Dialog */}
-      <Dialog
+      {/* ── Sign Modal ──────────────────────────────────────────────────────── */}
+      <Modal
+        title="Sign Image with Cosign"
         open={signOpen !== null}
-        onClose={() => setSignOpen(null)}
-        maxWidth="sm"
-        fullWidth
+        onOk={handleSign}
+        onCancel={() => setSignOpen(null)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !signForm.image_reference || !signForm.cosign_private_key }}
+        okText="Sign"
+        cancelText="Cancel"
       >
-        <DialogTitle>Sign Image with Cosign</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Image Reference"
-            fullWidth
-            margin="normal"
-            value={signForm.image_reference}
-            onChange={(e) =>
-              setSignForm({ ...signForm, image_reference: e.target.value })
-            }
-            required
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
             placeholder="registry.example.com/project/image:tag"
-            helperText="Full image reference including registry and tag"
-          />
-          <TextField
-            label="Cosign Private Key"
-            fullWidth
-            margin="normal"
-            multiline
-            rows={6}
-            type="password"
-            value={signForm.cosign_private_key}
-            onChange={(e) =>
-              setSignForm({ ...signForm, cosign_private_key: e.target.value })
-            }
+            value={signForm.image_reference}
+            onChange={(e) => setSignForm({ ...signForm, image_reference: e.target.value })}
             required
-            placeholder="-----BEGIN ENCRYPTED COSIGN PRIVATE KEY-----"
-            helperText="PEM-encoded cosign private key. Not stored in the database."
           />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSignOpen(null)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<LockIcon />}
-            onClick={handleSign}
-            disabled={!signForm.image_reference || !signForm.cosign_private_key || submitting}
-          >
-            {submitting ? <CircularProgress size={20} /> : 'Sign'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Full image reference including registry and tag
+          </Typography.Text>
+          <Input.TextArea
+            placeholder="-----BEGIN ENCRYPTED COSIGN PRIVATE KEY-----"
+            rows={6}
+            value={signForm.cosign_private_key}
+            onChange={(e) => setSignForm({ ...signForm, cosign_private_key: e.target.value })}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            PEM-encoded cosign private key. Not stored in the database.
+          </Typography.Text>
+        </Space>
+      </Modal>
+    </Flex>
   );
 }

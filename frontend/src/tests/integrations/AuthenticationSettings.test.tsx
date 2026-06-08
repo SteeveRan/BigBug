@@ -1,9 +1,9 @@
 /**
  * @file AuthenticationSettings.test.tsx
- * @description Unit tests for the Settings > Authentication page.
+ * @description Unit tests for the Settings > Authentication page (Ant Design).
  *              Covers loading/error states, data display, form editing,
  *              role mapping CRUD, save behaviour, and client_secret masking.
- * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router
+ * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router, antd
  * @relatedFiles ../pages/Settings/Authentication/index.tsx, ../store/api.ts
  */
 
@@ -14,6 +14,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Store } from '@reduxjs/toolkit';
+import { App } from 'antd';
 
 // ---------------------------------------------------------------------------
 // Mocks — must appear before any imports that use these modules
@@ -76,7 +77,9 @@ function renderAuthenticationPage() {
     ...render(
       <Provider store={store}>
         <BrowserRouter>
-          <AuthenticationSettings />
+          <App>
+            <AuthenticationSettings />
+          </App>
         </BrowserRouter>
       </Provider>
     ),
@@ -109,23 +112,24 @@ describe('AuthenticationSettings', () => {
   // =========================================================================
 
   describe('loading and error states', () => {
-    it('shows CircularProgress while data is loading', () => {
-      renderAuthenticationPage();
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    it('shows Spin while data is loading', () => {
+      const { container } = renderAuthenticationPage();
+      // antd Spin renders .ant-spin-spinning — no role="progressbar"
+      expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
     });
 
-    it('does not show progressbar after data loads', () => {
+    it('does not show Spin after data loads', () => {
       (useGetOidcConfigQuery as ReturnType<typeof vi.fn>).mockReturnValue({
         data: mockOidcConfig,
         isLoading: false,
         isError: false,
         error: null,
       });
-      renderAuthenticationPage();
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      const { container } = renderAuthenticationPage();
+      expect(container.querySelector('.ant-spin-spinning')).not.toBeInTheDocument();
     });
 
-    it('shows error Alert when query fails', () => {
+    it('shows error text when query fails', () => {
       (useGetOidcConfigQuery as ReturnType<typeof vi.fn>).mockReturnValue({
         data: undefined,
         isLoading: false,
@@ -134,7 +138,7 @@ describe('AuthenticationSettings', () => {
       });
       renderAuthenticationPage();
       expect(screen.getByText('Authentication Settings')).toBeInTheDocument();
-      expect(screen.getByRole('alert')).toBeInTheDocument();
+      // antd Typography.Text type="danger" — no role="alert"
       expect(
         screen.getByText(/Failed to load authentication configuration/i)
       ).toBeInTheDocument();
@@ -187,30 +191,29 @@ describe('AuthenticationSettings', () => {
 
     it('displays Issuer URL from API', () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Issuer URL') as HTMLInputElement;
-      expect(input.value).toBe('https://keycloak.example.com/realms/myrealm');
+      // antd uses Typography.Text labels above Input, NOT HTML <label>
+      // Use getByDisplayValue to verify pre-filled input
+      expect(screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm')).toBeInTheDocument();
     });
 
     it('displays Backend Client ID from API', () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Backend Client ID') as HTMLInputElement;
-      expect(input.value).toBe('bigbug-backend');
+      expect(screen.getByDisplayValue('bigbug-backend')).toBeInTheDocument();
     });
 
     it('displays Frontend Client ID from API', () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Frontend Client ID') as HTMLInputElement;
-      expect(input.value).toBe('bigbug-frontend');
+      expect(screen.getByDisplayValue('bigbug-frontend')).toBeInTheDocument();
     });
 
     it('displays Public URL from API', () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Public URL') as HTMLInputElement;
-      expect(input.value).toBe('https://auth.example.com');
+      expect(screen.getByDisplayValue('https://auth.example.com')).toBeInTheDocument();
     });
 
     it('switch reflects enabled state (false)', () => {
       renderAuthenticationPage();
+      // aria-label="Enable SSO / OIDC" → role="switch" with accessible name
       const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       expect(switchEl).not.toBeChecked();
       expect(screen.getByText('Disabled')).toBeInTheDocument();
@@ -231,7 +234,8 @@ describe('AuthenticationSettings', () => {
 
     it('displays role mappings in the table', () => {
       renderAuthenticationPage();
-      expect(screen.getByRole('table', { name: 'Role mappings table' })).toBeInTheDocument();
+      // antd Table renders <table> but without role="table"
+      // Use getByDisplayValue to find the inputs inside the table rows
       expect(screen.getByDisplayValue('bigbug-admin')).toBeInTheDocument();
       expect(screen.getByDisplayValue('admin')).toBeInTheDocument();
       expect(screen.getByDisplayValue('bigbug-viewer')).toBeInTheDocument();
@@ -265,7 +269,8 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
       renderAuthenticationPage();
-      const secretInput = screen.getByLabelText('Client Secret') as HTMLInputElement;
+      // antd Input.Password — find by placeholder since it's the masked state
+      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
       expect(secretInput.value).toBe('');
     });
 
@@ -277,7 +282,7 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
       renderAuthenticationPage();
-      const secretInput = screen.getByLabelText('Client Secret') as HTMLInputElement;
+      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
       expect(secretInput.placeholder).toBe('Enter new secret to change');
     });
 
@@ -313,7 +318,7 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Change issuer URL so the form is dirty (secret alone is unchanged)
-      const issuerInput = screen.getByLabelText('Issuer URL');
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://changed.example.com');
 
@@ -344,8 +349,8 @@ describe('AuthenticationSettings', () => {
 
       renderAuthenticationPage();
 
-      // Type new secret — this alone makes the form dirty
-      const secretInput = screen.getByLabelText('Client Secret');
+      // Type new secret — find by placeholder since value is empty
+      const secretInput = screen.getByPlaceholderText('Enter new secret to change');
       await userEvent.type(secretInput, 'my-new-secret');
 
       await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
@@ -379,7 +384,7 @@ describe('AuthenticationSettings', () => {
 
     it('editing Issuer URL enables save button', async () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Issuer URL');
+      const input = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(input);
       await userEvent.type(input, 'https://new-issuer.example.com');
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
@@ -387,7 +392,7 @@ describe('AuthenticationSettings', () => {
 
     it('editing Backend Client ID enables save button', async () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Backend Client ID');
+      const input = screen.getByDisplayValue('bigbug-backend');
       await userEvent.clear(input);
       await userEvent.type(input, 'new-backend-client');
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
@@ -395,7 +400,7 @@ describe('AuthenticationSettings', () => {
 
     it('editing Frontend Client ID enables save button', async () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Frontend Client ID');
+      const input = screen.getByDisplayValue('bigbug-frontend');
       await userEvent.clear(input);
       await userEvent.type(input, 'new-frontend-client');
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
@@ -403,7 +408,7 @@ describe('AuthenticationSettings', () => {
 
     it('editing Public URL enables save button', async () => {
       renderAuthenticationPage();
-      const input = screen.getByLabelText('Public URL');
+      const input = screen.getByDisplayValue('https://auth.example.com');
       await userEvent.clear(input);
       await userEvent.type(input, 'https://new-public.example.com');
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
@@ -432,7 +437,7 @@ describe('AuthenticationSettings', () => {
 
     it('entering a new client secret enables save button', async () => {
       renderAuthenticationPage();
-      const secretInput = screen.getByLabelText('Client Secret');
+      const secretInput = screen.getByPlaceholderText('Enter new secret to change');
       await userEvent.type(secretInput, 'new-secret');
       expect(screen.getByRole('button', { name: 'Save Changes' })).toBeEnabled();
     });
@@ -453,15 +458,15 @@ describe('AuthenticationSettings', () => {
     });
 
     it('clicking "Add Mapping" adds a new empty row', async () => {
-      renderAuthenticationPage();
+      const { container } = renderAuthenticationPage();
 
-      // Initially 2 rows from mock data
-      const rowsBefore = screen.getAllByRole('row').length;
+      // antd Table rows use class .ant-table-row
+      const rowsBefore = container.querySelectorAll('.ant-table-row').length;
 
-      await userEvent.click(screen.getByRole('button', { name: 'Add Mapping' }));
+      await userEvent.click(screen.getByText('Add Mapping'));
 
-      const rowsAfter = screen.getAllByRole('row').length;
-      // One extra row (+ header row is also counted)
+      const rowsAfter = container.querySelectorAll('.ant-table-row').length;
+      // One extra row
       expect(rowsAfter).toBe(rowsBefore + 1);
     });
 
@@ -488,7 +493,7 @@ describe('AuthenticationSettings', () => {
     it('clicking delete button removes the mapping row', async () => {
       renderAuthenticationPage();
 
-      // Find the delete button for the first mapping
+      // Find the delete button via aria-label
       const deleteButtons = screen.getAllByRole('button', { name: /Remove mapping/ });
       const countBefore = deleteButtons.length;
 
@@ -512,14 +517,14 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Add an empty mapping row — no values entered
-      await userEvent.click(screen.getByRole('button', { name: 'Add Mapping' }));
+      await userEvent.click(screen.getByText('Add Mapping'));
 
       // Toggle SSO switch to make the form dirty and trigger dirty detection
       const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
 
       // Verify save button is enabled before clicking
-      const saveButton = screen.getByRole('button', { name: 'Save Changes' });
+      const saveButton = screen.getByRole('button', { name: /Save Changes/ });
       expect(saveButton).toBeEnabled();
 
       await userEvent.click(saveButton);
@@ -564,14 +569,14 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Change multiple fields
-      const issuerInput = screen.getByLabelText('Issuer URL');
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://new-issuer.example.com');
 
       const switchEl = screen.getByRole('switch', { name: 'Enable SSO / OIDC' });
       await userEvent.click(switchEl);
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await userEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
 
       await waitFor(() => {
         expect(mockUpdateFn).toHaveBeenCalledWith(
@@ -595,13 +600,14 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Change something to enable save
-      const issuerInput = screen.getByLabelText('Issuer URL');
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://changed.example.com');
 
-      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await userEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
 
       await waitFor(() => {
+        // antd message.success renders notification in DOM
         expect(screen.getByText('Settings saved successfully')).toBeInTheDocument();
       });
     });
@@ -618,24 +624,24 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Change issuer URL to make form dirty
-      const issuerInput = screen.getByLabelText('Issuer URL');
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://changed.example.com');
 
-      const saveButton = screen.getByRole('button', { name: 'Save Changes' });
+      const saveButton = screen.getByRole('button', { name: /Save Changes/ });
       expect(saveButton).toBeEnabled();
 
       await userEvent.click(saveButton);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
       });
     });
 
-    it('shows CircularProgress inside save button when mutation is saving', async () => {
+    it('shows loading icon inside save button when mutation is saving', async () => {
       const mockUpdateFn = vi.fn();
 
-      // Mutation loading, data loaded but with a different issuer_url to make isDirty=true
+      // Set data with different issuer_url so isDirty=true
       (useUpdateOidcConfigMutation as ReturnType<typeof vi.fn>).mockReturnValue([
         mockUpdateFn,
         { isLoading: true },
@@ -648,19 +654,12 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
 
-      renderAuthenticationPage();
+      const { container } = renderAuthenticationPage();
 
-      // When isSaving=true, the save button renders <CircularProgress>
-      // instead of text "Save Changes". The button still has role="button"
-      // and contains a child with role="progressbar".
-      const buttons = screen.getAllByRole('button');
-      const saveProgressButton = buttons.find((btn) =>
-        btn.querySelector('[role="progressbar"]')
-      );
-      expect(saveProgressButton).toBeTruthy();
-
-      // The button should also be disabled while saving
-      expect(saveProgressButton).toBeDisabled();
+      // antd Button with loading adds .ant-btn-loading-icon
+      const saveButton = screen.getByRole('button', { name: /Save Changes/ });
+      expect(saveButton.querySelector('.ant-btn-loading-icon')).toBeTruthy();
+      expect(saveButton).toBeDisabled();
     });
 
     it('all form fields are disabled while saving', () => {
@@ -678,12 +677,12 @@ describe('AuthenticationSettings', () => {
 
       renderAuthenticationPage();
 
-      // All TextFields should be disabled while mutation is in progress
-      const issuerInput = screen.getByLabelText('Issuer URL') as HTMLInputElement;
-      const clientIdInput = screen.getByLabelText('Backend Client ID') as HTMLInputElement;
-      const frontendClientIdInput = screen.getByLabelText('Frontend Client ID') as HTMLInputElement;
-      const publicUrlInput = screen.getByLabelText('Public URL') as HTMLInputElement;
-      const secretInput = screen.getByLabelText('Client Secret') as HTMLInputElement;
+      // All inputs should be disabled while mutation is in progress
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm') as HTMLInputElement;
+      const clientIdInput = screen.getByDisplayValue('bigbug-backend') as HTMLInputElement;
+      const frontendClientIdInput = screen.getByDisplayValue('bigbug-frontend') as HTMLInputElement;
+      const publicUrlInput = screen.getByDisplayValue('https://auth.example.com') as HTMLInputElement;
+      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
 
       expect(issuerInput).toBeDisabled();
       expect(clientIdInput).toBeDisabled();
@@ -704,7 +703,7 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // Change something to enable save
-      const issuerInput = screen.getByLabelText('Issuer URL');
+      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
       await userEvent.clear(issuerInput);
       await userEvent.type(issuerInput, 'https://changed.example.com');
 
@@ -726,9 +725,9 @@ describe('AuthenticationSettings', () => {
 
       renderAuthenticationPage();
 
-      const issuerInput = screen.getByLabelText('Issuer URL');
-      await userEvent.clear(issuerInput);
-      await userEvent.type(issuerInput, 'https://changed.example.com');
+      const issuerInputFallback = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
+      await userEvent.clear(issuerInputFallback);
+      await userEvent.type(issuerInputFallback, 'https://changed.example.com');
 
       await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 

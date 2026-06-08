@@ -8,13 +8,15 @@
  * @relatedFiles ../Login/index.tsx, ../../router/index.tsx
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Box, Typography, CircularProgress } from '@mui/material';
+import { Typography, Spin, Alert, Flex } from 'antd';
 import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 import { useSsoExchangeMutation } from '../../store/api';
 import { useAppDispatch } from '../../store';
 import { setCredentials } from '../../store/authSlice';
+
+const { Text, Link } = Typography;
 
 export function SsoCallbackPage() {
   const navigate = useNavigate();
@@ -22,6 +24,7 @@ export function SsoCallbackPage() {
   const { handleCallback } = useKeycloakAuth();
   const [exchange] = useSsoExchangeMutation();
   const called = useRef(false);
+  const [fallbackError, setFallbackError] = useState<string | null>(null);
 
   useEffect(() => {
     // React StrictMode double-mounts in dev — guard against double exchange.
@@ -30,7 +33,7 @@ export function SsoCallbackPage() {
 
     const payload = handleCallback();
     if ('error' in payload) {
-      // Navigate to login with the error description.
+      setFallbackError(payload.error);
       navigate(`/login?error=${encodeURIComponent(payload.error)}`, { replace: true });
       return;
     }
@@ -54,27 +57,44 @@ export function SsoCallbackPage() {
         navigate('/', { replace: true });
       })
       .catch((err) => {
-        const detail = (err as { data?: { detail?: string } })?.data?.detail || 'SSO login failed';
+        const detail =
+          (err as { data?: { detail?: string } })?.data?.detail || 'SSO login failed';
+        setFallbackError(detail);
         navigate(`/login?error=${encodeURIComponent(detail)}`, { replace: true });
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // If navigation didn't happen (e.g. blocked), show a fallback error UI.
+  if (fallbackError) {
+    return (
+      <Flex
+        vertical
+        align="center"
+        justify="center"
+        style={{ minHeight: '100vh' }}
+        gap="middle"
+      >
+        <Alert
+          type="error"
+          title="SSO Login Failed"
+          description={fallbackError}
+          showIcon
+        />
+        <Link onClick={() => navigate('/login')}>Back to login</Link>
+      </Flex>
+    );
+  }
+
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        bgcolor: 'background.default',
-      }}
+    <Flex
+      vertical
+      align="center"
+      justify="center"
+      style={{ minHeight: '100vh' }}
+      gap="middle"
     >
-      <CircularProgress />
-      <Typography variant="body1" color="text.secondary">
-        Completing sign in…
-      </Typography>
-    </Box>
+      <Spin size="large" />
+      <Text type="secondary">Completing sign in…</Text>
+    </Flex>
   );
 }

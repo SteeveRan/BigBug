@@ -6,12 +6,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Store } from '@reduxjs/toolkit';
+import { App } from 'antd';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -87,7 +88,9 @@ function renderPipelinesPage() {
     ...render(
       <Provider store={store}>
         <BrowserRouter>
-          <PipelinesPage />
+          <App>
+            <PipelinesPage />
+          </App>
         </BrowserRouter>
       </Provider>
     ),
@@ -227,8 +230,9 @@ describe('PipelinesPage', () => {
       error: null,
     });
 
-    renderPipelinesPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderPipelinesPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -242,11 +246,11 @@ describe('PipelinesPage', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    // "Run Pipeline" appears as button text and dialog title — scope to dialog
-    expect(within(dialog).getByText('Run Pipeline')).toBeInTheDocument();
-    // MUI renders labels both as <label> and within <span> inside the input
-    expect(within(dialog).getAllByText('GitLab Instance').length).toBeGreaterThanOrEqual(1);
-    expect(within(dialog).getAllByText('GitLab Project ID').length).toBeGreaterThanOrEqual(1);
+    // "Run Pipeline" appears as button text and dialog title
+    expect(screen.getAllByText('Run Pipeline').length).toBeGreaterThanOrEqual(2);
+    // antd Select/Input uses placeholder, not label
+    expect(screen.getByText('GitLab Instance')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('GitLab Project ID')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

@@ -1,25 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import {
-  Box,
-  Card,
-  CardContent,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  CircularProgress,
-  Divider,
-} from '@mui/material';
+import { Card, Input, Button, Typography, Divider, Flex, App } from 'antd';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useAppDispatch } from '../../store';
 import { setCredentials } from '../../store/authSlice';
 import { useLoginMutation } from '../../store/api';
 import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 
+const { Title, Text } = Typography;
+
 export function LoginPage() {
+  const { message } = App.useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -30,15 +23,14 @@ export function LoginPage() {
   useEffect(() => {
     const param = searchParams.get('error');
     if (param) {
-      setError(param);
+      message.error(param);
       // Clean up the URL so the message doesn't survive a refresh.
       navigate('/login', { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, message]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     try {
       const result = await login({ username, password }).unwrap();
       const meResponse = await fetch('/api/auth/me', {
@@ -54,78 +46,72 @@ export function LoginPage() {
       );
       navigate('/');
     } catch {
-      setError('Invalid username or password');
+      message.error('Invalid username or password');
     }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-      }}
+    <Flex
+      vertical
+      align="center"
+      justify="center"
+      style={{ minHeight: '100vh', padding: 16 }}
     >
-      <Card sx={{ width: 400, p: 2 }}>
-        <CardContent>
-          <Typography variant="h4" fontWeight="bold" color="primary" gutterBottom>
-            BigBug
-          </Typography>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            DevOps Sync & Build Service
-          </Typography>
+      <Card style={{ width: '100%', maxWidth: 400 }}>
+        <Flex vertical gap="middle">
+          <div>
+            <Title level={3} style={{ marginBottom: 0 }}>
+              BigBug
+            </Title>
+            <Text type="secondary">DevOps Sync & Build Service</Text>
+          </div>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit}>
-            <TextField
-              label="Username"
-              fullWidth
-              margin="normal"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoFocus
-              required
-            />
-            <TextField
-              label="Password"
-              type="password"
-              fullWidth
-              margin="normal"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="large"
-              sx={{ mt: 2 }}
-              disabled={isLoading}
-            >
-              {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
-            </Button>
-          </Box>
+          <form onSubmit={handleSubmit}>
+            <Flex vertical gap="middle">
+              <Input
+                prefix={<MailOutlined />}
+                placeholder="Email"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoFocus
+                required
+                size="large"
+              />
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                size="large"
+              />
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                size="large"
+                loading={isLoading}
+              >
+                Sign In
+              </Button>
+            </Flex>
+          </form>
 
           {/* SSO button — shown only when the backend reports SSO is enabled
               and the config has finished loading. */}
           {ready && enabled && (
             <>
-              <Divider sx={{ my: 2 }}>or</Divider>
-              <Button variant="outlined" fullWidth size="large" onClick={ssoLogin}>
+              <Divider>or</Divider>
+              <Button block size="large" onClick={ssoLogin}>
                 Sign in with SSO
               </Button>
             </>
           )}
-        </CardContent>
+        </Flex>
       </Card>
-    </Box>
+      <Text type="secondary" style={{ marginTop: 16, fontSize: 12 }}>
+        BigBug Platform
+      </Text>
+    </Flex>
   );
 }

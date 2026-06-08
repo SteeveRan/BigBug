@@ -3,33 +3,26 @@
  * @description Settings page for managing OIDC/SSO authentication configuration.
  *              Provides UI for configuring Keycloak/SSO issuer, client credentials,
  *              and role mapping between provider roles and BigBug roles.
- * @dependencies @mui/material, @mui/icons-material, ../../store/api, ../../components/PermissionGate
+ * @dependencies antd, @ant-design/icons, ../../store/api, ../../components/PermissionGate
  * @relatedFiles ../../store/api.ts, ../../types/index.ts, ../../components/PermissionGate.tsx
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
-  Box,
+  Card,
   Typography,
-  Paper,
-  TextField,
-  Switch,
   Button,
-  Divider,
-  Alert,
-  CircularProgress,
-  Snackbar,
-  IconButton,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Flex,
+  Spin,
+  Divider,
+  Input,
+  Switch,
   Tooltip,
-  FormControlLabel,
-} from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+  App,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
 import type { OIDCConfigUpdate } from '../../../types';
 import { useGetOidcConfigQuery, useUpdateOidcConfigMutation } from '../../../store/api';
@@ -38,16 +31,6 @@ import { useGetOidcConfigQuery, useUpdateOidcConfigMutation } from '../../../sto
 
 const MASKED_SECRET = '********';
 const SECRET_PLACEHOLDER = 'Enter new secret to change';
-
-// ─── Snackbar state ──────────────────────────────────────────────────────────
-
-interface SnackbarState {
-  open: boolean;
-  message: string;
-  severity: 'success' | 'error';
-}
-
-const EMPTY_SNACKBAR: SnackbarState = { open: false, message: '', severity: 'success' };
 
 // ─── Role mapping entry ──────────────────────────────────────────────────────
 
@@ -90,10 +73,9 @@ function entriesToRecord(entries: RoleMappingEntry[]): Record<string, string> {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function AuthenticationSettings() {
+  const { message } = App.useApp();
   const { data: config, isLoading, isError } = useGetOidcConfigQuery();
   const [updateConfig, { isLoading: isSaving }] = useUpdateOidcConfigMutation();
-
-  const [snackbar, setSnackbar] = useState<SnackbarState>(EMPTY_SNACKBAR);
 
   // Form state
   const [enabled, setEnabled] = useState(false);
@@ -168,13 +150,16 @@ export function AuthenticationSettings() {
     mappings,
   ]);
 
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
-  }, []);
-
-  const hideSnackbar = useCallback(() => {
-    setSnackbar(EMPTY_SNACKBAR);
-  }, []);
+  const showMessage = useCallback(
+    (msg: string, severity: 'success' | 'error') => {
+      if (severity === 'success') {
+        message.success(msg);
+      } else {
+        message.error(msg);
+      }
+    },
+    [message],
+  );
 
   // ─── Role mapping handlers ─────────────────────────────────────────────────
 
@@ -230,7 +215,7 @@ export function AuthenticationSettings() {
 
     try {
       await updateConfig(payload).unwrap();
-      showSnackbar('Settings saved successfully', 'success');
+      showMessage('Settings saved successfully', 'success');
 
       // Update original values after successful save
       setOriginalValues({
@@ -244,273 +229,250 @@ export function AuthenticationSettings() {
       });
       setSecretWasMasked(false);
     } catch (err: unknown) {
-      const message =
+      const msg =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Failed to save settings')
           : 'Failed to save settings';
-      showSnackbar(message, 'error');
+      showMessage(msg, 'error');
     }
   };
+
+  // ─── Table columns for role mappings ───────────────────────────────────────
+
+  const mappingColumns: ColumnsType<RoleMappingEntry> = [
+    {
+      title: 'Provider Role',
+      key: 'providerRole',
+      render: (_: unknown, record: RoleMappingEntry) => (
+        <Input
+          size="small"
+          value={record.providerRole}
+          onChange={(e) => handleMappingChange(record.id, 'providerRole', e.target.value)}
+          placeholder="e.g. bigbug-admin"
+          disabled={isSaving}
+          aria-label={`Provider role for mapping ${record.id}`}
+        />
+      ),
+    },
+    {
+      title: 'BigBug Role',
+      key: 'bigbugRole',
+      render: (_: unknown, record: RoleMappingEntry) => (
+        <Input
+          size="small"
+          value={record.bigbugRole}
+          onChange={(e) => handleMappingChange(record.id, 'bigbugRole', e.target.value)}
+          placeholder="e.g. admin"
+          disabled={isSaving}
+          aria-label={`BigBug role for mapping ${record.id}`}
+        />
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 60,
+      align: 'right',
+      render: (_: unknown, record: RoleMappingEntry) => (
+        <Tooltip title="Remove mapping">
+          <Button
+            size="small"
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleRemoveMapping(record.id)}
+            disabled={isSaving}
+            aria-label={`Remove mapping ${record.providerRole || '(empty)'}`}
+          />
+        </Tooltip>
+      ),
+    },
+  ];
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
+      <Flex justify="center" style={{ padding: '64px 0' }}>
+        <Spin />
+      </Flex>
     );
   }
 
   if (isError) {
     return (
-      <Box>
-        <Typography variant="h4" gutterBottom>
+      <Flex vertical gap={16}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
           Authentication Settings
-        </Typography>
-        <Alert severity="error">
+        </Typography.Title>
+        <Typography.Text type="danger">
           Failed to load authentication configuration. Please try again later.
-        </Alert>
-      </Box>
+        </Typography.Text>
+      </Flex>
     );
   }
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Authentication Settings
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Configure OIDC / SSO authentication provider (Keycloak) and role mapping between external
-        roles and BigBug internal roles.
-      </Typography>
+    <Flex vertical gap={16}>
+      <div>
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          Authentication Settings
+        </Typography.Title>
+        <Typography.Text type="secondary">
+          Configure OIDC / SSO authentication provider (Keycloak) and role mapping between external
+          roles and BigBug internal roles.
+        </Typography.Text>
+      </div>
 
       {/* ── OIDC / SSO Configuration Section ─────────────────────────────── */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2,
-          }}
-        >
-          <Typography variant="h6">OIDC / SSO Configuration</Typography>
-          <FormControlLabel
-          control={
+      <Card
+        title="OIDC / SSO Configuration"
+        extra={
+          <Flex align="center" gap={8}>
+            <Typography.Text>{enabled ? 'Enabled' : 'Disabled'}</Typography.Text>
             <Switch
               checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-              slotProps={{ input: { 'aria-label': 'Enable SSO / OIDC' } }}
+              onChange={(checked) => setEnabled(checked)}
+              aria-label="Enable SSO / OIDC"
             />
-          }
-            label={enabled ? 'Enabled' : 'Disabled'}
-            labelPlacement="start"
-          />
-        </Box>
-
-        <Divider sx={{ mb: 3 }} />
-
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 3,
-          }}
-        >
-          <Box sx={{ flex: '1 1 360px', maxWidth: '100%' }}>
-            <TextField
-              label="Issuer URL"
-              fullWidth
+          </Flex>
+        }
+      >
+        <Flex wrap="wrap" gap={16}>
+          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+            <div style={{ marginBottom: 4 }}>
+              <Typography.Text style={{ fontSize: 12 }}>Issuer URL</Typography.Text>
+            </div>
+            <Input
               value={issuerUrl}
               onChange={(e) => setIssuerUrl(e.target.value)}
               placeholder="https://keycloak.example.com/realms/myrealm"
-              helperText="The OIDC issuer URL of your authentication provider"
               disabled={isSaving}
             />
-          </Box>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              The OIDC issuer URL of your authentication provider
+            </Typography.Text>
+          </div>
 
-          <Box sx={{ flex: '1 1 360px', maxWidth: '100%' }}>
-            <TextField
-              label="Public URL"
-              fullWidth
+          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+            <div style={{ marginBottom: 4 }}>
+              <Typography.Text style={{ fontSize: 12 }}>Public URL</Typography.Text>
+            </div>
+            <Input
               value={publicUrl}
               onChange={(e) => setPublicUrl(e.target.value)}
               placeholder="https://auth.example.com"
-              helperText="Optional. Public-facing URL for the auth provider (if different from issuer)"
               disabled={isSaving}
             />
-          </Box>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Optional. Public-facing URL for the auth provider (if different from issuer)
+            </Typography.Text>
+          </div>
 
-          <Box sx={{ flex: '1 1 360px', maxWidth: '100%' }}>
-            <TextField
-              label="Backend Client ID"
-              fullWidth
+          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+            <div style={{ marginBottom: 4 }}>
+              <Typography.Text style={{ fontSize: 12 }}>Backend Client ID</Typography.Text>
+            </div>
+            <Input
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
               placeholder="bigbug-backend"
-              helperText="OIDC client ID for backend server-to-server communication"
               disabled={isSaving}
             />
-          </Box>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              OIDC client ID for backend server-to-server communication
+            </Typography.Text>
+          </div>
 
-          <Box sx={{ flex: '1 1 360px', maxWidth: '100%' }}>
-            <TextField
-              label="Frontend Client ID"
-              fullWidth
+          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+            <div style={{ marginBottom: 4 }}>
+              <Typography.Text style={{ fontSize: 12 }}>Frontend Client ID</Typography.Text>
+            </div>
+            <Input
               value={frontendClientId}
               onChange={(e) => setFrontendClientId(e.target.value)}
               placeholder="bigbug-frontend"
-              helperText="OIDC client ID for frontend SPA (public client)"
               disabled={isSaving}
             />
-          </Box>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              OIDC client ID for frontend SPA (public client)
+            </Typography.Text>
+          </div>
 
-          <Box sx={{ flex: '1 1 360px', maxWidth: '100%' }}>
-            <TextField
-              label="Client Secret"
-              fullWidth
+          <div style={{ flex: '1 1 360px', minWidth: 280 }}>
+            <div style={{ marginBottom: 4 }}>
+              <Typography.Text style={{ fontSize: 12 }}>Client Secret</Typography.Text>
+            </div>
+            <Input.Password
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
-              type="password"
               placeholder={secretWasMasked ? SECRET_PLACEHOLDER : ''}
-              helperText={
-                secretWasMasked
-                  ? 'Secret is stored. Enter a new value to change.'
-                  : 'OIDC client secret (confidential client)'
-              }
               disabled={isSaving}
             />
-          </Box>
-        </Box>
-      </Paper>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {secretWasMasked
+                ? 'Secret is stored. Enter a new value to change.'
+                : 'OIDC client secret (confidential client)'}
+            </Typography.Text>
+          </div>
+        </Flex>
+      </Card>
 
       {/* ── Role Mapping Section ─────────────────────────────────────────── */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 2,
-          }}
-        >
-          <Typography variant="h6">Role Mapping</Typography>
+      <Card
+        title="Role Mapping"
+        extra={
           <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
+            icon={<PlusOutlined />}
             onClick={handleAddMapping}
             disabled={isSaving}
           >
             Add Mapping
           </Button>
-        </Box>
-
-        <Divider sx={{ mb: 2 }} />
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        }
+      >
+        <Typography.Text type="secondary">
           Map provider roles (from your OIDC provider) to BigBug internal roles.
-        </Typography>
+        </Typography.Text>
+
+        <Divider />
 
         {mappings.length === 0 ? (
-          <Typography
-            color="text.secondary"
-            sx={{ py: 2, textAlign: 'center', fontStyle: 'italic' }}
+          <Typography.Text
+            type="secondary"
+            style={{
+              display: 'block',
+              padding: '16px 0',
+              textAlign: 'center',
+              fontStyle: 'italic',
+            }}
           >
             No role mappings configured. Add a mapping to map external roles to BigBug roles.
-          </Typography>
+          </Typography.Text>
         ) : (
-          <TableContainer>
-            <Table aria-label="Role mappings table" size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Provider Role</TableCell>
-                  <TableCell>BigBug Role</TableCell>
-                  <TableCell align="right" sx={{ width: 60 }}>
-                    Actions
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {mappings.map((entry) => (
-                  <TableRow key={entry.id} hover>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={entry.providerRole}
-                        onChange={(e) =>
-                          handleMappingChange(entry.id, 'providerRole', e.target.value)
-                        }
-                        placeholder="e.g. bigbug-admin"
-                        disabled={isSaving}
-                        slotProps={{ htmlInput: { 'aria-label': `Provider role for mapping ${entry.id}` } }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
-                        value={entry.bigbugRole}
-                        onChange={(e) =>
-                          handleMappingChange(entry.id, 'bigbugRole', e.target.value)
-                        }
-                        placeholder="e.g. admin"
-                        disabled={isSaving}
-                        slotProps={{ htmlInput: { 'aria-label': `BigBug role for mapping ${entry.id}` } }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Remove mapping">
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveMapping(entry.id)}
-                            disabled={isSaving}
-                            aria-label={`Remove mapping ${entry.providerRole || '(empty)'}`}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          <Table
+            columns={mappingColumns}
+            dataSource={mappings}
+            rowKey="id"
+            pagination={false}
+            size="small"
+          />
         )}
-      </Paper>
+      </Card>
 
       {/* ── Save Button ──────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Flex justify="flex-end">
         <Button
-          variant="contained"
+          type="primary"
           size="large"
           onClick={handleSave}
           disabled={!isDirty || isSaving}
+          loading={isSaving}
         >
-          {isSaving ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
+          Save Changes
         </Button>
-      </Box>
-
-      {/* ── Snackbar ─────────────────────────────────────────────────────── */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={hideSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={hideSnackbar}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+      </Flex>
+    </Flex>
   );
 }
 

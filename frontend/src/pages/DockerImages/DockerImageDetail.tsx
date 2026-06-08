@@ -1,27 +1,29 @@
+/**
+ * @file DockerImageDetail.tsx
+ * @description Страница деталей Docker Image: source info, теги, история синхронизации + модальное окно Index Image
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useParams, useNavigate } from 'react-router';
 import {
-  Box,
-  Typography,
   Card,
-  CardContent,
+  Typography,
   Button,
-  CircularProgress,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  Flex,
+  Spin,
   Divider,
-  Link,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-} from '@mui/material';
-import { ArrowBack, Refresh, OpenInNew } from '@mui/icons-material';
+  Modal,
+  Input,
+  App,
+  Tooltip,
+  Space,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  ArrowLeftOutlined,
+  ReloadOutlined,
+  LinkOutlined,
+} from '@ant-design/icons';
 import { useState } from 'react';
 import {
   useGetDockerImageQuery,
@@ -35,6 +37,7 @@ import { StatusChip } from '../../components/StatusChip';
 export function DockerImageDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const sourceId = Number(id);
 
   const { data: source, isLoading } = useGetDockerImageQuery(sourceId);
@@ -52,8 +55,11 @@ export function DockerImageDetailPage() {
     setSubmitting(true);
     try {
       await indexImage({ id: sourceId, image_name: imageName }).unwrap();
+      message.success(`Indexing started for ${imageName}`);
       setIndexDialogOpen(false);
       setImageName('');
+    } catch {
+      // error handled by RTK Query
     } finally {
       setSubmitting(false);
     }
@@ -71,253 +77,279 @@ export function DockerImageDetailPage() {
     return `${size.toFixed(1)} ${units[unitIdx]}`;
   };
 
-  if (isLoading) return <CircularProgress />;
-  if (!s) return <Typography>Docker image source not found</Typography>;
+  // ── Loading / Not Found ──────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <Flex justify="center" style={{ padding: 48 }}>
+        <Spin size="large" />
+      </Flex>
+    );
+  }
+  if (!s) {
+    return (
+      <Flex vertical align="center" gap={16} style={{ padding: 48 }}>
+        <Typography.Text type="secondary">Docker image source not found</Typography.Text>
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/docker-images')}>
+          Back to Docker Images
+        </Button>
+      </Flex>
+    );
+  }
+
+  // ── Tags Table Columns ───────────────────────────────────────────────────
+  const tagColumns: ColumnsType<DockerImageTag> = [
+    {
+      title: 'Image',
+      key: 'image',
+      render: (_: unknown, record: DockerImageTag) => (
+        <Typography.Text strong code style={{ fontSize: '0.8rem' }}>
+          {record.image_name}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Tag',
+      dataIndex: 'tag',
+      key: 'tag',
+      render: (val: string) => (
+        <Typography.Text code style={{ fontSize: '0.8rem' }}>
+          {val}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Architecture',
+      dataIndex: 'architectures',
+      key: 'architectures',
+      render: (val: string | null) =>
+        val ? (
+          <Typography.Text code style={{ fontSize: '0.8rem' }}>
+            {val}
+          </Typography.Text>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      title: 'Size',
+      key: 'size',
+      render: (_: unknown, record: DockerImageTag) => formatBytes(record.size_bytes),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: DockerImageTag) => (
+        <Flex align="center" gap={8}>
+          <StatusChip
+            statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+            statusText={record.status_text}
+          />
+          {record.is_synced && (
+            <Typography.Text type="success" strong style={{ fontSize: 12 }}>
+              ✓ Synced
+            </Typography.Text>
+          )}
+        </Flex>
+      ),
+    },
+  ];
+
+  // ── Sync History Table Columns ───────────────────────────────────────────
+  const logColumns: ColumnsType<DockerSyncLog> = [
+    {
+      title: 'Date',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (val: string) => new Date(val).toLocaleString(),
+    },
+    {
+      title: 'Triggered By',
+      dataIndex: 'triggered_by',
+      key: 'triggered_by',
+      render: (val: string | null) => val ?? '—',
+    },
+    {
+      title: 'Pipeline',
+      key: 'pipeline',
+      render: (_: unknown, record: DockerSyncLog) =>
+        record.pipeline_url ? (
+          <Button
+            size="small"
+            type="link"
+            icon={<LinkOutlined />}
+            href={record.pipeline_url}
+            target="_blank"
+          >
+            #{record.pipeline_id}
+          </Button>
+        ) : (
+          (record.pipeline_id ?? '—')
+        ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: DockerSyncLog) => (
+        <StatusChip
+          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+          statusText={record.status_text}
+        />
+      ),
+    },
+    {
+      title: 'Duration',
+      key: 'duration',
+      render: (_: unknown, record: DockerSyncLog) => {
+        if (record.started_at && record.finished_at) {
+          const seconds = Math.round(
+            (new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000,
+          );
+          return `${seconds}s`;
+        }
+        return '—';
+      },
+    },
+  ];
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/docker-images')}>
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex align="center" gap={12} wrap="wrap">
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/docker-images')}>
           Back
         </Button>
-        <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
+        <Typography.Title level={4} style={{ margin: 0, flex: 1 }}>
           {s.name}
-        </Typography>
+        </Typography.Title>
+        <Tooltip title={indexing ? 'Indexing…' : 'Index image tags from registry'}>
+          <Button
+            type="primary"
+            icon={<ReloadOutlined />}
+            onClick={() => setIndexDialogOpen(true)}
+            loading={indexing}
+          >
+            Index Image
+          </Button>
+        </Tooltip>
         <Button
-          variant="contained"
-          startIcon={<Refresh />}
-          onClick={() => setIndexDialogOpen(true)}
-          disabled={indexing}
-        >
-          Index Image
-        </Button>
-        <Button
-          startIcon={<OpenInNew />}
+          icon={<LinkOutlined />}
           href={s.registry_url}
           target="_blank"
           rel="noopener noreferrer"
-          variant="outlined"
         >
           Open Registry
         </Button>
-      </Box>
+      </Flex>
 
-      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-        <Card sx={{ flex: '1 1 300px' }}>
-          <CardContent>
-            <Typography variant="h6" mb={2}>
-              Source Info
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Status
-                </Typography>
-                <Box mt={0.5}>
-                  <StatusChip
-                    statusFlag={s.status_flag as 0 | 1 | 2 | 3 | 4}
-                    statusText={s.status_text}
-                  />
-                </Box>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Registry URL
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ fontFamily: 'monospace', fontSize: '0.8rem', wordBreak: 'break-all' }}
-                >
-                  {s.registry_url}
-                </Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Description
-                </Typography>
-                <Typography variant="body2">{s.description ?? '—'}</Typography>
-              </Box>
-              <Divider />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Last Synced
-                </Typography>
-                <Typography variant="body2">
-                  {s.last_synced_at ? new Date(s.last_synced_at).toLocaleString() : 'Never'}
-                </Typography>
-              </Box>
-              {s.gitlab_project_url && (
-                <>
-                  <Divider />
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      GitLab Project
-                    </Typography>
-                    <Typography variant="body2">
-                      <Link href={s.gitlab_project_url} target="_blank" rel="noopener noreferrer">
-                        {s.gitlab_project_id ?? s.gitlab_project_url}
-                      </Link>
-                    </Typography>
-                  </Box>
-                </>
-              )}
-            </Box>
-          </CardContent>
+      {/* ── Info + Tags Cards ───────────────────────────────────────────────── */}
+      <Flex gap={16} wrap="wrap">
+        {/* Source Info Card */}
+        <Card title="Source Info" style={{ flex: '1 1 300px', minWidth: 280 }}>
+          <Flex vertical gap={12}>
+            <Flex vertical>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Status
+              </Typography.Text>
+              <StatusChip
+                statusFlag={s.status_flag as 0 | 1 | 2 | 3 | 4}
+                statusText={s.status_text}
+              />
+            </Flex>
+            <Divider style={{ margin: 0 }} />
+            <Flex vertical>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Registry URL
+              </Typography.Text>
+              <Typography.Text code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
+                {s.registry_url}
+              </Typography.Text>
+            </Flex>
+            <Divider style={{ margin: 0 }} />
+            <Flex vertical>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Description
+              </Typography.Text>
+              <Typography.Text>{s.description ?? '—'}</Typography.Text>
+            </Flex>
+            <Divider style={{ margin: 0 }} />
+            <Flex vertical>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                Last Synced
+              </Typography.Text>
+              <Typography.Text>
+                {s.last_synced_at
+                  ? new Date(s.last_synced_at).toLocaleString()
+                  : 'Never'}
+              </Typography.Text>
+            </Flex>
+            {s.gitlab_project_url && (
+              <>
+                <Divider style={{ margin: 0 }} />
+                <Flex vertical>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    GitLab Project
+                  </Typography.Text>
+                  <Typography.Link href={s.gitlab_project_url} target="_blank" rel="noopener noreferrer">
+                    {s.gitlab_project_id ?? s.gitlab_project_url}
+                  </Typography.Link>
+                </Flex>
+              </>
+            )}
+          </Flex>
         </Card>
 
-        <Card sx={{ flex: '2 1 500px' }}>
-          <CardContent>
-            <Typography variant="h6" mb={2}>
-              Image Tags ({tags.length})
-            </Typography>
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Image</TableCell>
-                    <TableCell>Tag</TableCell>
-                    <TableCell>Architecture</TableCell>
-                    <TableCell>Size</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(tags as DockerImageTag[]).map((tag) => (
-                    <TableRow key={tag.id}>
-                      <TableCell>
-                        <Typography
-                          variant="body2"
-                          fontWeight="medium"
-                          sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-                        >
-                          {tag.image_name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        {tag.tag}
-                      </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        {tag.architectures ?? '—'}
-                      </TableCell>
-                      <TableCell>{formatBytes(tag.size_bytes)}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <StatusChip
-                            statusFlag={tag.status_flag as 0 | 1 | 2 | 3 | 4}
-                            statusText={tag.status_text}
-                          />
-                          {tag.is_synced && (
-                            <Typography variant="caption" color="success.main" fontWeight="bold">
-                              ✓ Synced
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {tags.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography color="text.secondary" py={2}>
-                          No tags indexed yet. Click "Index Image" to fetch tags.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
+        {/* Image Tags Card */}
+        <Card
+          title={`Image Tags (${(tags as DockerImageTag[]).length})`}
+          style={{ flex: '2 1 500px', minWidth: 350 }}
+        >
+          <Table
+            columns={tagColumns}
+            dataSource={tags as DockerImageTag[]}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            scroll={{ y: 360 }}
+            locale={{
+              emptyText: 'No tags indexed yet. Click "Index Image" to fetch tags.',
+            }}
+          />
         </Card>
-      </Box>
+      </Flex>
 
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" mb={2}>
-            Sync History
-          </Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Triggered By</TableCell>
-                  <TableCell>Pipeline</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Duration</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(logs as DockerSyncLog[]).map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>{new Date(log.created_at).toLocaleString()}</TableCell>
-                    <TableCell>{log.triggered_by ?? '—'}</TableCell>
-                    <TableCell>
-                      {log.pipeline_url ? (
-                        <Button size="small" href={log.pipeline_url} target="_blank">
-                          #{log.pipeline_id}
-                        </Button>
-                      ) : (
-                        (log.pipeline_id ?? '—')
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip
-                        statusFlag={log.status_flag as 0 | 1 | 2 | 3 | 4}
-                        statusText={log.status_text}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {log.started_at && log.finished_at
-                        ? `${Math.round((new Date(log.finished_at).getTime() - new Date(log.started_at).getTime()) / 1000)}s`
-                        : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {logs.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      <Typography color="text.secondary" py={2}>
-                        No sync history yet
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
+      {/* ── Sync History Card ───────────────────────────────────────────────── */}
+      <Card title="Sync History">
+        <Table
+          columns={logColumns}
+          dataSource={logs as DockerSyncLog[]}
+          rowKey="id"
+          size="small"
+          pagination={false}
+          locale={{ emptyText: 'No sync history yet' }}
+        />
       </Card>
 
-      {/* Index Image Dialog */}
-      <Dialog
+      {/* ── Index Image Modal ───────────────────────────────────────────────── */}
+      <Modal
+        title="Index Image Tags"
         open={indexDialogOpen}
-        onClose={() => setIndexDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
+        onOk={handleIndex}
+        onCancel={() => setIndexDialogOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !imageName }}
+        okText="Index"
+        cancelText="Cancel"
       >
-        <DialogTitle>Index Image Tags</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Image Name"
-            fullWidth
-            margin="normal"
-            value={imageName}
-            onChange={(e) => setImageName(e.target.value)}
-            placeholder="library/nginx"
-            helperText="Full image name to index (e.g., library/nginx, bitnami/postgresql)"
-            required
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIndexDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleIndex} disabled={!imageName || submitting}>
-            {submitting ? <CircularProgress size={20} /> : 'Index'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        <Input
+          placeholder="Image Name (e.g. library/nginx)"
+          value={imageName}
+          onChange={(e) => setImageName(e.target.value)}
+          required
+        />
+        <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+          Full image name to index (e.g., library/nginx, bitnami/postgresql)
+        </Typography.Text>
+      </Modal>
+    </Flex>
   );
 }

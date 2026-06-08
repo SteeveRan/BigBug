@@ -88,6 +88,8 @@ services:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
+    env_file:
+      - .env
     ports:
       - "8000:8000"
     volumes:

@@ -18,11 +18,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^9.0.1",
-    "@mui/material": "^9.0.1",
+    "@ant-design/icons": "^6.2.5",
     "@reduxjs/toolkit": "^2.3.0",
+    "@uiw/react-markdown-preview": "^5.2.1",
+    "antd": "^6.4.3",
     "axios": "^1.7.0",
     "keycloak-js": "^26.2.4",
     "react": "^19.0.0",

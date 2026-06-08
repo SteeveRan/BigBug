@@ -8,7 +8,7 @@
 - **Vite** - build tool с HMR
 - **Yarn 4.3.1** - package manager
 - **Redux Toolkit 2.3+** + **RTK Query** - state management и API клиент
-- **Material UI v9** - компонентная библиотека
+- **Ant Design 6.4.3** - компонентная библиотека
 - **React Router v7** - маршрутизация
 - **keycloak-js 26+** - SSO адаптер
 - **Vitest** + **@testing-library/react** - unit тесты
@@ -28,7 +28,7 @@ frontend/src/
 ├── types/             # TypeScript интерфейсы
 ├── App.tsx            # Корневой компонент
 ├── main.tsx           # Точка входа
-└── theme.ts           # Material UI тема
+└── theme.ts           # Ant Design тема (ConfigProvider)
 ```
 
 ## Настройка окружения
@@ -196,18 +196,21 @@ function ResourceList() {
     }
   };
   
-  if (isLoading) return <CircularProgress />;
-  if (error) return <Alert severity="error">Failed to load resources</Alert>;
+  const { message } = App.useApp();
+  
+  if (isLoading) return <Spin />;
+  if (error) return <Alert type="error" message="Failed to load resources" />;
   
   return (
-    <List>
-      {resources?.map((resource) => (
-        <ListItem key={resource.id}>
-          <ListItemText primary={resource.name} />
+    <List
+      dataSource={resources}
+      renderItem={(resource) => (
+        <List.Item>
+          <List.Item.Meta title={resource.name} />
           <StatusChip status={resource.status_flag} />
-        </ListItem>
-      ))}
-    </List>
+        </List.Item>
+      )}
+    />
   );
 }
 ```
@@ -222,78 +225,71 @@ frontend/src/pages/ResourceName/index.tsx
 
 ```typescript
 // src/pages/ResourceName/index.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  CircularProgress,
+  Space,
+  Spin,
   Alert,
-} from '@mui/material';
+  App,
+} from 'antd';
 import { useGetResourcesQuery, useDeleteResourceMutation } from '../../store/api';
 import StatusChip from '../../components/StatusChip';
 
 const ResourceNamePage: React.FC = () => {
   const { data: resources, isLoading, error } = useGetResourcesQuery();
   const [deleteResource] = useDeleteResourceMutation();
+  const { message } = App.useApp();
   
   if (isLoading) {
-    return (
-      <Box display="flex" justifyContent="center" p={4}>
-        <CircularProgress />
-      </Box>
-    );
+    return <Spin />;
   }
   
   if (error) {
-    return <Alert severity="error">Failed to load data</Alert>;
+    return <Alert type="error" message="Failed to load data" />;
   }
   
-  return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">Resources</Typography>
-        <Button variant="contained" color="primary">
-          Add Resource
+  const columns = [
+    { title: 'Name', dataIndex: 'name', key: 'name' },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: Resource) => (
+        <StatusChip status={record.status_flag} label={record.status_text} />
+      ),
+    },
+    {
+      title: 'Created',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (val: string) => new Date(val).toLocaleDateString(),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_: unknown, record: Resource) => (
+        <Button size="small" danger onClick={() => deleteResource(record.id)}>
+          Delete
         </Button>
-      </Box>
+      ),
+    },
+  ];
+  
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Typography.Title level={4} style={{ margin: 0 }}>Resources</Typography.Title>
+        <Button type="primary">Add Resource</Button>
+      </div>
       
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Status</TableCell>
-            <TableCell>Created</TableCell>
-            <TableCell>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {resources?.map((resource) => (
-            <TableRow key={resource.id}>
-              <TableCell>{resource.name}</TableCell>
-              <TableCell>
-                <StatusChip status={resource.status_flag} label={resource.status_text} />
-              </TableCell>
-              <TableCell>{new Date(resource.created_at).toLocaleDateString()}</TableCell>
-              <TableCell>
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={() => deleteResource(resource.id)}
-                >
-                  Delete
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Box>
+      <Table
+        columns={columns}
+        dataSource={resources}
+        rowKey="id"
+      />
+    </div>
   );
 };
 
@@ -581,7 +577,7 @@ yarn cache clean
 - [React 19 Documentation](https://react.dev/)
 - [Redux Toolkit Documentation](https://redux-toolkit.js.org/)
 - [RTK Query Documentation](https://redux-toolkit.js.org/rtk-query/overview)
-- [Material UI v9 Documentation](https://mui.com/)
+- [Ant Design 6 Documentation](https://ant.design/)
 - [React Router v7 Documentation](https://reactrouter.com/)
 - [Vitest Documentation](https://vitest.dev/)
 - [`frontend/package.json`](../../frontend/package.json) - актуальные зависимости

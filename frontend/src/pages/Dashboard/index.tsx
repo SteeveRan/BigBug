@@ -1,10 +1,10 @@
-import { Grid, Card, CardContent, Typography, Box, CircularProgress } from '@mui/material';
+import { Card, Col, Flex, Row, Spin, Typography } from 'antd';
 import {
-  GitHub as GitHubIcon,
-  SwapHoriz as MirrorIcon,
-  Layers as GoldImageIcon,
-  Apps as AppImageIcon,
-} from '@mui/icons-material';
+  GithubOutlined,
+  SwapOutlined,
+  BlockOutlined,
+  AppstoreOutlined,
+} from '@ant-design/icons';
 import {
   useListProjectsQuery,
   useListMirrorsQuery,
@@ -13,6 +13,8 @@ import {
 } from '../../store/api';
 import { StatusChip } from '../../components/StatusChip';
 import { GitlabMirror, STATUS_FLAG } from '../../types';
+
+const { Title, Text } = Typography;
 
 function StatCard({
   title,
@@ -27,19 +29,15 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              {title}
-            </Typography>
-            <Typography variant="h4" fontWeight="bold">
-              {isLoading ? <CircularProgress size={28} /> : count}
-            </Typography>
-          </Box>
-          <Box sx={{ color: 'primary.main', opacity: 0.7 }}>{icon}</Box>
-        </Box>
-      </CardContent>
+      <Flex align="center" justify="space-between">
+        <Flex vertical>
+          <Text type="secondary">{title}</Text>
+          <Title level={4} style={{ margin: 0, fontWeight: 'bold' }}>
+            {isLoading ? <Spin size="small" /> : count}
+          </Title>
+        </Flex>
+        <Flex style={{ color: 'var(--ant-color-primary)', opacity: 0.7 }}>{icon}</Flex>
+      </Flex>
     </Card>
   );
 }
@@ -58,97 +56,88 @@ export function DashboardPage() {
   );
 
   return (
-    <Box>
-      <Typography variant="h5" fontWeight="bold" mb={3}>
+    <Flex vertical>
+      <Title level={4} style={{ fontWeight: 'bold', marginBottom: 24 }}>
         Dashboard
-      </Typography>
+      </Title>
 
-      <Grid container spacing={3} mb={4}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+      <Row gutter={[24, 24]} style={{ marginBottom: 32 }}>
+        <Col xs={24} sm={12} md={6}>
           <StatCard
             title="GitHub Projects"
             count={projects.length}
-            icon={<GitHubIcon sx={{ fontSize: 40 }} />}
+            icon={<GithubOutlined style={{ fontSize: 40 }} />}
             isLoading={loadingProjects}
           />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
           <StatCard
             title="GitLab Mirrors"
             count={mirrors.length}
-            icon={<MirrorIcon sx={{ fontSize: 40 }} />}
+            icon={<SwapOutlined style={{ fontSize: 40 }} />}
             isLoading={loadingMirrors}
           />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
           <StatCard
             title="Gold Images"
             count={goldImages.length}
-            icon={<GoldImageIcon sx={{ fontSize: 40 }} />}
+            icon={<BlockOutlined style={{ fontSize: 40 }} />}
             isLoading={loadingGold}
           />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
           <StatCard
             title="App Images"
             count={appImages.length}
-            icon={<AppImageIcon sx={{ fontSize: 40 }} />}
+            icon={<AppstoreOutlined style={{ fontSize: 40 }} />}
             isLoading={loadingApp}
           />
-        </Grid>
-      </Grid>
+        </Col>
+      </Row>
 
       {(staleMirrors.length > 0 || failedMirrors.length > 0) && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" mb={2}>
-              Attention Required
-            </Typography>
-            {failedMirrors.length > 0 && (
-              <Box mb={1}>
-                <Typography variant="body2" color="error">
-                  {failedMirrors.length} mirror(s) failed last sync
-                </Typography>
-              </Box>
-            )}
-            {staleMirrors.length > 0 && (
-              <Box>
-                <Typography variant="body2" color="warning.main">
-                  {staleMirrors.length} mirror(s) are stale
-                </Typography>
-              </Box>
-            )}
-          </CardContent>
+        <Card style={{ marginBottom: 24 }}>
+          <Title level={5} style={{ marginBottom: 16 }}>
+            Attention Required
+          </Title>
+          {failedMirrors.length > 0 && (
+            <Flex style={{ marginBottom: 8 }}>
+              <Text type="danger">
+                {failedMirrors.length} mirror(s) failed last sync
+              </Text>
+            </Flex>
+          )}
+          {staleMirrors.length > 0 && (
+            <Flex>
+              <Text type="warning">
+                {staleMirrors.length} mirror(s) are stale
+              </Text>
+            </Flex>
+          )}
         </Card>
       )}
 
       <Card>
-        <CardContent>
-          <Typography variant="h6" mb={2}>
-            Recent Mirrors Status
-          </Typography>
-          {loadingMirrors ? (
-            <CircularProgress />
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {(mirrors as GitlabMirror[]).slice(0, 5).map((mirror) => (
-                <Box
-                  key={mirror.id}
-                  sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                >
-                  <Typography variant="body2">{mirror.gitlab_name ?? mirror.gitlab_url}</Typography>
-                  <StatusChip statusFlag={mirror.status_flag} statusText={mirror.status_text} />
-                </Box>
-              ))}
-              {mirrors.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  No mirrors configured yet
-                </Typography>
-              )}
-            </Box>
-          )}
-        </CardContent>
+        <Title level={5} style={{ marginBottom: 16 }}>
+          Recent Mirrors Status
+        </Title>
+        {loadingMirrors ? (
+          <Spin />
+        ) : (
+          <Flex vertical gap="small">
+            {(mirrors as GitlabMirror[]).slice(0, 5).map((mirror) => (
+              <Flex key={mirror.id} align="center" justify="space-between">
+                <Text>{mirror.gitlab_name ?? mirror.gitlab_url}</Text>
+                <StatusChip statusFlag={mirror.status_flag} statusText={mirror.status_text} />
+              </Flex>
+            ))}
+            {mirrors.length === 0 && (
+              <Text type="secondary">No mirrors configured yet</Text>
+            )}
+          </Flex>
+        )}
       </Card>
-    </Box>
+    </Flex>
   );
 }

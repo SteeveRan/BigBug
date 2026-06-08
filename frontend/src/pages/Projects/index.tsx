@@ -1,32 +1,32 @@
+/**
+ * @file index.tsx
+ * @description Страница списка GitHub проектов: таблица с columns/dataSource, модальное окно импорта/добавления
+ * @dependencies antd, @ant-design/icons, Redux store
+ */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  Box,
+  Card,
   Typography,
   Button,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Chip,
-  IconButton,
+  Tag,
+  Flex,
+  Space,
+  Spin,
+  Modal,
+  Input,
+  App,
   Tooltip,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-} from '@mui/material';
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
-  Add as AddIcon,
-  Refresh as RefreshIcon,
-  OpenInNew as OpenIcon,
-  Warning as StaleIcon,
-} from '@mui/icons-material';
+  PlusOutlined,
+  ReloadOutlined,
+  LinkOutlined,
+  ExportOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 import {
   useListProjectsQuery,
   useCreateProjectMutation,
@@ -37,6 +37,7 @@ import { GithubProject } from '../../types';
 
 export function ProjectsPage() {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const { data: projects = [], isLoading } = useListProjectsQuery();
   const [createProject] = useCreateProjectMutation();
   const [importProject] = useImportProjectMutation();
@@ -66,9 +67,11 @@ export function ProjectsPage() {
     setSubmitting(true);
     try {
       if (isImport) {
-        await importProject({ github_url: githubUrl, gitlab_url: gitlabUrl }).unwrap();
+        await importProject({ github_url: githubUrl, gitlab_url: gitlabUrl || undefined }).unwrap();
+        message.success('Project imported successfully');
       } else {
         await createProject({ github_url: githubUrl }).unwrap();
+        message.success('Project added successfully');
       }
       setDialogOpen(false);
     } catch {
@@ -78,145 +81,144 @@ export function ProjectsPage() {
     }
   };
 
+  const columns: ColumnsType<GithubProject> = [
+    {
+      title: 'Project',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string, record: GithubProject) => (
+        <Flex vertical>
+          <Space>
+            <Typography.Link onClick={() => navigate(`/projects/${record.id}`)}>
+              {name}
+            </Typography.Link>
+            {record.is_stale && (
+              <Tooltip title="Stale — not synced recently">
+                <WarningOutlined style={{ color: '#faad14' }} />
+              </Tooltip>
+            )}
+          </Space>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {record.full_name}
+          </Typography.Text>
+        </Flex>
+      ),
+    },
+    {
+      title: 'Organization',
+      dataIndex: ['org', 'login'],
+      key: 'organization',
+    },
+    {
+      title: 'License',
+      dataIndex: 'license_spdx',
+      key: 'license_spdx',
+      render: (license: string | null) =>
+        license ? <Tag>{license}</Tag> : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Last Synced',
+      dataIndex: 'last_synced_at',
+      key: 'last_synced_at',
+      render: (val: string | null) =>
+        val ? new Date(val).toLocaleDateString() : <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: GithubProject) => (
+        <Space size={4}>
+          {record.is_archived && <Tag>Archived</Tag>}
+          {record.is_fork && <Tag color="processing">Fork</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_: unknown, record: GithubProject) => (
+        <Space>
+          <Tooltip title="Refresh from GitHub">
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => refreshProject(record.id)}
+            />
+          </Tooltip>
+          <Tooltip title="Open on GitHub">
+            <Button
+              size="small"
+              icon={<ExportOutlined />}
+              href={record.github_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
+    <Flex vertical gap={16}>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+        <Typography.Title level={4} style={{ margin: 0 }}>
           GitHub Projects
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={handleImport}>
+        </Typography.Title>
+        <Space>
+          <Button icon={<ExportOutlined />} onClick={handleImport}>
             Import Existing
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             Add Project
           </Button>
-        </Box>
-      </Box>
+        </Space>
+      </Flex>
 
-      {isLoading ? (
-        <CircularProgress />
-      ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Project</TableCell>
-                <TableCell>Organization</TableCell>
-                <TableCell>License</TableCell>
-                <TableCell>Last Synced</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(projects as GithubProject[]).map((project) => (
-                <TableRow
-                  key={project.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/projects/${project.id}`)}
-                >
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight="medium">
-                        {project.name}
-                      </Typography>
-                      {project.is_stale && (
-                        <Tooltip title="Stale — not synced recently">
-                          <StaleIcon color="warning" fontSize="small" />
-                        </Tooltip>
-                      )}
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {project.full_name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{project.org.login}</TableCell>
-                  <TableCell>
-                    {project.license_spdx ? (
-                      <Chip label={project.license_spdx} size="small" />
-                    ) : (
-                      <Typography variant="caption" color="text.secondary">
-                        —
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {project.last_synced_at
-                      ? new Date(project.last_synced_at).toLocaleDateString()
-                      : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {project.is_archived && <Chip label="Archived" size="small" color="default" />}
-                    {project.is_fork && (
-                      <Chip label="Fork" size="small" color="info" sx={{ ml: 0.5 }} />
-                    )}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title="Refresh from GitHub">
-                      <IconButton size="small" onClick={() => refreshProject(project.id)}>
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Open on GitHub">
-                      <IconButton
-                        size="small"
-                        component="a"
-                        href={project.github_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <OpenIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {projects.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography color="text.secondary" py={3}>
-                      No projects yet. Add a GitHub project to get started.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      {/* ── Table ───────────────────────────────────────────────────────────── */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={projects as GithubProject[]}
+          rowKey="id"
+          loading={isLoading}
+          onRow={(record) => ({
+            onClick: () => navigate(`/projects/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+          pagination={false}
+          locale={{ emptyText: 'No projects yet. Add a GitHub project to get started.' }}
+        />
+      </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{isImport ? 'Import Existing Mirror' : 'Add GitHub Project'}</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="GitHub URL"
-            fullWidth
-            margin="normal"
+      {/* ── Import / Add Modal ──────────────────────────────────────────────── */}
+      <Modal
+        title={isImport ? 'Import Existing Mirror' : 'Add GitHub Project'}
+        open={dialogOpen}
+        onOk={handleSubmit}
+        onCancel={() => setDialogOpen(false)}
+        confirmLoading={submitting}
+        okButtonProps={{ disabled: !githubUrl }}
+        okText={isImport ? 'Import' : 'Add'}
+        cancelText="Cancel"
+      >
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="https://github.com/owner/repo"
             value={githubUrl}
             onChange={(e) => setGithubUrl(e.target.value)}
-            placeholder="https://github.com/owner/repo"
-            required
           />
           {isImport && (
-            <TextField
-              label="GitLab URL"
-              fullWidth
-              margin="normal"
+            <Input
+              placeholder="https://gitlab.example.com/namespace/repo"
               value={gitlabUrl}
               onChange={(e) => setGitlabUrl(e.target.value)}
-              placeholder="https://gitlab.example.com/namespace/repo"
             />
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit} disabled={!githubUrl || submitting}>
-            {submitting ? <CircularProgress size={20} /> : isImport ? 'Import' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Space>
+      </Modal>
+    </Flex>
   );
 }

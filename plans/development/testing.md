@@ -495,8 +495,8 @@ describe('DockerImages', () => {
       error: null,
     });
     
-    renderComponent();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderComponent();
+    expect(container.querySelector('.ant-spin')).toBeInTheDocument();
   });
   
   it('shows error message', () => {

@@ -129,12 +129,15 @@ describe('AuditLogPage', () => {
   // Test 2: Filter controls are present
   // -----------------------------------------------------------------------
   it('renders filter controls', () => {
-    renderAuditLogPage();
+    const { container } = renderAuditLogPage();
 
-    expect(screen.getByLabelText(/Date From/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Date To/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Action')).toBeInTheDocument();
-    expect(screen.getByLabelText('Resource Type')).toBeInTheDocument();
+    // antd datetime-local inputs have no labels — find by type attribute
+    const dateInputs = container.querySelectorAll('input[type="datetime-local"]');
+    expect(dateInputs.length).toBe(2);
+
+    // antd Select shows placeholder text when no value is selected
+    expect(screen.getByText('Action')).toBeInTheDocument();
+    expect(screen.getByText('Resource Type')).toBeInTheDocument();
     expect(screen.getByText('Apply Filters')).toBeInTheDocument();
   });
 
@@ -248,8 +251,9 @@ describe('AuditLogPage', () => {
       error: null,
     });
 
-    renderAuditLogPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderAuditLogPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -264,11 +268,10 @@ describe('AuditLogPage', () => {
       error: null,
     });
 
-    renderAuditLogPage();
+    const { container } = renderAuditLogPage();
 
-    // MUI Pagination renders navigation
-    const pagination = screen.getByRole('navigation');
-    expect(pagination).toBeInTheDocument();
+    // antd Pagination renders with .ant-pagination class
+    expect(container.querySelector('.ant-pagination')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

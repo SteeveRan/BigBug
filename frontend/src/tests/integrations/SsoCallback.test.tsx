@@ -65,18 +65,20 @@ describe('SsoCallbackPage', () => {
     );
   }
 
-  it('renders a loading spinner (CircularProgress)', () => {
+  it('renders a loading spinner (Spin)', () => {
     // Successful payload — component will attempt exchange
     mockHandleCallback.mockReturnValue({
       code: 'test-code',
       redirect_uri: 'https://app.example.com/sso/callback',
       code_verifier: 'test-verifier',
     });
+    // Return a never-resolving unwrap so the Spin stays visible during assertions
+    mockExchange.mockReturnValue({ unwrap: () => new Promise(() => {}) });
 
-    renderPage();
+    const { container } = renderPage();
 
-    // CircularProgress renders a <span> with role="progressbar"
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    // antd Spin renders a .ant-spin wrapper
+    expect(container.querySelector('.ant-spin')).toBeTruthy();
     expect(screen.getByText('Completing sign in…')).toBeInTheDocument();
   });
 

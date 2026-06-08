@@ -13,6 +13,9 @@ const mockNavigate = vi.fn();
 vi.mock('react-router', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: '1' }),
+  useLocation: () => ({ pathname: '/mirroring/helm-charts/1', search: '', hash: '', state: null }),
+  Navigate: ({ to }: { to: string }) => <div data-testid="navigate" data-to={to} />,
+  Outlet: () => <div data-testid="outlet" />,
   Link: ({ children, ...props }: Record<string, unknown>) => (
     <a {...props}>{children as React.ReactNode}</a>
   ),
@@ -153,9 +156,12 @@ describe('HelmChartDetailPage', () => {
   it('renders the versions table', () => {
     renderPage();
     expect(screen.getByText('Chart Versions (1)')).toBeInTheDocument();
-    expect(screen.getByText('Chart')).toBeInTheDocument();
-    expect(screen.getByText('Version')).toBeInTheDocument();
-    expect(screen.getByText('App Version')).toBeInTheDocument();
+    // "Chart" appears as column header AND hidden measurement div — use getAllByText
+    expect(screen.getAllByText('Chart').length).toBeGreaterThanOrEqual(1);
+    // "Version" also appears in hidden measurement div — use getAllByText
+    expect(screen.getAllByText('Version').length).toBeGreaterThanOrEqual(1);
+    // "App Version" also appears in hidden measurement div — use getAllByText
+    expect(screen.getAllByText('App Version').length).toBeGreaterThanOrEqual(1);
 
     // Version data
     expect(screen.getByText('nginx-ingress')).toBeInTheDocument();
@@ -194,8 +200,9 @@ describe('HelmChartDetailPage', () => {
       isError: false,
     });
 
-    renderPage();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    const { container } = renderPage();
+    // antd Spin renders with .ant-spin-spinning class
+    expect(container.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('shows not found message when chart is null', () => {
