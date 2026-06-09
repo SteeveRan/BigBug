@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.core.secrets import decrypt_secret, encrypt_secret
 from app.models.oidc_config import OIDCConfig
 

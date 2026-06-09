@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -257,7 +257,7 @@ async def get_oidc_config(db: AsyncSession = Depends(get_db)):
     config = await service.get_config()
     if config is None:
         # No DB row yet — return a placeholder so the admin UI can render.
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return OIDCConfigOut(
             id=0,
             issuer_url="",

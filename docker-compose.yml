@@ -77,15 +77,7 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@bigbug.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
-      KEYCLOAK_URL: http://keycloak:8180
-      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-bigbug}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-bigbug-backend}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-bigbug-backend-secret}
-      KEYCLOAK_FRONTEND_CLIENT_ID: ${KEYCLOAK_CLIENT_ID_FRONTEND:-bigbug-frontend}
       GITLAB_URL: http://gitlab.local:8080
-      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
     env_file:
