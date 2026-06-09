@@ -134,14 +134,26 @@ def _seed_permissions() -> None:
     """Insert all permission definitions and role assignments."""
     conn = op.get_bind()
 
-    # ── Insert permissions ───────────────────────────────────────────────
+    # ── Insert permissions (idempotent) ──────────────────────────────────
     permissions_table = sa.table(
         "permissions",
         sa.column("id", sa.Integer),
         sa.column("name", sa.String),
         sa.column("description", sa.Text),
     )
-    op.bulk_insert(permissions_table, PERMISSIONS)
+
+    # Filter out permissions that already exist in the DB
+    perm_names_to_insert = [p["name"] for p in PERMISSIONS]
+    existing_result = conn.execute(
+        sa.select(permissions_table.c.name).where(
+            permissions_table.c.name.in_(perm_names_to_insert)
+        )
+    )
+    existing_names: set[str] = {row.name for row in existing_result}
+
+    to_insert = [p for p in PERMISSIONS if p["name"] not in existing_names]
+    if to_insert:
+        op.bulk_insert(permissions_table, to_insert)
 
     # Build permission name → id map
     perm_result = conn.execute(
@@ -180,8 +192,21 @@ def _seed_permissions() -> None:
     _add_assignments("operator", OPERATOR_PERMISSIONS)
     _add_assignments("viewer", VIEWER_PERMISSIONS)
 
+    # Filter out assignments that already exist (idempotent)
     if assignments:
-        op.bulk_insert(role_permissions_table, assignments)
+        existing_rp = conn.execute(
+            sa.select(
+                role_permissions_table.c.role_id,
+                role_permissions_table.c.permission_id,
+            )
+        )
+        existing_rp_set = {(row.role_id, row.permission_id) for row in existing_rp}
+        to_assign = [
+            a for a in assignments
+            if (a["role_id"], a["permission_id"]) not in existing_rp_set
+        ]
+        if to_assign:
+            op.bulk_insert(role_permissions_table, to_assign)
 
 
 def _unseed_permissions() -> None:

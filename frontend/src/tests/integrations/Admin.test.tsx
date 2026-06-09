@@ -204,6 +204,8 @@ describe('AdminPage', () => {
 
     expect(screen.getByText('User Management')).toBeInTheDocument();
     expect(screen.getByText('Add User')).toBeInTheDocument();
+    // antd Table renders even with empty data (shows empty state)
+    expect(screen.getByRole('table')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -308,6 +310,7 @@ describe('AdminPage', () => {
     const rolesTab = screen.getByRole('tab', { name: 'Roles' });
     await userEvent.click(rolesTab);
 
+    expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();

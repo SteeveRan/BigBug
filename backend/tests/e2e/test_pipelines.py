@@ -78,7 +78,7 @@ class TestPipelineRunsAPI:
     async def test_trigger_pipeline_requires_permission(
         self, client: AsyncClient, viewer_headers: dict
     ):
-        """POST /api/pipelines returns 403 for viewer without pipelines:manage."""
+        """POST /api/pipelines returns 403 for viewer without pipelines:write."""
         response = await client.post(
             "/api/pipelines",
             json={

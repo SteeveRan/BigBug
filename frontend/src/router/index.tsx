@@ -135,7 +135,7 @@ export function AppRouter() {
         <Route
           path="builds/gold-images"
           element={
-            <PermissionGate permission="images:read">
+            <PermissionGate permission="gold_images:read">
               <GoldImagesPage />
             </PermissionGate>
           }
@@ -145,7 +145,7 @@ export function AppRouter() {
         <Route
           path="builds/app-images"
           element={
-            <PermissionGate permission="images:read">
+            <PermissionGate permission="app_images:read">
               <AppImagesPage />
             </PermissionGate>
           }
@@ -165,7 +165,7 @@ export function AppRouter() {
         <Route
           path="pipelines/components"
           element={
-            <PermissionGate permission="components:read">
+            <PermissionGate permission="pipelines:read">
               <GitLabComponentsPage />
             </PermissionGate>
           }
@@ -175,7 +175,7 @@ export function AppRouter() {
         <Route
           path="admin/users"
           element={
-            <PermissionGate permission="admin:users">
+            <PermissionGate permission="users:read">
               <AdminPage />
             </PermissionGate>
           }
@@ -185,7 +185,7 @@ export function AppRouter() {
         <Route
           path="admin/integrations"
           element={
-            <PermissionGate permission="admin:integrations">
+            <PermissionGate permission="integrations:read">
               <SettingsIntegrations />
             </PermissionGate>
           }
@@ -195,7 +195,7 @@ export function AppRouter() {
         <Route
           path="admin/authentication"
           element={
-            <PermissionGate permission="admin:settings">
+            <PermissionGate permission="oidc:read">
               <AuthenticationSettings />
             </PermissionGate>
           }
@@ -205,7 +205,7 @@ export function AppRouter() {
         <Route
           path="admin/audit"
           element={
-            <PermissionGate permission="admin:audit">
+            <PermissionGate permission="audit:read">
               <AuditLogPage />
             </PermissionGate>
           }

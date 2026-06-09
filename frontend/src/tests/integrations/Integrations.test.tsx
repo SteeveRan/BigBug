@@ -175,11 +175,13 @@ describe('SettingsIntegrations', () => {
   it('test_renders_integration_tabs', () => {
     renderIntegrationsPage();
 
-    expect(screen.getByText('GitLab')).toBeInTheDocument();
-    expect(screen.getByText('Harbor')).toBeInTheDocument();
-    expect(screen.getByText('GitHub')).toBeInTheDocument();
-    expect(screen.getByText('Docker Registry')).toBeInTheDocument();
-    expect(screen.getByText('Helm Repository')).toBeInTheDocument();
+    // Verify tablist is rendered (not just menu, actual content)
+    expect(screen.getByRole('tablist')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'GitLab' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Harbor' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'GitHub' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Docker Registry' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Helm Repository' })).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

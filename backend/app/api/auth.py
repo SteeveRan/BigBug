@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -248,11 +249,27 @@ async def get_oidc_config(db: AsyncSession = Depends(get_db)):
     """
     Return the full OIDC configuration (admin only).
 
+    Returns a disabled default when SSO hasn't been configured yet.
     ``client_secret`` is masked — the real encrypted value is never
     returned via the API.
     """
     service = OIDCConfigService(db)
     config = await service.get_config()
+    if config is None:
+        # No DB row yet — return a placeholder so the admin UI can render.
+        now = datetime.now(tz=timezone.utc)
+        return OIDCConfigOut(
+            id=0,
+            issuer_url="",
+            client_id="",
+            client_secret="********",
+            frontend_client_id="",
+            enabled=False,
+            public_url=None,
+            role_mapping={},
+            created_at=now,
+            updated_at=now,
+        )
     return config
 
 
@@ -294,4 +311,11 @@ async def get_oidc_config_public(db: AsyncSession = Depends(get_db)):
     """Return the OIDC config subset for admin UI previews (no secret)."""
     service = OIDCConfigService(db)
     config = await service.get_config()
+    if config is None:
+        return OIDCConfigPublic(
+            enabled=False,
+            issuer_url="",
+            frontend_client_id="",
+            public_url=None,
+        )
     return config

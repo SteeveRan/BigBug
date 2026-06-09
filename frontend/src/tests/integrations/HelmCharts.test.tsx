@@ -98,6 +98,7 @@ describe('HelmChartsPage', () => {
 
   it('renders the table with Name, Repository URL, and Status columns', () => {
     renderPage();
+    expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Repository URL')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();

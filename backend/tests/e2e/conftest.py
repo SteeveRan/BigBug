@@ -26,7 +26,8 @@ REQUIRED_PERMISSIONS = [
     {"name": "docker_registry:manage", "description": "Manage Docker Registry instances"},
     {"name": "helm_repository:manage", "description": "Manage Helm Repository instances"},
     {"name": "pipelines:read", "description": "Read pipeline runs"},
-    {"name": "pipelines:manage", "description": "Trigger and manage pipeline runs"},
+    {"name": "pipelines:write", "description": "Create and trigger pipelines"},
+    {"name": "pipelines:delete", "description": "Cancel and delete pipelines"},
     {"name": "users:read", "description": "Read users and audit logs"},
 ]
 

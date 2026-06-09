@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.23
-#
 # Multi-stage build for the BigBug backend (FastAPI + SQLAlchemy + Alembic).
 #
 # Layout rationale:

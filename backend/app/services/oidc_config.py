@@ -117,28 +117,25 @@ def _config_row_to_cached(row: OIDCConfig) -> _CachedOIDCConfig:
 async def _fetch_config_row(db: AsyncSession) -> _CachedOIDCConfig:
     """Fetch the singleton OIDC config row from the DB.
 
-    If no row exists (e.g. migrations not yet run), falls back to
-    environment variables so the application remains operational.
+    If no row exists (SSO not configured by an admin), returns a
+    disabled default so the application remains operational without
+    accidentally exposing an unconfigured SSO flow.
     """
     result = await db.execute(select(OIDCConfig).limit(1))
     row = result.scalar_one_or_none()
     if row is not None:
         return _config_row_to_cached(row)
 
-    # Graceful degradation: no DB row → fall back to settings.
-    logger.info("oidc_config_fallback_to_settings")
+    # No DB row → SSO stays disabled until explicitly configured by an admin.
+    logger.info("oidc_config_no_db_row_sso_disabled")
     return _CachedOIDCConfig(
-        issuer_url=settings.keycloak_url,
-        client_id=settings.keycloak_client_id,
-        client_secret=settings.keycloak_client_secret,
-        frontend_client_id=settings.keycloak_frontend_client_id,
-        enabled=bool(settings.keycloak_frontend_client_id and settings.keycloak_public_url),
-        public_url=settings.keycloak_public_url,
-        role_mapping={
-            "admin": "admin",
-            "operator": "operator",
-            "viewer": "viewer",
-        },
+        issuer_url="",
+        client_id="",
+        client_secret=None,
+        frontend_client_id="",
+        enabled=False,
+        public_url=None,
+        role_mapping={},
     )
 
 
@@ -164,28 +161,16 @@ class OIDCConfigService:
 
     # ── CRUD ──────────────────────────────────────────────────────────
 
-    async def get_config(self) -> OIDCConfig:
-        """Return the full DB row (for admin API). Creates one if missing."""
-        result = await self.db.execute(select(OIDCConfig).limit(1))
-        row = result.scalar_one_or_none()
-        if row is not None:
-            return row
+    async def get_config(self) -> OIDCConfig | None:
+        """Return the full DB row or ``None`` when SSO hasn't been configured yet.
 
-        # Auto-create a default row on first access so callers never see
-        # a 404 for a singleton resource.
-        row = OIDCConfig(
-            issuer_url=settings.keycloak_url,
-            client_id=settings.keycloak_client_id,
-            client_secret=encrypt_secret(settings.keycloak_client_secret),
-            frontend_client_id=settings.keycloak_frontend_client_id,
-            enabled=bool(settings.keycloak_frontend_client_id and settings.keycloak_public_url),
-            public_url=settings.keycloak_public_url,
-            role_mapping={"admin": "admin", "operator": "operator", "viewer": "viewer"},
-        )
-        self.db.add(row)
-        await self.db.commit()
-        await self.db.refresh(row)
-        return row
+        The caller (admin API) is responsible for presenting a meaningful
+        default when no row exists.  This method deliberately does **not**
+        auto-create a row — the admin must explicitly configure SSO via
+        :meth:`update_config`.
+        """
+        result = await self.db.execute(select(OIDCConfig).limit(1))
+        return result.scalar_one_or_none()
 
     async def update_config(
         self,
@@ -197,8 +182,21 @@ class OIDCConfigService:
         public_url: str | None = None,
         role_mapping: dict[str, str] | None = None,
     ) -> OIDCConfig:
-        """Update the singleton OIDC config row and invalidate the cache."""
+        """Update the singleton OIDC config row, creating one if needed."""
         row = await self.get_config()
+        if row is None:
+            # First-time configuration — create the singleton row.
+            row = OIDCConfig(
+                issuer_url="",
+                client_id="",
+                client_secret=None,
+                frontend_client_id="",
+                enabled=False,
+                public_url=None,
+                role_mapping={},
+            )
+            self.db.add(row)
+            await self.db.flush()
 
         if issuer_url is not None:
             row.issuer_url = issuer_url

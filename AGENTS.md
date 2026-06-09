@@ -99,34 +99,6 @@ BigBug/
 
 **Location**: [`/backend/`](backend/)
 
-**Setup**:
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-pip install -e .
-```
-
-**Development**:
-```bash
-# Run migrations
-alembic upgrade head
-
-# Start dev server (auto-reload)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Run tests
-pytest
-
-# Run specific test
-pytest tests/test_auth.py -v
-
-# Code quality (in order)
-ruff format .              # Format
-ruff check --fix .         # Lint & auto-fix
-pytest                     # Test
-```
-
 **Key conventions**:
 - Models: one file per model in [`app/models/`](backend/app/models/)
 - Schemas: Pydantic v2 in [`app/schemas/`](backend/app/schemas/)
@@ -139,45 +111,6 @@ See: [`/plans/development/backend.md`](plans/development/backend.md)
 ### Frontend (React/TypeScript)
 
 **Location**: [`/frontend/`](frontend/)
-
-**Setup**:
-```bash
-# Use nvm for Node.js version management
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-
-cd frontend
-yarn install
-```
-
-**Development**:
-```bash
-# Start dev server (HMR)
-yarn dev
-
-# Type check (no emit)
-npx tsc --noEmit
-
-# Lint & format
-yarn lint
-yarn format
-
-# Run all tests (unit + integrations)
-./scripts/test.sh
-
-# Run specific suites
-./scripts/test.sh --unit          # Только unit
-./scripts/test.sh --integrations  # Только integration
-
-# Run with coverage
-./scripts/test.sh --coverage
-
-# Debug specific test
-./scripts/test.sh -f Admin -t "should render"
-
-# Build for production
-yarn build
-```
 
 **Test structure** ([`src/tests/`](frontend/src/tests/)):
 ```
@@ -317,64 +250,6 @@ cd backend && pytest
 
 See: [`/plans/development/testing.md`](plans/development/testing.md)
 
-## Current Migration
-
-🚧 **BigBug проходит масштабный рефакторинг** согласно [`/docs/architecture/`](docs/architecture/).
-
-### Active Changes
-
-**RBAC System** ([docs/architecture/02-rbac-design.md](docs/architecture/02-rbac-design.md)):
-- Permission-based модель (`resource:action`)
-- 30+ granular permissions
-- Кастомные роли + предустановленные (Admin/Operator/Viewer)
-- Таблицы: `permissions`, `role_permissions`, расширение `roles`
-
-**Authentication** ([docs/architecture/03-authentication.md](docs/architecture/03-authentication.md)):
-- Local auth (email/password) по умолчанию
-- Опциональная OIDC интеграция через настройки
-- Таблица `oidc_config` для хранения конфигурации
-- Синхронизация ролей из Keycloak
-
-**Integrations** ([docs/architecture/04-integrations/](docs/architecture/04-integrations/)):
-- Множественные инстансы GitLab, Harbor, GitHub
-- Отдельные таблицы: `gitlab_instances`, `harbor_instances`, etc
-- Управление через Admin UI
-- Шифрование credentials (Fernet)
-
-**Pipelines** ([docs/architecture/08-pipelines.md](docs/architecture/08-pipelines.md)):
-- GitLab Pipelines управление через UI
-- GitLab Components (переиспользуемые CI/CD блоки)
-- Таблица `pipeline_runs` для истории
-- Webhook обратная связь
-
-**UI Structure** ([docs/architecture/09-ui-structure.md](docs/architecture/09-ui-structure.md)):
-- Новая навигация: Builds / Mirroring / Pipelines / Settings
-- Settings разбит на: Integrations / Authentication / Users & Roles
-- Permission-based routing и компоненты
-- Hook `usePermissions()` и `<PermissionGate>`
-
-### Migration Status
-
-**Completed** (blocks 1-5):
-- ✅ Docker infrastructure + SSO
-- ✅ OIDC service + backend API
-- ✅ Keycloak frontend integration
-- ✅ Helm Charts (sources, versions, sync)
-- ✅ Docker Images (sources, tags, sync)
-- ✅ Frontend UI для Helm и Docker
-
-**In Progress**:
-- 🚧 RBAC implementation (Phase 1)
-- 🚧 Multi-instance integrations (Phase 2)
-
-**Planned**:
-- ⏳ Tests (backend + frontend)
-- ⏳ Harbor integration
-- ⏳ Pipeline management UI
-- ⏳ Audit logging
-
-See: [`/docs/architecture/11-migration-strategy.md`](docs/architecture/11-migration-strategy.md)
-
 ## Working with Specific Features
 
 ### Adding New Integration
@@ -426,6 +301,7 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 
 ### For Implementation (agents)
 - **Implementation plans**: [`/plans/`](plans/) - модульное чтение по необходимости
+- **Permissions index**: [`/plans/architecture/permissions.md`](plans/architecture/permissions.md) — единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 - **This guide**: [`/AGENTS.md`](AGENTS.md) - quick start reference
 
 ### For Review (humans)
@@ -488,44 +364,6 @@ cd frontend && yarn dev
 ./frontend/scripts/test.sh -f Pipelines -t "should trigger"
 ```
 
-**Вручную** (требуется активировать окружение):
-
-```bash
-# Backend
-cd backend
-source .venv/bin/activate
-pytest                          # All tests
-pytest tests/test_auth.py -v   # Specific file
-pytest -k "test_login" -v      # By name pattern
-
-# Frontend (требуется nvm: export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh")
-cd frontend
-yarn test                       # Watch mode
-yarn test:run                   # Single run
-yarn test:coverage              # With coverage
-```
-
-### Database Migrations
-
-```bash
-cd backend
-
-# Create migration
-alembic revision -m "description"
-
-# Apply migrations
-alembic upgrade head
-
-# Rollback one migration
-alembic downgrade -1
-
-# Show current revision
-alembic current
-
-# Show migration history
-alembic history
-```
-
 ### Code Quality Checks
 
 **Агентам**: использовать скрипты (они загружают правильное окружение):
@@ -543,24 +381,6 @@ alembic history
 
 # Type check frontend
 export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd frontend && npx tsc --noEmit
-```
-
-**Вручную** (требуется активировать окружение):
-
-```bash
-# Backend
-cd backend && source .venv/bin/activate
-ruff format .              # Format
-ruff check --fix .         # Lint and auto-fix
-pytest                     # Test
-
-# Frontend (требуется nvm)
-export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
-cd frontend
-yarn format                # Prettier
-yarn lint                  # ESLint
-npx tsc --noEmit          # Type check
-yarn vitest run            # Test (все)
 ```
 
 ### Adding New API Endpoint
@@ -609,81 +429,6 @@ const [createResource] = useCreateResourceMutation();
 await createResource({ name: 'test' });
 ```
 
-## Troubleshooting
-
-### Backend Issues
-
-**Import errors**:
-```bash
-# Reinstall dependencies
-pip install -e .
-```
-
-**Database connection failed**:
-```bash
-# Check PostgreSQL is running
-docker compose ps postgres-backend
-
-# Check connection in .env
-DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
-```
-
-**Migration conflicts**:
-```bash
-# Check current state
-alembic current
-
-# Resolve conflicts manually in alembic/versions/
-# Then: alembic upgrade head
-```
-
-### Frontend Issues
-
-**Type errors**:
-```bash
-# Regenerate lock file
-rm yarn.lock && yarn install
-
-# Clear cache
-rm -rf node_modules/.vite
-```
-
-**API connection issues**:
-```bash
-# Check backend is running
-curl http://localhost:8000/api/health
-
-# Check VITE_API_URL in .env or vite.config.ts proxy
-```
-
-**Keycloak SSO not working**:
-```bash
-# Check Keycloak is running
-curl http://localhost:8180/realms/bigbug
-
-# Verify configuration in backend
-curl http://localhost:8000/api/auth/sso/config
-```
-
-### Docker Issues
-
-**Services not starting**:
-```bash
-# Check logs (infrastructure)
-docker compose -f infrastructure/docker-compose.yml logs -f keycloak
-
-# Restart service
-docker compose -f infrastructure/docker-compose.yml restart keycloak
-```
-
-**Port conflicts**:
-```bash
-# Check what's using the port
-lsof -i :8000
-
-# Change port in docker-compose or .env
-```
-
 ## Getting Help
 
 **For detailed implementation plans**, read specific files from [`/plans/`](plans/):
@@ -707,3 +452,4 @@ lsof -i :8000
 - API entrypoint: [`backend/app/main.py`](backend/app/main.py)
 - Frontend store: [`frontend/src/store/api.ts`](frontend/src/store/api.ts)
 - Frontend routing: [`frontend/src/router/index.tsx`](frontend/src/router/index.tsx)
+- Permissions index: [`plans/architecture/permissions.md`](plans/architecture/permissions.md)

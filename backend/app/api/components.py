@@ -37,7 +37,7 @@ async def list_components(
 async def create_component(
     data: GitLabComponentCreate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:manage")),
+    _: User = Depends(require_permission("pipelines:write")),
 ):
     """Register a new GitLab CI/CD component."""
     component = await pipeline_service.create_component(
@@ -69,7 +69,7 @@ async def update_component(
     component_id: int,
     data: GitLabComponentUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:manage")),
+    _: User = Depends(require_permission("pipelines:write")),
 ):
     """Update an existing GitLab component."""
     component = await pipeline_service.update_component(
@@ -91,7 +91,7 @@ async def update_component(
 async def delete_component(
     component_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:manage")),
+    _: User = Depends(require_permission("pipelines:delete")),
 ):
     """Delete a GitLab component."""
     await pipeline_service.delete_component(db, component_id)

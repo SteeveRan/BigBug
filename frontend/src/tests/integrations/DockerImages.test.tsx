@@ -97,6 +97,7 @@ describe('DockerImagesPage', () => {
 
   it('renders table with Name, Registry URL, and Status columns', () => {
     renderPage();
+    expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Registry URL')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();

@@ -180,6 +180,7 @@ describe('PipelinesPage', () => {
 
     renderPipelinesPage();
 
+    expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('#ID')).toBeInTheDocument();
     expect(screen.getByText('Project')).toBeInTheDocument();
     expect(screen.getByText('Ref')).toBeInTheDocument();

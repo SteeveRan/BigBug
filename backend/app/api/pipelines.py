@@ -43,7 +43,7 @@ async def list_pipeline_runs(
 async def trigger_pipeline(
     data: PipelineRunCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("pipelines:manage")),
+    current_user: User = Depends(require_permission("pipelines:write")),
 ):
     """Trigger a new pipeline run in GitLab."""
     run = await pipeline_service.trigger_pipeline(
@@ -72,7 +72,7 @@ async def get_pipeline_run(
 async def cancel_pipeline(
     run_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:manage")),
+    _: User = Depends(require_permission("pipelines:delete")),
 ):
     """Cancel a running pipeline."""
     run = await pipeline_service.cancel_pipeline(db, run_id)
@@ -83,7 +83,7 @@ async def cancel_pipeline(
 async def retry_pipeline(
     run_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:manage")),
+    _: User = Depends(require_permission("pipelines:write")),
 ):
     """Retry a failed pipeline."""
     run = await pipeline_service.retry_pipeline(db, run_id)

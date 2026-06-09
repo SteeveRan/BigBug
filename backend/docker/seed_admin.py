@@ -33,6 +33,66 @@ from app.database import AsyncSessionLocal
 from app.models.role import Role, UserRole
 from app.models.user import User
 
+# ── Role → permission assignments (TO-BE, 2026-06-08) ───────────────────
+
+# Admin: all 40 permissions
+ADMIN_PERMISSIONS = [
+    # Mirrors
+    "mirrors:read", "mirrors:write", "mirrors:delete", "mirrors:sync",
+    # Projects
+    "projects:read", "projects:write", "projects:delete",
+    # Helm
+    "helm:read", "helm:write", "helm:delete", "helm:sync", "helm:index",
+    # Docker
+    "docker:read", "docker:write", "docker:delete", "docker:sync", "docker:index",
+    # Gold Images
+    "gold_images:read", "gold_images:write", "gold_images:delete", "gold_images:build",
+    # App Images
+    "app_images:read", "app_images:write", "app_images:delete", "app_images:build",
+    # Pipelines
+    "pipelines:read", "pipelines:write", "pipelines:delete",
+    # Users
+    "users:read", "users:write", "users:delete",
+    # Roles
+    "roles:read", "roles:write", "roles:delete",
+    # System
+    "system:config",
+    # Integrations
+    "integrations:read", "integrations:write",
+    # OIDC
+    "oidc:read", "oidc:write",
+    # Audit
+    "audit:read",
+]
+
+# Operator: read + actions, no delete, no user/role/oidc/integrations management
+OPERATOR_PERMISSIONS = [
+    "mirrors:read", "mirrors:write", "mirrors:sync",
+    "projects:read", "projects:write",
+    "helm:read", "helm:write", "helm:sync", "helm:index",
+    "docker:read", "docker:write", "docker:sync", "docker:index",
+    "gold_images:read", "gold_images:write", "gold_images:build",
+    "app_images:read", "app_images:write", "app_images:build",
+    "pipelines:read", "pipelines:write",
+    "audit:read",
+]
+
+# Viewer: read-only across all resources
+VIEWER_PERMISSIONS = [
+    "mirrors:read",
+    "projects:read",
+    "helm:read",
+    "docker:read",
+    "gold_images:read",
+    "app_images:read",
+    "pipelines:read",
+    "users:read",
+    "roles:read",
+    "integrations:read",
+    "oidc:read",
+    "audit:read",
+]
+
 logger = logging.getLogger("seed_admin")
 logging.basicConfig(
     level=logging.INFO,

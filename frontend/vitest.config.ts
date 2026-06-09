@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/tests/integrations/setup.ts'],
+    setupFiles: ['./src/tests/integrations/setup.tsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'json', 'json-summary', 'html', 'lcov'],

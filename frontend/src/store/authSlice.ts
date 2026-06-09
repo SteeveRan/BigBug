@@ -44,7 +44,7 @@ const initialState: AuthState = {
   refreshToken: localStorage.getItem('refresh_token'),
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
-  permissions: [],
+  permissions: parseJwtPermissions(localStorage.getItem('access_token') || ''),
 };
 
 const authSlice = createSlice({
