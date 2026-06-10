@@ -12,86 +12,48 @@ BigBug предоставляет UI для:
 
 ## Статус
 
-⏳ **Планируется** — функциональность в разработке.
+✅ **Реализовано** — полный цикл управления пайплайнами через BigBug UI.
 
-Текущие CI/CD шаблоны в [`gitlab-ci/`](../../gitlab-ci/) используются напрямую GitLab Runner, без управления через BigBug UI.
+### Реализованные компоненты
+
+**Backend API:**
+- `GET /api/pipelines` — история запусков
+- `POST /api/pipelines` — запустить пайплайн
+- `GET /api/pipelines/{id}` — детали запуска
+- `POST /api/pipelines/{id}/cancel` — отменить
+- `POST /api/pipelines/{id}/retry` — повторить
+- `GET/POST/PATCH/DELETE /api/components` — CRUD GitLab Components
+- `POST /api/webhooks/gitlab` — приём webhook-событий от GitLab
+
+**Сервисный слой:** [`backend/app/services/pipeline.py`](../../backend/app/services/pipeline.py)
+
+**Модель:** [`backend/app/models/pipeline_run.py`](../../backend/app/models/pipeline_run.py)
+
+**Frontend UI:**
+- `/pipelines` — Pipeline Runs (запуск, cancel, retry, фильтрация)
+- `/settings/pipelines` — GitLab CI/CD Components (CRUD)
 
 ## GitLab CI Templates
 
-Существующие шаблоны в [`gitlab-ci/`](../../gitlab-ci/):
+CI/CD шаблоны в [`infrastructure/gitlab-components/`](../../infrastructure/gitlab-components/):
 
 | Файл | Назначение |
 |------|-----------|
-| [`mirror-template.yml`](../../gitlab-ci/mirror-template.yml) | Синхронизация зеркал |
-| [`gold-image-template.yml`](../../gitlab-ci/gold-image-template.yml) | Сборка Gold Images |
-| [`app-image-template.yml`](../../gitlab-ci/app-image-template.yml) | Сборка App Images |
-| [`helm-sync-template.yml`](../../gitlab-ci/helm-sync-template.yml) | Синхронизация Helm чартов |
-| [`docker-sync-template.yml`](../../gitlab-ci/docker-sync-template.yml) | Синхронизация Docker образов |
+| [`mirror-template.yml`](../../infrastructure/gitlab-components/mirror-template.yml) | Синхронизация зеркал |
+| [`gold-image-template.yml`](../../infrastructure/gitlab-components/gold-image-template.yml) | Сборка Gold Images |
+| [`app-image-template.yml`](../../infrastructure/gitlab-components/app-image-template.yml) | Сборка App Images |
+| [`helm-sync-template.yml`](../../infrastructure/gitlab-components/helm-sync-template.yml) | Синхронизация Helm чартов |
+| [`docker-sync-template.yml`](../../infrastructure/gitlab-components/docker-sync-template.yml) | Синхронизация Docker образов |
 
-## Планируемая архитектура
+## Модели
 
-### Модели
+### Pipeline Run
 
-#### Pipeline Run
+См. [`backend/app/models/pipeline_run.py`](../../backend/app/models/pipeline_run.py) — модель `PipelineRun` с полями: `gitlab_instance_id`, `gitlab_project_id`, `gitlab_pipeline_id`, `triggered_by_user_id`, `trigger_type`, `ref`, `variables`, `status_flag`, `status_text`, `created_at`, `started_at`, `finished_at`, `duration`, `web_url`.
+### GitLab Component
 
-```python
-class PipelineRun(Base):
-    __tablename__ = "pipeline_runs"
-    
-    id: Mapped[int]
-    
-    # GitLab info
-    gitlab_instance_id: Mapped[int]      # Какой GitLab инстанс
-    gitlab_project_id: Mapped[int]       # GitLab project ID
-    gitlab_pipeline_id: Mapped[int]      # GitLab pipeline ID
-    
-    # Trigger info
-    triggered_by_user_id: Mapped[int | None]
-    trigger_type: Mapped[str]            # manual, scheduled, webhook
-    
-    # Pipeline params
-    ref: Mapped[str]                     # branch, tag, commit
-    variables: Mapped[dict | None]       # Pipeline variables (JSON)
-    
-    # Status
-    status_flag: Mapped[int]             # 0=OK, 1=Failed, 3=Running, 4=Pending
-    status_text: Mapped[str]             # success, failed, running, pending
-    
-    # Timestamps
-    created_at: Mapped[datetime]
-    started_at: Mapped[datetime | None]
-    finished_at: Mapped[datetime | None]
-    duration: Mapped[int | None]         # Секунды
-    
-    # Output
-    web_url: Mapped[str | None]          # Ссылка на GitLab pipeline
-```
-
-#### GitLab Component
-
-```python
-class GitLabComponent(Base):
-    __tablename__ = "gitlab_components"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # "docker-build", "helm-deploy"
-    description: Mapped[str | None]
-    
-    # Component location
-    gitlab_instance_id: Mapped[int]
-    project_path: Mapped[str]            # group/project
-    component_path: Mapped[str]          # templates/docker-build
-    
-    # Version
-    version: Mapped[str]                 # ~latest, 1.0.0
-    
-    # Input schema (JSON Schema)
-    inputs_schema: Mapped[dict | None]
-    
-    is_enabled: Mapped[bool]
-```
-
-### API Endpoints (планируемые)
+См. [`backend/app/models/gitlab_component.py`](../../backend/app/models/gitlab_component.py) — модель `GitLabComponent` с полями: `name`, `description`, `gitlab_instance_id`, `project_path`, `component_path`, `version`, `inputs_schema`, `is_enabled`.
+## API Endpoints
 
 ```
 # Pipeline Runs
@@ -113,128 +75,12 @@ POST   /api/components/{id}/run         # Запустить компонент
 POST   /api/webhooks/gitlab             # GitLab webhook endpoint
 ```
 
-### Запуск пайплайна
+## Запуск пайплайна
 
-```python
-# app/services/pipeline.py
-class PipelineService:
-    async def trigger_pipeline(
-        self,
-        gitlab_instance_id: int,
-        project_id: int,
-        ref: str,
-        variables: dict | None = None,
-        user_id: int | None = None
-    ) -> PipelineRun:
-        """Trigger GitLab pipeline and create PipelineRun record"""
-        
-        # Получить GitLab instance
-        instance = await self.get_gitlab_instance(gitlab_instance_id)
-        token = decrypt_secret(instance.token_encrypted)
-        
-        # Создать PipelineRun
-        run = PipelineRun(
-            gitlab_instance_id=gitlab_instance_id,
-            gitlab_project_id=project_id,
-            ref=ref,
-            variables=variables,
-            triggered_by_user_id=user_id,
-            trigger_type="manual",
-            status_flag=4,  # Pending
-            status_text="pending",
-            created_at=datetime.utcnow()
-        )
-        self.db.add(run)
-        await self.db.commit()
-        
-        # Триггернуть в GitLab
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{instance.url}/api/v4/projects/{project_id}/pipeline",
-                headers={"PRIVATE-TOKEN": token},
-                json={
-                    "ref": ref,
-                    "variables": [
-                        {"key": k, "value": v}
-                        for k, v in (variables or {}).items()
-                    ]
-                }
-            )
-            
-            pipeline = response.json()
-            
-            # Обновить с GitLab pipeline ID
-            run.gitlab_pipeline_id = pipeline["id"]
-            run.status_flag = 3  # In Progress
-            run.status_text = "running"
-            run.web_url = pipeline["web_url"]
-            await self.db.commit()
-        
-        return run
-```
+См. [`backend/app/services/pipeline.py`](../../backend/app/services/pipeline.py) — реализация `PipelineService` и метода `trigger_pipeline()` для запуска GitLab пайплайнов.
+## Webhook обработка
 
-### Webhook обработка
-
-```python
-# app/api/webhooks.py
-@router.post("/gitlab")
-async def gitlab_webhook(
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """Handle GitLab webhook events"""
-    
-    # Проверить X-Gitlab-Token
-    token = request.headers.get("X-Gitlab-Token")
-    if not verify_webhook_token(token):
-        raise HTTPException(status_code=401, detail="Invalid webhook token")
-    
-    payload = await request.json()
-    event_type = payload.get("object_kind")
-    
-    if event_type == "pipeline":
-        await handle_pipeline_event(db, payload)
-    elif event_type == "push":
-        await handle_push_event(db, payload)
-    elif event_type == "build":
-        await handle_build_event(db, payload)
-    
-    return {"status": "ok"}
-
-async def handle_pipeline_event(db: AsyncSession, payload: dict):
-    """Update PipelineRun status from webhook"""
-    pipeline_id = payload["object_attributes"]["id"]
-    status = payload["object_attributes"]["status"]
-    duration = payload["object_attributes"].get("duration")
-    
-    # Найти PipelineRun
-    run = await get_pipeline_run_by_gitlab_id(db, pipeline_id)
-    if not run:
-        return
-    
-    # Маппинг статусов GitLab → BigBug
-    status_map = {
-        "success": (0, "success"),
-        "failed": (1, "failed"),
-        "running": (3, "running"),
-        "pending": (4, "pending"),
-        "canceled": (1, "canceled"),
-        "skipped": (2, "skipped"),
-    }
-    
-    flag, text = status_map.get(status, (1, status))
-    run.status_flag = flag
-    run.status_text = text
-    
-    if duration:
-        run.duration = duration
-    
-    if status in ("success", "failed", "canceled"):
-        run.finished_at = datetime.utcnow()
-    
-    await db.commit()
-```
-
+См. [`backend/app/api/webhooks.py`](../../backend/app/api/webhooks.py) — реализация `gitlab_webhook()` и `handle_pipeline_event()` для обработки GitLab webhook событий.
 ## GitLab Components
 
 GitLab Components — переиспользуемые CI/CD блоки (GitLab 16+):
@@ -249,34 +95,7 @@ include:
       registry: harbor.local
 ```
 
-### Создание компонента
-
-```yaml
-# В репозитории bigbug/components
-# templates/docker-build.yml
-
-spec:
-  inputs:
-    image_name:
-      description: "Docker image name"
-    dockerfile:
-      description: "Path to Dockerfile"
-      default: "./Dockerfile"
-    registry:
-      description: "Target registry URL"
-
----
-docker-build:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - docker build -f $[[ inputs.dockerfile ]] -t $[[ inputs.registry ]]/$[[ inputs.image_name ]]:$CI_COMMIT_SHORT_SHA .
-    - docker push $[[ inputs.registry ]]/$[[ inputs.image_name ]]:$CI_COMMIT_SHORT_SHA
-```
-
-## Frontend (планируется)
+## Frontend
 
 ### Pipelines страница
 
@@ -327,9 +146,11 @@ GITLAB_WEBHOOK_SECRET=your-webhook-secret
 
 ## Полезные ссылки
 
+- [`backend/app/services/pipeline.py`](../../backend/app/services/pipeline.py)
+- [`backend/app/api/pipelines.py`](../../backend/app/api/pipelines.py)
+- [`backend/app/api/components.py`](../../backend/app/api/components.py)
 - [`backend/app/api/webhooks.py`](../../backend/app/api/webhooks.py)
-- [`gitlab-ci/`](../../gitlab-ci/) — CI/CD шаблоны
-- [`docs/architecture/08-pipelines.md`](../../docs/architecture/08-pipelines.md) — детальный дизайн
+- [`infrastructure/gitlab-components/`](../../infrastructure/gitlab-components/) — CI/CD шаблоны
 - [GitLab Pipeline API](https://docs.gitlab.com/ee/api/pipelines.html)
 - [GitLab Components](https://docs.gitlab.com/ee/ci/components/)
 - [GitLab Webhooks](https://docs.gitlab.com/ee/user/project/integrations/webhooks.html)

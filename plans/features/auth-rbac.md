@@ -83,45 +83,10 @@ Response:
 
 Используем **bcrypt** (НЕ passlib):
 
-```python
-import bcrypt
-
-def hash_password(password: str) -> str:
-    """Hash password using bcrypt"""
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
-    return bcrypt.checkpw(
-        plain_password.encode('utf-8'),
-        hashed_password.encode('utf-8')
-    )
-```
-
+См. [`backend/app/core/security.py`](../../backend/app/core/security.py) — реализация `hash_password()` и `verify_password()` с использованием bcrypt.
 ### JWT токены
 
-```python
-from jose import jwt
-from datetime import datetime, timedelta
-
-SECRET_KEY = settings.SECRET_KEY
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-```
-
+См. [`backend/app/core/security.py`](../../backend/app/core/security.py) — реализация `create_access_token()` и `verify_token()` с использованием JWT.
 ## OIDC / Keycloak SSO
 
 ### Конфигурация
@@ -151,30 +116,7 @@ OIDC_CLIENT_SECRET=<from-keycloak>
 
 ### OIDC Service
 
-```python
-# app/services/oidc.py
-from authlib.integrations.httpx_client import AsyncOAuth2Client
-
-class OIDCService:
-    async def get_config(self, db: AsyncSession) -> OIDCConfig | None:
-        """Get OIDC configuration from database"""
-        ...
-    
-    async def verify_token(self, access_token: str) -> dict:
-        """Verify Keycloak access token and return user info"""
-        ...
-    
-    async def exchange_code(self, code: str, redirect_uri: str) -> dict:
-        """Exchange authorization code for tokens"""
-        ...
-    
-    async def sync_user_from_keycloak(
-        self, db: AsyncSession, user_info: dict
-    ) -> User:
-        """Create or update user from Keycloak user info"""
-        ...
-```
-
+См. [`backend/app/services/oidc.py`](../../backend/app/services/oidc.py) — реализация `OIDCService` и его методов.
 ### Синхронизация ролей из Keycloak
 
 Роли из Keycloak realm roles маппятся на роли BigBug:
@@ -191,102 +133,7 @@ KEYCLOAK_ROLE_MAPPING = {
 
 ### Dependencies ✅ РЕАЛИЗОВАНО
 
-Реальная реализация в [`backend/app/core/rbac.py`](../../backend/app/core/rbac.py):
-
-```python
-# app/core/rbac.py
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from app.core.security import decode_token
-
-security = HTTPBearer()
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: AsyncSession = Depends(get_db),
-):
-    token = credentials.credentials
-    payload = decode_token(token)
-
-    user_id: int | None = payload.get("sub")
-    # ... load user with roles via selectinload ...
-
-    # Кэшировать permissions из JWT payload для RBAC
-    # (избегает дополнительного DB-запроса на каждую проверку)
-    user._cached_permissions = payload.get("permissions", [])
-    return user
-
-
-def require_roles(*roles: RoleName):
-    """Role-based dependency (legacy, сохранён для совместимости)."""
-    async def dependency(current_user=Depends(get_current_user)):
-        user_role_names = {r.name for r in current_user.roles}
-        if not any(role.value in user_role_names for role in roles):
-            raise ForbiddenError(f"Required roles: {[r.value for r in roles]}")
-        return current_user
-    return dependency
-
-# Удобные алиасы:
-def require_admin():
-    return require_roles(RoleName.ADMIN)
-
-def require_operator():
-    return require_roles(RoleName.ADMIN, RoleName.OPERATOR)
-
-def require_viewer():
-    return require_roles(RoleName.ADMIN, RoleName.OPERATOR, RoleName.VIEWER)
-```
-
-### require_permission() — Permission-based dependency ✅ РЕАЛИЗОВАНО
-
-```python
-# app/core/rbac.py
-def require_permission(permission: str) -> Callable:
-    """
-    FastAPI dependency factory для permission-based access control.
-
-    Алгоритм:
-    1. Получить текущего пользователя (get_current_user)
-    2. Прочитать permissions из JWT cache (user._cached_permissions)
-    3. Если cache пуст — fallback на DB-запрос через RBACService
-    4. Если permission отсутствует — raise HTTP 403
-    """
-    async def dependency(
-        current_user=Depends(get_current_user),
-        db: AsyncSession = Depends(get_db),
-    ):
-        # Оптимизация: читаем из JWT payload кэша
-        cached: list[str] = getattr(current_user, "_cached_permissions", [])
-
-        if not cached:
-            # Fallback для токенов без permissions в payload
-            from app.services.rbac_service import RBACService
-            rbac_service = RBACService(db)
-            cached = await rbac_service.get_user_permissions(current_user.id)
-
-        if permission not in cached:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Permission denied: '{permission}' required",
-            )
-        return current_user
-
-    return dependency
-
-# Использование в роутерах:
-@router.post("/mirrors/{id}/sync")
-async def sync_mirror(
-    id: int,
-    _: User = Depends(require_permission("mirrors:sync"))
-):
-    ...
-
-@router.delete("/mirrors/{id}")
-async def delete_mirror(
-    id: int,
-    _: User = Depends(require_permission("mirrors:delete"))
-):
-    ...
-```
+См. [`backend/app/core/rbac.py`](../../backend/app/core/rbac.py) — реализация `get_current_user()`, `require_permission()`, `require_roles()` и алиасов (`require_admin`, `require_operator`, `require_viewer`).
 
 ## Frontend: Защита маршрутов
 
@@ -490,25 +337,7 @@ interface PermissionGateProps {
 
 Для хранения токенов и credentials в БД используем Fernet:
 
-```python
-# app/core/secrets.py
-from cryptography.fernet import Fernet
-
-def get_fernet() -> Fernet:
-    key = settings.FERNET_KEY.encode()
-    return Fernet(key)
-
-def encrypt_secret(value: str) -> str:
-    """Encrypt sensitive value for storage"""
-    f = get_fernet()
-    return f.encrypt(value.encode()).decode()
-
-def decrypt_secret(encrypted_value: str) -> str:
-    """Decrypt stored sensitive value"""
-    f = get_fernet()
-    return f.decrypt(encrypted_value.encode()).decode()
-```
-
+См. [`backend/app/core/secrets.py`](../../backend/app/core/secrets.py) — реализация `encrypt_secret()` и `decrypt_secret()` с использованием Fernet.
 Использование:
 
 ```python

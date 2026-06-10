@@ -16,22 +16,7 @@ BigBug использует несколько уровней защиты:
 
 Используем **bcrypt** (НЕ passlib — это legacy):
 
-```python
-import bcrypt
-
-def hash_password(password: str) -> str:
-    """Hash password using bcrypt with auto-generated salt"""
-    salt = bcrypt.gensalt(rounds=12)  # Cost factor 12
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against bcrypt hash"""
-    return bcrypt.checkpw(
-        plain_password.encode('utf-8'),
-        hashed_password.encode('utf-8')
-    )
-```
-
+См. [`backend/app/core/security.py`](../../backend/app/core/security.py) — реализация `hash_password()` и `verify_password()` с использованием bcrypt.
 **Параметры**:
 - `rounds=12` — cost factor (2^12 = 4096 итераций)
 - Соль генерируется автоматически и встроена в хеш
@@ -39,32 +24,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 ## JWT Токены
 
-```python
-from jose import jwt, JWTError
-from datetime import datetime, timedelta
-
-SECRET_KEY = settings.SECRET_KEY  # 256-bit random key
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Create JWT access token"""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire, "iat": datetime.utcnow()})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(token: str) -> dict:
-    """Verify JWT token and return payload"""
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("sub") is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-```
-
+См. [`backend/app/core/security.py`](../../backend/app/core/security.py) — реализация `create_access_token()` и `verify_token()` с использованием JWT.
 **Генерация SECRET_KEY**:
 ```bash
 openssl rand -hex 32
@@ -74,27 +34,7 @@ openssl rand -hex 32
 
 Для хранения токенов и credentials в БД используем симметричное шифрование Fernet:
 
-```python
-# app/core/secrets.py
-from cryptography.fernet import Fernet
-from app.config import settings
-
-def get_fernet() -> Fernet:
-    """Get Fernet instance with configured key"""
-    key = settings.FERNET_KEY.encode()
-    return Fernet(key)
-
-def encrypt_secret(value: str) -> str:
-    """Encrypt sensitive value for database storage"""
-    f = get_fernet()
-    return f.encrypt(value.encode('utf-8')).decode('utf-8')
-
-def decrypt_secret(encrypted_value: str) -> str:
-    """Decrypt stored sensitive value"""
-    f = get_fernet()
-    return f.decrypt(encrypted_value.encode('utf-8')).decode('utf-8')
-```
-
+См. [`backend/app/core/secrets.py`](../../backend/app/core/secrets.py) — реализация `encrypt_secret()` и `decrypt_secret()` с использованием Fernet.
 **Генерация FERNET_KEY**:
 ```python
 from cryptography.fernet import Fernet
@@ -143,63 +83,15 @@ const authUrl = `${keycloakUrl}/protocol/openid-connect/auth?
 
 ### Token Verification
 
-```python
-# app/services/oidc.py
-from authlib.integrations.httpx_client import AsyncOAuth2Client
-
-class OIDCService:
-    async def verify_token(self, access_token: str) -> dict:
-        """Verify Keycloak access token via introspection"""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.issuer}/protocol/openid-connect/token/introspect",
-                data={
-                    "token": access_token,
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                }
-            )
-            
-            result = response.json()
-            if not result.get("active"):
-                raise HTTPException(status_code=401, detail="Token inactive")
-            
-            return result
-```
-
+См. [`backend/app/services/oidc.py`](../../backend/app/services/oidc.py) — реализация `OIDCService` и `verify_token()` метода.
 ## API Security
 
 ### OAuth2 Bearer Token
 
-```python
-from fastapi.security import OAuth2PasswordBearer
+См. [`backend/app/core/security.py`](../../backend/app/core/security.py) — реализация `get_current_user()` с использованием OAuth2PasswordBearer.
+### Rate Limiting ✅ РЕАЛИЗОВАНО
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> User:
-    payload = verify_token(token)
-    user = await get_user_by_email(db, payload["sub"])
-    if not user or not user.is_active:
-        raise HTTPException(status_code=401, detail="Inactive user")
-    return user
-```
-
-### Rate Limiting (планируется)
-
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-
-@router.post("/auth/login")
-@limiter.limit("5/minute")  # 5 попыток в минуту
-async def login(request: Request, ...):
-    ...
-```
+Используется `fastapi-limiter` + `pyrate_limiter` в [`backend/app/core/rate_limit.py`](../../backend/app/core/rate_limit.py).
 
 ### CORS Configuration
 

@@ -30,93 +30,14 @@
 
 ### Gold Images
 
-```python
-# app/models/gold_image.py
-class GoldImage(Base):
-    __tablename__ = "gold_images"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # python:3.14-slim
-    source_registry: Mapped[str]         # docker.io
-    target_registry: Mapped[str]         # harbor.local
-    target_project: Mapped[str]          # gold-images
-    
-    # Версии
-    versions: Mapped[list["ImageVersion"]] = relationship(...)
-```
-
-```python
-# app/models/image_version.py
-class ImageVersion(Base):
-    __tablename__ = "image_versions"
-    
-    id: Mapped[int]
-    gold_image_id: Mapped[int] = mapped_column(ForeignKey("gold_images.id"))
-    version: Mapped[str]                 # 3.14.1, 22.04, latest
-    source_digest: Mapped[str | None]    # sha256:abc...
-    target_digest: Mapped[str | None]
-    status_flag: Mapped[int]             # 0=OK, 1=Failed, 3=In Progress, 4=Pending
-    status_text: Mapped[str]
-    scanned_at: Mapped[datetime | None]
-    vulnerabilities: Mapped[int | None]  # Количество CVE
-```
-
+См. [`backend/app/models/gold_image.py`](../../backend/app/models/gold_image.py) — модель `GoldImage` с полями: `name`, `source_registry`, `target_registry`, `target_project`, связь `versions`.
+См. [`backend/app/models/image_version.py`](../../backend/app/models/image_version.py) — модель `ImageVersion` с полями: `gold_image_id`, `version`, `source_digest`, `target_digest`, `status_flag`, `status_text`, `scanned_at`, `vulnerabilities`.
 ### App Images
 
-```python
-# app/models/app_image.py
-class AppImage(Base):
-    __tablename__ = "app_images"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # backend, frontend, worker
-    github_project_id: Mapped[int]       # Связь с Git репозиторием
-    
-    # Dockerfile
-    dockerfile_path: Mapped[str]         # ./Dockerfile, ./backend/Dockerfile
-    context_path: Mapped[str]            # ., ./backend
-    
-    # Gold Image base
-    gold_image_id: Mapped[int | None]    # Базовый образ (опционально)
-    
-    # Target registry
-    target_registry: Mapped[str]         # harbor.local
-    target_project: Mapped[str]          # apps
-    
-    # Build schedule
-    build_schedule_id: Mapped[int | None]
-```
-
+См. [`backend/app/models/app_image.py`](../../backend/app/models/app_image.py) — модель `AppImage` с полями: `name`, `github_project_id`, `dockerfile_path`, `context_path`, `gold_image_id`, `target_registry`, `target_project`, `build_schedule_id`.
 ### Build Logs
 
-```python
-# app/models/build_log.py
-class BuildLog(Base):
-    __tablename__ = "build_logs"
-    
-    id: Mapped[int]
-    app_image_id: Mapped[int]
-    
-    # Build info
-    git_ref: Mapped[str]                 # commit sha, tag, branch
-    version: Mapped[str]                 # tag name или auto-generated
-    
-    # Status
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    
-    # GitLab CI
-    gitlab_pipeline_id: Mapped[int | None]
-    gitlab_job_id: Mapped[int | None]
-    
-    # Output
-    build_output: Mapped[str | None]     # Логи сборки
-    
-    # Timestamps
-    started_at: Mapped[datetime]
-    finished_at: Mapped[datetime | None]
-```
-
+См. [`backend/app/models/build_log.py`](../../backend/app/models/build_log.py) — модель `BuildLog` с полями: `app_image_id`, `git_ref`, `version`, `status_flag`, `status_text`, `gitlab_pipeline_id`, `gitlab_job_id`, `build_output`, `started_at`, `finished_at`.
 ## API Endpoints
 
 ### Gold Images
@@ -258,159 +179,20 @@ build_app_image:
 
 ### BuildService
 
-```python
-# app/services/build.py
-class BuildService:
-    def __init__(self, db: AsyncSession):
-        self.db = db
-    
-    async def sync_gold_image_versions(self, gold_image_id: int) -> list[ImageVersion]:
-        """Sync versions from source registry"""
-        gold_image = await self.get_gold_image(gold_image_id)
-        
-        # Получить теги из source registry
-        tags = await self._get_registry_tags(
-            gold_image.source_registry,
-            gold_image.name
-        )
-        
-        # Обновить или создать ImageVersion записи
-        versions = []
-        for tag in tags:
-            version = await self._get_or_create_version(gold_image_id, tag)
-            versions.append(version)
-        
-        return versions
-    
-    async def build_app_image(
-        self,
-        app_image_id: int,
-        git_ref: str,
-        version: str | None = None
-    ) -> BuildLog:
-        """Trigger app image build"""
-        app_image = await self.get_app_image(app_image_id)
-        
-        # Создать BuildLog
-        build_log = BuildLog(
-            app_image_id=app_image_id,
-            git_ref=git_ref,
-            version=version or git_ref,
-            status_flag=3,  # In Progress
-            status_text="Starting build",
-            started_at=datetime.utcnow()
-        )
-        self.db.add(build_log)
-        await self.db.commit()
-        
-        # Триггернуть GitLab pipeline
-        gitlab_service = GitLabService(...)
-        pipeline = await gitlab_service.trigger_pipeline(
-            project_id=app_image.gitlab_project_id,
-            ref=git_ref,
-            variables={
-                "DOCKERFILE_PATH": app_image.dockerfile_path,
-                "CONTEXT_PATH": app_image.context_path,
-                "APP_NAME": app_image.name,
-                "VERSION": version or git_ref,
-                # ...
-            }
-        )
-        
-        # Обновить BuildLog с pipeline info
-        build_log.gitlab_pipeline_id = pipeline["id"]
-        await self.db.commit()
-        
-        return build_log
-```
-
+См. [`backend/app/services/build.py`](../../backend/app/services/build.py) — реализация `BuildService` и его методов.
 ## Build Schedules
 
 ### Модель
 
-```python
-# app/models/build_schedule.py
-class BuildSchedule(Base):
-    __tablename__ = "build_schedules"
-    
-    id: Mapped[int]
-    app_image_id: Mapped[int]
-    
-    # Cron expression
-    cron_expression: Mapped[str]         # "0 2 * * *" = daily at 2am
-    
-    # Build params
-    git_ref: Mapped[str]                 # main, develop, v*
-    auto_version: Mapped[bool]           # Auto-generate version from commit
-    
-    is_enabled: Mapped[bool]
-    last_run_at: Mapped[datetime | None]
-    next_run_at: Mapped[datetime | None]
-```
-
+См. [`backend/app/models/build_schedule.py`](../../backend/app/models/build_schedule.py) — модель `BuildSchedule` с полями: `app_image_id`, `cron_expression`, `git_ref`, `auto_version`, `is_enabled`, `last_run_at`, `next_run_at`.
 ### APScheduler Integration
 
-```python
-# app/services/scheduler.py
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-scheduler = AsyncIOScheduler()
-
-def schedule_app_build(schedule: BuildSchedule):
-    """Schedule app image build"""
-    scheduler.add_job(
-        func=build_app_image_task,
-        trigger='cron',
-        **parse_cron(schedule.cron_expression),
-        id=f"build_{schedule.id}",
-        args=[schedule.app_image_id, schedule.git_ref],
-        replace_existing=True
-    )
-
-async def build_app_image_task(app_image_id: int, git_ref: str):
-    """Background task to build app image"""
-    async with AsyncSessionLocal() as db:
-        service = BuildService(db)
-        await service.build_app_image(app_image_id, git_ref)
-```
-
+См. [`backend/app/services/scheduler.py`](../../backend/app/services/scheduler.py) — реализация `schedule_app_build()` и `build_app_image_task()` для планирования и выполнения сборки образов.
 ## Webhooks
 
 GitLab отправляет webhook при завершении pipeline:
 
-```python
-# app/api/webhooks.py
-@router.post("/gitlab")
-async def gitlab_webhook(
-    payload: dict,
-    db: AsyncSession = Depends(get_db)
-):
-    """Handle GitLab pipeline webhook"""
-    if payload["object_kind"] != "pipeline":
-        return {"status": "ignored"}
-    
-    pipeline_id = payload["object_attributes"]["id"]
-    status = payload["object_attributes"]["status"]  # success, failed
-    
-    # Найти BuildLog
-    build_log = await get_build_log_by_pipeline_id(db, pipeline_id)
-    if not build_log:
-        return {"status": "not_found"}
-    
-    # Обновить статус
-    if status == "success":
-        build_log.status_flag = 0
-        build_log.status_text = "Build completed"
-    elif status == "failed":
-        build_log.status_flag = 1
-        build_log.status_text = "Build failed"
-    
-    build_log.finished_at = datetime.utcnow()
-    await db.commit()
-    
-    return {"status": "processed"}
-```
-
+См. [`backend/app/api/webhooks.py`](../../backend/app/api/webhooks.py) — реализация `gitlab_webhook()` для обработки завершения GitLab пайплайнов и обновления статусов сборок.
 ## Frontend
 
 ### Gold Images страница

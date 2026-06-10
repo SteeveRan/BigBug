@@ -17,7 +17,11 @@
 | Таблица | Описание |
 |---------|----------|
 | `users` | Пользователи системы |
-| `roles` | Роли (admin, operator, viewer) |
+| `roles` | Роли (admin, operator, viewer + custom) |
+| `user_roles` | M2M пользователи ↔ роли |
+| `permissions` | Гранулярные права доступа (32 `resource:action`) |
+| `role_permissions` | Связь ролей и прав |
+| `oidc_config` | Конфигурация OIDC/Keycloak |
 | `github_orgs` | GitHub организации |
 | `github_projects` | GitHub репозитории |
 | `github_releases` | Релизы GitHub проектов |
@@ -35,17 +39,14 @@
 | `docker_image_sources` | Источники Docker образов |
 | `docker_image_tags` | Теги Docker образов |
 | `docker_sync_logs` | Логи синхронизации Docker |
-
-### Планируемые таблицы (рефакторинг)
-
-| Таблица | Описание |
-|---------|----------|
-| `permissions` | Гранулярные права доступа |
-| `role_permissions` | Связь ролей и прав |
-| `oidc_config` | Конфигурация OIDC/Keycloak |
 | `gitlab_instances` | Множественные GitLab инстансы |
 | `harbor_instances` | Множественные Harbor инстансы |
+| `github_instances` | GitHub конфигурации (токены) |
+| `docker_registry_instances` | Docker Registry инстансы |
+| `helm_repository_instances` | Helm Repository инстансы |
 | `pipeline_runs` | История запусков пайплайнов |
+| `gitlab_components` | GitLab CI/CD компоненты |
+| `audit_logs` | Аудит действий пользователей |
 
 ## Соглашения по именованию
 

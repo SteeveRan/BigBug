@@ -113,24 +113,22 @@ BigBug — централизованная DevOps платформа для у�
 
 ## Текущий статус
 
-**Реализовано** (blocks 1-5):
-- ✅ Docker infrastructure (Compose setup)
+**Реализовано**:
+- ✅ Docker infrastructure (Compose + OpenTofu)
 - ✅ SSO через Keycloak (OIDC)
 - ✅ Helm Charts синхронизация
 - ✅ Docker Images синхронизация
-- ✅ Frontend UI (base)
-
-**В разработке** (рефакторинг):
-- 🚧 Расширенная RBAC (permission-based)
-- 🚧 Multi-instance интеграции
-- 🚧 Pipeline management UI
-- 🚧 Тесты
+- ✅ Frontend UI (12 страниц)
+- ✅ Расширенная RBAC (permission-based, 32 permissions, кастомные роли)
+- ✅ Multi-instance интеграции (GitLab, Harbor, GitHub, Docker Registry, Helm Repository)
+- ✅ Pipeline management UI (запуск, cancel, retry, компоненты)
+- ✅ Audit logging (фильтрация, пагинация, детали)
+- ✅ Harbor полная интеграция (multi-instance, test connection)
+- ✅ Advanced scheduling (sync_schedules, build_schedules, APScheduler)
+- ✅ Тесты (backend: 9 unit + 8 e2e; frontend: 16+ unit/integration)
 
 **Запланировано**:
-- ⏳ Harbor полная интеграция
-- ⏳ Audit logging
-- ⏳ Advanced scheduling
-- ⏳ Notifications
+- ⏳ Notifications (email/telegram/webhook)
 
 ## Связанные документы
 

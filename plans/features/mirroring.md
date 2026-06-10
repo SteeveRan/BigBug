@@ -13,97 +13,16 @@ BigBug автоматически создаёт зеркала (mirrors) GitHub
 
 ### GitHub Organizations
 
-```python
-# app/models/github_org.py
-class GitHubOrg(Base):
-    __tablename__ = "github_orgs"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # organization name
-    github_org_id: Mapped[int]           # GitHub org ID
-    
-    projects: Mapped[list["GitHubProject"]] = relationship(...)
-```
-
+См. [`backend/app/models/github_org.py`](../../backend/app/models/github_org.py) — модель `GitHubOrg` с полями: `name`, `github_org_id`, связь `projects`.
 ### GitHub Projects
 
-```python
-# app/models/github_project.py
-class GitHubProject(Base):
-    __tablename__ = "github_projects"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # repository name
-    github_id: Mapped[int]               # GitHub repo ID
-    clone_url: Mapped[str]               # https://github.com/org/repo.git
-    
-    github_org_id: Mapped[int] = mapped_column(ForeignKey("github_orgs.id"))
-    
-    # Status
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    last_synced_at: Mapped[datetime | None]
-    
-    mirrors: Mapped[list["GitLabMirror"]] = relationship(...)
-    releases: Mapped[list["GitHubRelease"]] = relationship(...)
-```
-
+См. [`backend/app/models/github_project.py`](../../backend/app/models/github_project.py) — модель `GitHubProject` с полями: `name`, `github_id`, `clone_url`, `github_org_id`, `status_flag`, `status_text`, `last_synced_at`, связи `mirrors` и `releases`.
 ### GitLab Mirrors
 
-```python
-# app/models/gitlab_mirror.py
-class GitLabMirror(Base):
-    __tablename__ = "gitlab_mirrors"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # mirror name (обычно = project name)
-    
-    # Source (GitHub)
-    github_project_id: Mapped[int] = mapped_column(ForeignKey("github_projects.id"))
-    source_url: Mapped[str]              # https://github.com/org/repo.git
-    
-    # Target (GitLab)
-    gitlab_project_id: Mapped[int | None]    # GitLab project ID (после создания)
-    gitlab_token_encrypted: Mapped[str | None]  # Зашифрованный токен
-    
-    # Configuration
-    mirror_enabled: Mapped[bool]         # Автоматическая синхронизация
-    
-    # Status
-    status_flag: Mapped[int]             # 0=OK, 1=Failed, 2=Stale, 3=In Progress, 4=Pending
-    status_text: Mapped[str]
-    
-    # Timestamps
-    created_at: Mapped[datetime]
-    last_synced_at: Mapped[datetime | None]
-    
-    # Relationships
-    github_project: Mapped["GitHubProject"] = relationship(...)
-    sync_logs: Mapped[list["SyncLog"]] = relationship(...)
-```
-
+См. [`backend/app/models/gitlab_mirror.py`](../../backend/app/models/gitlab_mirror.py) — модель `GitLabMirror` с полями: `name`, `github_project_id`, `source_url`, `gitlab_project_id`, `gitlab_token_encrypted`, `mirror_enabled`, `status_flag`, `status_text`, `created_at`, `last_synced_at`, связи `github_project` и `sync_logs`.
 ### Sync Logs
 
-```python
-# app/models/sync_log.py
-class SyncLog(Base):
-    __tablename__ = "sync_logs"
-    
-    id: Mapped[int]
-    gitlab_mirror_id: Mapped[int]
-    
-    # Sync details
-    commits_synced: Mapped[int]
-    branches_synced: Mapped[int]
-    
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    error_message: Mapped[str | None]
-    
-    started_at: Mapped[datetime]
-    finished_at: Mapped[datetime | None]
-```
-
+См. [`backend/app/models/sync_log.py`](../../backend/app/models/sync_log.py) — модель `SyncLog` с полями: `gitlab_mirror_id`, `commits_synced`, `branches_synced`, `status_flag`, `status_text`, `error_message`, `started_at`, `finished_at`.
 ## API Endpoints
 
 ```
@@ -218,166 +137,18 @@ Webhook-based (optional):
 
 ### GitHubService
 
-```python
-# app/services/github.py
-class GitHubService:
-    def __init__(self, token: str):
-        self.token = token
-        self.client = httpx.AsyncClient()
-    
-    async def list_orgs(self) -> list[dict]:
-        """Get organizations for authenticated user"""
-        response = await self.client.get(
-            "https://api.github.com/user/orgs",
-            headers={"Authorization": f"token {self.token}"}
-        )
-        return response.json()
-    
-    async def list_repos(self, org_name: str) -> list[dict]:
-        """Get repositories in organization"""
-        response = await self.client.get(
-            f"https://api.github.com/orgs/{org_name}/repos",
-            headers={"Authorization": f"token {self.token}"}
-        )
-        return response.json()
-    
-    async def get_releases(self, owner: str, repo: str) -> list[dict]:
-        """Get releases for repository"""
-        response = await self.client.get(
-            f"https://api.github.com/repos/{owner}/{repo}/releases",
-            headers={"Authorization": f"token {self.token}"}
-        )
-        return response.json()
-```
-
+См. [`backend/app/services/github.py`](../../backend/app/services/github.py) — реализация `GitHubService` и его методов.
 ### GitLabService
 
-```python
-# app/services/gitlab.py
-class GitLabService:
-    def __init__(self, url: str, token: str):
-        self.url = url
-        self.token = token
-        self.client = httpx.AsyncClient()
-    
-    async def create_mirror(
-        self,
-        name: str,
-        source_url: str,
-        group_id: int
-    ) -> dict:
-        """Create GitLab project with mirror configuration"""
-        # 1. Создать проект
-        project = await self.client.post(
-            f"{self.url}/api/v4/projects",
-            headers={"PRIVATE-TOKEN": self.token},
-            json={
-                "name": name,
-                "namespace_id": group_id,
-                "mirror": True,
-                "import_url": source_url,
-                "mirror_trigger_builds": True
-            }
-        )
-        
-        # 2. Настроить pull mirror
-        mirror_config = await self.client.put(
-            f"{self.url}/api/v4/projects/{project.id}/mirror/pull",
-            headers={"PRIVATE-TOKEN": self.token}
-        )
-        
-        return project.json()
-    
-    async def trigger_mirror_sync(self, project_id: int) -> dict:
-        """Trigger mirror synchronization"""
-        response = await self.client.post(
-            f"{self.url}/api/v4/projects/{project_id}/mirror/pull",
-            headers={"PRIVATE-TOKEN": self.token}
-        )
-        return response.json()
-    
-    async def get_mirror_status(self, project_id: int) -> dict:
-        """Get mirror status"""
-        response = await self.client.get(
-            f"{self.url}/api/v4/projects/{project_id}",
-            headers={"PRIVATE-TOKEN": self.token}
-        )
-        return response.json()
-```
-
+См. [`backend/app/services/gitlab.py`](../../backend/app/services/gitlab.py) — реализация `GitLabService` и его методов.
 ## Sync Schedules
 
 ### Модель
 
-```python
-# app/models/sync_schedule.py
-class SyncSchedule(Base):
-    __tablename__ = "sync_schedules"
-    
-    id: Mapped[int]
-    gitlab_mirror_id: Mapped[int]
-    
-    cron_expression: Mapped[str]         # "0 */6 * * *" = every 6 hours
-    is_enabled: Mapped[bool]
-    
-    last_run_at: Mapped[datetime | None]
-    next_run_at: Mapped[datetime | None]
-```
-
+См. [`backend/app/models/sync_schedule.py`](../../backend/app/models/sync_schedule.py) — модель `SyncSchedule` с полями: `gitlab_mirror_id`, `cron_expression`, `is_enabled`, `last_run_at`, `next_run_at`.
 ### APScheduler
 
-```python
-# app/services/scheduler.py
-def schedule_mirror_sync(schedule: SyncSchedule):
-    """Schedule mirror synchronization"""
-    scheduler.add_job(
-        func=sync_mirror_task,
-        trigger='cron',
-        **parse_cron(schedule.cron_expression),
-        id=f"mirror_sync_{schedule.id}",
-        args=[schedule.gitlab_mirror_id],
-        replace_existing=True
-    )
-
-async def sync_mirror_task(mirror_id: int):
-    """Background task to sync mirror"""
-    async with AsyncSessionLocal() as db:
-        gitlab_service = GitLabService(...)
-        mirror = await get_mirror(db, mirror_id)
-        
-        # Создать SyncLog
-        log = SyncLog(
-            gitlab_mirror_id=mirror_id,
-            status_flag=3,  # In Progress
-            started_at=datetime.utcnow()
-        )
-        db.add(log)
-        await db.commit()
-        
-        try:
-            # Триггернуть sync
-            result = await gitlab_service.trigger_mirror_sync(mirror.gitlab_project_id)
-            
-            # Обновить статус
-            log.status_flag = 0
-            log.status_text = "Sync completed"
-            log.finished_at = datetime.utcnow()
-            
-            mirror.last_synced_at = datetime.utcnow()
-            mirror.status_flag = 0
-            
-        except Exception as e:
-            log.status_flag = 1
-            log.status_text = "Sync failed"
-            log.error_message = str(e)
-            log.finished_at = datetime.utcnow()
-            
-            mirror.status_flag = 1
-            mirror.status_text = f"Sync failed: {str(e)}"
-        
-        await db.commit()
-```
-
+См. [`backend/app/services/scheduler.py`](../../backend/app/services/scheduler.py) — реализация `schedule_mirror_sync()` и `sync_mirror_task()` для планирования и выполнения синхронизации зеркал.
 ## Frontend
 
 ### Projects (Organizations) страница

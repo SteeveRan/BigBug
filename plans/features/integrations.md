@@ -4,108 +4,48 @@
 
 ## Текущее состояние
 
-Сейчас интеграции настраиваются через переменные окружения (`.env`). В рамках рефакторинга (Phase 2) планируется переход на управляемые интеграции через Admin UI с поддержкой множественных инстансов.
+✅ **Реализовано** — управляемые интеграции через Admin UI с поддержкой множественных инстансов для всех 5 типов.
 
-## Текущие интеграции (через .env)
+### Реализованные типы интеграций
 
-### GitLab
+| Тип | Модель | API |
+|-----|--------|-----|
+| GitLab Instances | [`gitlab_instance.py`](../../backend/app/models/gitlab_instance.py) | [`gitlab.py`](../../backend/app/api/integrations/gitlab.py) |
+| Harbor Instances | [`harbor_instance.py`](../../backend/app/models/harbor_instance.py) | [`harbor.py`](../../backend/app/api/integrations/harbor.py) |
+| GitHub Instances | [`github_instance.py`](../../backend/app/models/github_instance.py) | [`github.py`](../../backend/app/api/integrations/github.py) |
+| Docker Registries | [`docker_registry_instance.py`](../../backend/app/models/docker_registry_instance.py) | [`docker_registry.py`](../../backend/app/api/integrations/docker_registry.py) |
+| Helm Repositories | [`helm_repository_instance.py`](../../backend/app/models/helm_repository_instance.py) | [`helm_repository.py`](../../backend/app/api/integrations/helm_repository.py) |
 
-```bash
-GITLAB_URL=http://localhost:8080
-GITLAB_TOKEN=glpat-xyz123
-GITLAB_GROUP_ID=1
+**Сервисный слой:** [`backend/app/services/integrations.py`](../../backend/app/services/integrations.py)
+
+**Frontend UI:** `/settings/integrations` — управление всеми 5 типами интеграций (добавление, редактирование, проверка подключения)
+
+## .env Fallback (обратная совместимость)
+
+Основной способ конфигурации — **Admin UI** (`/settings/integrations`) с хранением инстансов в БД и шифрованием credentials через Fernet. Переменные окружения `.env` используются только как **fallback** в методах `_get_client()` и `get_default_*_instance()`, когда в БД нет активных инстансов:
+
+```python
+# backend/app/services/gitlab.py:67-86 — приоритет:
+# 1. instance (из БД) → url + decrypted token
+# 2. settings.gitlab_url + settings.gitlab_token (fallback из .env)
+# 3. settings.gitlab_url без аутентификации
 ```
 
-Используется в:
-- [`backend/app/services/gitlab.py`](../../backend/app/services/gitlab.py) — создание зеркал, триггер пайплайнов
-- [`backend/app/api/mirrors.py`](../../backend/app/api/mirrors.py) — API для зеркал
+См. [`backend/app/services/integrations.py`](../../backend/app/services/integrations.py) — `get_default_gitlab_instance()`, `get_default_github_instance()`, `get_default_harbor_instance()`.
 
-### GitHub
-
-```bash
-GITHUB_TOKEN=ghp_xyz123
-```
-
-Используется в:
-- [`backend/app/services/github.py`](../../backend/app/services/github.py) — получение организаций и репозиториев
-
-### Harbor (опционально)
-
-```bash
-HARBOR_URL=https://harbor.local
-HARBOR_USERNAME=admin
-HARBOR_PASSWORD=Harbor12345
-```
-
-Используется для:
-- Хранение Docker образов
-- Security scanning
-
-## Планируемые интеграции (Phase 2)
-
-### Архитектура
+## Архитектура
 
 Каждая интеграция — отдельная таблица с поддержкой множественных инстансов:
 
 ```
 gitlab_instances     — множественные GitLab серверы
 harbor_instances     — множественные Harbor реестры
-github_configs       — GitHub конфигурации (токены)
-docker_registries    — Docker Registry инстансы
-helm_repositories    — Helm Repository инстансы
+github_instances     — GitHub конфигурации (токены)
+docker_registry_instances — Docker Registry инстансы
+helm_repository_instances — Helm Repository инстансы
 ```
 
-### Модели (планируемые)
-
-#### GitLab Instance
-
-```python
-class GitLabInstance(Base):
-    __tablename__ = "gitlab_instances"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # "Production GitLab", "Dev GitLab"
-    url: Mapped[str]                     # https://gitlab.example.com
-    token_encrypted: Mapped[str]         # Зашифрованный API token
-    
-    # Конфигурация
-    default_group_id: Mapped[int | None]
-    verify_ssl: Mapped[bool]
-    
-    # Статус
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    last_checked_at: Mapped[datetime | None]
-    
-    is_default: Mapped[bool]             # Используется по умолчанию
-    is_enabled: Mapped[bool]
-```
-
-#### Harbor Instance
-
-```python
-class HarborInstance(Base):
-    __tablename__ = "harbor_instances"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # "Production Harbor"
-    url: Mapped[str]                     # https://harbor.example.com
-    username: Mapped[str]
-    password_encrypted: Mapped[str]
-    
-    # Конфигурация
-    default_project: Mapped[str | None]  # Проект по умолчанию
-    verify_ssl: Mapped[bool]
-    
-    # Статус
-    status_flag: Mapped[int]
-    last_checked_at: Mapped[datetime | None]
-    
-    is_default: Mapped[bool]
-    is_enabled: Mapped[bool]
-```
-
-### API Endpoints (планируемые)
+## API Endpoints
 
 ```
 # GitLab Instances
@@ -125,171 +65,23 @@ DELETE /api/settings/integrations/harbor/{id}     # Удалить
 POST   /api/settings/integrations/harbor/{id}/test # Проверить подключение
 ```
 
-### Проверка подключения
-
-```python
-# app/services/integrations.py
-class IntegrationService:
-    async def test_gitlab_connection(self, instance: GitLabInstance) -> dict:
-        """Test GitLab connection and return status"""
-        token = decrypt_secret(instance.token_encrypted)
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{instance.url}/api/v4/user",
-                    headers={"PRIVATE-TOKEN": token},
-                    timeout=10.0
-                )
-                
-                if response.status_code == 200:
-                    user = response.json()
-                    return {
-                        "status": "ok",
-                        "message": f"Connected as {user['username']}",
-                        "version": response.headers.get("X-Gitlab-Meta")
-                    }
-                else:
-                    return {
-                        "status": "error",
-                        "message": f"HTTP {response.status_code}: {response.text}"
-                    }
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": str(e)
-            }
-    
-    async def test_harbor_connection(self, instance: HarborInstance) -> dict:
-        """Test Harbor connection"""
-        password = decrypt_secret(instance.password_encrypted)
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    f"{instance.url}/api/v2.0/systeminfo",
-                    auth=(instance.username, password),
-                    timeout=10.0
-                )
-                
-                if response.status_code == 200:
-                    info = response.json()
-                    return {
-                        "status": "ok",
-                        "message": f"Harbor {info.get('harbor_version', 'unknown')}",
-                        "version": info.get("harbor_version")
-                    }
-                else:
-                    return {
-                        "status": "error",
-                        "message": f"HTTP {response.status_code}"
-                    }
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": str(e)
-            }
-```
-
 ## Docker Registry Integration
 
-### Текущая реализация
+Docker Registry используется для синхронизации образов.
 
-Docker Registry используется для синхронизации образов:
-
-```python
-# app/services/docker.py
-class DockerService:
-    async def get_tags(self, registry_url: str, image_name: str) -> list[str]:
-        """Get available tags from Docker Registry"""
-        ...
-    
-    async def sync_image(
-        self,
-        source_registry: str,
-        source_image: str,
-        target_registry: str,
-        target_image: str,
-        tag: str
-    ) -> dict:
-        """Sync image from source to target registry"""
-        ...
-```
+См. [`backend/app/services/docker.py`](../../backend/app/services/docker.py) — `DockerService` с методами `get_tags()` и `sync_image()`.
 
 ### Docker Image Sources
 
-```python
-# app/models/docker_image_source.py
-class DockerImageSource(Base):
-    __tablename__ = "docker_image_sources"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # nginx, python, etc.
-    registry_url: Mapped[str]            # https://registry.hub.docker.com
-    image_name: Mapped[str]              # library/nginx
-    
-    # Target
-    target_registry_url: Mapped[str]     # harbor.local
-    target_project: Mapped[str]          # docker-images
-    
-    # Status
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    last_synced_at: Mapped[datetime | None]
-    
-    tags: Mapped[list["DockerImageTag"]] = relationship(...)
-```
+См. [`backend/app/models/docker_image_source.py`](../../backend/app/models/docker_image_source.py) — `DockerImageSource` модель с полями: `name`, `registry_url`, `image_name`, `target_registry_url`, `target_project`, `status_flag`, `status_text`, `last_synced_at`.
 
 ## Helm Repository Integration
 
-### Текущая реализация
-
-```python
-# app/services/helm.py
-class HelmService:
-    async def get_chart_versions(
-        self,
-        repo_url: str,
-        chart_name: str
-    ) -> list[dict]:
-        """Get available versions from Helm repository"""
-        # Скачать index.yaml
-        # Парсить через ruamel.yaml
-        ...
-    
-    async def sync_chart(
-        self,
-        source_repo: str,
-        chart_name: str,
-        version: str,
-        target_repo: str
-    ) -> dict:
-        """Sync chart from source to target repository"""
-        ...
-```
+См. [`backend/app/services/helm.py`](../../backend/app/services/helm.py) — `HelmService` с методами `get_chart_versions()` и `sync_chart()`.
 
 ### Helm Chart Sources
 
-```python
-# app/models/helm_chart_source.py
-class HelmChartSource(Base):
-    __tablename__ = "helm_chart_sources"
-    
-    id: Mapped[int]
-    name: Mapped[str]                    # stable, bitnami, etc.
-    repo_url: Mapped[str]                # https://charts.helm.sh/stable
-    chart_name: Mapped[str]              # nginx, postgresql, etc.
-    
-    # Target
-    target_repo_url: Mapped[str]         # https://harbor.local/chartrepo/charts
-    
-    # Status
-    status_flag: Mapped[int]
-    status_text: Mapped[str]
-    last_synced_at: Mapped[datetime | None]
-    
-    versions: Mapped[list["HelmChartVersion"]] = relationship(...)
-```
+См. [`backend/app/models/helm_chart_source.py`](../../backend/app/models/helm_chart_source.py) — `HelmChartSource` модель с полями: `name`, `repo_url`, `chart_name`, `target_repo_url`, `status_flag`, `status_text`, `last_synced_at`.
 
 ## Шифрование credentials
 
@@ -308,37 +100,17 @@ token = decrypt_secret(instance.token_encrypted)
 
 **Важно**: FERNET_KEY должен быть стабильным. Смена ключа требует перешифрования всех данных.
 
-## Admin UI (планируется)
+## Admin UI ✅ Реализовано
 
-### Страница Integrations
+Страница `/settings/integrations` — управление всеми 5 типами интеграций через [`frontend/src/pages/Settings/Integrations/index.tsx`](../../frontend/src/pages/Settings/Integrations/index.tsx):
 
-```
-Settings → Integrations
-├── GitLab Instances
-│   ├── [+ Add GitLab]
-│   ├── Production GitLab (gitlab.example.com) ✓
-│   └── Dev GitLab (localhost:8080) ✓
-├── Harbor Instances
-│   ├── [+ Add Harbor]
-│   └── Production Harbor (harbor.example.com) ✓
-├── GitHub
-│   └── GitHub Token (configured) ✓
-└── Docker Registries
-    └── Docker Hub (registry.hub.docker.com) ✓
-```
+- **GitLab Instances** — добавление, редактирование, проверка подключения
+- **Harbor Instances** — добавление, редактирование, проверка подключения
+- **GitHub** — настройка токенов
+- **Docker Registries** — добавление, редактирование
+- **Helm Repositories** — добавление, редактирование
 
-### Форма добавления GitLab
-
-```typescript
-interface GitLabInstanceForm {
-  name: string;
-  url: string;
-  token: string;
-  default_group_id?: number;
-  verify_ssl: boolean;
-  is_default: boolean;
-}
-```
+Каждый тип поддерживает множественные инстансы, проверку подключения (test connection) и шифрование credentials через Fernet.
 
 ## Troubleshooting
 
