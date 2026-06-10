@@ -122,7 +122,8 @@ class GitLabService:
 
         # Create default sync schedule
         schedule = SyncSchedule(
-            mirror_id=mirror.id,
+            sync_type="git_mirror",
+            git_mirror_id=mirror.id,
             is_enabled=True,
             use_default_schedule=True,
         )

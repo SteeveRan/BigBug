@@ -36,10 +36,13 @@ class SchedulerService:
         logger.info("Scheduler stopped")
 
     async def _run_sync_jobs(self) -> None:
-        """Run all enabled sync schedules."""
+        """Run all enabled sync schedules of all types."""
         from app.database import AsyncSessionLocal
+        from app.models.docker_image_source import DockerImageSource
+        from app.models.docker_image_tag import DockerImageTag
         from app.models.gitlab_mirror import GitlabMirror
         from app.models.sync_schedule import SyncSchedule
+        from app.services.docker import docker_service
         from app.services.gitlab import gitlab_service
 
         async with AsyncSessionLocal() as db:
@@ -59,19 +62,81 @@ class SchedulerService:
                 if schedule.next_run_at and schedule.next_run_at > now:
                     continue
 
-                mirror_result = await db.execute(
-                    select(GitlabMirror).where(GitlabMirror.id == schedule.mirror_id)
-                )
-                mirror = mirror_result.scalar_one_or_none()
-                if not mirror or not mirror.pipeline_trigger_token:
-                    continue
-
                 try:
-                    await gitlab_service.trigger_sync(mirror, db, triggered_by="scheduler")
+                    if schedule.sync_type == "git_mirror" and schedule.git_mirror_id:
+                        mirror_result = await db.execute(
+                            select(GitlabMirror).where(GitlabMirror.id == schedule.git_mirror_id)
+                        )
+                        mirror = mirror_result.scalar_one_or_none()
+                        if mirror and mirror.pipeline_trigger_token:
+                            await gitlab_service.trigger_sync(mirror, db, triggered_by="scheduler")
+                            logger.info(f"Triggered sync for mirror {mirror.id}")
+
+                    elif schedule.sync_type == "docker_image" and schedule.docker_image_source_id:
+                        source_result = await db.execute(
+                            select(DockerImageSource).where(
+                                DockerImageSource.id == schedule.docker_image_source_id
+                            )
+                        )
+                        source = source_result.scalar_one_or_none()
+                        if source and source.target_registry_url:
+                            # Mirroring mode: copy unsynced tags to target registry
+                            tags_result = await db.execute(
+                                select(DockerImageTag).where(
+                                    DockerImageTag.source_id == source.id,
+                                    DockerImageTag.is_synced.is_(False),
+                                )
+                            )
+                            tags = tags_result.scalars().all()
+
+                            for tag in tags:
+                                try:
+                                    await docker_service.mirror_image(
+                                        source=source,
+                                        image_name=tag.image_name,
+                                        tag=tag.tag,
+                                        db=db,
+                                        triggered_by="scheduler",
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"Failed to mirror {tag.image_name}:{tag.tag}: {e}"
+                                    )
+
+                            logger.info(
+                                f"Mirrored {len(tags)} tag(s) for docker source {source.id}"
+                            )
+                        elif source:
+                            # No target configured: refresh (re-index) tags
+                            # Get distinct image names from existing tags
+                            names_result = await db.execute(
+                                select(DockerImageTag.image_name)
+                                .distinct()
+                                .where(DockerImageTag.source_id == source.id)
+                            )
+                            image_names = names_result.scalars().all()
+                            for image_name in image_names:
+                                try:
+                                    await docker_service.refresh_source(
+                                        source, image_name, db
+                                    )
+                                    logger.info(
+                                        f"Refreshed docker source {source.id} for {image_name}"
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"Failed to refresh docker source {source.id}"
+                                        f" for {image_name}: {e}"
+                                    )
+
+                    elif schedule.sync_type == "helm_chart" and schedule.helm_chart_source_id:
+                        # Helm chart sync — to be implemented
+                        logger.info(f"Helm chart sync not yet implemented for schedule {schedule.id}")
+                        continue
+
                     schedule.last_run_at = now
-                    logger.info(f"Triggered sync for mirror {mirror.id}")
                 except Exception as e:
-                    logger.error(f"Failed to trigger sync for mirror {mirror.id}: {e}")
+                    logger.error(f"Failed to trigger sync for schedule {schedule.id}: {e}")
 
             await db.commit()
 

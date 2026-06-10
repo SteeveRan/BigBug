@@ -60,7 +60,12 @@ async def create_mirror(
     await db.flush()
 
     # Create default sync schedule
-    schedule = SyncSchedule(mirror_id=mirror.id, is_enabled=True, use_default_schedule=True)
+    schedule = SyncSchedule(
+        sync_type="git_mirror",
+        git_mirror_id=mirror.id,
+        is_enabled=True,
+        use_default_schedule=True,
+    )
     db.add(schedule)
 
     await db.commit()
@@ -214,7 +219,12 @@ async def get_sync_schedule(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
-    result = await db.execute(select(SyncSchedule).where(SyncSchedule.mirror_id == mirror_id))
+    result = await db.execute(
+        select(SyncSchedule).where(
+            SyncSchedule.git_mirror_id == mirror_id,
+            SyncSchedule.sync_type == "git_mirror",
+        )
+    )
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
@@ -228,7 +238,12 @@ async def update_sync_schedule(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_operator()),
 ):
-    result = await db.execute(select(SyncSchedule).where(SyncSchedule.mirror_id == mirror_id))
+    result = await db.execute(
+        select(SyncSchedule).where(
+            SyncSchedule.git_mirror_id == mirror_id,
+            SyncSchedule.sync_type == "git_mirror",
+        )
+    )
     schedule = result.scalar_one_or_none()
     if not schedule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")

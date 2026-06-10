@@ -218,6 +218,8 @@ export interface DockerImageSource {
   description: string | null;
   gitlab_project_id: string | null;
   gitlab_project_url: string | null;
+  target_registry_url?: string | null;
+  target_project?: string | null;
   last_synced_at: string | null;
   status_flag: number;
   status_text: string | null;
@@ -256,6 +258,19 @@ export interface DockerSyncLog {
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+}
+
+export interface DockerSyncSchedule {
+  id: number;
+  sync_type: string;
+  docker_image_source_id: number;
+  cron_expression: string | null;
+  is_enabled: boolean;
+  use_default_schedule: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ──── RBAC Types ───────────────────────────────────────────────────────────
@@ -644,4 +659,32 @@ export interface VerifyImageResult {
   verified: boolean;
   image: string;
   error?: string;
+}
+
+// ──── Docker Image Compare Types ─────────────────────────────────────────────
+
+export interface DockerImageTagCompareItem {
+  tag: string;
+  digest_a: string | null;
+  digest_b: string | null;
+  match: boolean | null;
+  architectures_a: string | null;
+  architectures_b: string | null;
+  size_bytes_a: number | null;
+  size_bytes_b: number | null;
+}
+
+export interface DockerImageCompareSummary {
+  total_tags: number;
+  matching_tags: number;
+  differing_tags: number;
+  only_in_a: number;
+  only_in_b: number;
+}
+
+export interface DockerImageCompareResponse {
+  source_a: DockerImageSource;
+  source_b: DockerImageSource;
+  tags: DockerImageTagCompareItem[];
+  summary: DockerImageCompareSummary;
 }

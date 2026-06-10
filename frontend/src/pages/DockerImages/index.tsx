@@ -11,12 +11,12 @@ import {
   Button,
   Table,
   Flex,
-  Spin,
   Modal,
   Input,
   App,
   Tooltip,
   Space,
+  Tag,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -28,7 +28,6 @@ import {
   useCreateDockerImageMutation,
 } from '../../store/api';
 import { DockerImageSource } from '../../types';
-import { StatusChip } from '../../components/StatusChip';
 
 export function DockerImagesPage() {
   const navigate = useNavigate();
@@ -42,6 +41,8 @@ export function DockerImagesPage() {
     registry_url: '',
     description: '',
     image_name: '',
+    target_registry_url: '',
+    target_project: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -53,10 +54,12 @@ export function DockerImagesPage() {
         registry_url: form.registry_url,
         description: form.description || undefined,
         image_name: form.image_name || undefined,
+        target_registry_url: form.target_registry_url || undefined,
+        target_project: form.target_project || undefined,
       }).unwrap();
       message.success('Docker registry added successfully');
       setDialogOpen(false);
-      setForm({ name: '', registry_url: '', description: '', image_name: '' });
+      setForm({ name: '', registry_url: '', description: '', image_name: '', target_registry_url: '', target_project: '' });
     } catch {
       // error handled by RTK Query
     } finally {
@@ -65,7 +68,7 @@ export function DockerImagesPage() {
   };
 
   const handleOpenDialog = () => {
-    setForm({ name: '', registry_url: '', description: '', image_name: '' });
+    setForm({ name: '', registry_url: '', description: '', image_name: '', target_registry_url: '', target_project: '' });
     setDialogOpen(true);
   };
 
@@ -73,6 +76,7 @@ export function DockerImagesPage() {
     {
       title: 'Name',
       key: 'name',
+      width: 180,
       render: (_: unknown, record: DockerImageSource) => (
         <Flex vertical>
           <Typography.Text strong>{record.name}</Typography.Text>
@@ -88,32 +92,87 @@ export function DockerImagesPage() {
       title: 'Registry URL',
       dataIndex: 'registry_url',
       key: 'registry_url',
+      width: 200,
       render: (val: string) => (
-        <Typography.Text code style={{ fontSize: '0.8rem' }}>
+        <Typography.Text code style={{ fontSize: '0.8rem' }} ellipsis>
           {val}
         </Typography.Text>
       ),
     },
     {
-      title: 'Last Synced',
-      dataIndex: 'last_synced_at',
-      key: 'last_synced_at',
-      render: (val: string | null) =>
-        val ? new Date(val).toLocaleString() : '—',
+      title: 'Target Registry',
+      key: 'target_registry',
+      width: 200,
+      render: (_: unknown, record: DockerImageSource) => {
+        if (!record.target_registry_url) {
+          return (
+            <Typography.Text type="secondary" disabled>
+              Not configured
+            </Typography.Text>
+          );
+        }
+        const short = (() => {
+          try {
+            return new URL(record.target_registry_url).hostname;
+          } catch {
+            return record.target_registry_url;
+          }
+        })();
+        return (
+          <Typography.Text code style={{ fontSize: '0.8rem' }} ellipsis>
+            {short}
+          </Typography.Text>
+        );
+      },
     },
     {
-      title: 'Status',
-      key: 'status',
-      render: (_: unknown, record: DockerImageSource) => (
-        <StatusChip
-          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
-          statusText={record.status_text}
-        />
-      ),
+      title: 'Mirroring Status',
+      key: 'mirroring_status',
+      width: 140,
+      render: (_: unknown, record: DockerImageSource) => {
+        if (!record.target_registry_url) {
+          return <Tag>Not configured</Tag>;
+        }
+        return <Tag color="green">Ready</Tag>;
+      },
+    },
+    {
+      title: 'Sync Schedule',
+      key: 'sync_schedule',
+      width: 130,
+      render: (_: unknown, record: DockerImageSource) => {
+        if (!record.target_registry_url) {
+          return <Typography.Text type="secondary">—</Typography.Text>;
+        }
+        return <Typography.Text>Configured</Typography.Text>;
+      },
+    },
+    {
+      title: 'Project Count',
+      key: 'project_count',
+      width: 120,
+      align: 'center',
+      render: () => <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Tag Count',
+      key: 'tag_count',
+      width: 100,
+      align: 'center',
+      render: () => <Typography.Text type="secondary">—</Typography.Text>,
+    },
+    {
+      title: 'Last Updated',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      width: 160,
+      render: (val: string) =>
+        val ? new Date(val).toLocaleString() : '—',
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 80,
       align: 'right',
       render: (_: unknown, record: DockerImageSource) => (
         <Tooltip title="Go to details">
@@ -186,6 +245,16 @@ export function DockerImagesPage() {
             placeholder="Image Name — optional (e.g. library/nginx)"
             value={form.image_name}
             onChange={(e) => setForm({ ...form, image_name: e.target.value })}
+          />
+          <Input
+            placeholder="Target Registry URL — optional (e.g. https://harbor.example.com)"
+            value={form.target_registry_url}
+            onChange={(e) => setForm({ ...form, target_registry_url: e.target.value })}
+          />
+          <Input
+            placeholder="Target Project — optional (e.g. library)"
+            value={form.target_project}
+            onChange={(e) => setForm({ ...form, target_project: e.target.value })}
           />
           <Input
             placeholder="Description"

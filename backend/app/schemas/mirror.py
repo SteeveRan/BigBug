@@ -57,7 +57,10 @@ class SyncLogOut(BaseModel):
 
 class SyncScheduleOut(BaseModel):
     id: int
-    mirror_id: int
+    sync_type: str  # 'git_mirror', 'docker_image', 'helm_chart'
+    git_mirror_id: int | None = None
+    docker_image_source_id: int | None = None
+    helm_chart_source_id: int | None = None
     cron_expression: str | None
     is_enabled: bool
     use_default_schedule: bool
@@ -65,6 +68,14 @@ class SyncScheduleOut(BaseModel):
     last_run_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class CreateSyncScheduleRequest(BaseModel):
+    sync_type: str  # 'git_mirror', 'docker_image', 'helm_chart'
+    entity_id: int  # ID of the entity (gitlab_mirror, docker_image_source, helm_chart_source)
+    cron_expression: str | None = None
+    is_enabled: bool = True
+    use_default_schedule: bool = True
 
 
 class UpdateSyncScheduleRequest(BaseModel):

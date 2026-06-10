@@ -49,6 +49,6 @@ class GitlabMirror(Base):
     # Relationships
     project = relationship("GithubProject", back_populates="mirrors")
     sync_schedules = relationship(
-        "SyncSchedule", back_populates="mirror", cascade="all, delete-orphan"
+        "SyncSchedule", back_populates="git_mirror", cascade="all, delete-orphan"
     )
     sync_logs = relationship("SyncLog", back_populates="mirror", cascade="all, delete-orphan")

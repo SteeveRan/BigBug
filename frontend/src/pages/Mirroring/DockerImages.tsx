@@ -4,3 +4,4 @@
  */
 export { DockerImagesPage } from '../DockerImages';
 export { DockerImageDetailPage } from '../DockerImages/DockerImageDetail';
+export { DockerImageComparePage } from '../DockerImages/DockerImageCompare';

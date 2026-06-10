@@ -1,3 +1,4 @@
+import asyncio
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -39,6 +40,8 @@ class DockerRegistryService:
         registry_url: str,
         image_name: str | None,
         db: AsyncSession,
+        target_registry_url: str | None = None,
+        target_project: str | None = None,
     ) -> DockerImageSource:
         """Create a new DockerImageSource from a registry URL and index it."""
         _validate_registry_url(registry_url)
@@ -55,6 +58,8 @@ class DockerRegistryService:
             name=name,
             registry_url=normalized_url,
             status_flag=4,
+            target_registry_url=target_registry_url,
+            target_project=target_project,
         )
         db.add(source)
         await db.flush()
@@ -241,6 +246,108 @@ class DockerRegistryService:
     ) -> DockerSyncLog:
         """Re-index tags for an existing Docker image source."""
         return await self.index_source(source, image_name, db)
+
+    async def mirror_image(
+        self,
+        source: DockerImageSource,
+        image_name: str,
+        tag: str,
+        db: AsyncSession,
+        triggered_by: str = "manual",
+    ) -> DockerSyncLog:
+        """Mirror a Docker image from the external source registry to the target registry.
+
+        Uses crane CLI tool for copying images between registries.
+        Creates a DockerSyncLog entry to track the operation.
+        """
+        if not source.target_registry_url:
+            raise ValueError("Source has no target registry configured")
+
+        # Create log entry
+        log = DockerSyncLog(
+            source_id=source.id,  # type: ignore[arg-type]
+            status_flag=4,  # Pending
+            status_text="Pending",
+            triggered_by=triggered_by,
+            started_at=datetime.now(UTC),
+        )
+        db.add(log)
+        await db.commit()
+        await db.refresh(log)
+
+        try:
+            # Update status to In Progress
+            log.status_flag = 3  # type: ignore[assignment]
+            log.status_text = "In Progress"  # type: ignore[assignment]
+            await db.commit()
+
+            # Build source and target references
+            source_ref = f"{source.registry_url}/{image_name}:{tag}"
+            target_ref = (
+                f"{source.target_registry_url}/"
+                f"{source.target_project or 'library'}/"
+                f"{image_name}:{tag}"
+            )
+
+            # Use crane copy for mirroring
+            process = await asyncio.create_subprocess_exec(
+                "crane", "copy", source_ref, target_ref,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                log.status_flag = 0  # type: ignore[assignment]
+                log.status_text = "Success"  # type: ignore[assignment]
+                log.log_output = (  # type: ignore[assignment]
+                    f"Successfully mirrored {source_ref} -> {target_ref}"
+                )
+
+                # Update or create the tag entry with sync status
+                await self._mark_tag_synced(db, source.id, image_name, tag)
+                await db.commit()
+            else:
+                log.status_flag = 1  # type: ignore[assignment]
+                log.status_text = "Failed"  # type: ignore[assignment]
+                log.log_output = (  # type: ignore[assignment]
+                    stderr.decode() if stderr else f"Exit code: {process.returncode}"
+                )
+                await db.commit()
+
+        except Exception as e:
+            log.status_flag = 1  # type: ignore[assignment]
+            log.status_text = "Failed"  # type: ignore[assignment]
+            log.log_output = str(e)  # type: ignore[assignment]
+            await db.commit()
+
+        finally:
+            log.finished_at = datetime.now(UTC)  # type: ignore[assignment]
+            await db.commit()
+
+        return log
+
+    async def _mark_tag_synced(
+        self,
+        db: AsyncSession,
+        source_id: int,
+        image_name: str,
+        tag: str,
+    ) -> None:
+        """Mark a specific DockerImageTag as synced."""
+        result = await db.execute(
+            select(DockerImageTag).where(
+                DockerImageTag.source_id == source_id,
+                DockerImageTag.image_name == image_name,
+                DockerImageTag.tag == tag,
+            )
+        )
+        tag_record = result.scalar_one_or_none()
+        if tag_record:
+            tag_record.is_synced = True  # type: ignore[assignment]
+            tag_record.status_flag = 0  # type: ignore[assignment]
+            tag_record.status_text = "Synced"  # type: ignore[assignment]
+            tag_record.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
 
 
 docker_service = DockerRegistryService()

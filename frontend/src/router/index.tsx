@@ -8,7 +8,7 @@ import { SsoCallbackPage } from '../pages/SsoCallback';
 import { DashboardPage } from '../pages/Overview';
 import { ProjectsPage, ProjectDetailPage } from '../pages/Mirroring/Repositories';
 import { HelmChartsPage, HelmChartDetailPage } from '../pages/Mirroring/HelmCharts';
-import { DockerImagesPage, DockerImageDetailPage } from '../pages/Mirroring/DockerImages';
+import { DockerImagesPage, DockerImageDetailPage, DockerImageComparePage } from '../pages/Mirroring/DockerImages';
 import { GoldImagesPage } from '../pages/Builds/GoldImages';
 import { AppImagesPage } from '../pages/Builds/AppImages';
 import { PipelinesPage } from '../pages/Pipelines/Runs';
@@ -131,6 +131,16 @@ export function AppRouter() {
           }
         />
 
+        {/* ── Mirroring / Docker Images / Compare ─────────── */}
+        <Route
+          path="mirroring/docker-images/compare"
+          element={
+            <PermissionGate permission="docker:read">
+              <DockerImageComparePage />
+            </PermissionGate>
+          }
+        />
+
         {/* ── Builds / Gold Images ──────────────────────── */}
         <Route
           path="builds/gold-images"
@@ -235,6 +245,7 @@ export function AppRouter() {
         {/* Old Docker Images → Mirroring / Docker Images */}
         <Route path="docker-images" element={<Navigate to="/mirroring/docker-images" replace />} />
         <Route path="docker-images/:id" element={<RedirectDockerImagesId />} />
+        <Route path="docker-images/compare" element={<Navigate to="/mirroring/docker-images/compare" replace />} />
 
         {/* Old Gold Images → Builds / Gold Images */}
         <Route path="gold-images" element={<Navigate to="/builds/gold-images" replace />} />

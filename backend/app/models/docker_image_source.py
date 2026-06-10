@@ -24,6 +24,10 @@ class DockerImageSource(Base):
     gitlab_project_id = Column(String(255), nullable=True)
     gitlab_project_url = Column(String(500), nullable=True)
 
+    # Target registry for mirroring (where images are copied to)
+    target_registry_url = Column(String(500), nullable=True)
+    target_project = Column(String(255), nullable=True)
+
     # Sync tracking
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -41,3 +45,6 @@ class DockerImageSource(Base):
     # Relationships
     tags = relationship("DockerImageTag", back_populates="source", cascade="all, delete-orphan")
     sync_logs = relationship("DockerSyncLog", back_populates="source", cascade="all, delete-orphan")
+    sync_schedules = relationship(
+        "SyncSchedule", back_populates="docker_image_source", cascade="all, delete-orphan"
+    )

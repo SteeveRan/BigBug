@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -8,13 +8,20 @@ from app.database import get_db
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
+from app.models.sync_schedule import SyncSchedule
 from app.schemas.docker import (
+    BatchDeleteTagsRequest,
     CreateDockerImageSourceRequest,
+    CreateDockerSyncScheduleRequest,
+    DockerImageCompareResponse,
     DockerImageSourceDetailOut,
     DockerImageSourceOut,
+    DockerImageTagCompareItem,
     DockerImageTagOut,
     DockerSyncLogOut,
+    DockerSyncScheduleOut,
     UpdateDockerImageSourceRequest,
+    UpdateDockerSyncScheduleRequest,
 )
 
 router = APIRouter()
@@ -61,7 +68,12 @@ async def create_source(
     from app.services.docker import docker_service
 
     source = await docker_service.import_source_from_url(
-        data.name, data.registry_url, data.image_name, db
+        data.name,
+        data.registry_url,
+        data.image_name,
+        db,
+        target_registry_url=data.target_registry_url,
+        target_project=data.target_project,
     )
     return source
 
@@ -87,6 +99,10 @@ async def update_source(
         source.registry_url = data.registry_url  # type: ignore[assignment]
     if data.description is not None:
         source.description = data.description  # type: ignore[assignment]
+    if data.target_registry_url is not None:
+        source.target_registry_url = data.target_registry_url  # type: ignore[assignment]
+    if data.target_project is not None:
+        source.target_project = data.target_project  # type: ignore[assignment]
 
     await db.commit()
     await db.refresh(source)
@@ -108,6 +124,95 @@ async def delete_source(
         )
     await db.delete(source)
     await db.commit()
+
+
+# ──── Compare ──────────────────────────────────────────────────────────────
+
+
+@router.get("/{source_id}/compare/{other_source_id}", response_model=DockerImageCompareResponse)
+async def compare_docker_sources(
+    source_id: int,
+    other_source_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+) -> dict:
+    """
+    Compare tags between two Docker image sources.
+
+    Compares tags by name and shows which tags are:
+    - Matching (same digest in both sources)
+    - Differing (different digests)
+    - Only in one source
+    """
+    # Load both sources
+    source_a = await db.get(DockerImageSource, source_id)
+    if not source_a:
+        raise HTTPException(status_code=404, detail="Source A not found")
+
+    source_b = await db.get(DockerImageSource, other_source_id)
+    if not source_b:
+        raise HTTPException(status_code=404, detail="Source B not found")
+
+    # Load tags for both sources
+    tags_a_result = await db.execute(
+        select(DockerImageTag).where(DockerImageTag.source_id == source_id)
+    )
+    tags_a = tags_a_result.scalars().all()
+
+    tags_b_result = await db.execute(
+        select(DockerImageTag).where(DockerImageTag.source_id == other_source_id)
+    )
+    tags_b = tags_b_result.scalars().all()
+
+    # Build maps by tag name
+    map_a = {t.tag: t for t in tags_a}
+    map_b = {t.tag: t for t in tags_b}
+
+    all_tag_names = set(map_a.keys()) | set(map_b.keys())
+
+    # Build comparison items
+    tags = []
+    matching = differing = only_a = only_b = 0
+
+    for tag_name in sorted(all_tag_names):
+        t_a = map_a.get(tag_name)
+        t_b = map_b.get(tag_name)
+
+        item = DockerImageTagCompareItem(
+            tag=tag_name,
+            digest_a=t_a.digest if t_a else None,
+            digest_b=t_b.digest if t_b else None,
+            architectures_a=t_a.architectures if t_a else None,
+            architectures_b=t_b.architectures if t_b else None,
+            size_bytes_a=t_a.size_bytes if t_a else None,
+            size_bytes_b=t_b.size_bytes if t_b else None,
+        )
+
+        if t_a and t_b:
+            item.match = t_a.digest == t_b.digest
+            if item.match:
+                matching += 1
+            else:
+                differing += 1
+        elif t_a:
+            only_a += 1
+        else:
+            only_b += 1
+
+        tags.append(item)
+
+    return {
+        "source_a": source_a,
+        "source_b": source_b,
+        "tags": tags,
+        "summary": {
+            "total_tags": len(all_tag_names),
+            "matching_tags": matching,
+            "differing_tags": differing,
+            "only_in_a": only_a,
+            "only_in_b": only_b,
+        },
+    }
 
 
 # ──── Index / Sync ─────────────────────────────────────────────────────────
@@ -135,6 +240,43 @@ async def index_source(
     await db.commit()
     await db.refresh(sync_log)
     return sync_log
+
+
+# ──── Mirror ────────────────────────────────────────────────────────────────
+
+
+@router.post("/{source_id}/mirror", response_model=DockerSyncLogOut)
+async def mirror_image(
+    source_id: int,
+    image_name: str = Query(..., description="Image name to mirror"),
+    tag: str = Query("latest", description="Image tag to mirror"),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_operator()),
+) -> DockerSyncLog:
+    """Mirror a Docker image from the external source to the target registry."""
+    source = await db.get(DockerImageSource, source_id)
+    if not source:
+        raise HTTPException(status_code=404, detail="Docker image source not found")
+
+    if not source.target_registry_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Source has no target registry configured. Set target_registry_url first.",
+        )
+
+    from app.services.docker import docker_service
+
+    try:
+        log = await docker_service.mirror_image(
+            source=source,
+            image_name=image_name,
+            tag=tag,
+            db=db,
+            triggered_by=f"user:{current_user.username}",
+        )
+        return log
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ──── Tags ─────────────────────────────────────────────────────────────────
@@ -180,3 +322,159 @@ async def get_sync_logs(
         .limit(limit)
     )
     return result.scalars().all()
+
+
+# ──── Batch Delete Tags ────────────────────────────────────────────────────
+
+
+@router.delete("/{source_id}/tags/batch", status_code=status.HTTP_204_NO_CONTENT)
+async def batch_delete_tags(
+    source_id: int,
+    data: BatchDeleteTagsRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+) -> None:
+    """
+    Delete multiple Docker image tags for a source.
+
+    Deletes all specified tags in a single transaction.
+    Returns 204 No Content on success.
+    Returns 404 if the source doesn't exist.
+    """
+    # 1. Verify source exists
+    source = await db.get(DockerImageSource, source_id)
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Docker image source not found",
+        )
+
+    # 2. Find all tags matching the provided ids and belonging to this source
+    result = await db.execute(
+        select(DockerImageTag).where(
+            DockerImageTag.source_id == source_id,
+            DockerImageTag.id.in_(data.tag_ids),
+        )
+    )
+    tags = result.scalars().all()
+
+    # 3. Delete found tags
+    for tag in tags:
+        await db.delete(tag)
+
+    # 4. Commit — idempotent: if no tags found, still returns 204
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ──── Sync Schedule ─────────────────────────────────────────────────────────
+
+
+@router.get("/{source_id}/schedule", response_model=list[DockerSyncScheduleOut])
+async def get_docker_sync_schedules(
+    source_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+):
+    """Get all sync schedules for a Docker image source."""
+    source = await db.get(DockerImageSource, source_id)
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Docker image source not found",
+        )
+
+    result = await db.execute(
+        select(SyncSchedule).where(
+            SyncSchedule.sync_type == "docker_image",
+            SyncSchedule.docker_image_source_id == source_id,
+        )
+    )
+    return result.scalars().all()
+
+
+@router.post("/{source_id}/schedule", response_model=DockerSyncScheduleOut, status_code=status.HTTP_201_CREATED)
+async def create_docker_sync_schedule(
+    source_id: int,
+    data: CreateDockerSyncScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+):
+    """Create a sync schedule for a Docker image source."""
+    source = await db.get(DockerImageSource, source_id)
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Docker image source not found",
+        )
+
+    schedule = SyncSchedule(
+        sync_type="docker_image",
+        docker_image_source_id=source_id,
+        cron_expression=data.cron_expression,
+        is_enabled=data.is_enabled,
+        use_default_schedule=data.use_default_schedule,
+    )
+    db.add(schedule)
+    await db.commit()
+    await db.refresh(schedule)
+    return schedule
+
+
+@router.patch("/{source_id}/schedule/{schedule_id}", response_model=DockerSyncScheduleOut)
+async def update_docker_sync_schedule(
+    source_id: int,
+    schedule_id: int,
+    data: UpdateDockerSyncScheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+):
+    """Update a sync schedule."""
+    result = await db.execute(
+        select(SyncSchedule).where(
+            SyncSchedule.id == schedule_id,
+            SyncSchedule.sync_type == "docker_image",
+            SyncSchedule.docker_image_source_id == source_id,
+        )
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sync schedule not found",
+        )
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(schedule, field, value)
+
+    await db.commit()
+    await db.refresh(schedule)
+    return schedule
+
+
+@router.delete("/{source_id}/schedule/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_docker_sync_schedule(
+    source_id: int,
+    schedule_id: int,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+):
+    """Delete a sync schedule."""
+    result = await db.execute(
+        select(SyncSchedule).where(
+            SyncSchedule.id == schedule_id,
+            SyncSchedule.sync_type == "docker_image",
+            SyncSchedule.docker_image_source_id == source_id,
+        )
+    )
+    schedule = result.scalar_one_or_none()
+    if not schedule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sync schedule not found",
+        )
+
+    await db.delete(schedule)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

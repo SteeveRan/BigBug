@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 # ──── DockerImageTag────────────────────────────────────────────────────────
 
@@ -51,6 +51,8 @@ class DockerImageSourceOut(BaseModel):
     description: str | None
     gitlab_project_id: str | None
     gitlab_project_url: str | None
+    target_registry_url: str | None = None
+    target_project: str | None = None
     last_synced_at: datetime | None
     status_flag: int
     status_text: str | None
@@ -74,9 +76,93 @@ class CreateDockerImageSourceRequest(BaseModel):
     registry_url: str
     description: str | None = None
     image_name: str | None = None  # Optional: pre-filter to a specific image
+    target_registry_url: str | None = None
+    target_project: str | None = None
 
 
 class UpdateDockerImageSourceRequest(BaseModel):
     name: str | None = None
     registry_url: str | None = None
     description: str | None = None
+    target_registry_url: str | None = None
+    target_project: str | None = None
+
+
+# ──── Batch Delete ─────────────────────────────────────────────────────────
+
+
+class BatchDeleteTagsRequest(BaseModel):
+    """Schema for batch deleting Docker image tags."""
+
+    tag_ids: list[int] = Field(..., min_length=1, max_length=100)
+
+
+# ──── Sync Schedule ─────────────────────────────────────────────────────────
+
+
+class CreateDockerSyncScheduleRequest(BaseModel):
+    """Schema for creating a sync schedule for a Docker image source."""
+
+    cron_expression: str | None = None
+    is_enabled: bool = True
+    use_default_schedule: bool = True
+
+
+class UpdateDockerSyncScheduleRequest(BaseModel):
+    """Schema for updating a sync schedule."""
+
+    cron_expression: str | None = None
+    is_enabled: bool | None = None
+    use_default_schedule: bool | None = None
+
+
+class DockerSyncScheduleOut(BaseModel):
+    """Schema for sync schedule response."""
+
+    id: int
+    sync_type: str
+    docker_image_source_id: int
+    cron_expression: str | None
+    is_enabled: bool
+    use_default_schedule: bool
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ──── Compare ───────────────────────────────────────────────────────────────
+
+
+class DockerImageTagCompareItem(BaseModel):
+    """Comparison info for a single tag between two sources."""
+
+    tag: str
+    digest_a: str | None = None
+    digest_b: str | None = None
+    match: bool | None = None  # True=same digest, False=differ, None=only in one
+    architectures_a: str | None = None
+    architectures_b: str | None = None
+    size_bytes_a: int | None = None
+    size_bytes_b: int | None = None
+
+
+class DockerImageCompareSummary(BaseModel):
+    """Summary statistics for the comparison."""
+
+    total_tags: int
+    matching_tags: int
+    differing_tags: int
+    only_in_a: int
+    only_in_b: int
+
+
+class DockerImageCompareResponse(BaseModel):
+    """Response for comparing tags between two Docker image sources."""
+
+    source_a: DockerImageSourceOut
+    source_b: DockerImageSourceOut
+    tags: list[DockerImageTagCompareItem]
+    summary: DockerImageCompareSummary
