@@ -18,7 +18,7 @@ import gitlab
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.core.secrets import decrypt_secret
 from app.models.gitlab_component import GitLabComponent
 from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
@@ -93,6 +93,66 @@ async def _get_component_or_404(db: AsyncSession, component_id: int) -> GitLabCo
     if component is None:
         raise NotFoundError(f"GitLab component with id={component_id} not found")
     return component
+
+
+def _validate_component_inputs(
+    schema: dict[str, Any],
+    inputs: dict[str, Any],
+    component_name: str,
+) -> None:
+    """Validate *inputs* against the component's *inputs_schema* (JSON Schema subset).
+
+    Raises :class:`BadRequestError` when required fields are missing or types
+    don't match.
+    """
+    properties: dict[str, dict[str, Any]] = schema.get("properties", {})
+    required: list[str] = schema.get("required", [])
+
+    # 1. Missing required fields
+    for field in required:
+        if field not in inputs:
+            raise BadRequestError(
+                f"Missing required input '{field}' for component '{component_name}'"
+            )
+
+    # 2. Simple type checks for supplied inputs
+    for key, value in inputs.items():
+        if key not in properties:
+            continue
+        prop = properties[key]
+        expected_type = prop.get("type")
+        if expected_type is None:
+            continue
+        try:
+            _check_json_type(key, value, expected_type)
+        except ValueError as exc:
+            raise BadRequestError(
+                f"Invalid type for input '{key}' of component '{component_name}': {exc}"
+            ) from exc
+
+
+_SIMPLE_TYPE_MAP: dict[str, type | tuple[type, ...]] = {
+    "string": str,
+    "integer": int,
+    "number": (int, float),
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+}
+
+
+def _check_json_type(name: str, value: Any, json_type: str) -> None:
+    """Raise :class:`ValueError` when *value* is not compatible with *json_type*."""
+    expected = _SIMPLE_TYPE_MAP.get(json_type)
+    if expected is None:
+        return  # unknown type — skip check
+
+    # Allow null for optional fields
+    if value is None:
+        return
+
+    if not isinstance(value, expected):
+        raise ValueError(f"expected {json_type}, got {type(value).__name__}")
 
 
 # ===================================================================
@@ -294,6 +354,104 @@ async def update_pipeline_status(
     elif status == "running" and run.started_at is None:
         run.started_at = datetime.now(UTC)
 
+    await db.commit()
+    await db.refresh(run)
+    return run
+
+
+async def trigger_component(
+    db: AsyncSession,
+    component_id: int,
+    inputs: dict[str, Any],
+    ref: str = "main",
+    user_id: int | None = None,
+) -> PipelineRun:
+    """Trigger a GitLab pipeline using a registered CI/CD component.
+
+    1. Look up the :class:`GitLabComponent` by *component_id*.
+    2. Validate *inputs* against the component's ``inputs_schema``.
+    3. Find the GitLab project via the component's ``project_path``.
+    4. Trigger a pipeline in that project, passing the validated inputs
+       as CI/CD variables.
+    5. Persist the run in :class:`PipelineRun` with *component_id* set.
+
+    On any GitLab API failure a ``FAILED`` pipeline run is still recorded so
+    the error is visible in the UI.
+    """
+    component = await _get_component_or_404(db, component_id)
+
+    # -- Validate inputs ---------------------------------------------------
+    if component.inputs_schema:
+        _validate_component_inputs(component.inputs_schema, inputs, component.name)
+
+    # -- Connect to GitLab and resolve the project --------------------------
+    instance = await _get_instance_or_404(db, component.gitlab_instance_id)
+    gl = _get_gitlab_client(instance)
+
+    # Convert variables to python-gitlab format
+    gl_variables: list[dict[str, str]] = [
+        {"key": k, "value": str(v)} for k, v in inputs.items()
+    ]
+
+    try:
+        project = gl.projects.get(component.project_path)
+    except gitlab.GitlabError as exc:
+        run = PipelineRun(
+            gitlab_instance_id=component.gitlab_instance_id,
+            gitlab_project_id=0,
+            component_id=component_id,
+            ref=ref,
+            variables=inputs,
+            trigger_type="manual",
+            triggered_by_user_id=user_id,
+            status_flag=STATUS_FAILED,
+            status_text=f"GitLab project '{component.project_path}' not found: {exc}",
+        )
+        db.add(run)
+        await db.commit()
+        await db.refresh(run)
+        return run
+
+    # -- Trigger the pipeline ----------------------------------------------
+    pipeline_data: dict[str, Any] = {"ref": ref}
+    if gl_variables:
+        pipeline_data["variables"] = gl_variables
+
+    try:
+        gl_pipeline = project.pipelines.create(pipeline_data)
+    except gitlab.GitlabError as exc:
+        run = PipelineRun(
+            gitlab_instance_id=component.gitlab_instance_id,
+            gitlab_project_id=project.id,
+            component_id=component_id,
+            ref=ref,
+            variables=inputs,
+            trigger_type="manual",
+            triggered_by_user_id=user_id,
+            status_flag=STATUS_FAILED,
+            status_text=f"GitLab API error: {exc}",
+        )
+        db.add(run)
+        await db.commit()
+        await db.refresh(run)
+        return run
+
+    # -- Record the successful run -----------------------------------------
+    run = PipelineRun(
+        gitlab_instance_id=component.gitlab_instance_id,
+        gitlab_project_id=project.id,
+        gitlab_pipeline_id=gl_pipeline.id,
+        component_id=component_id,
+        ref=ref,
+        variables=inputs,
+        trigger_type="manual",
+        triggered_by_user_id=user_id,
+        status_flag=STATUS_IN_PROGRESS,
+        status_text="Running",
+        web_url=gl_pipeline.web_url,
+        started_at=datetime.now(UTC),
+    )
+    db.add(run)
     await db.commit()
     await db.refresh(run)
     return run

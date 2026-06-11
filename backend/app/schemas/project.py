@@ -46,6 +46,7 @@ class GithubProjectOut(BaseModel):
     github_created_at: datetime | None
     github_updated_at: datetime | None
     github_pushed_at: datetime | None
+    releases_count: int  # Number of synced releases
     created_at: datetime
     updated_at: datetime
 
@@ -65,6 +66,7 @@ class GithubProjectListOut(BaseModel):
     is_stale: bool
     last_synced_at: datetime | None
     github_updated_at: datetime | None
+    releases_count: int  # Number of synced releases
 
     model_config = {"from_attributes": True}
 

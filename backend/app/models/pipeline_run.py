@@ -1,8 +1,10 @@
 """
 @file pipeline_run.py
 @description Pipeline run model — tracks GitLab pipeline executions triggered
-             from BigBug. Stores status, timing, and reference to the GitLab instance.
-@dependencies app.database.Base, ../models/gitlab_instance.py, ../models/user.py
+             from BigBug. Stores status, timing, and reference to the GitLab instance
+             and optionally the GitLab CI/CD Component used.
+@dependencies app.database.Base, ../models/gitlab_instance.py, ../models/user.py,
+              ../models/gitlab_component.py
 @relatedFiles ../../schemas/pipeline.py, ../../services/pipeline.py
 """
 
@@ -21,6 +23,12 @@ class PipelineRun(Base):
     gitlab_instance_id = Column(Integer, ForeignKey("gitlab_instances.id"), nullable=False)
     gitlab_project_id = Column(Integer, nullable=False)
     gitlab_pipeline_id = Column(Integer, nullable=True)  # null until triggered
+    component_id = Column(
+        Integer,
+        ForeignKey("gitlab_components.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     triggered_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     trigger_type = Column(String, default="manual")  # manual / scheduled / webhook
     ref = Column(String, nullable=False)  # branch, tag or commit SHA
@@ -29,13 +37,14 @@ class PipelineRun(Base):
     status_text = Column(String(255), default="Pending", nullable=False)
     duration = Column(Integer, nullable=True)  # seconds
     web_url = Column(String(1024), nullable=True)  # link to GitLab pipeline page
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    started_at = Column(DateTime, nullable=True)
-    finished_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     gitlab_instance = relationship("GitlabInstance", lazy="select")
     triggered_by = relationship("User", lazy="select")
+    component = relationship("GitLabComponent", lazy="select")
 
     def __repr__(self) -> str:
         return (

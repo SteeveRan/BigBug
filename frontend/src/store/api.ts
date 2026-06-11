@@ -42,11 +42,8 @@ import type {
   DockerImageTag,
   DockerSyncLog,
   DockerSyncSchedule,
-  HelmChartSource,
-  HelmChartSourceDetail,
-  HelmChartVersion,
-  HelmSyncLog,
   DockerImageCompareResponse,
+  GithubRelease,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -149,6 +146,10 @@ export const api = createApi({
     refreshProject: builder.mutation<unknown, number>({
       query: (id) => ({ url: `/projects/${id}/refresh`, method: 'POST' }),
       invalidatesTags: (_result, _error, id) => [{ type: 'Project', id }],
+    }),
+    getProjectReleases: builder.query<GithubRelease[], number>({
+      query: (id) => `/projects/${id}/releases`,
+      providesTags: (_result, _error, id) => [{ type: 'Project', id }],
     }),
 
     // Mirrors
@@ -738,6 +739,17 @@ export const api = createApi({
       query: (id) => ({ url: `/components/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Component'],
     }),
+    
+    // ──── GitLab Component Run ───────────────────────────────────────────────
+    
+    runComponent: builder.mutation<PipelineRun, { componentId: number; data: { ref: string; inputs: Record<string, string> } }>({
+      query: ({ componentId, data }) => ({
+        url: `/components/${componentId}/run`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Component', 'Pipeline'],
+    }),
 
     // ──── Audit Logs ────────────────────────────────────────────────────────
 
@@ -766,6 +778,7 @@ export const {
   useSsoExchangeMutation,
   useListProjectsQuery,
   useGetProjectQuery,
+  useGetProjectReleasesQuery,
   useCreateProjectMutation,
   useImportProjectMutation,
   useUpdateProjectMutation,
@@ -872,5 +885,6 @@ export const {
   useCreateComponentMutation,
   useUpdateComponentMutation,
   useDeleteComponentMutation,
+  useRunComponentMutation,
   useGetAuditLogsQuery,
 } = api;

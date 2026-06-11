@@ -654,7 +654,7 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
 
-      const { container } = renderAuthenticationPage();
+      renderAuthenticationPage();
 
       // antd Button with loading adds .ant-btn-loading-icon
       const saveButton = screen.getByRole('button', { name: /Save Changes/ });

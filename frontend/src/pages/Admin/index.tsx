@@ -384,12 +384,6 @@ function RolesTab() {
     [],
   );
 
-  const handleTogglePermission = useCallback((perm: string) => {
-    setSelectedPermissions((prev) =>
-      prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm],
-    );
-  }, []);
-
   // ─── Dialog handlers ──────────────────────────────────────────────────────
 
   const handleOpenCreate = () => {

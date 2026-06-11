@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { App } from 'antd';
 import {
   Card,
   Typography,
@@ -18,12 +19,15 @@ import {
   Select,
   Tag,
   Tooltip,
+  Form,
+  Space,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  PlayCircleOutlined,
 } from '@ant-design/icons';
 import {
   useGetComponentsQuery,
@@ -31,6 +35,7 @@ import {
   useUpdateComponentMutation,
   useDeleteComponentMutation,
   useGetGitlabInstancesQuery,
+  useRunComponentMutation,
 } from '../../../store/api';
 import { GitLabComponent, GitLabComponentCreate, GitlabInstance } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
@@ -46,16 +51,23 @@ const emptyForm: GitLabComponentCreate = {
 };
 
 export function GitLabComponentsPage() {
+  const { message } = App.useApp();
   const { data: components = [], isLoading } = useGetComponentsQuery();
   const { data: instances = [] } = useGetGitlabInstancesQuery();
   const [createComponent] = useCreateComponentMutation();
   const [updateComponent] = useUpdateComponentMutation();
   const [deleteComponent] = useDeleteComponentMutation();
+  const [runComponent, { isLoading: isRunning }] = useRunComponentMutation();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<GitLabComponentCreate>({ ...emptyForm });
   const [submitting, setSubmitting] = useState(false);
+
+  // State for Run Component modal
+  const [runModalOpen, setRunModalOpen] = useState(false);
+  const [selectedComponent, setSelectedComponent] = useState<GitLabComponent | null>(null);
+  const [runForm] = Form.useForm();
 
   const openCreate = () => {
     setEditingId(null);
@@ -102,6 +114,39 @@ export function GitLabComponentsPage() {
   const handleDelete = async (id: number) => {
     if (window.confirm('Delete this component?')) {
       await deleteComponent(id);
+    }
+  };
+
+  const openRunModal = (component: GitLabComponent) => {
+    setSelectedComponent(component);
+    runForm.setFieldsValue({
+      ref: 'main', // Default to 'main' branch
+      inputs: {},
+    });
+    setRunModalOpen(true);
+  };
+
+  const handleRunSubmit = async () => {
+    if (!selectedComponent) return;
+
+    try {
+      const values = await runForm.validateFields();
+      
+      await runComponent({
+        componentId: selectedComponent.id,
+        data: {
+          ref: values.ref,
+          inputs: values.inputs || {},
+        },
+      }).unwrap();
+      
+      setRunModalOpen(false);
+      runForm.resetFields();
+      setSelectedComponent(null);
+      message.success('Component run triggered successfully');
+    } catch (error) {
+      console.error('Failed to run component:', error);
+      message.error('Failed to trigger component run: ' + (error as any)?.data?.detail || 'Unknown error');
     }
   };
 
@@ -162,6 +207,14 @@ export function GitLabComponentsPage() {
       render: (_: unknown, record: GitLabComponent) => (
         <PermissionGate permission="pipelines:manage">
           <Flex gap={4} justify="flex-end">
+            <Tooltip title="Run">
+              <Button
+                size="small"
+                type="text"
+                icon={<PlayCircleOutlined />}
+                onClick={() => openRunModal(record)}
+              />
+            </Tooltip>
             <Tooltip title="Edit">
               <Button
                 size="small"
@@ -278,6 +331,106 @@ export function GitLabComponentsPage() {
             onChange={(e) => setForm({ ...form, version: e.target.value })}
           />
         </Flex>
+      </Modal>
+      
+      {/* Run Component Modal */}
+      <Modal
+        title={`Run Component: ${selectedComponent?.name || ''}`}
+        open={runModalOpen}
+        onCancel={() => setRunModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setRunModalOpen(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="run"
+            type="primary"
+            loading={isRunning}
+            onClick={handleRunSubmit}
+          >
+            Run
+          </Button>,
+        ]}
+      >
+        <Form
+          form={runForm}
+          layout="vertical"
+          initialValues={{
+            ref: 'main',
+            inputs: {},
+          }}
+        >
+          <Form.Item
+            label="GitLab Branch/Ref"
+            name="ref"
+            rules={[{ required: true, message: 'Please select a branch/ref' }]}
+          >
+            <Select
+              placeholder="Select branch or tag"
+              options={[
+                { label: 'main', value: 'main' },
+                { label: 'develop', value: 'develop' },
+                { label: 'master', value: 'master' },
+              ]}
+              style={{ width: '100%' }}
+            >
+            </Select>
+          </Form.Item>
+          
+          {selectedComponent?.inputs_schema && (
+            <Form.Item label="Component Inputs">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                {Object.entries(selectedComponent.inputs_schema).map(([key, schema]) => {
+                  // Type assertion to handle the unknown type
+                  const inputSchema: any = schema;
+                  
+                  // Determine input type based on schema properties
+                  let inputElement;
+                  if (inputSchema.type === 'boolean') {
+                    inputElement = (
+                      <Select
+                        options={[
+                          { label: 'True', value: 'true' },
+                          { label: 'False', value: 'false' },
+                        ]}
+                        placeholder={`Select ${inputSchema.title || key}`}
+                      />
+                    );
+                  } else if (inputSchema.enum) {
+                    inputElement = (
+                      <Select
+                        options={inputSchema.enum.map((option: string) => ({
+                          label: option,
+                          value: option,
+                        }))}
+                        placeholder={`Select ${inputSchema.title || key}`}
+                      />
+                    );
+                  } else {
+                    inputElement = (
+                      <Input
+                        type={inputSchema.type === 'password' ? 'password' : 'text'}
+                        placeholder={`Enter ${inputSchema.title || key}`}
+                      />
+                    );
+                  }
+                  
+                  return (
+                    <Form.Item
+                      key={key}
+                      label={inputSchema.title || key}
+                      name={['inputs', key]}
+                      tooltip={inputSchema.description}
+                      rules={inputSchema.required ? [{ required: true, message: `Please enter ${key}` }] : []}
+                    >
+                      {inputElement}
+                    </Form.Item>
+                  );
+                })}
+              </Space>
+            </Form.Item>
+          )}
+        </Form>
       </Modal>
     </Flex>
   );

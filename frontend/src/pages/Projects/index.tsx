@@ -13,7 +13,6 @@ import {
   Tag,
   Flex,
   Space,
-  Spin,
   Modal,
   Input,
   App,
@@ -23,7 +22,6 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined,
   ReloadOutlined,
-  LinkOutlined,
   ExportOutlined,
   WarningOutlined,
 } from '@ant-design/icons';

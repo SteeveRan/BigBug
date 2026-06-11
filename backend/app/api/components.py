@@ -14,9 +14,11 @@ from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.user import User
 from app.schemas.pipeline import (
+    ComponentRunRequest,
     GitLabComponentCreate,
     GitLabComponentOut,
     GitLabComponentUpdate,
+    PipelineRunOut,
 )
 from app.services import pipeline as pipeline_service
 
@@ -95,3 +97,21 @@ async def delete_component(
 ):
     """Delete a GitLab component."""
     await pipeline_service.delete_component(db, component_id)
+
+
+@router.post("/{component_id}/run", response_model=PipelineRunOut, status_code=201)
+async def run_component(
+    component_id: int,
+    data: ComponentRunRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("pipelines:write")),
+):
+    """Trigger a pipeline run using a registered GitLab CI/CD component."""
+    run = await pipeline_service.trigger_component(
+        db,
+        component_id=component_id,
+        inputs=data.inputs,
+        ref=data.ref,
+        user_id=current_user.id,
+    )
+    return PipelineRunOut.model_validate(run)

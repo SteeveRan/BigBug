@@ -15,6 +15,8 @@ from app.schemas.project import (
     ImportProjectRequest,
     UpdateProjectRequest,
 )
+from sqlalchemy.orm import selectinload
+from sqlalchemy import func
 
 router = APIRouter()
 
@@ -24,8 +26,20 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
+    from sqlalchemy import select, func
+    
+    # First get all projects
     result = await db.execute(select(GithubProject).options(selectinload(GithubProject.org)))
-    return result.scalars().all()
+    projects = result.scalars().all()
+    
+    # Then get release counts for each project
+    for project in projects:
+        releases_count_result = await db.execute(
+            select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
+        )
+        project.releases_count = releases_count_result.scalar_one()
+    
+    return projects
 
 
 @router.get("/{project_id}", response_model=GithubProjectOut)
@@ -34,14 +48,19 @@ async def get_project(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
-    result = await db.execute(
-        select(GithubProject)
-        .options(selectinload(GithubProject.org))
-        .where(GithubProject.id == project_id)
-    )
-    project = result.scalar_one_or_none()
+    # Get project with org and count releases
+    project_query = select(GithubProject).options(selectinload(GithubProject.org))
+    project_result = await db.execute(project_query.where(GithubProject.id == project_id))
+    project = project_result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    
+    # Count releases for this project
+    releases_count_result = await db.execute(
+        select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project_id)
+    )
+    project.releases_count = releases_count_result.scalar_one()
+    
     return project
 
 
@@ -68,6 +87,22 @@ async def create_project(
     from app.services.github import github_service
 
     project = await github_service.import_project_from_url(data.github_url, db)
+    
+    # Refresh the project with org relationship to avoid lazy loading issues
+    from sqlalchemy import select
+    result = await db.execute(
+        select(GithubProject)
+        .options(selectinload(GithubProject.org))
+        .where(GithubProject.id == project.id)
+    )
+    project = result.scalar_one()
+    
+    # Count releases for this project
+    releases_count_result = await db.execute(
+        select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
+    )
+    project.releases_count = releases_count_result.scalar_one()
+    
     return project
 
 
@@ -80,6 +115,15 @@ async def import_project(
     from app.services.github import github_service
 
     project = await github_service.import_project_from_url(data.github_url, db)
+    
+    # Refresh the project with org relationship to avoid lazy loading issues
+    from sqlalchemy import select
+    result = await db.execute(
+        select(GithubProject)
+        .options(selectinload(GithubProject.org))
+        .where(GithubProject.id == project.id)
+    )
+    project = result.scalar_one()
     return project
 
 
@@ -129,6 +173,21 @@ async def refresh_project(
     from app.services.github import github_service
 
     await github_service.refresh_project(project, db)
+    
+    # Refresh the project with org relationship to avoid lazy loading issues
+    result = await db.execute(
+        select(GithubProject)
+        .options(selectinload(GithubProject.org))
+        .where(GithubProject.id == project.id)
+    )
+    project = result.scalar_one()
+    
+    # Count releases for this project
+    releases_count_result = await db.execute(
+        select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
+    )
+    project.releases_count = releases_count_result.scalar_one()
+    
     return project
 
 

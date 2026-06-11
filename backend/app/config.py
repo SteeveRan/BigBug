@@ -81,7 +81,7 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     rate_limit_login: str = "5/minute"
     rate_limit_oidc_exchange: str = "3/minute"
-    rate_limit_global: str = "100/minute"
+    rate_limit_global: str = "1000/minute"
 
     @property
     def keycloak_openid_config_url(self) -> str:

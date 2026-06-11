@@ -26,6 +26,6 @@ class AuditLog(Base):
         JSON, nullable=True
     )  # {"before": {...}, "after": {...}, "changed_fields": [...]}
     ip_address = Column(String, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)
 
     user = relationship("User", lazy="select")

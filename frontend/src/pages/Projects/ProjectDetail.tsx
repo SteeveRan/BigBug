@@ -3,7 +3,7 @@
  * @description Страница деталей GitHub проекта: метаданные, описание, README (MarkdownPreview), релизы
  * @dependencies antd, @ant-design/icons, @uiw/react-markdown-preview, Redux store
  */
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Card,
@@ -17,7 +17,6 @@ import {
   Spin,
   Space,
   Input,
-  Divider,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -32,8 +31,9 @@ import {
   useGetProjectQuery,
   useUpdateProjectMutation,
   useRefreshProjectMutation,
+  useGetProjectReleasesQuery,
 } from '../../store/api';
-import { GithubProject, GithubRelease } from '../../types';
+import { GithubProject } from '../../types';
 
 const releaseColumns = [
   {
@@ -83,32 +83,10 @@ export function ProjectDetailPage() {
   const [editDesc, setEditDesc] = useState(false);
   const [customDesc, setCustomDesc] = useState('');
 
-  // Releases fetch (backed by GET /projects/{id}/releases — endpoint exists,
-  // but not yet exposed as RTK Query hook)
-  const [releases, setReleases] = useState<GithubRelease[]>([]);
-  const [releasesLoading, setReleasesLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchReleases = async () => {
-      setReleasesLoading(true);
-      try {
-        const res = await fetch(`/api/projects/${projectId}/releases`);
-        if (!cancelled && res.ok) {
-          const data: GithubRelease[] = await res.json();
-          setReleases(data);
-        }
-      } catch {
-        // silently ignore fetch errors
-      } finally {
-        if (!cancelled) setReleasesLoading(false);
-      }
-    };
-    fetchReleases();
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
+  const { data: releases = [], isLoading: releasesLoading } = useGetProjectReleasesQuery(Number(projectId), {
+    pollingInterval: 30000, // Poll every 30 seconds to update releases
+    refetchOnMountOrArgChange: true,
+  });
 
   const p = project as GithubProject | undefined;
 

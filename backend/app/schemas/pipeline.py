@@ -34,6 +34,7 @@ class PipelineRunOut(BaseModel):
     gitlab_instance_id: int
     gitlab_project_id: int
     gitlab_pipeline_id: int | None
+    component_id: int | None  # Added for component runs
     triggered_by_user_id: int | None
     trigger_type: str
     ref: str
@@ -104,3 +105,10 @@ class GitLabComponentOut(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ComponentRunRequest(BaseModel):
+    """Payload for running a GitLab CI/CD component pipeline."""
+
+    ref: str = Field("main", description="Branch, tag, or commit SHA")
+    inputs: dict[str, str] = Field(default_factory=dict, description="Component input variables")

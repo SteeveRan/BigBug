@@ -108,6 +108,7 @@ interface FormErrors {
   username?: string;
   token?: string;
   password?: string;
+  defaultGroupId?: string;
 }
 
 // ─── Panel props ─────────────────────────────────────────────────────────────
@@ -391,33 +392,84 @@ function GitlabDialog({
     setApiError(null);
 
     try {
-      const payload: GitlabInstanceCreate | GitlabInstanceUpdate = {
-        name: name.trim(),
-        url: url.trim(),
-        token: token.trim() || undefined,
-        is_active: isActive,
-        verify_ssl: verifySsl,
-        is_default: isDefault,
-        default_group_id: defaultGroupId.trim() ? Number(defaultGroupId) : null,
-      };
+      let payload: GitlabInstanceCreate | GitlabInstanceUpdate;
+      
+      if (isEdit) {
+        // При редактировании создаем объект с опциональными полями
+        payload = {};
+        
+        // Добавляем поля только если они изменились
+        if (name.trim()) {
+          payload.name = name.trim();
+        }
+        if (url.trim()) {
+          payload.url = url.trim();
+        }
+        
+        // Всегда передаем изменяемые булевы поля
+        payload.is_active = isActive;
+        payload.verify_ssl = verifySsl;
+        payload.is_default = isDefault;
+        
+        // Обработка default_group_id
+        if (defaultGroupId && defaultGroupId.toString().trim() !== '') {
+          const parsedGroupId = isNaN(Number(defaultGroupId)) ? null : Number(defaultGroupId);
+          payload.default_group_id = parsedGroupId;
+        } else {
+          payload.default_group_id = null;
+        }
+        
+        // Обработка токена: если поле не пустое, то обновляем токен, иначе не включаем в payload
+        // Это позволяет не обновлять токен, если пользователь не ввел новое значение
+        if (token !== '') {
+          payload.token = token.trim() || null;
+        }
+      } else {
+        // При создании передаем все поля
+        payload = {
+          name: name.trim(),
+          url: url.trim(),
+          token: token.trim() || null,
+          is_active: isActive,
+          verify_ssl: verifySsl,
+          is_default: isDefault,
+          default_group_id: defaultGroupId && defaultGroupId.toString().trim() !== '' ? (isNaN(Number(defaultGroupId)) ? null : Number(defaultGroupId)) : null,
+        };
+      }
 
       if (isEdit && dialogState.instanceId) {
-        await updateInstance({
+        console.log('Calling updateInstance with:', { id: dialogState.instanceId, data: payload }); // Добавляем логирование
+        const result = await updateInstance({
           id: dialogState.instanceId,
           data: payload as GitlabInstanceUpdate,
-        }).unwrap();
+        });
+        console.log('Update result:', result); // Логируем результат
+        if ('error' in result) {
+          console.error('Update error:', result.error); // Логируем ошибку
+          throw result.error;
+        }
+        console.log('Update successful'); // Логируем успешное выполнение
         showMessage('GitLab instance updated', 'success');
       } else {
-        await createInstance(payload as GitlabInstanceCreate).unwrap();
+        console.log('Calling createInstance with:', payload); // Добавляем логирование
+        const result = await createInstance(payload as GitlabInstanceCreate);
+        console.log('Create result:', result); // Логируем результат
+        if ('error' in result) {
+          console.error('Create error:', result.error); // Логируем ошибку
+          throw result.error;
+        }
+        console.log('Create successful'); // Логируем успешное выполнение
         showMessage('GitLab instance created', 'success');
       }
       onClose();
     } catch (err: unknown) {
+      console.error('Full error object:', err); // Дополнительное логирование ошибки
       const msg =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Operation failed')
           : 'Operation failed';
       setApiError(msg);
+      console.error('Operation failed with error:', msg); // Логируем сообщение об ошибке
     } finally {
       setSubmitting(false);
     }
@@ -492,12 +544,20 @@ function GitlabDialog({
             </Typography.Text>
           )}
         </div>
-        <Input
-          placeholder="Default Group ID"
-          value={defaultGroupId}
-          onChange={(e) => setDefaultGroupId(e.target.value)}
-          type="number"
-        />
+        <div>
+          <Input
+            placeholder="Default Group ID"
+            value={defaultGroupId}
+            onChange={(e) => setDefaultGroupId(e.target.value)}
+            type="number"
+            status={errors.defaultGroupId ? 'error' : undefined}
+          />
+          {errors.defaultGroupId && (
+            <Typography.Text type="danger" style={{ fontSize: 12 }}>
+              {errors.defaultGroupId}
+            </Typography.Text>
+          )}
+        </div>
         <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)}>
           Active
         </Checkbox>
@@ -751,7 +811,7 @@ function HarborDialog({
         name: name.trim(),
         url: url.trim(),
         username: username.trim(),
-        password: password.trim() || undefined,
+        password: password.trim() || null,
         is_active: isActive,
         verify_ssl: verifySsl,
         is_default: isDefault,
@@ -770,6 +830,7 @@ function HarborDialog({
       }
       onClose();
     } catch (err: unknown) {
+      console.error('Update Harbor instance error:', err); // Добавляем логирование ошибки
       const msg =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Operation failed')
@@ -1088,12 +1149,20 @@ function GithubDialog({
       newErrors.token = 'Token is required for new instances';
     }
 
+    if (defaultGroupId.trim() && isNaN(Number(defaultGroupId))) {
+      newErrors.defaultGroupId = 'Group ID must be a number';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    console.log('handleSubmit called'); // Добавляем логирование
+    if (!validate()) {
+      console.log('Validation failed', errors); // Логируем ошибки валидации
+      return;
+    }
 
     setSubmitting(true);
     setApiError(null);
@@ -1101,7 +1170,7 @@ function GithubDialog({
     try {
       const payload: GithubInstanceCreate | GithubInstanceUpdate = {
         name: name.trim(),
-        token: token.trim() || undefined,
+        token: token.trim() || null,
         is_active: isActive,
         is_default: isDefault,
       };
@@ -1118,6 +1187,7 @@ function GithubDialog({
       }
       onClose();
     } catch (err: unknown) {
+      console.error('Update GitLab instance error:', err); // Добавляем логирование ошибки
       const msg =
         err && typeof err === 'object' && 'data' in err
           ? ((err as { data: { detail?: string } }).data?.detail ?? 'Operation failed')
@@ -1430,7 +1500,7 @@ function DockerRegistryDialog({
         name: name.trim(),
         url: url.trim(),
         username: username.trim(),
-        password: password.trim() || undefined,
+        password: password.trim() || null,
         is_active: isActive,
         verify_ssl: verifySsl,
         is_default: isDefault,
@@ -1791,7 +1861,7 @@ function HelmRepositoryDialog({
         name: name.trim(),
         url: url.trim(),
         username: username.trim(),
-        password: password.trim() || undefined,
+        password: password.trim() || null,
         is_active: isActive,
         verify_ssl: verifySsl,
         is_default: isDefault,

@@ -22,7 +22,7 @@ import {
   Tooltip,
   Space,
 } from 'antd';
-import type { CollapseProps, GetProp } from 'antd';
+import type { CollapseProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined,
