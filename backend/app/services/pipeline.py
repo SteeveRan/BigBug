@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.exceptions import BadRequestError, DomainException, NotFoundError
+from app.core.exceptions import BadRequestError, DomainError, NotFoundError
 from app.core.secrets import decrypt_secret
 from app.models.gitlab_component import GitLabComponent
 from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
@@ -797,14 +797,14 @@ async def _sync_components(db: AsyncSession, pipeline_id: int, components: list)
 async def create_pipeline(db: AsyncSession, data) -> Pipeline:
     """Create a new Pipeline config.
 
-    Raises :class:`DomainException` (409) when *name* already exists.
+    Raises :class:`DomainError` (409) when *name* already exists.
     """
     # uniqueness check (only among non-deleted pipelines)
     result = await db.execute(
         select(Pipeline).where(Pipeline.name == data.name, ~Pipeline.is_deleted)
     )
     if result.scalar_one_or_none() is not None:
-        raise DomainException("Name already in use", status_code=409)
+        raise DomainError("Name already in use", status_code=409)
 
     pipeline = Pipeline(
         name=data.name,
@@ -844,7 +844,7 @@ async def update_pipeline(db: AsyncSession, pipeline_id: int, data) -> Pipeline:
     """Partial update of a Pipeline config."""
     pipeline = await get_pipeline_config(db, pipeline_id)
     if pipeline is None:
-        raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
+        raise DomainError(f"Pipeline with id={pipeline_id} not found", status_code=404)
 
     # simple scalar fields
     if data.description is not None:
@@ -879,16 +879,16 @@ async def delete_pipeline(
 ) -> None:
     """Soft-delete a Pipeline.
 
-    Raises :class:`DomainException` (409) when:
+    Raises :class:`DomainError` (409) when:
     - the pipeline is the default one
     - the pipeline is referenced by any active (non-deleted) SyncGroup
     """
     pipeline = await get_pipeline_config(db, pipeline_id)
     if pipeline is None:
-        raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
+        raise DomainError(f"Pipeline with id={pipeline_id} not found", status_code=404)
 
     if pipeline.is_default:
-        raise DomainException("Cannot delete default pipeline", status_code=409)
+        raise DomainError("Cannot delete default pipeline", status_code=409)
 
     # check SyncGroup references (active, non-deleted groups only)
     result = await db.execute(
@@ -901,7 +901,7 @@ async def delete_pipeline(
     )
     sync_count = result.scalar_one()
     if sync_count > 0:
-        raise DomainException("Pipeline is in use by sync groups", status_code=409)
+        raise DomainError("Pipeline is in use by sync groups", status_code=409)
 
     pipeline.is_deleted = True
     pipeline.deleted_at = datetime.now(UTC)
@@ -936,7 +936,7 @@ async def restore_pipeline(
         The restored Pipeline with eager-loaded components and gitlab_instance.
 
     Raises:
-        DomainException: When no pipeline with *pipeline_id* exists
+        DomainError: When no pipeline with *pipeline_id* exists
                          (including soft-deleted) (404).
     """
     # Look for the pipeline INCLUDING soft-deleted ones
@@ -950,7 +950,7 @@ async def restore_pipeline(
     )
     pipeline = result.unique().scalar_one_or_none()
     if pipeline is None:
-        raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
+        raise DomainError(f"Pipeline with id={pipeline_id} not found", status_code=404)
 
     if not pipeline.is_deleted:
         await db.refresh(pipeline)
@@ -982,14 +982,14 @@ async def duplicate_pipeline(db: AsyncSession, pipeline_id: int, new_name: str) 
     """
     original = await get_pipeline_config(db, pipeline_id)
     if original is None:
-        raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
+        raise DomainError(f"Pipeline with id={pipeline_id} not found", status_code=404)
 
     # uniqueness check for new name (only among non-deleted pipelines)
     result = await db.execute(
         select(Pipeline).where(Pipeline.name == new_name, ~Pipeline.is_deleted)
     )
     if result.scalar_one_or_none() is not None:
-        raise DomainException("Name already in use", status_code=409)
+        raise DomainError("Name already in use", status_code=409)
 
     new_pipeline = Pipeline(
         name=new_name,

@@ -4,7 +4,7 @@
              Git repository accessible via HTTPS or SSH. Uses only git CLI (no API).
              Discovers repository metadata through git clone --bare, git ls-remote,
              and heuristic analysis of repository files (LICENSE, README, tags).
-@dependencies asyncio, tempfile, re, urllib.parse, app.core.exceptions.DomainException,
+@dependencies asyncio, tempfile, re, urllib.parse, app.core.exceptions.DomainError,
              app.services.source_provider.BaseSourceProvider
 @relatedFiles ../source_provider.py, ../../models/source_provider.py,
              ./github.py, ./gitlab.py, ./dispatcher.py
@@ -22,7 +22,7 @@ import tempfile
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.services.source_provider import BaseSourceProvider
 
 if TYPE_CHECKING:
@@ -132,7 +132,7 @@ def _parse_ls_remote_tags(output: str) -> tuple[int, str | None]:
         ref = parts[1]
         match = _VERSION_TAG_RE.match(ref)
         if match:
-            tag_name = ref[len("refs/tags/") :]  # noqa: E226
+            tag_name = ref[len("refs/tags/") :]
             version_tuple = _parse_version(match.group(1))
             version_tags.append((tag_name, version_tuple))
 
@@ -250,7 +250,7 @@ async def _run_git(
         A (returncode, stdout, stderr) tuple.
 
     Raises:
-        DomainException: On timeout.
+        DomainError: On timeout.
     """
     full_env = os.environ.copy()
     if env:
@@ -272,12 +272,12 @@ async def _run_git(
         stderr = stderr_bytes.decode("utf-8", errors="replace")
         return proc.returncode or 0, stdout, stderr
     except TimeoutError as exc:
-        raise DomainException(
+        raise DomainError(
             f"Git operation timed out after {timeout}s: git {' '.join(args)}",
             status_code=504,
         ) from exc
     except FileNotFoundError as exc:
-        raise DomainException(
+        raise DomainError(
             "Git executable not found on the system",
             status_code=500,
         ) from exc
@@ -315,7 +315,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
             ``True`` on success.
 
         Raises:
-            DomainException: If authentication fails, the repository is not
+            DomainError: If authentication fails, the repository is not
                             found, or the operation times out.
         """
         # For generic git, check_access needs a URL. We use a default
@@ -335,21 +335,21 @@ class GenericGitSourceProvider(BaseSourceProvider):
 
         if returncode != 0:
             if "could not resolve host" in stderr.lower():
-                raise DomainException(
+                raise DomainError(
                     f"Could not resolve git host during check_access: {stderr.strip()}",
                     status_code=502,
                 )
             if "authentication failed" in stderr.lower() or "invalid" in stderr.lower():
-                raise DomainException(
+                raise DomainError(
                     f"Git authentication failed during check_access: {stderr.strip()}",
                     status_code=401,
                 )
             if "not found" in stderr.lower():
-                raise DomainException(
+                raise DomainError(
                     f"Git repository not found during check_access: {stderr.strip()}",
                     status_code=404,
                 )
-            raise DomainException(
+            raise DomainError(
                 f"Git error during check_access: {stderr.strip()}",
                 status_code=502,
             )
@@ -428,7 +428,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
             Dict with all repository metadata fields per contract.
 
         Raises:
-            DomainException: If the repository is not accessible.
+            DomainError: If the repository is not accessible.
         """
         url = repo_external_id.strip()
         info = _extract_repo_info_from_url(url)
@@ -454,16 +454,16 @@ class GenericGitSourceProvider(BaseSourceProvider):
 
             if returncode != 0:
                 if "authentication failed" in stderr.lower() or "could not read" in stderr.lower():
-                    raise DomainException(
+                    raise DomainError(
                         f"Git authentication failed for {url}: {stderr.strip()}",
                         status_code=401,
                     )
                 if "not found" in stderr.lower():
-                    raise DomainException(
+                    raise DomainError(
                         f"Git repository not found: {url}",
                         status_code=404,
                     )
-                raise DomainException(
+                raise DomainError(
                     f"Git clone failed for {url}: {stderr.strip()}",
                     status_code=502,
                 )
@@ -572,7 +572,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
             Dict with: ``sha``, ``date``, ``author``, ``message``.
 
         Raises:
-            DomainException: If the ref is not found or the repo is inaccessible.
+            DomainError: If the ref is not found or the repo is inaccessible.
         """
         url = repo_external_id.strip()
         clone_url = (
@@ -595,7 +595,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
                     timeout=120.0,
                 )
                 if returncode != 0:
-                    raise DomainException(
+                    raise DomainError(
                         f"Git clone failed for {url}: {stderr.strip()}",
                         status_code=502,
                     )
@@ -616,17 +616,17 @@ class GenericGitSourceProvider(BaseSourceProvider):
 
         if returncode != 0:
             if "not found" in stderr.lower():
-                raise DomainException(
+                raise DomainError(
                     f"Ref '{ref}' not found in repository {url}",
                     status_code=404,
                 )
-            raise DomainException(
+            raise DomainError(
                 f"Git ls-remote failed for {url}: {stderr.strip()}",
                 status_code=502,
             )
 
         if not stdout.strip():
-            raise DomainException(
+            raise DomainError(
                 f"Ref '{ref}' not found in repository {url}",
                 status_code=404,
             )
@@ -673,7 +673,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
                     timeout=120.0,
                 )
                 if returncode != 0:
-                    raise DomainException(
+                    raise DomainError(
                         f"Failed to fetch commit {sha[:8]} from {url}: {stderr.strip()}",
                         status_code=502,
                     )
@@ -689,7 +689,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
             )
 
             if returncode != 0 or not stdout.strip():
-                raise DomainException(
+                raise DomainError(
                     f"No commit data found for {sha[:8]} in {url}",
                     status_code=502,
                 )

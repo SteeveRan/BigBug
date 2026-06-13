@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, DomainException, NotFoundError
+from app.core.exceptions import BadRequestError, DomainError, NotFoundError
 from app.models.gitlab_component import GitLabComponent
 from app.models.pipeline import Pipeline
 from app.models.pipeline_run import PipelineRun
@@ -389,11 +389,11 @@ class TestPipelineConfigCRUD:
 
     @pytest.mark.asyncio
     async def test_create_pipeline_duplicate_name(self, db_session: AsyncSession):
-        """Creating a pipeline with duplicate name raises DomainException(409)."""
+        """Creating a pipeline with duplicate name raises DomainError(409)."""
         data = PipelineCreate(name="unique-name")
         await pipeline_service.create_pipeline(db_session, data)
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.create_pipeline(db_session, PipelineCreate(name="unique-name"))
         assert exc_info.value.status_code == 409
         assert "Name already in use" in str(exc_info.value)
@@ -563,7 +563,7 @@ class TestPipelineConfigCRUD:
             db_session, PipelineCreate(name="my-default", is_default=True)
         )
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.delete_pipeline(db_session, created.id)
         assert exc_info.value.status_code == 409
         assert "Cannot delete default" in str(exc_info.value)
@@ -577,15 +577,15 @@ class TestPipelineConfigCRUD:
         db_session.add(sg)
         await db_session.commit()
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.delete_pipeline(db_session, created.id)
         assert exc_info.value.status_code == 409
         assert "in use by sync groups" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_delete_pipeline_nonexistent(self, db_session: AsyncSession):
-        """Deleting nonexistent pipeline raises DomainException(404)."""
-        with pytest.raises(DomainException) as exc_info:
+        """Deleting nonexistent pipeline raises DomainError(404)."""
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.delete_pipeline(db_session, 99999)
         assert exc_info.value.status_code == 404
 
@@ -622,12 +622,12 @@ class TestPipelineConfigCRUD:
 
     @pytest.mark.asyncio
     async def test_duplicate_pipeline_name_conflict(self, db_session: AsyncSession):
-        """Duplicate with existing name raises DomainException(409)."""
+        """Duplicate with existing name raises DomainError(409)."""
         existing = await pipeline_service.create_pipeline(
             db_session, PipelineCreate(name="existing-name")
         )
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.duplicate_pipeline(db_session, existing.id, "existing-name")
         assert exc_info.value.status_code == 409
 

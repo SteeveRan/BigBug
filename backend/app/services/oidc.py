@@ -135,7 +135,7 @@ class KeycloakOIDCService:
         if self._injected_oidc_config is not None:
             return self._injected_oidc_config
 
-        from app.services.oidc_config import OIDCConfigService  # noqa: PLC0415
+        from app.services.oidc_config import OIDCConfigService
 
         service = OIDCConfigService(self._db)
         return await service.get_active_config_cached()

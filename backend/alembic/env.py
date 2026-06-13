@@ -6,7 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import all models so autogenerate can detect them
-import app.models  # noqa: F401
+import app.models
 from alembic import context
 
 # Load app config and models

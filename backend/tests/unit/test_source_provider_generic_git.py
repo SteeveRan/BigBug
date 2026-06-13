@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.models.credential import Credential, CredentialType
 from app.models.source_provider import ProviderType, SourceProvider
 from app.services.source_providers.generic_git import (
@@ -315,7 +315,7 @@ class TestCheckAccess:
 
     @pytest.mark.asyncio
     async def test_check_access_auth_failure(self):
-        """check_access raises DomainException(401) on authentication failure."""
+        """check_access raises DomainError(401) on authentication failure."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="bad-token")
 
@@ -324,13 +324,13 @@ class TestCheckAccess:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: Authentication failed")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.check_access()
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_check_access_not_found(self):
-        """check_access raises DomainException(404) on repository not found."""
+        """check_access raises DomainError(404) on repository not found."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -339,13 +339,13 @@ class TestCheckAccess:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: repository not found")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.check_access()
             assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
     async def test_check_access_resolve_failure(self):
-        """check_access raises DomainException(502) on DNS resolution failure."""
+        """check_access raises DomainError(502) on DNS resolution failure."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -354,13 +354,13 @@ class TestCheckAccess:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: could not resolve host")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.check_access()
             assert exc_info.value.status_code == 502
 
     @pytest.mark.asyncio
     async def test_check_access_generic_error(self):
-        """check_access raises DomainException(502) on unknown git error."""
+        """check_access raises DomainError(502) on unknown git error."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -369,7 +369,7 @@ class TestCheckAccess:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (1, "", "some random git error")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.check_access()
             assert exc_info.value.status_code == 502
 
@@ -527,7 +527,7 @@ class TestGetRepository:
 
     @pytest.mark.asyncio
     async def test_get_repository_auth_failure(self):
-        """get_repository raises DomainException(401) on auth failure."""
+        """get_repository raises DomainError(401) on auth failure."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="bad-token")
 
@@ -536,13 +536,13 @@ class TestGetRepository:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: Authentication failed")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.get_repository("https://github.com/owner/repo.git")
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_repository_not_found(self):
-        """get_repository raises DomainException(404) on not found."""
+        """get_repository raises DomainError(404) on not found."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -551,7 +551,7 @@ class TestGetRepository:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: repository not found")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.get_repository("https://github.com/owner/nonexistent.git")
             assert exc_info.value.status_code == 404
 
@@ -680,7 +680,7 @@ class TestGetRepository:
 
     @pytest.mark.asyncio
     async def test_get_repository_clone_error(self):
-        """get_repository raises DomainException(502) on generic clone error."""
+        """get_repository raises DomainError(502) on generic clone error."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -689,7 +689,7 @@ class TestGetRepository:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: unable to connect to host")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.get_repository("https://github.com/owner/repo.git")
             assert exc_info.value.status_code == 502
 
@@ -775,7 +775,7 @@ class TestGetCommitInfo:
 
     @pytest.mark.asyncio
     async def test_get_commit_info_ref_not_found(self):
-        """get_commit_info raises DomainException(404) when ref not found."""
+        """get_commit_info raises DomainError(404) when ref not found."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -784,13 +784,13 @@ class TestGetCommitInfo:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (128, "", "fatal: not found")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.get_commit_info("https://github.com/owner/repo.git", ref="nonexistent")
             assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
     async def test_get_commit_info_empty_ls_remote(self):
-        """get_commit_info raises DomainException(404) when ls-remote returns nothing."""
+        """get_commit_info raises DomainError(404) when ls-remote returns nothing."""
         provider = _make_provider()
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
 
@@ -799,7 +799,7 @@ class TestGetCommitInfo:
             new_callable=AsyncMock,
         ) as mock_run:
             mock_run.return_value = (0, "", "")
-            with pytest.raises(DomainException) as exc_info:
+            with pytest.raises(DomainError) as exc_info:
                 await gsp.get_commit_info("https://github.com/owner/repo.git", ref="unknown-branch")
             assert exc_info.value.status_code == 404
 

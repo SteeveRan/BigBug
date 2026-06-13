@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from gitlab.exceptions import GitlabAuthenticationError, GitlabError
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.models.credential import Credential, CredentialType
 from app.models.source_provider import ProviderType, SourceProvider
 from app.services.source_providers.gitlab import (
@@ -212,7 +212,7 @@ class TestCheckAccess:
 
     @pytest.mark.asyncio
     async def test_check_access_failure(self):
-        """check_access raises DomainException on auth failure."""
+        """check_access raises DomainError on auth failure."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -230,7 +230,7 @@ class TestCheckAccess:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.check_access()
 
@@ -316,7 +316,7 @@ class TestListGroups:
 
     @pytest.mark.asyncio
     async def test_list_groups_api_error(self):
-        """list_groups raises DomainException on API error."""
+        """list_groups raises DomainError on API error."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -334,7 +334,7 @@ class TestListGroups:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.list_groups()
 
@@ -415,7 +415,7 @@ class TestListRepositories:
 
     @pytest.mark.asyncio
     async def test_list_repositories_invalid_id(self):
-        """list_repositories raises DomainException(400) on non-integer group id."""
+        """list_repositories raises DomainError(400) on non-integer group id."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -425,7 +425,7 @@ class TestListRepositories:
             provider = _make_provider()
             gl_provider = GitLabSourceProvider(provider, credential_secret="fake-token")
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await gl_provider.list_repositories("not-a-number")
 
         assert exc_info.value.status_code == 400
@@ -433,7 +433,7 @@ class TestListRepositories:
 
     @pytest.mark.asyncio
     async def test_list_repositories_api_error(self):
-        """list_repositories raises DomainException on API error."""
+        """list_repositories raises DomainError on API error."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -451,7 +451,7 @@ class TestListRepositories:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.list_repositories("42")
 
@@ -622,7 +622,7 @@ class TestGetRepository:
 
     @pytest.mark.asyncio
     async def test_get_repository_api_error(self):
-        """get_repository raises DomainException on API error."""
+        """get_repository raises DomainError on API error."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -640,7 +640,7 @@ class TestGetRepository:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.get_repository("nonexistent/project")
 
@@ -724,7 +724,7 @@ class TestGetCommitInfo:
 
     @pytest.mark.asyncio
     async def test_get_commit_info_empty(self):
-        """get_commit_info raises DomainException(404) when no commits found."""
+        """get_commit_info raises DomainError(404) when no commits found."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -742,7 +742,7 @@ class TestGetCommitInfo:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.get_commit_info("engineering/empty-project")
 
@@ -751,7 +751,7 @@ class TestGetCommitInfo:
 
     @pytest.mark.asyncio
     async def test_get_commit_info_api_error(self):
-        """get_commit_info raises DomainException on API error."""
+        """get_commit_info raises DomainError on API error."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -769,7 +769,7 @@ class TestGetCommitInfo:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.get_commit_info("private/project")
 
@@ -847,7 +847,7 @@ class TestImportGroup:
 
     @pytest.mark.asyncio
     async def test_import_group_invalid_id(self):
-        """import_group raises DomainException(400) on non-integer id."""
+        """import_group raises DomainError(400) on non-integer id."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -857,7 +857,7 @@ class TestImportGroup:
             provider = _make_provider()
             gl_provider = GitLabSourceProvider(provider, credential_secret="fake-token")
 
-        with pytest.raises(DomainException) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await gl_provider.import_group("not-a-number")
 
         assert exc_info.value.status_code == 400
@@ -865,7 +865,7 @@ class TestImportGroup:
 
     @pytest.mark.asyncio
     async def test_import_group_api_error(self):
-        """import_group raises DomainException on API error."""
+        """import_group raises DomainError on API error."""
         mock_gitlab_cls = MagicMock()
 
         with patch(
@@ -883,7 +883,7 @@ class TestImportGroup:
 
         with (
             patch.object(gl_provider, "_get_client", return_value=mock_gl),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gl_provider.import_group("999")
 

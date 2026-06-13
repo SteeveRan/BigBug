@@ -13,7 +13,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import DomainException, NotFoundError
+from app.core.exceptions import DomainError, NotFoundError
 from app.core.rbac import get_current_user
 from app.database import get_db
 from app.models.user import User
@@ -49,8 +49,8 @@ async def list_orphaned_mirrors(
             db,
             gitlab_instance_id=gitlab_instance_id,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return [

@@ -24,7 +24,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import (
     BadRequestError,
-    DomainException,
+    DomainError,
     NotFoundError,
 )
 from app.core.secrets import decrypt_secret
@@ -544,7 +544,7 @@ class MirrorService:
             The newly created (imported) Mirror.
 
         Raises:
-            DomainException: When verification fails (commits don't match
+            DomainError: When verification fails (commits don't match
                              or the source provider cannot be found).
         """
         # Parse target_path into namespace and project name
@@ -566,7 +566,7 @@ class MirrorService:
         source_providers = list(source_providers_result.scalars().all())
 
         if not source_providers:
-            raise DomainException(
+            raise DomainError(
                 "No source provider configured for verification",
                 status_code=400,
             )
@@ -598,7 +598,7 @@ class MirrorService:
                 latest_commit = commit_info
                 used_provider = sp
                 break
-            except DomainException:
+            except DomainError:
                 logger.debug(
                     "Provider %d failed to verify source_url '%s'",
                     sp.id,
@@ -608,7 +608,7 @@ class MirrorService:
                 continue
 
         if latest_commit is None:
-            raise DomainException(
+            raise DomainError(
                 f"Unable to verify source repository: {source_url}. "
                 "No source provider could fetch commit information.",
                 status_code=400,
@@ -640,7 +640,7 @@ class MirrorService:
             source_group = sg_result.scalar_one_or_none()
 
             if source_group is None:
-                raise DomainException(
+                raise DomainError(
                     "No source group found for the provider. Run discovery first.",
                     status_code=400,
                 )
@@ -1177,13 +1177,13 @@ class MirrorService:
             The created MirrorLog entry.
 
         Raises:
-            DomainException: When the mirror has no SyncGroup or no valid
+            DomainError: When the mirror has no SyncGroup or no valid
                              target_project_id.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
 
         if mirror.sync_group is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no SyncGroup assigned",
                 status_code=400,
             )
@@ -1214,7 +1214,7 @@ class MirrorService:
         pipeline = mirror.sync_group.pipeline
         gitlab_instance = pipeline.gitlab_instance
         if gitlab_instance is None:
-            raise DomainException(
+            raise DomainError(
                 f"Pipeline '{pipeline.name}' has no GitLab instance configured",
                 status_code=400,
             )
@@ -1247,7 +1247,7 @@ class MirrorService:
         if mirror.target_project_id and mirror.target_project_id.isdigit():
             gitlab_project_id = int(mirror.target_project_id)
         else:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no valid target_project_id. "
                 "A GitLab project must be created first.",
                 status_code=400,
@@ -1331,13 +1331,13 @@ class MirrorService:
             (status_text: ``"FRESH"`` / ``"STALE"`` / ``"ERROR"``).
 
         Raises:
-            DomainException: When the source provider is not configured or
+            DomainError: When the source provider is not configured or
                              cannot be accessed.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
 
         if mirror.source_repository is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no linked SourceRepository",
                 status_code=400,
             )
@@ -1345,13 +1345,13 @@ class MirrorService:
         sr = mirror.source_repository
         sg = sr.source_group
         if sg is None:
-            raise DomainException(
+            raise DomainError(
                 f"SourceRepository {sr.id} has no linked SourceGroup",
                 status_code=400,
             )
         sp = sg.source_provider
         if sp is None:
-            raise DomainException(
+            raise DomainError(
                 f"SourceGroup {sg.id} has no linked SourceProvider",
                 status_code=400,
             )
@@ -1359,7 +1359,7 @@ class MirrorService:
         # Accept any provider type that supports commit info
 
         if sp.credential is None or not sp.credential.encrypted_secret:
-            raise DomainException(
+            raise DomainError(
                 f"SourceProvider {sp.id} has no credential configured",
                 status_code=400,
             )
@@ -1503,17 +1503,17 @@ class MirrorService:
             The created MirrorLog entry.
 
         Raises:
-            DomainException: When the mirror has no pipeline configured.
+            DomainError: When the mirror has no pipeline configured.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
 
         if mirror.sync_group is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no SyncGroup assigned",
                 status_code=400,
             )
         if mirror.sync_group.pipeline is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup '{mirror.sync_group.name}' has no Pipeline configured",
                 status_code=400,
             )
@@ -1521,14 +1521,14 @@ class MirrorService:
         pipeline = mirror.sync_group.pipeline
         gitlab_instance = pipeline.gitlab_instance
         if gitlab_instance is None:
-            raise DomainException(
+            raise DomainError(
                 f"Pipeline '{pipeline.name}' has no GitLab instance configured",
                 status_code=400,
             )
 
         # Validate target_project_id
         if not mirror.target_project_id or not mirror.target_project_id.isdigit():
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no valid target_project_id",
                 status_code=400,
             )
@@ -1632,34 +1632,34 @@ class MirrorService:
             IntegrityCheckResult with comparison status.
 
         Raises:
-            DomainException: When the mirror has no source provider or no
+            DomainError: When the mirror has no source provider or no
                              target GitLab instance configured.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
 
         # ── Validate SyncGroup exists ───────────────────────────────
         if mirror.sync_group_id is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no SyncGroup configured",
                 status_code=400,
             )
 
         # ── Resolve source provider chain ───────────────────────────
         if mirror.source_repository is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no linked SourceRepository",
                 status_code=400,
             )
         sr = mirror.source_repository
         sg_group = sr.source_group
         if sg_group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SourceRepository {sr.id} has no linked SourceGroup",
                 status_code=400,
             )
         sp = sg_group.source_provider
         if sp is None:
-            raise DomainException(
+            raise DomainError(
                 f"SourceGroup {sg_group.id} has no linked SourceProvider",
                 status_code=400,
             )
@@ -1669,7 +1669,7 @@ class MirrorService:
 
         try:
             if sp.credential is None or not sp.credential.encrypted_secret:
-                raise DomainException(
+                raise DomainError(
                     f"SourceProvider {sp.id} has no credential configured",
                     status_code=400,
                 )
@@ -1707,14 +1707,14 @@ class MirrorService:
 
         # ── Resolve target GitLab instance ──────────────────────────
         if mirror.sync_group is None or mirror.sync_group.pipeline is None:
-            raise DomainException(
+            raise DomainError(
                 f"Mirror {mirror_id} has no SyncGroup with a Pipeline",
                 status_code=400,
             )
         pipeline_cfg = mirror.sync_group.pipeline
         instance = pipeline_cfg.gitlab_instance
         if instance is None:
-            raise DomainException(
+            raise DomainError(
                 f"Pipeline '{pipeline_cfg.name}' has no GitLab instance configured",
                 status_code=400,
             )
@@ -1730,7 +1730,7 @@ class MirrorService:
                 user_agent="BigBug/1.0",
             )
             if not mirror.target_project_id or not mirror.target_project_id.isdigit():
-                raise DomainException(
+                raise DomainError(
                     f"Mirror {mirror_id} has no valid target_project_id",
                     status_code=400,
                 )

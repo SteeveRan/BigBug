@@ -229,15 +229,15 @@ class TestCheckIntegrityDirect:
 
     @pytest.mark.asyncio
     async def test_integrity_no_sync_group_raises(self, db_session: AsyncSession):
-        """Raises DomainException when mirror has no SyncGroup."""
+        """Raises DomainError when mirror has no SyncGroup."""
         mirror = await _seed_integrity_chain(db_session)
         # Detach from sync group
         mirror.sync_group_id = None
         await db_session.commit()
 
-        from app.core.exceptions import DomainException
+        from app.core.exceptions import DomainError
 
-        with pytest.raises(DomainException, match="no SyncGroup"):
+        with pytest.raises(DomainError, match="no SyncGroup"):
             await MirrorService.check_integrity_direct(db_session, mirror.id)
 
     @pytest.mark.asyncio

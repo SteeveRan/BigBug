@@ -99,10 +99,10 @@ class TestFindOrphaned:
 
     @pytest.mark.asyncio
     async def test_no_instances_raises(self, db_session: AsyncSession):
-        """Raises DomainException when no GitLab instances exist."""
-        from app.core.exceptions import DomainException
+        """Raises DomainError when no GitLab instances exist."""
+        from app.core.exceptions import DomainError
 
-        with pytest.raises(DomainException, match="No GitLab instances"):
+        with pytest.raises(DomainError, match="No GitLab instances"):
             await OrphanedMirrorService.find_orphaned(db_session)
 
     @pytest.mark.asyncio

@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import DomainException, NotFoundError
+from app.core.exceptions import DomainError, NotFoundError
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
 from app.models.source_group import SourceGroup
@@ -265,8 +265,8 @@ class TestSyncGroupSoftDeleteService:
         assert restored.deleted_at is None
 
     async def test_restore_nonexistent_sync_group_raises(self, db_session: AsyncSession):
-        """Restoring a non-existent sync group raises DomainException."""
-        with pytest.raises(DomainException, match="SyncGroup .* not found"):
+        """Restoring a non-existent sync group raises DomainError."""
+        with pytest.raises(DomainError, match="SyncGroup .* not found"):
             await SyncGroupService.restore_sync_group(db_session, 99999)
 
     async def test_restore_not_deleted_sync_group_is_idempotent(self, db_session: AsyncSession):
@@ -309,7 +309,7 @@ class TestPipelineSoftDeleteService:
         await db_session.commit()
         await db_session.refresh(pipeline)
 
-        with pytest.raises(DomainException, match="Cannot delete default pipeline"):
+        with pytest.raises(DomainError, match="Cannot delete default pipeline"):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
     async def test_delete_pipeline_in_use_raises(self, db_session: AsyncSession):
@@ -319,7 +319,7 @@ class TestPipelineSoftDeleteService:
         sg.pipeline_id = pipeline.id
         await db_session.commit()
 
-        with pytest.raises(DomainException, match="Pipeline is in use"):
+        with pytest.raises(DomainError, match="Pipeline is in use"):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
     async def test_restore_pipeline(self, db_session: AsyncSession):
@@ -339,8 +339,8 @@ class TestPipelineSoftDeleteService:
         assert restored.deleted_at is None
 
     async def test_restore_nonexistent_pipeline_raises(self, db_session: AsyncSession):
-        """Restoring a non-existent pipeline raises DomainException."""
-        with pytest.raises(DomainException, match="Pipeline .* not found"):
+        """Restoring a non-existent pipeline raises DomainError."""
+        with pytest.raises(DomainError, match="Pipeline .* not found"):
             await restore_pipeline(db_session, 99999, username="testuser")
 
     async def test_get_pipeline_config_excludes_deleted(self, db_session: AsyncSession):
@@ -383,7 +383,7 @@ class TestSoftDeleteFilters:
         with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             await SyncGroupService.delete_sync_group(db_session, sg.id)
 
-        with pytest.raises(DomainException, match="SyncGroup .* not found"):
+        with pytest.raises(DomainError, match="SyncGroup .* not found"):
             await SyncGroupService.get_sync_group(db_session, sg.id)
 
     async def test_get_mirror_detail_excludes_deleted(self, db_session: AsyncSession):

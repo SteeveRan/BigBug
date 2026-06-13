@@ -89,10 +89,10 @@ class OrphanedMirrorService:
             OrphanedReport with list of orphaned projects.
 
         Raises:
-            DomainException: When no GitLab instance is configured or
+            DomainError: When no GitLab instance is configured or
                              the GitLab API is unreachable.
         """
-        from app.core.exceptions import DomainException
+        from app.core.exceptions import DomainError
 
         # ── Resolve GitLab instance(s) ───────────────────────────────
         instance_query = select(GitlabInstance).where(GitlabInstance.is_active.is_(True))
@@ -102,7 +102,7 @@ class OrphanedMirrorService:
         instances: list[GitlabInstance] = list(instance_result.scalars().all())
 
         if not instances:
-            raise DomainException(
+            raise DomainError(
                 "No GitLab instances configured",
                 status_code=400,
             )

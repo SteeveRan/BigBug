@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.models.source_provider import ProviderType, SourceProvider
 from app.services.source_providers.github import GitHubSourceProvider
 
@@ -166,7 +166,7 @@ class TestCheckAccess:
 
     @pytest.mark.asyncio
     async def test_check_access_failure(self):
-        """check_access raises DomainException on 401 auth failure."""
+        """check_access raises DomainError on 401 auth failure."""
         from github import GithubException
 
         provider = _make_provider()
@@ -179,7 +179,7 @@ class TestCheckAccess:
 
         with (
             patch.object(gh_provider, "_get_client", return_value=mock_gh),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gh_provider.check_access()
 
@@ -275,7 +275,7 @@ class TestListRepositories:
 
     @pytest.mark.asyncio
     async def test_list_repositories_rate_limit(self):
-        """list_repositories raises DomainException on 429 rate limit."""
+        """list_repositories raises DomainError on 429 rate limit."""
         from github import GithubException
 
         provider = _make_provider()
@@ -288,7 +288,7 @@ class TestListRepositories:
 
         with (
             patch.object(gh_provider, "_get_client", return_value=mock_gh),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gh_provider.list_repositories("testorg")
 
@@ -297,7 +297,7 @@ class TestListRepositories:
 
     @pytest.mark.asyncio
     async def test_list_repositories_auth_failure(self):
-        """list_repositories raises DomainException on 401 auth failure."""
+        """list_repositories raises DomainError on 401 auth failure."""
         from github import GithubException
 
         provider = _make_provider()
@@ -310,7 +310,7 @@ class TestListRepositories:
 
         with (
             patch.object(gh_provider, "_get_client", return_value=mock_gh),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await gh_provider.list_repositories("testorg")
 

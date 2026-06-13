@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import DomainException, NotFoundError
+from app.core.exceptions import DomainError, NotFoundError
 from app.core.rbac import get_current_user, require_permission, require_scope_permission
 from app.database import get_db
 from app.models.mirror import Mirror
@@ -1035,8 +1035,8 @@ async def create_mirror(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return MirrorDetailOut.model_validate(mirror)
@@ -1056,8 +1056,8 @@ async def bulk_create_mirrors(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return [MirrorListOut.model_validate(m) for m in mirrors]
@@ -1092,8 +1092,8 @@ async def update_mirror(
             data=data,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return MirrorDetailOut.model_validate(mirror)
@@ -1191,8 +1191,8 @@ async def trigger_mirror_sync(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return MirrorLogOut.model_validate(mirror_log)
@@ -1225,8 +1225,8 @@ async def check_mirror_freshness(
             mirror_id=mirror_id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return MirrorLogOut.model_validate(mirror_log)
@@ -1250,8 +1250,8 @@ async def import_mirror(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     # Re-fetch with eager-loaded relations
@@ -1339,7 +1339,7 @@ async def create_sync_group(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     return SyncGroupOut.model_validate(group)
@@ -1354,8 +1354,8 @@ async def get_sync_group(
     """Get details of a single sync group."""
     try:
         group = await SyncGroupService.get_sync_group(db, group_id)
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)
@@ -1377,8 +1377,8 @@ async def update_sync_group(
             data=data,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)
@@ -1393,8 +1393,8 @@ async def delete_sync_group(
     """Soft-delete a sync group (mirrors are migrated to default group)."""
     try:
         await SyncGroupService.delete_sync_group(db, group_id)
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
@@ -1413,8 +1413,8 @@ async def restore_sync_group(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)
@@ -1446,8 +1446,8 @@ async def bulk_assign_mirrors_to_group(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)
@@ -1485,8 +1485,8 @@ async def check_mirror_integrity(
             target_commit_sha=result.target_commit_sha,
             message=result.message,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
@@ -1514,8 +1514,8 @@ async def apply_pipeline_to_sync_group(
             user_id=current_user.id,
             username=current_user.username,
         )
-    except (DomainException, NotFoundError) as e:
-        status_code = e.status_code if isinstance(e, DomainException) else 404
+    except (DomainError, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainError) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)

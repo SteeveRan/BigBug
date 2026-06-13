@@ -17,7 +17,7 @@ from app.database import Base
 
 class Mirror(Base):
     __tablename__ = "mirrors"
-    
+
     # Mapper configuration to disable confirm_deleted_rows warning
     __mapper_args__ = {
         "confirm_deleted_rows": False

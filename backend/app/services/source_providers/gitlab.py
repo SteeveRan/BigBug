@@ -5,7 +5,7 @@
              metadata via the python-gitlab library.  Supports both
              gitlab.com (cloud) and self-hosted GitLab instances.
 @dependencies python-gitlab (gitlab.Gitlab, gitlab.exceptions),
-            app.core.exceptions.DomainException,
+            app.core.exceptions.DomainError,
             app.services.source_provider.BaseSourceProvider
 @relatedFiles ../source_provider.py, ../../models/source_provider.py,
              ../../models/source_group.py, ../../models/source_repository.py
@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 import gitlab
 from gitlab.exceptions import GitlabAuthenticationError, GitlabError
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.services.source_provider import BaseSourceProvider
 
 if TYPE_CHECKING:
@@ -119,9 +119,9 @@ def _resolve_license_spdx(license_obj: dict | None) -> tuple[str | None, str | N
 # ---------------------------------------------------------------------------
 
 
-def _map_gitlab_exception(exc: GitlabError, operation: str) -> DomainException:
+def _map_gitlab_exception(exc: GitlabError, operation: str) -> DomainError:
     """
-    Map a GitlabError to a DomainException with an appropriate HTTP status
+    Map a GitlabError to a DomainError with an appropriate HTTP status
     code and human-readable message.
 
     Args:
@@ -130,7 +130,7 @@ def _map_gitlab_exception(exc: GitlabError, operation: str) -> DomainException:
                    (e.g. "list_groups", "get_repository/foo/bar").
 
     Returns:
-        A DomainException with a mapped HTTP status code.
+        A DomainError with a mapped HTTP status code.
     """
     # python-gitlab error responses typically have a numeric response_code
     status = getattr(exc, "response_code", 0)
@@ -138,33 +138,33 @@ def _map_gitlab_exception(exc: GitlabError, operation: str) -> DomainException:
     message = str(exc)
 
     if isinstance(exc, GitlabAuthenticationError) or status == 401:
-        return DomainException(
+        return DomainError(
             f"GitLab authentication failed during {operation}: {message}",
             status_code=401,
         )
     if status == 403:
-        return DomainException(
+        return DomainError(
             f"GitLab access forbidden during {operation}: {message}",
             status_code=403,
         )
     if status == 404:
-        return DomainException(
+        return DomainError(
             f"GitLab resource not found during {operation}: {message}",
             status_code=404,
         )
     if status == 422:
-        return DomainException(
+        return DomainError(
             f"GitLab validation failed during {operation}: {message}",
             status_code=422,
         )
     if status == 429:
-        return DomainException(
+        return DomainError(
             f"GitLab rate limit exceeded during {operation}: {message}",
             status_code=429,
         )
 
     # Generic fallback -- treat as bad gateway
-    return DomainException(
+    return DomainError(
         f"GitLab API error during {operation} (status={status}): {message}",
         status_code=502,
     )
@@ -281,7 +281,7 @@ class GitLabSourceProvider(BaseSourceProvider):
             True on success.
 
         Raises:
-            DomainException: If authentication or connectivity fails.
+            DomainError: If authentication or connectivity fails.
         """
         try:
             gl = self._get_client()
@@ -355,7 +355,7 @@ class GitLabSourceProvider(BaseSourceProvider):
                 repositories.append(_project_to_dict(project))
 
         except (ValueError, TypeError) as exc:
-            raise DomainException(
+            raise DomainError(
                 f"Invalid group_external_id '{group_external_id}': must be an integer",
                 status_code=400,
             ) from exc
@@ -500,7 +500,7 @@ class GitLabSourceProvider(BaseSourceProvider):
                     kwargs["ref_name"] = ref
                 commits = project.commits.list(per_page=1, **kwargs)
                 if not commits:
-                    raise DomainException(
+                    raise DomainError(
                         f"No commits found for project '{repo_external_id}'"
                         + (f" (ref={ref})" if ref else ""),
                         status_code=404,
@@ -515,7 +515,7 @@ class GitLabSourceProvider(BaseSourceProvider):
 
             result = await asyncio.to_thread(_fetch)
 
-        except DomainException:
+        except DomainError:
             raise
         except GitlabError as exc:
             raise _map_gitlab_exception(exc, f"get_commit_info/{repo_external_id}") from exc
@@ -551,7 +551,7 @@ class GitLabSourceProvider(BaseSourceProvider):
             result = _group_to_dict(group)
 
         except (ValueError, TypeError) as exc:
-            raise DomainException(
+            raise DomainError(
                 f"Invalid group_external_id '{group_external_id}': must be an integer",
                 status_code=400,
             ) from exc

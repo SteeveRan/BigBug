@@ -19,7 +19,7 @@ from github import GithubException
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import DomainException, NotFoundError
+from app.core.exceptions import DomainError, NotFoundError
 from app.models.mirror_release_log import MirrorReleaseLog
 from app.models.source_repository import SourceRepository
 from app.services.audit import AuditService
@@ -64,7 +64,7 @@ class ReleaseService:
             ``None`` if the latest tag is unchanged or no releases exist.
 
         Raises:
-            DomainException: On source provider API errors (mapped from
+            DomainError: On source provider API errors (mapped from
                 provider-specific exceptions).
         """
         from app.services.source_providers.github import _map_github_exception
@@ -208,7 +208,7 @@ class ReleaseService:
             The raw README markdown content as a string.
 
         Raises:
-            DomainException: On source provider API errors or if the content cannot
+            DomainError: On source provider API errors or if the content cannot
                 be decoded.
         """
         from app.services.source_providers.github import _map_github_exception
@@ -236,7 +236,7 @@ class ReleaseService:
         except GithubException as exc:
             raise _map_github_exception(exc, f"fetch_readme/{source_repository.full_name}") from exc
         except UnicodeDecodeError as exc:
-            raise DomainException(
+            raise DomainError(
                 f"Failed to decode README for '{source_repository.full_name}': {exc}",
                 status_code=422,
             ) from exc
@@ -272,7 +272,7 @@ class ReleaseService:
               restricted list
 
         Raises:
-            DomainException: On source provider API errors or if no license is found.
+            DomainError: On source provider API errors or if no license is found.
         """
         from app.services.source_providers.github import _map_github_exception
 

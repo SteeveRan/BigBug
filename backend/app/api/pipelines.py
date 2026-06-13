@@ -11,7 +11,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.user import User
@@ -104,7 +104,7 @@ async def create_pipeline_config(
     """Create a new Pipeline configuration."""
     try:
         pipeline = await pipeline_service.create_pipeline(db, data)
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     await AuditService.log_event(
@@ -146,7 +146,7 @@ async def update_pipeline_config(
     """Partially update a Pipeline configuration."""
     try:
         pipeline = await pipeline_service.update_pipeline(db, pipeline_id, data)
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     await AuditService.log_event(
@@ -180,7 +180,7 @@ async def delete_pipeline_config(
             pipeline_id,
             username=current_user.username,
         )
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
 
@@ -198,7 +198,7 @@ async def restore_pipeline_config(
             pipeline_id,
             username=current_user.username,
         )
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     await AuditService.log_event(
@@ -227,7 +227,7 @@ async def duplicate_pipeline_config(
     """Duplicate a Pipeline under a new name."""
     try:
         pipeline = await pipeline_service.duplicate_pipeline(db, pipeline_id, data.name)
-    except DomainException as e:
+    except DomainError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
 
     await AuditService.log_event(

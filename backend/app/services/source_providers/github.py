@@ -4,7 +4,7 @@
              Discovers organizations, users, repositories, and commit
              metadata via the PyGithub library.
 @dependencies PyGithub (github.Github, github.GithubException),
-               app.core.exceptions.DomainException,
+               app.core.exceptions.DomainError,
                app.services.source_provider.BaseSourceProvider
 @relatedFiles ../source_provider.py, ../../models/source_provider.py,
                ../../models/source_group.py, ../../models/source_repository.py
@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from github import Github, GithubException
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.services.source_provider import BaseSourceProvider
 
 if TYPE_CHECKING:
@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-def _map_github_exception(exc: GithubException, operation: str) -> DomainException:
+def _map_github_exception(exc: GithubException, operation: str) -> DomainError:
     """
-    Map a :class:`github.GithubException` to a :class:`DomainException`
+    Map a :class:`github.GithubException` to a :class:`DomainError`
     with an appropriate HTTP status code and human-readable message.
     """
     status = exc.status if hasattr(exc, "status") else 0
@@ -40,32 +40,32 @@ def _map_github_exception(exc: GithubException, operation: str) -> DomainExcepti
     message = data.get("message", str(exc))
 
     if status == 401:
-        return DomainException(
+        return DomainError(
             f"GitHub authentication failed during {operation}: {message}",
             status_code=401,
         )
     if status == 403 and ("rate limit" in message.lower() or "API rate limit" in message):
-        return DomainException(
+        return DomainError(
             f"GitHub rate limit exceeded during {operation}: {message}",
             status_code=429,
         )
     if status == 403:
-        return DomainException(
+        return DomainError(
             f"GitHub access forbidden during {operation}: {message}",
             status_code=403,
         )
     if status == 404:
-        return DomainException(
+        return DomainError(
             f"GitHub resource not found during {operation}: {message}",
             status_code=404,
         )
     if status == 422:
-        return DomainException(
+        return DomainError(
             f"GitHub validation failed during {operation}: {message}",
             status_code=422,
         )
 
-    return DomainException(
+    return DomainError(
         f"GitHub API error during {operation} (status={status}): {message}",
         status_code=502,
     )
@@ -343,7 +343,7 @@ class GitHubSourceProvider(BaseSourceProvider):
                         branch = repo.get_branch(ref)
                         commit = branch.commit
                     except GithubException as e:
-                        raise DomainException(
+                        raise DomainError(
                             f"Ref '{ref}' not found in repository '{repo_external_id}'",
                             status_code=404,
                         ) from e

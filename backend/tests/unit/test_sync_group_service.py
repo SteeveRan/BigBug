@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
 from app.models.source_group import SourceGroup
@@ -234,14 +234,14 @@ class TestCreateSyncGroup:
 
     @pytest.mark.asyncio
     async def test_create_sync_group_duplicate_name(self, db_session: AsyncSession):
-        """Creating a group with an already-used name raises DomainException(409)."""
+        """Creating a group with an already-used name raises DomainError(409)."""
         await _seed_sync_group(db_session, "duplicate-name")
 
         data = SyncGroupCreate(name="duplicate-name")
 
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.create_sync_group(db_session, data, user_id=1)
 
@@ -307,13 +307,13 @@ class TestDeleteSyncGroup:
 
     @pytest.mark.asyncio
     async def test_delete_sync_group_default_blocked(self, db_session: AsyncSession):
-        """Attempting to delete the default group raises DomainException(400)."""
+        """Attempting to delete the default group raises DomainError(400)."""
         pipeline = await _seed_pipeline(db_session, "def-pipeline")
         default = await _seed_sync_group(db_session, "default", pipeline.id, is_default=True)
 
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.delete_sync_group(db_session, default.id)
 
@@ -354,10 +354,10 @@ class TestDeleteSyncGroup:
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_group_raises_404(self, db_session: AsyncSession):
-        """Deleting a non-existent group raises DomainException(404)."""
+        """Deleting a non-existent group raises DomainError(404)."""
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.delete_sync_group(db_session, 99999)
 
@@ -410,10 +410,10 @@ class TestAssignMirrorsToGroup:
 
     @pytest.mark.asyncio
     async def test_assign_to_nonexistent_group_raises_404(self, db_session: AsyncSession):
-        """Assigning mirrors to a non-existent group raises DomainException(404)."""
+        """Assigning mirrors to a non-existent group raises DomainError(404)."""
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.assign_mirrors_to_group(
                 db_session, group_id=99999, mirror_ids=[1]
@@ -451,10 +451,10 @@ class TestApplyPipeline:
 
     @pytest.mark.asyncio
     async def test_apply_pipeline_nonexistent_group(self, db_session: AsyncSession):
-        """Applying a pipeline to a nonexistent group raises DomainException(404)."""
+        """Applying a pipeline to a nonexistent group raises DomainError(404)."""
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.apply_pipeline(
                 db_session,
@@ -467,13 +467,13 @@ class TestApplyPipeline:
 
     @pytest.mark.asyncio
     async def test_apply_pipeline_nonexistent_pipeline(self, db_session: AsyncSession):
-        """Applying a nonexistent pipeline raises DomainException(404)."""
+        """Applying a nonexistent pipeline raises DomainError(404)."""
         p1 = await _seed_pipeline(db_session, "pipeline-1")
         group = await _seed_sync_group(db_session, "test-group", p1.id, is_default=False)
 
         with (
             patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
-            pytest.raises(DomainException) as exc_info,
+            pytest.raises(DomainError) as exc_info,
         ):
             await SyncGroupService.apply_pipeline(
                 db_session,
@@ -628,8 +628,8 @@ class TestBulkAssignMirrors:
 
     @pytest.mark.asyncio
     async def test_bulk_assign_raises_for_missing_group(self, db_session: AsyncSession):
-        """Raises DomainException(404) when SyncGroup doesn't exist."""
-        with pytest.raises(DomainException) as exc_info:
+        """Raises DomainError(404) when SyncGroup doesn't exist."""
+        with pytest.raises(DomainError) as exc_info:
             await SyncGroupService.bulk_assign_mirrors(
                 db_session,
                 sync_group_id=99999,

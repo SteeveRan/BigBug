@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import DomainException
+from app.core.exceptions import DomainError
 from app.models.mirror import Mirror
 from app.models.role import Role
 from app.models.role_scope import RoleScopeSyncGroup
@@ -135,7 +135,7 @@ class SyncGroupService:
             The newly created SyncGroup.
 
         Raises:
-            DomainException: When *name* is already in use (409).
+            DomainError: When *name* is already in use (409).
         """
         # ── Uniqueness check ───────────────────────────────────────────
         result = await db.execute(
@@ -145,7 +145,7 @@ class SyncGroupService:
             )
         )
         if result.scalar_one_or_none() is not None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with name '{data.name}' already exists",
                 status_code=409,
             )
@@ -154,7 +154,7 @@ class SyncGroupService:
         if data.pipeline_id is not None:
             pipeline = await get_pipeline_config(db, data.pipeline_id)
             if pipeline is None:
-                raise DomainException(
+                raise DomainError(
                     f"Pipeline with id={data.pipeline_id} not found",
                     status_code=404,
                 )
@@ -270,7 +270,7 @@ class SyncGroupService:
             SyncGroup with ``pipeline`` and ``mirrors`` eagerly loaded.
 
         Raises:
-            DomainException: When no non-deleted group with *group_id*
+            DomainError: When no non-deleted group with *group_id*
                              exists (404).
         """
         result = await db.execute(
@@ -284,7 +284,7 @@ class SyncGroupService:
         group = result.scalar_one_or_none()
 
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={group_id} not found",
                 status_code=404,
             )
@@ -314,7 +314,7 @@ class SyncGroupService:
             The updated SyncGroup with ``pipeline`` eagerly loaded.
 
         Raises:
-            DomainException: When the group is not found (404) or the
+            DomainError: When the group is not found (404) or the
                              referenced pipeline does not exist (404).
         """
         # ── Fetch existing ─────────────────────────────────────────────
@@ -325,7 +325,7 @@ class SyncGroupService:
         )
         group = result.scalar_one_or_none()
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={group_id} not found",
                 status_code=404,
             )
@@ -334,7 +334,7 @@ class SyncGroupService:
         if data.pipeline_id is not None:
             pipeline = await get_pipeline_config(db, data.pipeline_id)
             if pipeline is None:
-                raise DomainException(
+                raise DomainError(
                     f"Pipeline with id={data.pipeline_id} not found",
                     status_code=404,
                 )
@@ -396,7 +396,7 @@ class SyncGroupService:
             username: Username for audit logging (default ``"system"``).
 
         Raises:
-            DomainException: When the group is not found (404) or when
+            DomainError: When the group is not found (404) or when
                              attempting to delete the default group (400).
         """
         # ── Fetch group ────────────────────────────────────────────────
@@ -409,14 +409,14 @@ class SyncGroupService:
         )
         group = result.scalar_one_or_none()
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={group_id} not found",
                 status_code=404,
             )
 
         # ── Cannot delete default group ────────────────────────────────
         if group.is_default:
-            raise DomainException(
+            raise DomainError(
                 "Cannot delete the default sync group",
                 status_code=400,
             )
@@ -479,7 +479,7 @@ class SyncGroupService:
             The restored SyncGroup with ``pipeline`` eagerly loaded.
 
         Raises:
-            DomainException: When no sync group with *group_id* exists
+            DomainError: When no sync group with *group_id* exists
                              (including soft-deleted) (404).
         """
         result = await db.execute(
@@ -492,7 +492,7 @@ class SyncGroupService:
         )
         group = result.scalar_one_or_none()
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={group_id} not found",
                 status_code=404,
             )
@@ -545,7 +545,7 @@ class SyncGroupService:
             List of Mirror instances that were updated.
 
         Raises:
-            DomainException: When *group_id* does not reference an
+            DomainError: When *group_id* does not reference an
                              existing, non-deleted sync group (404).
         """
         # ── Validate group exists ──────────────────────────────────────
@@ -556,7 +556,7 @@ class SyncGroupService:
             )
         )
         if group_result.scalar_one_or_none() is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={group_id} not found",
                 status_code=404,
             )
@@ -644,7 +644,7 @@ class SyncGroupService:
             The SyncGroup with ``pipeline`` and ``mirrors`` eagerly loaded.
 
         Raises:
-            DomainException: When *sync_group_id* does not reference an
+            DomainError: When *sync_group_id* does not reference an
                              existing, non-deleted sync group (404).
             ValueError: When one or more IDs in *mirror_ids* do not match
                        any non-deleted Mirror.
@@ -660,7 +660,7 @@ class SyncGroupService:
         )
         group = group_result.scalar_one_or_none()
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={sync_group_id} not found",
                 status_code=404,
             )
@@ -750,7 +750,7 @@ class SyncGroupService:
             The updated SyncGroup with ``pipeline`` eagerly loaded.
 
         Raises:
-            DomainException: When the sync group is not found (404) or the
+            DomainError: When the sync group is not found (404) or the
                              referenced pipeline does not exist (404).
         """
         # ── Fetch existing group ───────────────────────────────────────
@@ -764,7 +764,7 @@ class SyncGroupService:
         )
         group = result.scalar_one_or_none()
         if group is None:
-            raise DomainException(
+            raise DomainError(
                 f"SyncGroup with id={sync_group_id} not found",
                 status_code=404,
             )
@@ -772,7 +772,7 @@ class SyncGroupService:
         # ── Validate pipeline exists ───────────────────────────────────
         pipeline = await get_pipeline_config(db, pipeline_id)
         if pipeline is None:
-            raise DomainException(
+            raise DomainError(
                 f"Pipeline with id={pipeline_id} not found",
                 status_code=404,
             )
