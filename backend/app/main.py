@@ -9,13 +9,17 @@ from app.api import (
     audit,
     auth,
     components,
+    credentials,
     docker_images,
     gold_images,
+    health_check,
     helm_charts,
     integrations,
     mirroring,
+    orphaned,
     pipelines,
     projects,
+    reports,
     schedules,
     webhooks,
 )
@@ -73,8 +77,12 @@ app.include_router(docker_images.router, prefix="/api/docker-images", tags=["doc
 app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
 app.include_router(components.router, prefix="/api/components", tags=["components"])
+app.include_router(credentials.router, prefix="/api/credentials", tags=["credentials"])
 app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
 app.include_router(mirroring.router, prefix="/api/mirroring", tags=["mirroring"])
+app.include_router(health_check.router, prefix="/api", tags=["health-check"])
+app.include_router(orphaned.router, prefix="/api/mirroring", tags=["orphaned"])
+app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
 
 @app.get("/api/health", tags=["health"])

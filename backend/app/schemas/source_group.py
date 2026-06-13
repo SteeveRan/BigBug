@@ -53,6 +53,7 @@ class SourceGroupListOut(BaseModel):
     total_repos: int
     mirrored_repos: int
     last_synced_at: datetime | None = None
+    is_deleted: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -72,6 +73,7 @@ class SourceGroupDetailOut(BaseModel):
     mirrored_repos: int
     last_synced_at: datetime | None = None
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     source_provider: SourceProviderOut | None = None

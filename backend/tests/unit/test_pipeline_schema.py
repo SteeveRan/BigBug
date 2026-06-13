@@ -124,6 +124,8 @@ class TestPipelineOut:
             "default_variables",
             "is_default",
             "is_enabled",
+            "is_deleted",
+            "deleted_at",
             "created_at",
             "updated_at",
             "components",

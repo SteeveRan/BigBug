@@ -40,6 +40,7 @@ class SourceProviderOut(BaseModel):
     provider_type: ProviderType
     label: str
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     credential: CredentialOut | None = None

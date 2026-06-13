@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import {
   Card,
   Typography,
@@ -54,6 +55,7 @@ const PAGE_SIZE_OPTIONS = ['10', '20', '50'];
 
 const MirrorsPage = () => {
   const { message } = App.useApp();
+  const navigate = useNavigate();
 
   // Filters & search
   const [search, setSearch] = useState('');
@@ -299,6 +301,10 @@ const MirrorsPage = () => {
             dataSource={mirrors as Mirror[]}
             rowKey="id"
             loading={isLoading}
+            onRow={(record) => ({
+              onClick: () => navigate(`/git-mirroring/mirrors/${record.id}`),
+              style: { cursor: 'pointer' },
+            })}
             pagination={{
               current: page,
               pageSize,

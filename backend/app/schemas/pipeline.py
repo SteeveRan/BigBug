@@ -97,6 +97,8 @@ class PipelineOut(BaseModel):
     default_variables: dict[str, Any] | None = None
     is_default: bool
     is_enabled: bool
+    is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     components: list[PipelineComponentOut] = []

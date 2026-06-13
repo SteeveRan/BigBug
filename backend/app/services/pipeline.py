@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -26,6 +27,9 @@ from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
 from app.models.pipeline import Pipeline, PipelineComponent
 from app.models.pipeline_run import PipelineRun
 from app.models.sync_group import SyncGroup
+from app.services.audit import AuditService
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Status flag constants (unified across the platform)
@@ -727,9 +731,13 @@ async def get_pipeline_configs(
 
     Supports optional filtering by *is_enabled* and *search* (substring match on name).
     """
-    stmt = select(Pipeline).options(
-        joinedload(Pipeline.components).joinedload(PipelineComponent.component),
-        joinedload(Pipeline.gitlab_instance),
+    stmt = (
+        select(Pipeline)
+        .options(
+            joinedload(Pipeline.components).joinedload(PipelineComponent.component),
+            joinedload(Pipeline.gitlab_instance),
+        )
+        .where(~Pipeline.is_deleted)
     )
 
     if is_enabled is not None:
@@ -743,22 +751,22 @@ async def get_pipeline_configs(
 
 
 async def get_pipeline_config(db: AsyncSession, pipeline_id: int) -> Pipeline | None:
-    """Return a single Pipeline by ID with eager-loaded relations."""
+    """Return a single non-deleted Pipeline by ID with eager-loaded relations."""
     stmt = (
         select(Pipeline)
         .options(
             joinedload(Pipeline.components).joinedload(PipelineComponent.component),
             joinedload(Pipeline.gitlab_instance),
         )
-        .where(Pipeline.id == pipeline_id)
+        .where(Pipeline.id == pipeline_id, ~Pipeline.is_deleted)
     )
     result = await db.execute(stmt)
     return result.unique().scalar_one_or_none()
 
 
 async def _unset_default(db: AsyncSession) -> None:
-    """Set is_default=False on the Pipeline that currently holds it (if any)."""
-    result = await db.execute(select(Pipeline).where(Pipeline.is_default))
+    """Set is_default=False on the non-deleted Pipeline that currently holds it (if any)."""
+    result = await db.execute(select(Pipeline).where(Pipeline.is_default, ~Pipeline.is_deleted))
     current = result.scalar_one_or_none()
     if current:
         current.is_default = False
@@ -791,8 +799,10 @@ async def create_pipeline(db: AsyncSession, data) -> Pipeline:
 
     Raises :class:`DomainException` (409) when *name* already exists.
     """
-    # uniqueness check
-    result = await db.execute(select(Pipeline).where(Pipeline.name == data.name))
+    # uniqueness check (only among non-deleted pipelines)
+    result = await db.execute(
+        select(Pipeline).where(Pipeline.name == data.name, ~Pipeline.is_deleted)
+    )
     if result.scalar_one_or_none() is not None:
         raise DomainException("Name already in use", status_code=409)
 
@@ -862,12 +872,16 @@ async def update_pipeline(db: AsyncSession, pipeline_id: int, data) -> Pipeline:
     return await get_pipeline_config(db, pipeline_id)
 
 
-async def delete_pipeline(db: AsyncSession, pipeline_id: int) -> None:
-    """Delete a Pipeline.
+async def delete_pipeline(
+    db: AsyncSession,
+    pipeline_id: int,
+    username: str = "system",
+) -> None:
+    """Soft-delete a Pipeline.
 
     Raises :class:`DomainException` (409) when:
     - the pipeline is the default one
-    - the pipeline is referenced by any SyncGroup
+    - the pipeline is referenced by any active (non-deleted) SyncGroup
     """
     pipeline = await get_pipeline_config(db, pipeline_id)
     if pipeline is None:
@@ -876,7 +890,7 @@ async def delete_pipeline(db: AsyncSession, pipeline_id: int) -> None:
     if pipeline.is_default:
         raise DomainException("Cannot delete default pipeline", status_code=409)
 
-    # check SyncGroup references
+    # check SyncGroup references (active, non-deleted groups only)
     result = await db.execute(
         select(func.count())
         .select_from(SyncGroup)
@@ -889,15 +903,76 @@ async def delete_pipeline(db: AsyncSession, pipeline_id: int) -> None:
     if sync_count > 0:
         raise DomainException("Pipeline is in use by sync groups", status_code=409)
 
-    # remove components
-    result = await db.execute(
-        select(PipelineComponent).where(PipelineComponent.pipeline_id == pipeline_id)
-    )
-    for pc in result.scalars().all():
-        await db.delete(pc)
+    pipeline.is_deleted = True
+    pipeline.deleted_at = datetime.now(UTC)
 
-    await db.delete(pipeline)
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username=username,
+        action="pipeline.deleted",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+    )
+
     await db.commit()
+    logger.info("Pipeline soft-deleted: id=%d name='%s'", pipeline_id, pipeline.name)
+
+
+async def restore_pipeline(
+    db: AsyncSession,
+    pipeline_id: int,
+    username: str = "system",
+) -> Pipeline:
+    """Restore a soft-deleted Pipeline.
+
+    Args:
+        db: Async database session.
+        pipeline_id: ID of the pipeline to restore.
+        username: Username for audit logging (default ``"system"``).
+
+    Returns:
+        The restored Pipeline with eager-loaded components and gitlab_instance.
+
+    Raises:
+        DomainException: When no pipeline with *pipeline_id* exists
+                         (including soft-deleted) (404).
+    """
+    # Look for the pipeline INCLUDING soft-deleted ones
+    result = await db.execute(
+        select(Pipeline)
+        .options(
+            joinedload(Pipeline.components).joinedload(PipelineComponent.component),
+            joinedload(Pipeline.gitlab_instance),
+        )
+        .where(Pipeline.id == pipeline_id)
+    )
+    pipeline = result.unique().scalar_one_or_none()
+    if pipeline is None:
+        raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
+
+    if not pipeline.is_deleted:
+        await db.refresh(pipeline)
+        return pipeline  # already restored
+
+    pipeline.is_deleted = False
+    pipeline.deleted_at = None
+
+    await AuditService.log_event(
+        db,
+        user_id=None,
+        username=username,
+        action="pipeline.restored",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+    )
+
+    await db.commit()
+    await db.refresh(pipeline)
+    logger.info("Pipeline restored: id=%d name='%s'", pipeline_id, pipeline.name)
+    return pipeline
 
 
 async def duplicate_pipeline(db: AsyncSession, pipeline_id: int, new_name: str) -> Pipeline:
@@ -909,8 +984,10 @@ async def duplicate_pipeline(db: AsyncSession, pipeline_id: int, new_name: str) 
     if original is None:
         raise DomainException(f"Pipeline with id={pipeline_id} not found", status_code=404)
 
-    # uniqueness check for new name
-    result = await db.execute(select(Pipeline).where(Pipeline.name == new_name))
+    # uniqueness check for new name (only among non-deleted pipelines)
+    result = await db.execute(
+        select(Pipeline).where(Pipeline.name == new_name, ~Pipeline.is_deleted)
+    )
     if result.scalar_one_or_none() is not None:
         raise DomainException("Name already in use", status_code=409)
 
@@ -942,14 +1019,14 @@ async def duplicate_pipeline(db: AsyncSession, pipeline_id: int, new_name: str) 
 
 
 async def get_default_pipeline(db: AsyncSession) -> Pipeline | None:
-    """Return the Pipeline marked as default (is_default=True)."""
+    """Return the non-deleted Pipeline marked as default (is_default=True)."""
     stmt = (
         select(Pipeline)
         .options(
             joinedload(Pipeline.components).joinedload(PipelineComponent.component),
             joinedload(Pipeline.gitlab_instance),
         )
-        .where(Pipeline.is_default)
+        .where(Pipeline.is_default, ~Pipeline.is_deleted)
     )
     result = await db.execute(stmt)
     return result.unique().scalar_one_or_none()

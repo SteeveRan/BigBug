@@ -25,6 +25,8 @@ import {
   SunOutlined,
   MoonOutlined,
   IdcardOutlined,
+  DisconnectOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../store/authSlice';
@@ -90,16 +92,15 @@ export function Layout() {
       label: 'Overview',
     },
     {
-      key: 'group-mirroring',
+      key: 'group-artifacts',
       label: (
         <span>
           <SyncOutlined style={{ marginRight: 8 }} />
-          Mirroring
+          Artifacts
         </span>
       ),
       type: 'group',
       children: [
-        { key: '/mirroring/repositories', icon: <GithubOutlined />, label: 'Repositories' },
         { key: '/mirroring/helm-charts', icon: <CodeOutlined />, label: 'Helm Charts' },
         { key: '/mirroring/docker-images', icon: <ContainerOutlined />, label: 'Docker Images' },
       ],
@@ -160,11 +161,14 @@ export function Layout() {
       ),
       type: 'group',
       children: [
+        { key: '/git-mirroring/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
         { key: '/git-mirroring/mirrors', icon: <SyncOutlined />, label: 'Mirrors' },
         { key: '/git-mirroring/repositories', icon: <GithubOutlined />, label: 'Repositories' },
         { key: '/git-mirroring/providers', icon: <ApiOutlined />, label: 'Source Providers' },
         { key: '/git-mirroring/groups', icon: <AppstoreOutlined />, label: 'Source Groups' },
         { key: '/git-mirroring/sync-groups', icon: <BlockOutlined />, label: 'Sync Groups' },
+        { key: '/git-mirroring/orphaned', icon: <DisconnectOutlined />, label: 'Orphaned Mirrors' },
+        { key: '/git-mirroring/reports', icon: <BarChartOutlined />, label: 'Reports' },
       ],
     },
   ];

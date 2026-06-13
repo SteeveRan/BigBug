@@ -28,6 +28,12 @@ class SchedulerService:
             id="build_all",
             replace_existing=True,
         )
+        self.scheduler.add_job(
+            self._run_cleanup_job,
+            CronTrigger(hour=settings.cleanup_cron_hour, minute=0),
+            id="cleanup",
+            replace_existing=True,
+        )
         self.scheduler.start()
         logger.info("Scheduler started")
 
@@ -175,6 +181,12 @@ class SchedulerService:
                     logger.error(f"Failed to trigger build for schedule {schedule.id}: {e}")
 
             await db.commit()
+
+    async def _run_cleanup_job(self) -> None:
+        """Daily physical deletion of soft-deleted Mirroring entities past retention."""
+        from app.services.cleanup import cleanup_job
+
+        await cleanup_job()
 
 
 scheduler_service = SchedulerService()

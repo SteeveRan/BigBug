@@ -8,7 +8,7 @@
 @relatedFiles ../services/pipeline.py, ../schemas/pipeline.py
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import DomainException
@@ -25,6 +25,7 @@ from app.schemas.pipeline import (
     PipelineUpdate,
 )
 from app.services import pipeline as pipeline_service
+from app.services.audit import AuditService
 
 router = APIRouter()
 
@@ -96,14 +97,28 @@ async def list_pipeline_configs(
 @router.post("/configs", response_model=PipelineOut, status_code=201)
 async def create_pipeline_config(
     data: PipelineCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:write")),
+    current_user: User = Depends(require_permission("pipelines:write")),
 ):
     """Create a new Pipeline configuration."""
     try:
         pipeline = await pipeline_service.create_pipeline(db, data)
     except DomainException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="pipeline.created",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return PipelineOut.model_validate(pipeline)
 
 
@@ -124,14 +139,28 @@ async def get_pipeline_config_endpoint(
 async def update_pipeline_config(
     pipeline_id: int,
     data: PipelineUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:write")),
+    current_user: User = Depends(require_permission("pipelines:write")),
 ):
     """Partially update a Pipeline configuration."""
     try:
         pipeline = await pipeline_service.update_pipeline(db, pipeline_id, data)
     except DomainException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="pipeline.updated",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return PipelineOut.model_validate(pipeline)
 
 
@@ -139,27 +168,81 @@ async def update_pipeline_config(
 async def delete_pipeline_config(
     pipeline_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:delete")),
+    current_user: User = Depends(require_permission("pipelines:delete")),
 ):
-    """Delete a Pipeline configuration."""
+    """Soft-delete a Pipeline configuration (audit logged by service)."""
+    pipeline = await pipeline_service.get_pipeline_config(db, pipeline_id)
+    if pipeline is None:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
     try:
-        await pipeline_service.delete_pipeline(db, pipeline_id)
+        await pipeline_service.delete_pipeline(
+            db,
+            pipeline_id,
+            username=current_user.username,
+        )
     except DomainException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+
+
+@router.post("/configs/{pipeline_id}/restore", response_model=PipelineOut)
+async def restore_pipeline_config(
+    pipeline_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("pipelines:delete")),
+):
+    """Restore a soft-deleted Pipeline configuration."""
+    try:
+        pipeline = await pipeline_service.restore_pipeline(
+            db,
+            pipeline_id,
+            username=current_user.username,
+        )
+    except DomainException as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="pipeline.restored",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
+    return PipelineOut.model_validate(pipeline)
 
 
 @router.post("/configs/{pipeline_id}/duplicate", response_model=PipelineOut)
 async def duplicate_pipeline_config(
     pipeline_id: int,
     data: PipelineDuplicateRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("pipelines:write")),
+    current_user: User = Depends(require_permission("pipelines:write")),
 ):
     """Duplicate a Pipeline under a new name."""
     try:
         pipeline = await pipeline_service.duplicate_pipeline(db, pipeline_id, data.name)
     except DomainException as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="pipeline.duplicated",
+        resource_type="pipeline",
+        resource_id=pipeline.id,
+        resource_name=pipeline.name,
+        details={"original_pipeline_id": pipeline_id},
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return PipelineOut.model_validate(pipeline)
 
 

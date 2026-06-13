@@ -882,7 +882,15 @@ export interface Mirror {
 }
 
 export interface MirrorDetail extends Mirror {
-  logs?: MirrorLog[];
+  target_project_id?: string;
+  target_web_url?: string;
+  last_known_commit_sha?: string;
+  last_known_commit_date?: string;
+  last_known_commit_author?: string;
+  target_diverged_commits?: number;
+  last_sync_status?: string;
+  last_freshness_status?: string;
+  mirror_logs?: MirrorLog[];
   source_repository?: SourceRepository;
   sync_group?: SyncGroup;
 }
@@ -915,14 +923,25 @@ export interface MirrorLog {
   id: number;
   mirror_id: number;
   pipeline_run_id?: number;
+  gitlab_pipeline_id?: string;
+  gitlab_pipeline_url?: string;
   log_type: 'sync' | 'freshness' | 'integrity' | 'release' | 'import';
   status_flag: number;
   status_text: string;
   message?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic log details
+  details?: Record<string, any>;
   details_json?: Record<string, any>;
+  source_commit_sha?: string;
+  source_commit_date?: string;
+  target_commit_sha?: string;
+  commits_behind?: number;
+  target_extra_commits?: number;
   started_at?: string;
+  finished_at?: string;
   completed_at?: string;
+  duration_ms?: number;
+  triggered_by?: string;
   created_at: string;
 }
 
@@ -1063,6 +1082,53 @@ export interface PipelineListItem {
   updated_at: string;
 }
 
+// ──── Orphaned Mirrors Types ─────────────────────────────────────────────────
+
+/** Причина, по которой зеркало стало осиротевшим */
+export type OrphanReason =
+  | 'provider_deleted'
+  | 'credentials_invalid'
+  | 'source_not_found'
+  | 'target_manual_delete';
+
+/** Осиротевшее зеркало */
+export interface OrphanedMirror {
+  mirror_id: number;
+  mirror_name: string;
+  source_url: string;
+  target_path: string;
+  sync_group_name: string | null;
+  gitlab_instance_url: string;
+  orphan_reason: OrphanReason;
+  orphan_reason_text: string;
+  detected_at: string;
+}
+
+/** Ответ API списка orphaned mirrors */
+export interface OrphanedMirrorListResponse {
+  items: OrphanedMirror[];
+  total: number;
+}
+
+/** Запрос на переназначение orphaned зеркала в SyncGroup */
+export interface OrphanedReassignRequest {
+  sync_group_id: number;
+}
+
+/** Запрос на изменение target_path orphaned зеркала */
+export interface OrphanedMoveTargetRequest {
+  target_path: string;
+}
+
+/** Результат проверки целостности зеркала */
+export interface IntegrityCheckResult {
+  mirror_id: number;
+  status: 'clean' | 'diverged' | 'corrupted';
+  source_commit: string | null;
+  target_commit: string | null;
+  details: string[];
+}
+
 export interface LicenseReportItem {
   spdx: string;
   name: string;
@@ -1073,4 +1139,149 @@ export interface LicenseReportItem {
     name: string;
     full_name: string;
   }>;
+}
+
+// ============================================================
+// Git Mirroring Reports Types
+// ============================================================
+
+// ──── Duplicates Report ──────────────────────────────────────────────────
+
+export interface DuplicateMirrorItem {
+  mirror_id: number;
+  source_url: string;
+  target_gitlab_instance_name: string | null;
+  target_path: string | null;
+  status_flag: number;
+  status_text: string | null;
+  created_at: string;
+  sync_group_name: string | null;
+}
+
+export interface DuplicateGroup {
+  source_url: string;
+  mirror_count: number;
+  mirrors: DuplicateMirrorItem[];
+}
+
+export interface DuplicatesReport {
+  warning: string;
+  total_groups: number;
+  total_mirrors: number;
+  groups: DuplicateGroup[];
+}
+
+// ──── Storage Report ─────────────────────────────────────────────────────
+
+export interface MirrorStorageItem {
+  mirror_id: number;
+  source_url: string;
+  target_gitlab_instance_name: string | null;
+  target_path: string | null;
+  sync_group_name: string | null;
+  repo_size_bytes: number | null;
+  history_size_bytes: number | null;
+  total_size_bytes: number | null;
+  error: string | null;
+  accessible: boolean;
+}
+
+export interface StorageSummary {
+  key: string;
+  repo_size_bytes: number;
+  history_size_bytes: number;
+  total_size_bytes: number;
+}
+
+export interface StorageReport {
+  items: MirrorStorageItem[];
+  by_gitlab_instance: StorageSummary[];
+  by_sync_group: StorageSummary[];
+  grand_total: StorageSummary | null;
+  collected_at: string | null;
+  is_stale: boolean;
+  collection_status: 'idle' | 'in_progress' | 'complete' | 'error';
+}
+
+export interface StorageRefreshStatus {
+  collection_status: string;
+  message: string;
+}
+
+// ──── Status Report ──────────────────────────────────────────────────────
+
+export interface StatusCountItem {
+  status_flag: number;
+  status_text: string;
+  count: number;
+  label: string;
+}
+
+export interface MirrorStatusItem {
+  mirror_id: number;
+  source_url: string;
+  status_flag: number;
+  status_text: string | null;
+  target_path: string | null;
+  sync_group_name: string | null;
+}
+
+export interface StatusReport {
+  status_counts: StatusCountItem[];
+  total_mirrors: number;
+  ok_mirrors: MirrorStatusItem[];
+  failed_mirrors: MirrorStatusItem[];
+  warning_mirrors: MirrorStatusItem[];
+  in_progress_mirrors: MirrorStatusItem[];
+  pending_mirrors: MirrorStatusItem[];
+}
+
+// ──── Syncs Report ───────────────────────────────────────────────────────
+
+export interface DailySyncsItem {
+  date: string;
+  total: number;
+  successful: number;
+  failed: number;
+  stale: number;
+}
+
+export interface SyncGroupSyncsItem {
+  sync_group_name: string;
+  total: number;
+  successful: number;
+  failed: number;
+  stale: number;
+}
+
+export interface TopSyncMirrorItem {
+  mirror_id: number;
+  source_url: string;
+  taget_path: string | null;
+  count: number;
+}
+
+export interface SyncsReport {
+  period_start: string;
+  period_end: string;
+  daily: DailySyncsItem[];
+  by_sync_group: SyncGroupSyncsItem[];
+  top_by_syncs: TopSyncMirrorItem[];
+  top_by_errors: TopSyncMirrorItem[];
+}
+
+// ──── Bulk Operations ────────────────────────────────────────────────────
+
+export interface BulkOperationResultItem {
+  mirror_id: number;
+  success: boolean;
+  message: string | null;
+}
+
+export interface BulkOperationResponse {
+  operation: string;
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: BulkOperationResultItem[];
 }

@@ -13,9 +13,11 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+import gitlab as _gitlab_module
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -118,6 +120,27 @@ async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
     if sg is None:
         raise NotFoundError(f"SyncGroup with id={sg_id} not found")
     return sg
+
+
+# ===================================================================
+# Data classes
+# ===================================================================
+
+
+@dataclass
+class IntegrityCheckResult:
+    """Result of a direct source-to-target integrity comparison.
+
+    Compares the latest commit SHA from the source repository
+    against the target GitLab project without triggering a CI/CD pipeline.
+    """
+
+    mirror_id: int
+    status: str  # "MATCH", "MISMATCH", "ERROR"
+    source_commit_sha: str | None = None
+    target_commit_sha: str | None = None
+    message: str = ""
+    detail: dict[str, Any] = field(default_factory=dict)
 
 
 # ===================================================================
@@ -979,12 +1002,18 @@ class MirrorService:
     ) -> None:
         """Soft-delete a mirror by setting ``is_deleted=True``.
 
+        If no other non-deleted mirror references the same
+        ``SourceRepository``, the source repository is also soft-deleted
+        (cascade).
+
         Args:
             db: Async database session.
             mirror_id: Mirror ID.
             username: Username for audit logging.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
+
+        source_repo_id = mirror.source_repository_id
 
         mirror.is_deleted = True
         mirror.deleted_at = datetime.now(UTC)
@@ -1001,7 +1030,128 @@ class MirrorService:
         )
         await db.commit()
 
+        # ── Cascade: soft-delete SourceRepository if no other mirror
+        #     references it ──────────────────────────────────────────
+        if source_repo_id is not None:
+            remaining_result = await db.execute(
+                select(Mirror).where(
+                    Mirror.source_repository_id == source_repo_id,
+                    ~Mirror.is_deleted,
+                )
+            )
+            remaining = remaining_result.scalar_one_or_none()
+            if remaining is None:
+                sr_result = await db.execute(
+                    select(SourceRepository).where(
+                        SourceRepository.id == source_repo_id,
+                        ~SourceRepository.is_deleted,
+                    )
+                )
+                sr = sr_result.scalar_one_or_none()
+                if sr is not None:
+                    sr.is_deleted = True
+                    sr.deleted_at = datetime.now(UTC)
+                    await AuditService.log_event(
+                        db,
+                        user_id=None,
+                        username=username,
+                        action="source_repository.deleted",
+                        resource_type="source_repository",
+                        resource_id=sr.id,
+                        resource_name=sr.name,
+                        details={"cascaded_from_mirror_id": mirror.id},
+                    )
+                    await db.commit()
+                    logger.info(
+                        "Cascade soft-deleted SourceRepository id=%d (mirror_id=%d)",
+                        sr.id,
+                        mirror.id,
+                    )
+
         logger.info("Mirror soft-deleted: id=%d", mirror_id)
+
+    # ── Restore ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def restore_mirror(
+        db: AsyncSession,
+        mirror_id: int,
+        username: str = "system",
+    ) -> Mirror:
+        """Restore a soft-deleted mirror.
+
+        Also restores the linked ``SourceRepository`` if it was soft-deleted
+        (e.g. via cascade).
+
+        Args:
+            db: Async database session.
+            mirror_id: Mirror ID.
+            username: Username for audit logging.
+
+        Returns:
+            The restored Mirror instance.
+
+        Raises:
+            NotFoundError: When no mirror with *mirror_id* exists
+                           (including soft-deleted) (404).
+        """
+        # Look for the mirror INCLUDING soft-deleted ones
+        result = await db.execute(
+            select(Mirror)
+            .options(
+                selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
+                selectinload(Mirror.sync_group)
+                .selectinload(SyncGroup.pipeline)
+                .selectinload(PipelineModel.gitlab_instance),
+            )
+            .where(Mirror.id == mirror_id)
+        )
+        mirror = result.unique().scalar_one_or_none()
+        if mirror is None:
+            raise NotFoundError(f"Mirror with id={mirror_id} not found")
+
+        if not mirror.is_deleted:
+            return mirror  # already restored
+
+        mirror.is_deleted = False
+        mirror.deleted_at = None
+        await db.commit()
+
+        # ── Restore linked SourceRepository if soft-deleted ─────────
+        if mirror.source_repository is not None and mirror.source_repository.is_deleted:
+            mirror.source_repository.is_deleted = False
+            mirror.source_repository.deleted_at = None
+            await AuditService.log_event(
+                db,
+                user_id=None,
+                username=username,
+                action="source_repository.restored",
+                resource_type="source_repository",
+                resource_id=mirror.source_repository.id,
+                resource_name=mirror.source_repository.name,
+                details={"restored_from_mirror_id": mirror.id},
+            )
+            await db.commit()
+            logger.info(
+                "Cascade restored SourceRepository id=%d (mirror_id=%d)",
+                mirror.source_repository.id,
+                mirror.id,
+            )
+
+        await AuditService.log_event(
+            db,
+            user_id=None,
+            username=username,
+            action="mirror.restored",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.target_project_name,
+        )
+        await db.commit()
+
+        await db.refresh(mirror)
+        logger.info("Mirror restored: id=%d", mirror_id)
+        return mirror
 
     # ── Trigger Sync ────────────────────────────────────────────────────
 
@@ -1303,6 +1453,24 @@ class MirrorService:
         )
         await db.commit()
 
+        await AuditService.log_event(
+            db,
+            user_id=None,
+            username=username,
+            action="mirror.freshness_checked",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.target_project_name,
+            details={
+                "source_commit_sha": source_sha,
+                "last_known_commit_sha": last_known,
+                "status": status_text,
+                "error": error_message,
+                "mirror_log_id": mirror_log.id,
+            },
+        )
+        await db.commit()
+
         logger.info(
             "Freshness check for mirror %d: %s (source_sha=%s)",
             mirror_id,
@@ -1418,12 +1586,261 @@ class MirrorService:
         )
         await db.commit()
 
+        await AuditService.log_event(
+            db,
+            user_id=user_id,
+            username=username,
+            action="mirror.integrity_checked",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.target_project_name,
+            details={
+                "pipeline_run_id": pipeline_run.id,
+                "gitlab_pipeline_id": pipeline_run.gitlab_pipeline_id,
+                "mirror_log_id": mirror_log.id,
+            },
+        )
+        await db.commit()
+
         logger.info(
             "Integrity check triggered for mirror %d, pipeline_run=%d",
             mirror_id,
             pipeline_run.id,
         )
         return mirror_log
+
+    # ── Direct Integrity Check ───────────────────────────────────────────
+
+    @staticmethod
+    async def check_integrity_direct(
+        db: AsyncSession,
+        mirror_id: int,
+        username: str = "system",
+    ) -> IntegrityCheckResult:
+        """Compare source HEAD commit against target GitLab project commit directly.
+
+        Does NOT trigger a CI/CD pipeline — fetches commit info from both
+        the source provider and the target GitLab instance and compares them
+        in-process.
+
+        Args:
+            db: Async database session.
+            mirror_id: Mirror ID to verify.
+            username: Username for audit logging.
+
+        Returns:
+            IntegrityCheckResult with comparison status.
+
+        Raises:
+            DomainException: When the mirror has no source provider or no
+                             target GitLab instance configured.
+        """
+        mirror = await _get_mirror_or_404(db, mirror_id)
+
+        # ── Validate SyncGroup exists ───────────────────────────────
+        if mirror.sync_group_id is None:
+            raise DomainException(
+                f"Mirror {mirror_id} has no SyncGroup configured",
+                status_code=400,
+            )
+
+        # ── Resolve source provider chain ───────────────────────────
+        if mirror.source_repository is None:
+            raise DomainException(
+                f"Mirror {mirror_id} has no linked SourceRepository",
+                status_code=400,
+            )
+        sr = mirror.source_repository
+        sg_group = sr.source_group
+        if sg_group is None:
+            raise DomainException(
+                f"SourceRepository {sr.id} has no linked SourceGroup",
+                status_code=400,
+            )
+        sp = sg_group.source_provider
+        if sp is None:
+            raise DomainException(
+                f"SourceGroup {sg_group.id} has no linked SourceProvider",
+                status_code=400,
+            )
+
+        # ── Fetch source HEAD commit ────────────────────────────────
+        source_sha: str | None = None
+
+        try:
+            if sp.credential is None or not sp.credential.encrypted_secret:
+                raise DomainException(
+                    f"SourceProvider {sp.id} has no credential configured",
+                    status_code=400,
+                )
+            credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+            provider = await create_source_provider(sp, credential_secret)
+            repo_external_id = sr.full_name or sr.external_id
+            commit_info = await provider.get_commit_info(repo_external_id)
+            source_sha = commit_info.get("sha")
+        except Exception as exc:
+            logger.error(
+                "Source commit fetch failed for mirror %d: %s",
+                mirror_id,
+                exc,
+            )
+            result = IntegrityCheckResult(
+                mirror_id=mirror.id,
+                status="ERROR",
+                message=f"Failed to fetch source commit: {exc}",
+            )
+            # Create MirrorLog for the error
+            mirror_log = MirrorLog(
+                mirror_id=mirror.id,
+                log_type=MirrorLogType.integrity,
+                status_flag=STATUS_FAILED,
+                status_text="ERROR",
+                source_commit_sha=source_sha,
+                triggered_by=username,
+                started_at=datetime.now(UTC),
+                finished_at=datetime.now(UTC),
+                details={"error": str(exc), "method": "direct"},
+            )
+            db.add(mirror_log)
+            await db.commit()
+            return result
+
+        # ── Resolve target GitLab instance ──────────────────────────
+        if mirror.sync_group is None or mirror.sync_group.pipeline is None:
+            raise DomainException(
+                f"Mirror {mirror_id} has no SyncGroup with a Pipeline",
+                status_code=400,
+            )
+        pipeline_cfg = mirror.sync_group.pipeline
+        instance = pipeline_cfg.gitlab_instance
+        if instance is None:
+            raise DomainException(
+                f"Pipeline '{pipeline_cfg.name}' has no GitLab instance configured",
+                status_code=400,
+            )
+
+        # ── Fetch target HEAD commit via python-gitlab ──────────────
+        target_sha: str | None = None
+        try:
+            token = decrypt_secret(instance.token)
+            gl = _gitlab_module.Gitlab(
+                url=instance.url,
+                private_token=token,
+                ssl_verify=instance.verify_ssl,
+                user_agent="BigBug/1.0",
+            )
+            if not mirror.target_project_id or not mirror.target_project_id.isdigit():
+                raise DomainException(
+                    f"Mirror {mirror_id} has no valid target_project_id",
+                    status_code=400,
+                )
+            project = gl.projects.get(int(mirror.target_project_id))
+            # Get the default branch HEAD commit
+            default_branch = project.default_branch or "main"
+            commits = project.commits.list(ref_name=default_branch, per_page=1)
+            if commits:
+                target_sha = commits[0].id
+        except Exception as exc:
+            logger.error(
+                "Target commit fetch failed for mirror %d: %s",
+                mirror_id,
+                exc,
+            )
+            result = IntegrityCheckResult(
+                mirror_id=mirror.id,
+                status="ERROR",
+                source_commit_sha=source_sha,
+                message=f"Failed to fetch target commit: {exc}",
+            )
+            mirror_log = MirrorLog(
+                mirror_id=mirror.id,
+                log_type=MirrorLogType.integrity,
+                status_flag=STATUS_FAILED,
+                status_text="ERROR",
+                source_commit_sha=source_sha,
+                target_commit_sha=target_sha,
+                triggered_by=username,
+                started_at=datetime.now(UTC),
+                finished_at=datetime.now(UTC),
+                details={"error": str(exc), "method": "direct"},
+            )
+            db.add(mirror_log)
+            await db.commit()
+            return result
+
+        # ── Compare ─────────────────────────────────────────────────
+        if source_sha and target_sha and source_sha == target_sha:
+            status = "MATCH"
+            msg = "Source and target are in sync"
+            log_status_flag = STATUS_OK
+            log_status_text = "MATCH"
+        elif source_sha and target_sha:
+            status = "MISMATCH"
+            msg = f"Source ({source_sha[:8]}) diverges from target ({target_sha[:8]})"
+            log_status_flag = STATUS_WARNING
+            log_status_text = "MISMATCH"
+        else:
+            status = "ERROR"
+            msg = "Could not determine both commits"
+            log_status_flag = STATUS_FAILED
+            log_status_text = "ERROR"
+
+        # ── Create MirrorLog ────────────────────────────────────────
+        mirror_log = MirrorLog(
+            mirror_id=mirror.id,
+            log_type=MirrorLogType.integrity,
+            status_flag=log_status_flag,
+            status_text=log_status_text,
+            source_commit_sha=source_sha,
+            target_commit_sha=target_sha,
+            triggered_by=username,
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            details={"message": msg, "method": "direct"},
+        )
+        db.add(mirror_log)
+
+        # Update mirror status
+        mirror.status_flag = log_status_flag
+        mirror.status_text = log_status_text
+        if status == "MISMATCH" and source_sha:
+            mirror.target_diverged_commits = (mirror.target_diverged_commits or 0) + 1
+
+        await db.commit()
+
+        # Audit
+        await AuditService.log_event(
+            db,
+            user_id=None,
+            username=username,
+            action="mirror.integrity_checked",
+            resource_type="mirror",
+            resource_id=mirror.id,
+            resource_name=mirror.target_project_name,
+            details={
+                "source_commit_sha": source_sha,
+                "target_commit_sha": target_sha,
+                "status": status,
+                "mirror_log_id": mirror_log.id,
+                "method": "direct",
+            },
+        )
+        await db.commit()
+
+        logger.info(
+            "Direct integrity check for mirror %d: %s (src=%s, tgt=%s)",
+            mirror_id,
+            status,
+            (source_sha or "")[:8],
+            (target_sha or "")[:8],
+        )
+        return IntegrityCheckResult(
+            mirror_id=mirror.id,
+            status=status,
+            source_commit_sha=source_sha,
+            target_commit_sha=target_sha,
+            message=msg,
+        )
 
     # ── Logs ────────────────────────────────────────────────────────────
 

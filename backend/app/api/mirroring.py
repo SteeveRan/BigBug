@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,7 @@ from app.models.source_provider import SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.user import User
 from app.schemas.mirror import (
+    IntegrityCheckResult,
     MirrorBulkCreate,
     MirrorCreate,
     MirrorDetailOut,
@@ -53,6 +54,7 @@ from app.schemas.sync_group import (
     SyncGroupOut,
     SyncGroupUpdate,
 )
+from app.services.audit import AuditService
 from app.services.mirror import MirrorService
 from app.services.rbac_service import RBACService
 from app.services.release import ReleaseService
@@ -126,8 +128,9 @@ async def list_source_providers(
 @router.post("/providers/", response_model=SourceProviderOut, status_code=201)
 async def create_source_provider(
     data: SourceProviderCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:write")),
+    current_user: User = Depends(require_permission("source_groups:write")),
 ):
     """Create a new source provider (e.g. GitHub token connection)."""
     provider = SourceProvider(
@@ -146,6 +149,19 @@ async def create_source_provider(
         .where(SourceProvider.id == provider.id)
     )
     provider = result.scalar_one()
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_provider.created",
+        resource_type="source_provider",
+        resource_id=provider.id,
+        resource_name=provider.label,
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return SourceProviderOut.model_validate(provider)
 
 
@@ -207,7 +223,7 @@ async def update_source_provider(
 async def delete_source_provider(
     provider_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:write")),
+    current_user: User = Depends(require_permission("source_groups:write")),
 ):
     """Soft-delete a source provider."""
     result = await db.execute(
@@ -223,7 +239,53 @@ async def delete_source_provider(
         )
 
     provider.is_deleted = True
+    provider.deleted_at = datetime.now(UTC)
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_provider.deleted",
+        resource_type="source_provider",
+        resource_id=provider.id,
+        resource_name=provider.name,
+    )
+
     await db.commit()
+
+
+@router.post("/providers/{provider_id}/restore", response_model=SourceProviderOut)
+async def restore_source_provider(
+    provider_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("source_groups:write")),
+):
+    """Restore a soft-deleted source provider."""
+    result = await db.execute(select(SourceProvider).where(SourceProvider.id == provider_id))
+    provider = result.scalar_one_or_none()
+    if provider is None:
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
+    if not provider.is_deleted:
+        raise HTTPException(status_code=400, detail="Source provider is not deleted")
+
+    provider.is_deleted = False
+    provider.deleted_at = None
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_provider.restored",
+        resource_type="source_provider",
+        resource_id=provider.id,
+        resource_name=provider.name,
+    )
+
+    await db.commit()
+    await db.refresh(provider)
+    return SourceProviderOut.model_validate(provider)
 
 
 # ===================================================================
@@ -273,9 +335,10 @@ async def list_source_groups(
 )
 async def import_source_group(
     provider_id: int,
+    request: Request,
     group_name: str = Query(..., description="GitHub organization or username"),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:write")),
+    current_user: User = Depends(require_permission("source_groups:write")),
 ):
     """Import an organization/group from GitHub and its repositories.
 
@@ -417,6 +480,20 @@ async def import_source_group(
         source_group.id,
         imported_count,
     )
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_group.imported",
+        resource_type="source_group",
+        resource_id=source_group.id,
+        resource_name=source_group.name,
+        details={"repos_imported": imported_count},
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return SourceGroupDetailOut.model_validate(source_group)
 
 
@@ -444,7 +521,9 @@ async def get_source_group(
 @router.post("/groups/{group_id}/refresh", response_model=SourceGroupDetailOut)
 async def refresh_source_group(
     group_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     _: bool = Depends(
         require_scope_permission("source_groups:refresh", "source_group", "group_id")
     ),
@@ -544,6 +623,20 @@ async def refresh_source_group(
         group.id,
         imported_count,
     )
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_group.refreshed",
+        resource_type="source_group",
+        resource_id=group.id,
+        resource_name=group.name,
+        details={"new_repos": imported_count},
+        ip_address=request.client.host if request.client else None,
+    )
+    await db.commit()
+
     return SourceGroupDetailOut.model_validate(group)
 
 
@@ -551,6 +644,7 @@ async def refresh_source_group(
 async def delete_source_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     _: bool = Depends(require_scope_permission("source_groups:write", "source_group", "group_id")),
 ):
     """Soft-delete a source group."""
@@ -565,7 +659,56 @@ async def delete_source_group(
         raise HTTPException(status_code=404, detail=f"SourceGroup with id={group_id} not found")
 
     group.is_deleted = True
+    group.deleted_at = datetime.now(UTC)
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_group.deleted",
+        resource_type="source_group",
+        resource_id=group.id,
+        resource_name=group.name,
+    )
+
     await db.commit()
+
+
+@router.post("/groups/{group_id}/restore", response_model=SourceGroupDetailOut)
+async def restore_source_group(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_scope_permission("source_groups:write", "source_group", "group_id")),
+):
+    """Restore a soft-deleted source group."""
+    result = await db.execute(
+        select(SourceGroup)
+        .options(selectinload(SourceGroup.repositories))
+        .where(SourceGroup.id == group_id)
+    )
+    group = result.scalar_one_or_none()
+    if group is None:
+        raise HTTPException(status_code=404, detail=f"SourceGroup with id={group_id} not found")
+    if not group.is_deleted:
+        raise HTTPException(status_code=400, detail="Source group is not deleted")
+
+    group.is_deleted = False
+    group.deleted_at = None
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_group.restored",
+        resource_type="source_group",
+        resource_id=group.id,
+        resource_name=group.name,
+    )
+
+    await db.commit()
+    await db.refresh(group)
+    return SourceGroupDetailOut.model_validate(group)
 
 
 # ===================================================================
@@ -716,6 +859,104 @@ async def get_repository_readme(
         readme_html=repo.readme_html,
         readme_fetched_at=repo.readme_fetched_at,
     )
+
+
+@router.delete("/repositories/{repository_id}", status_code=204)
+async def delete_source_repository(
+    repository_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:write")),
+):
+    """Soft-delete a source repository (only if not referenced by active mirrors)."""
+    result = await db.execute(
+        select(SourceRepository)
+        .options(selectinload(SourceRepository.mirrors))
+        .where(SourceRepository.id == repository_id, ~SourceRepository.is_deleted)
+    )
+    repo = result.scalar_one_or_none()
+    if repo is None:
+        raise HTTPException(
+            status_code=404, detail=f"SourceRepository with id={repository_id} not found"
+        )
+    # Scope check via parent SourceGroup
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
+    # Check for active mirrors referencing this repository
+    active_mirrors = [m for m in repo.mirrors if not m.is_deleted]
+    if active_mirrors:
+        mirror_ids = [m.id for m in active_mirrors]
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete: active mirrors still reference this repository: {mirror_ids}",
+        )
+
+    repo.is_deleted = True
+    repo.deleted_at = datetime.now(UTC)
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_repository.deleted",
+        resource_type="source_repository",
+        resource_id=repo.id,
+        resource_name=repo.full_name,
+    )
+
+    await db.commit()
+
+
+@router.post("/repositories/{repository_id}/restore", response_model=SourceRepositoryDetailOut)
+async def restore_source_repository(
+    repository_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:write")),
+):
+    """Restore a soft-deleted source repository."""
+    result = await db.execute(
+        select(SourceRepository)
+        .options(
+            selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
+            selectinload(SourceRepository.mirrors),
+        )
+        .where(SourceRepository.id == repository_id)
+    )
+    repo = result.unique().scalar_one_or_none()
+    if repo is None:
+        raise HTTPException(
+            status_code=404, detail=f"SourceRepository with id={repository_id} not found"
+        )
+    if not repo.is_deleted:
+        raise HTTPException(status_code=400, detail="Source repository is not deleted")
+    # Scope check via parent SourceGroup
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
+    repo.is_deleted = False
+    repo.deleted_at = None
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_repository.restored",
+        resource_type="source_repository",
+        resource_id=repo.id,
+        resource_name=repo.full_name,
+    )
+
+    await db.commit()
+    await db.refresh(repo)
+    return SourceRepositoryDetailOut.model_validate(repo)
 
 
 # ===================================================================
@@ -887,6 +1128,39 @@ async def delete_mirror(
         )
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail) from e
+
+
+@router.post("/mirrors/{mirror_id}/restore", response_model=MirrorDetailOut)
+async def restore_mirror(
+    mirror_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:delete")),
+):
+    """Restore a soft-deleted mirror."""
+    # Scope check via parent SyncGroup — find mirror INCLUDING soft-deleted
+    result = await db.execute(select(Mirror).where(Mirror.id == mirror_id))
+    mirror_for_scope = result.scalar_one_or_none()
+    if mirror_for_scope is None:
+        raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
+    try:
+        mirror = await MirrorService.restore_mirror(
+            db,
+            mirror_id=mirror_id,
+            username=current_user.username,
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=e.detail) from e
+
+    return MirrorDetailOut.model_validate(mirror)
 
 
 @router.post("/mirrors/{mirror_id}/sync", response_model=MirrorLogOut, status_code=201)
@@ -1118,10 +1392,32 @@ async def delete_sync_group(
 ):
     """Soft-delete a sync group (mirrors are migrated to default group)."""
     try:
-        await SyncGroupService.soft_delete_sync_group(db, group_id)
+        await SyncGroupService.delete_sync_group(db, group_id)
     except (DomainException, NotFoundError) as e:
         status_code = e.status_code if isinstance(e, DomainException) else 404
         raise HTTPException(status_code=status_code, detail=str(e)) from e
+
+
+@router.post("/sync-groups/{group_id}/restore", response_model=SyncGroupOut)
+async def restore_sync_group(
+    group_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_scope_permission("sync_groups:delete", "sync_group", "group_id")),
+):
+    """Restore a soft-deleted sync group."""
+    try:
+        group = await SyncGroupService.restore_sync_group(
+            db,
+            group_id=group_id,
+            user_id=current_user.id,
+            username=current_user.username,
+        )
+    except (DomainException, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainException) else 404
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
+
+    return SyncGroupOut.model_validate(group)
 
 
 @router.post(
@@ -1155,6 +1451,43 @@ async def bulk_assign_mirrors_to_group(
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return SyncGroupOut.model_validate(group)
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Integrity Check (direct, no CI/CD pipeline)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/mirrors/{mirror_id}/integrity-check",
+    response_model=IntegrityCheckResult,
+)
+async def check_mirror_integrity(
+    mirror_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IntegrityCheckResult:
+    """Compare source HEAD commit against target GitLab project directly.
+
+    Does NOT trigger a CI/CD pipeline — fetches commits from both sides
+    and returns a comparison result (MATCH / MISMATCH / ERROR).
+    """
+    try:
+        result = await MirrorService.check_integrity_direct(
+            db,
+            mirror_id=mirror_id,
+            username=current_user.username,
+        )
+        return IntegrityCheckResult(
+            mirror_id=result.mirror_id,
+            status=result.status,
+            source_commit_sha=result.source_commit_sha,
+            target_commit_sha=result.target_commit_sha,
+            message=result.message,
+        )
+    except (DomainException, NotFoundError) as e:
+        status_code = e.status_code if isinstance(e, DomainException) else 404
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.post(

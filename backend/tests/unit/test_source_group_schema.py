@@ -80,6 +80,7 @@ class TestSourceGroupListOut:
             "total_repos",
             "mirrored_repos",
             "last_synced_at",
+            "is_deleted",
             "created_at",
         }
         assert fields == expected

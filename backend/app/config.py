@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     # Stale threshold
     default_stale_threshold_days: int = 30
 
+    # Soft-delete cleanup
+    soft_delete_retention_days: int = 30
+    cleanup_cron_hour: int = 3
+
     # Rate Limiting
     rate_limit_enabled: bool = True
     rate_limit_login: str = "5/minute"

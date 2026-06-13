@@ -126,6 +126,8 @@ class TestMirrorListOut:
             "last_freshness_check_at",
             "last_freshness_status",
             "is_imported",
+            "is_deleted",
+            "deleted_at",
             "created_at",
             "source_repository",
         }

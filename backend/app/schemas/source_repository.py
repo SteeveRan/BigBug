@@ -36,6 +36,7 @@ class SourceRepositoryListOut(BaseModel):
     latest_release_date: datetime | None = None
     source_pushed_at: datetime | None = None
     last_seen_at: datetime | None = None
+    is_deleted: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -69,6 +70,7 @@ class SourceRepositoryDetailOut(BaseModel):
     source_updated_at: datetime | None = None
     source_pushed_at: datetime | None = None
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     source_group: SourceGroupListOut | None = None

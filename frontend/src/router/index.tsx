@@ -7,7 +7,6 @@ import { PermissionGate } from '../components/PermissionGate';
 import { LoginPage } from '../pages/Login';
 import { SsoCallbackPage } from '../pages/SsoCallback';
 import { DashboardPage } from '../pages/Overview';
-import { ProjectsPage, ProjectDetailPage } from '../pages/Mirroring/Repositories';
 import { HelmChartsPage, HelmChartDetailPage } from '../pages/Mirroring/HelmCharts';
 import {
   DockerImagesPage,
@@ -22,15 +21,18 @@ import { AdminPage } from '../pages/Admin/Users';
 import { SettingsIntegrations } from '../pages/Admin/Integrations';
 import { AuthenticationSettings } from '../pages/Admin/Authentication';
 import { AuditLogPage } from '../pages/Admin/AuditLog';
-import GitMirroring from '../pages/GitMirroring';
 
 // Git Mirroring V2 lazy imports
 const GitMirroringMirrors = lazy(() => import('@/pages/GitMirroring/Mirrors'));
+const GitMirroringMirrorProcess = lazy(() => import('@/pages/GitMirroring/Mirrors/Process'));
 const GitMirroringRepositories = lazy(() => import('@/pages/GitMirroring/Repositories'));
 const GitMirroringRepositoryDetail = lazy(() => import('@/pages/GitMirroring/Repositories/Detail'));
 const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'));
 const GitMirroringGroups = lazy(() => import('@/pages/GitMirroring/Groups'));
 const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
+const GitMirroringDashboard = lazy(() => import('@/pages/GitMirroring/Dashboard'));
+const GitMirroringOrphaned = lazy(() => import('@/pages/GitMirroring/Orphaned'));
+const GitMirroringReports = lazy(() => import('@/pages/GitMirroring/Reports'));
 const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'));
 const RolesPage = lazy(() => import('@/pages/Admin/Roles'));
 const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
@@ -49,7 +51,7 @@ const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
 // ── Redirect helpers for routes with URL params ──────────────
 function RedirectProjectsId() {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/mirroring/repositories/${id}`} replace />;
+  return <Navigate to={`/git-mirroring/repositories/${id}`} replace />;
 }
 
 function RedirectHelmChartsId() {
@@ -64,7 +66,12 @@ function RedirectDockerImagesId() {
 
 function RedirectMirrorsId() {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/mirroring/repositories/${id}`} replace />;
+  return <Navigate to={`/git-mirroring/repositories/${id}`} replace />;
+}
+
+function RedirectMirroringRepositoryId() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/git-mirroring/repositories/${id}`} replace />;
 }
 
 export function AppRouter() {
@@ -94,23 +101,9 @@ export function AppRouter() {
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="dashboard" element={<Navigate to="/overview" replace />} />
 
-        {/* ── Mirroring / Repositories ──────────────────── */}
-        <Route
-          path="mirroring/repositories"
-          element={
-            <PermissionGate permission="projects:read">
-              <ProjectsPage />
-            </PermissionGate>
-          }
-        />
-        <Route
-          path="mirroring/repositories/:id"
-          element={
-            <PermissionGate permission="projects:read">
-              <ProjectDetailPage />
-            </PermissionGate>
-          }
-        />
+        {/* ── Mirroring / Repositories → Git Mirroring V2 ─ */}
+        <Route path="mirroring/repositories" element={<Navigate to="/git-mirroring/repositories" replace />} />
+        <Route path="mirroring/repositories/:id" element={<RedirectMirroringRepositoryId />} />
 
         {/* ── Mirroring / Helm Charts ───────────────────── */}
         <Route
@@ -158,15 +151,11 @@ export function AppRouter() {
           }
         />
 
-        {/* ── Mirroring / Git Mirroring (v2) ─────────────── */}
-        <Route
-          path="mirroring/git-mirroring"
-          element={
-            <PermissionGate permission="pipelines:read">
-              <GitMirroring />
-            </PermissionGate>
-          }
-        />
+        {/* ── Mirroring / Git Mirroring → Git Mirroring V2 ─ */}
+        <Route path="mirroring/git-mirroring" element={<Navigate to="/git-mirroring/dashboard" replace />} />
+
+        {/* ── /mirroring → /git-mirroring ───────────────── */}
+        <Route path="mirroring" element={<Navigate to="/git-mirroring/dashboard" replace />} />
 
         {/* ── Git Mirroring V2 ──────────────────────────── */}
         <Route
@@ -181,7 +170,15 @@ export function AppRouter() {
           path="git-mirroring/mirrors/:id"
           element={
             <PermissionGate permission="pipelines:read">
-              <GitMirroringMirrors />
+              <GitMirroringMirrorProcess />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/mirrors/:id/process"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringMirrorProcess />
             </PermissionGate>
           }
         />
@@ -222,6 +219,36 @@ export function AppRouter() {
           element={
             <PermissionGate permission="pipelines:read">
               <GitMirroringSyncGroups />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Git Mirroring / Dashboard ─────────────────── */}
+        <Route
+          path="git-mirroring/dashboard"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringDashboard />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Git Mirroring / Orphaned Mirrors ──────────── */}
+        <Route
+          path="git-mirroring/orphaned"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringOrphaned />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Git Mirroring / Reports ───────────────────── */}
+        <Route
+          path="git-mirroring/reports"
+          element={
+            <PermissionGate permission="reports:read">
+              <GitMirroringReports />
             </PermissionGate>
           }
         />
@@ -343,12 +370,12 @@ export function AppRouter() {
         {/* Old Overview → Overview */}
         <Route path="dashboard" element={<Navigate to="/overview" replace />} />
 
-        {/* Old Projects → Mirroring / Repositories */}
-        <Route path="projects" element={<Navigate to="/mirroring/repositories" replace />} />
+        {/* Old Projects → Git Mirroring V2 / Repositories */}
+        <Route path="projects" element={<Navigate to="/git-mirroring/repositories" replace />} />
         <Route path="projects/:id" element={<RedirectProjectsId />} />
 
-        {/* Old Mirrors → Mirroring / Repositories */}
-        <Route path="mirrors" element={<Navigate to="/mirroring/repositories" replace />} />
+        {/* Old Mirrors → Git Mirroring V2 / Repositories */}
+        <Route path="mirrors" element={<Navigate to="/git-mirroring/repositories" replace />} />
         <Route path="mirrors/:id" element={<RedirectMirrorsId />} />
 
         {/* Old Helm Charts → Mirroring / Helm Charts */}

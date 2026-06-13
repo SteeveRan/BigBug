@@ -12,6 +12,7 @@ from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_sync_log import HelmSyncLog
 from app.models.image_version import ImageVersion
 from app.services import pipeline as pipeline_service
+from app.services.audit import AuditService
 
 router = APIRouter()
 
@@ -140,6 +141,45 @@ async def gitlab_webhook(
     )
 
     if pipeline_run:
+        # Check if this PipelineRun is associated with any MirrorLogs
+        # and log audit events for mirror sync completion/failure
+        if pipeline_status in ("success", "failed", "canceled"):
+            from app.models.mirror_log import MirrorLog
+
+            mirror_result = await db.execute(
+                select(MirrorLog).where(MirrorLog.pipeline_run_id == pipeline_run.id)
+            )
+            mirror_log = mirror_result.scalar_one_or_none()
+            if mirror_log is not None:
+                from app.models.mirror import Mirror
+
+                mirror_obj_result = await db.execute(
+                    select(Mirror).where(Mirror.id == mirror_log.mirror_id)
+                )
+                mirror_obj = mirror_obj_result.scalar_one_or_none()
+                if mirror_obj is not None:
+                    if pipeline_status == "success":
+                        audit_action = "mirror.sync_completed"
+                    else:
+                        audit_action = "mirror.sync_failed"
+
+                    await AuditService.log_event(
+                        db,
+                        user_id=None,
+                        username="system",
+                        action=audit_action,
+                        resource_type="mirror",
+                        resource_id=mirror_obj.id,
+                        resource_name=mirror_obj.target_project_name,
+                        details={
+                            "pipeline_run_id": pipeline_run.id,
+                            "gitlab_pipeline_id": pipeline_run.gitlab_pipeline_id,
+                            "pipeline_status": pipeline_status,
+                            "mirror_log_id": mirror_log.id,
+                        },
+                    )
+                    await db.commit()
+
         return {"status": "ok", "type": "pipeline_run", "id": pipeline_run.id}
 
     return {"status": "ignored", "reason": "no matching log found for pipeline_id"}

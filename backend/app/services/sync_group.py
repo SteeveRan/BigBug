@@ -458,6 +458,67 @@ class SyncGroupService:
             default_group.id,
         )
 
+    # ── Restore ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    async def restore_sync_group(
+        db: AsyncSession,
+        group_id: int,
+        user_id: int | None = None,
+        username: str = "system",
+    ) -> SyncGroup:
+        """Restore a soft-deleted sync group.
+
+        Args:
+            db: Async database session.
+            group_id: ID of the sync group to restore.
+            user_id: ID of the user performing the action.
+            username: Username for audit logging (default ``"system"``).
+
+        Returns:
+            The restored SyncGroup with ``pipeline`` eagerly loaded.
+
+        Raises:
+            DomainException: When no sync group with *group_id* exists
+                             (including soft-deleted) (404).
+        """
+        result = await db.execute(
+            select(SyncGroup)
+            .options(
+                selectinload(SyncGroup.pipeline),
+                selectinload(SyncGroup.mirrors),
+            )
+            .where(SyncGroup.id == group_id)
+        )
+        group = result.scalar_one_or_none()
+        if group is None:
+            raise DomainException(
+                f"SyncGroup with id={group_id} not found",
+                status_code=404,
+            )
+
+        if not group.is_deleted:
+            await db.refresh(group)
+            return group  # already restored
+
+        group.is_deleted = False
+        group.deleted_at = None
+
+        await AuditService.log_event(
+            db,
+            user_id=user_id,
+            username=username,
+            action="sync_group.restored",
+            resource_type="sync_group",
+            resource_id=group.id,
+            resource_name=group.name,
+        )
+
+        await db.commit()
+        await db.refresh(group)
+        logger.info("Restored SyncGroup id=%d name='%s'", group.id, group.name)
+        return group
+
     # ── Assign Mirrors ─────────────────────────────────────────────────
 
     @staticmethod

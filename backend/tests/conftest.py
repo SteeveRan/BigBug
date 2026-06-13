@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.security import get_password_hash
 from app.database import Base, get_db
 from app.main import app
+from app.models.permission import Permission, role_permissions
 from app.models.role import Role, UserRole
 from app.models.user import User
 
@@ -81,15 +82,109 @@ async def client(test_engine):
     app.dependency_overrides.clear()
 
 
+# Full set of permissions needed for test coverage (mirrors, pipelines, credentials,
+# integrations, source_groups, sync_groups, roles, users, oidc, audit).
+_ALL_PERMISSIONS = [
+    # Mirroring
+    "mirrors:read",
+    "mirrors:write",
+    "mirrors:delete",
+    "mirrors:sync",
+    "mirrors:import",
+    "mirrors:integrity_check",
+    "mirrors:manage_orphaned",
+    # Source groups
+    "source_groups:read",
+    "source_groups:write",
+    "source_groups:refresh",
+    # Sync groups
+    "sync_groups:read",
+    "sync_groups:write",
+    "sync_groups:delete",
+    # Credentials (used by integrations API)
+    "credentials:read",
+    "credentials:use",
+    # Pipelines
+    "pipelines:read",
+    "pipelines:write",
+    "pipelines:delete",
+    # Integrations
+    "integrations:read",
+    "integrations:write",
+    # Docker / Helm (may be needed by other tests)
+    "docker:read",
+    "docker:write",
+    "docker:delete",
+    "docker:sync",
+    "docker:index",
+    "helm:read",
+    "helm:write",
+    "helm:delete",
+    "helm:sync",
+    "helm:index",
+    # Gold / App images
+    "gold_images:read",
+    "gold_images:write",
+    "gold_images:delete",
+    "gold_images:build",
+    "app_images:read",
+    "app_images:write",
+    "app_images:delete",
+    "app_images:build",
+    # Projects
+    "projects:read",
+    "projects:write",
+    "projects:delete",
+    # Users, Roles, System, OIDC, Audit
+    "users:read",
+    "users:write",
+    "users:delete",
+    "roles:read",
+    "roles:write",
+    "roles:delete",
+    "system:config",
+    "oidc:read",
+    "oidc:write",
+    "audit:read",
+    # Reports
+    "reports:read",
+]
+
+
+async def _seed_all_test_permissions(db: AsyncSession, role) -> None:
+    """Insert all known permissions and assign them to *role*."""
+    # Get already-assigned permission IDs for this role
+    existing_result = await db.execute(
+        select(role_permissions.c.permission_id).where(role_permissions.c.role_id == role.id)
+    )
+    existing_ids: set[int] = {row[0] for row in existing_result}
+
+    for perm_name in _ALL_PERMISSIONS:
+        result = await db.execute(select(Permission).where(Permission.name == perm_name))
+        perm = result.scalar_one_or_none()
+        if perm is None:
+            perm = Permission(name=perm_name, description=f"Auto-seeded: {perm_name}")
+            db.add(perm)
+            await db.flush()
+        # Assign to role via the association table (idempotent)
+        if perm.id not in existing_ids:
+            await db.execute(
+                role_permissions.insert().values(role_id=role.id, permission_id=perm.id)
+            )
+            existing_ids.add(perm.id)
+    await db.commit()
+
+
 @pytest_asyncio.fixture
 async def admin_role(db_session: AsyncSession):
-    """Get or create the admin role (idempotent across tests)."""
+    """Get or create the admin role with all permissions seeded."""
     result = await db_session.execute(select(Role).where(Role.name == "admin"))
     role = result.scalar_one_or_none()
     if role is None:
         role = Role(name="admin", description="Administrator")
         db_session.add(role)
         await db_session.commit()
+    await _seed_all_test_permissions(db_session, role)
     return role
 
 
@@ -158,6 +253,12 @@ async def admin_token(client, admin_user):
     )
     assert response.status_code == 200
     return response.json()["access_token"]
+
+
+@pytest_asyncio.fixture
+async def login_headers(admin_token):
+    """Get Authorization headers for authenticated requests (admin user)."""
+    return {"Authorization": f"Bearer {admin_token}"}
 
 
 @pytest_asyncio.fixture

@@ -49,7 +49,6 @@ WORKDIR /build
 # so that `uv pip install .` can discover the package defined in pyproject.toml
 # (packages = ["app"]) and install it into /opt/venv.
 COPY pyproject.toml ./
-COPY app/ ./app/
 
 RUN uv pip install --python /opt/venv/bin/python --no-cache .
 

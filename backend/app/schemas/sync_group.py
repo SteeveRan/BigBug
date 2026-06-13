@@ -65,6 +65,7 @@ class SyncGroupOut(BaseModel):
     freshness_enabled: bool
     freshness_concurrency: int
     is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     pipeline: PipelineOut | None = None

@@ -545,6 +545,31 @@ async def remove_role_scope_credential(
 
 
 # ------------------------------------------------------------------
+# Manual cleanup — trigger physical deletion of soft-deleted records
+# ------------------------------------------------------------------
+
+
+@router.post("/cleanup", tags=["admin"], status_code=status.HTTP_200_OK)
+async def manual_cleanup(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+) -> dict:
+    """Manually trigger physical deletion of soft-deleted Mirroring entities.
+
+    All records with ``deleted_at`` older than the configured retention
+    period (``SOFT_DELETE_RETENTION_DAYS``) are permanently removed.
+
+    Cascade order: MirrorLog → Mirror → SyncGroup → SourceRepository →
+    SourceGroup → Pipeline.
+    """
+    from app.services.cleanup import CleanupService
+
+    result = await CleanupService.run_cleanup(db)
+    logger.info("Manual cleanup executed by admin: %s", result.to_dict())
+    return result.to_dict()
+
+
+# ------------------------------------------------------------------
 # RBAC — Role Scope: Sync Groups
 # ------------------------------------------------------------------
 

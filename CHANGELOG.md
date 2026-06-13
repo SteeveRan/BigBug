@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Git Mirroring V2 Finalization — Этап 9:**
+  - Reports: 4 типа отчётов по зеркалам (Summary, Sync History, Failures, Performance) с экспортом в CSV/JSON
+  - Bulk Operations: 3 типа массовых операций (Sync, Validate Integrity, Delete) с подтверждением
+  - Финальная актуализация роутинга: редиректы со старых URL (`/mirrors`, `/helm-charts`, `/docker-images`, `/pipelines`, `/gold-images`, `/app-images`) на новую структуру
+- **Git Mirroring V2 — Этап 8:**
+  - Soft Delete + Restore для зеркал (модель `MirrorReleaseLog`, API `DELETE /api/mirrors/{id}` + `POST /api/mirrors/{id}/restore`)
+  - CleanupService + APScheduler: фоновая очистка GitLab проектов для soft-deleted зеркал старше 7 дней
+  - HealthCheck + Integrity Check + Orphaned API: проверка целостности target-репозиториев и обнаружение осиротевших зеркал
+  - Orphaned Mirrors страница + RelinkModal: UI для управления осиротевшими зеркалами
+
 ### Changed
 - Updated Material UI from v6 to v9 (`@mui/material ^9.0.1`, `@mui/icons-material ^9.0.1`)
 - Updated `@emotion/react` to `^11.14.0`, `@emotion/styled` to `^11.14.1`

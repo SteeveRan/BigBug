@@ -71,6 +71,16 @@ import type {
   PipelineConfig,
   PipelineConfigCreate,
   PipelineConfigUpdate,
+  // Orphaned Mirrors
+  OrphanedMirrorListResponse,
+  IntegrityCheckResult,
+  // Reports
+  DuplicatesReport,
+  StorageReport,
+  StorageRefreshStatus,
+  StatusReport,
+  SyncsReport,
+  BulkOperationResponse,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -112,6 +122,8 @@ export const api = createApi({
     'MirrorLog',
     'SyncGroup',
     'PipelineConfig',
+    'OrphanedMirrors',
+    'Reports',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -1070,6 +1082,115 @@ export const api = createApi({
       invalidatesTags: (result, error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
     }),
 
+    // ──── Orphaned Mirrors ──────────────────────────────────────────────────
+
+    getOrphanedMirrors: builder.query<
+      OrphanedMirrorListResponse,
+      { page?: number; page_size?: number; search?: string; gitlab_instance_id?: number }
+    >({
+      query: (params) => ({ url: '/mirroring/orphaned-mirrors', params }),
+      providesTags: ['OrphanedMirrors'],
+    }),
+
+    reassignOrphanedMirror: builder.mutation<
+      void,
+      { mirrorId: number; syncGroupId: number }
+    >({
+      query: ({ mirrorId, syncGroupId }) => ({
+        url: `/mirroring/orphaned/${mirrorId}/reassign`,
+        method: 'POST',
+        body: { sync_group_id: syncGroupId },
+      }),
+      invalidatesTags: ['OrphanedMirrors', 'Mirror'],
+    }),
+
+    moveOrphanedTarget: builder.mutation<
+      void,
+      { mirrorId: number; targetPath: string }
+    >({
+      query: ({ mirrorId, targetPath }) => ({
+        url: `/mirroring/orphaned/${mirrorId}/move-target`,
+        method: 'POST',
+        body: { target_path: targetPath },
+      }),
+      invalidatesTags: ['OrphanedMirrors', 'Mirror'],
+    }),
+
+    deleteOrphanedMirror: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/orphaned/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['OrphanedMirrors'],
+    }),
+
+    checkMirrorIntegrity: builder.mutation<IntegrityCheckResult, number>({
+      query: (id) => ({ url: `/mirroring/mirrors/${id}/integrity-check`, method: 'POST' }),
+    }),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Reports
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ── Duplicates ─────────────────────────────────────────────────────
+
+    getDuplicatesReport: builder.query<DuplicatesReport, void>({
+      query: () => '/reports/duplicates',
+      providesTags: ['Reports'],
+    }),
+
+    // ── Storage ────────────────────────────────────────────────────────
+
+    getStorageReport: builder.query<StorageReport, void>({
+      query: () => '/reports/storage',
+      providesTags: ['Reports'],
+    }),
+
+    refreshStorageReport: builder.mutation<StorageRefreshStatus, void>({
+      query: () => ({ url: '/reports/storage/refresh', method: 'POST' }),
+      invalidatesTags: ['Reports'],
+    }),
+
+    // ── Status ─────────────────────────────────────────────────────────
+
+    getStatusReport: builder.query<StatusReport, { trend_days?: number } | void>({
+      query: (params) => ({ url: '/reports/status', params: params ?? undefined }),
+      providesTags: ['Reports'],
+    }),
+
+    // ── Syncs ──────────────────────────────────────────────────────────
+
+    getSyncsReport: builder.query<
+      SyncsReport,
+      { period_start?: string; period_end?: string } | void
+    >({
+      query: (params) => ({ url: '/reports/syncs', params: params ?? undefined }),
+      providesTags: ['Reports'],
+    }),
+
+    // ── Bulk Operations ────────────────────────────────────────────────
+
+    bulkReassignSyncGroup: builder.mutation<
+      BulkOperationResponse,
+      { mirror_ids: number[]; sync_group_id: number }
+    >({
+      query: (body) => ({ url: '/reports/bulk/reassign-sync-group', method: 'POST', body }),
+      invalidatesTags: ['Reports', 'Mirror', 'SyncGroup'],
+    }),
+
+    bulkChangeTargetGitlab: builder.mutation<
+      BulkOperationResponse,
+      { mirror_ids: number[]; sync_group_id: number }
+    >({
+      query: (body) => ({ url: '/reports/bulk/change-target-gitlab', method: 'POST', body }),
+      invalidatesTags: ['Reports', 'Mirror', 'SyncGroup'],
+    }),
+
+    bulkApplyPipeline: builder.mutation<
+      BulkOperationResponse,
+      { mirror_ids: number[]; pipeline_id: number }
+    >({
+      query: (body) => ({ url: '/reports/bulk/apply-pipeline', method: 'POST', body }),
+      invalidatesTags: ['Reports', 'Mirror', 'SyncGroup', 'PipelineConfig'],
+    }),
+
     // ──── Audit Logs ────────────────────────────────────────────────────────
 
     getAuditLogs: builder.query<
@@ -1244,6 +1365,12 @@ export const {
   useDeleteSyncGroupMutation,
   useAssignMirrorsToGroupMutation,
   useApplyPipelineToGroupMutation,
+  // Orphaned Mirrors
+  useGetOrphanedMirrorsQuery,
+  useReassignOrphanedMirrorMutation,
+  useMoveOrphanedTargetMutation,
+  useDeleteOrphanedMirrorMutation,
+  useCheckMirrorIntegrityMutation,
   // Pipeline Configurations
   useGetPipelineConfigsQuery,
   useGetPipelineConfigQuery,
@@ -1251,4 +1378,13 @@ export const {
   useUpdatePipelineConfigMutation,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
+  // Reports
+  useGetDuplicatesReportQuery,
+  useGetStorageReportQuery,
+  useRefreshStorageReportMutation,
+  useGetStatusReportQuery,
+  useGetSyncsReportQuery,
+  useBulkReassignSyncGroupMutation,
+  useBulkChangeTargetGitlabMutation,
+  useBulkApplyPipelineMutation,
 } = api;

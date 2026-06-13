@@ -67,6 +67,8 @@ class MirrorListOut(BaseModel):
     last_freshness_check_at: datetime | None = None
     last_freshness_status: str | None = None
     is_imported: bool
+    is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     source_repository: SourceRepositoryListOut | None = None
 
@@ -94,6 +96,8 @@ class MirrorDetailOut(BaseModel):
     last_known_commit_author: str | None = None
     target_diverged_commits: int
     is_imported: bool
+    is_deleted: bool
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     source_repository: SourceRepositoryDetailOut | None = None
@@ -118,3 +122,35 @@ class MirrorDuplicateCheckOut(BaseModel):
     """Response for duplicate check."""
 
     exists: bool
+
+
+# ──── Integrity Check ──────────────────────────────────────────────────────
+
+
+class IntegrityCheckResult(BaseModel):
+    """Result of a direct source-vs-target integrity comparison."""
+
+    mirror_id: int
+    status: str  # "MATCH", "MISMATCH", "ERROR"
+    source_commit_sha: str | None = None
+    target_commit_sha: str | None = None
+    message: str
+    detail: dict[str, object] | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ──── Orphaned Mirrors ────────────────────────────────────────────────────
+
+
+class OrphanedMirrorOut(BaseModel):
+    """Summary of an orphaned mirror — a GitLab project with no BigBug record."""
+
+    mirror_id: int  # populated with target_project_id for orphaned entries
+    source_repository_name: str | None = None
+    target_path: str | None = None
+    target_web_url: str | None = None
+    reason: str
+    created_at: str | None = None
+
+    model_config = {"from_attributes": True}

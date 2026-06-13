@@ -70,6 +70,8 @@ ADMIN_PERMISSIONS = [
     "sync_groups:write", "sync_groups:delete",
     # Credentials
     "credentials:use",
+    # Reports
+    "reports:read",
 ]
 
 # Operator: read + actions, no delete, no user/role/oidc/integrations management

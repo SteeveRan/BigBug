@@ -6,46 +6,58 @@
 
 | # | Permission | Назначение | Backend (seed) | Frontend (router) | Статус |
 |---|-----------|------------|----------------|-------------------|--------|
-| 1 | `mirrors:read` | Просмотр mirrors | A, O, V | — | только бэкенд |
+| 1 | `mirrors:read` | Просмотр mirrors | A, O, V | `/mirroring/mirrors` | ✅ |
 | 2 | `mirrors:write` | Создание/изменение mirrors | A, O | — | только бэкенд |
-| 3 | `mirrors:delete` | Удаление mirrors | A | — | только бэкенд |
+| 3 | `mirrors:delete` | Удаление mirrors (soft delete) | A | — | только бэкенд |
 | 4 | `mirrors:sync` | Запуск синхронизации | A, O | — | только бэкенд |
-| 5 | `projects:read` | Просмотр проектов | A, O, V | `/mirroring/repositories`, `/:id` | ✅ |
-| 6 | `projects:write` | Создание/изменение проектов | A, O | — | только бэкенд |
-| 7 | `projects:delete` | Удаление проектов | A | — | только бэкенд |
-| 8 | `helm:read` | Просмотр Helm charts | A, O, V | `/mirroring/helm-charts`, `/:id` | ✅ |
-| 9 | `helm:write` | Создание/изменение sources | A, O | — | только бэкенд |
-| 10 | `helm:delete` | Удаление sources | A | — | только бэкенд |
-| 11 | `helm:sync` | Запуск синхронизации | A, O | — | только бэкенд |
-| 12 | `helm:index` | Индексация index.yaml | A, O | — | только бэкенд |
-| 13 | `docker:read` | Просмотр Docker images | A, O, V | `/mirroring/docker-images`, `/:id` | ✅ |
-| 14 | `docker:write` | Создание/изменение sources | A, O | — | только бэкенд |
-| 15 | `docker:delete` | Удаление sources | A | — | только бэкенд |
-| 16 | `docker:sync` | Запуск синхронизации | A, O | — | только бэкенд |
-| 17 | `docker:index` | Индексация через Registry API | A, O | — | только бэкенд |
-| 18 | `gold_images:read` | Просмотр Gold Images | A, O, V | `/builds/gold-images` | ✅ |
-| 19 | `gold_images:write` | Создание/изменение | A, O | — | только бэкенд |
-| 20 | `gold_images:delete` | Удаление | A | — | только бэкенд |
-| 21 | `gold_images:build` | Запуск сборки | A, O | — | только бэкенд |
-| 22 | `app_images:read` | Просмотр App Images | A, O, V | `/builds/app-images` | ✅ |
-| 23 | `app_images:write` | Создание/изменение | A, O | — | только бэкенд |
-| 24 | `app_images:delete` | Удаление | A | — | только бэкенд |
-| 25 | `app_images:build` | Запуск сборки | A, O | — | только бэкенд |
-| 26 | `pipelines:read` | Просмотр запусков и компонентов | A, O, V | `/pipelines/runs`, `/pipelines/components` | ✅ |
-| 27 | `pipelines:write` | Создание и запуск пайплайнов | A, O | — | только бэкенд |
-| 28 | `pipelines:delete` | Отмена и удаление пайплайнов | A | — | только бэкенд |
-| 29 | `users:read` | Просмотр пользователей | A, V | `/admin/users` | ✅ |
-| 30 | `users:write` | Создание/изменение пользователей | A | — | только бэкенд |
-| 31 | `users:delete` | Удаление пользователей | A | — | только бэкенд |
-| 32 | `roles:read` | Просмотр ролей | A, V | — | только бэкенд |
-| 33 | `roles:write` | Создание/изменение ролей | A | — | только бэкенд |
-| 34 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
-| 35 | `system:config` | Изменение конфигурации системы | A | — | только бэкенд |
-| 36 | `integrations:read` | Просмотр конфигураций интеграций | A, V | `/admin/integrations` | ✅ |
-| 37 | `integrations:write` | Управление интеграциями | A | — | только бэкенд |
-| 38 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
-| 39 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
-| 40 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
+| 5 | `mirrors:import` | Импорт существующего зеркала | A, O | — | только бэкенд |
+| 6 | `mirrors:integrity_check` | Проверка целостности target | A, O | — | только бэкенд |
+| 7 | `mirrors:manage_orphaned` | Управление осиротевшими зеркалами | A | — | только бэкенд |
+| 8 | `projects:read` | Просмотр проектов (GithubProject) | A, O, V | `/projects`, `/:id` | ✅ |
+| 9 | `projects:write` | Создание/изменение проектов | A, O | — | только бэкенд |
+| 10 | `projects:delete` | Удаление проектов | A | — | только бэкенд |
+| 11 | `source_groups:read` | Просмотр Source Groups и репозиториев | A, O, V | `/mirroring/source-groups`, `/mirroring/groups/:id` | ✅ |
+| 12 | `source_groups:write` | Импорт/изменение Source Groups | A, O | — | только бэкенд |
+| 13 | `source_groups:refresh` | Обновление списка репозиториев | A, O | — | только бэкенд |
+| 14 | `helm:read` | Просмотр Helm charts | A, O, V | `/mirroring/helm-charts`, `/:id` | ✅ |
+| 15 | `helm:write` | Создание/изменение sources | A, O | — | только бэкенд |
+| 16 | `helm:delete` | Удаление sources | A | — | только бэкенд |
+| 17 | `helm:sync` | Запуск синхронизации | A, O | — | только бэкенд |
+| 18 | `helm:index` | Индексация index.yaml | A, O | — | только бэкенд |
+| 19 | `docker:read` | Просмотр Docker images | A, O, V | `/mirroring/docker-images`, `/:id` | ✅ |
+| 20 | `docker:write` | Создание/изменение sources | A, O | — | только бэкенд |
+| 21 | `docker:delete` | Удаление sources | A | — | только бэкенд |
+| 22 | `docker:sync` | Запуск синхронизации | A, O | — | только бэкенд |
+| 23 | `docker:index` | Индексация через Registry API | A, O | — | только бэкенд |
+| 24 | `gold_images:read` | Просмотр Gold Images | A, O, V | `/builds/gold-images` | ✅ |
+| 25 | `gold_images:write` | Создание/изменение | A, O | — | только бэкенд |
+| 26 | `gold_images:delete` | Удаление | A | — | только бэкенд |
+| 27 | `gold_images:build` | Запуск сборки | A, O | — | только бэкенд |
+| 28 | `app_images:read` | Просмотр App Images | A, O, V | `/builds/app-images` | ✅ |
+| 29 | `app_images:write` | Создание/изменение | A, O | — | только бэкенд |
+| 30 | `app_images:delete` | Удаление | A | — | только бэкенд |
+| 31 | `app_images:build` | Запуск сборки | A, O | — | только бэкенд |
+| 32 | `pipelines:read` | Просмотр запусков, компонентов и конфигураций | A, O, V | `/pipelines/runs`, `/pipelines/components`, `/mirroring/pipelines` | ✅ |
+| 33 | `pipelines:write` | Создание конфигураций и запуск пайплайнов | A, O | — | только бэкенд |
+| 34 | `pipelines:delete` | Удаление конфигураций и отмена запусков | A | — | только бэкенд |
+| 35 | `sync_groups:read` | Просмотр Sync Groups | A, O, V | `/mirroring/sync-groups` | ✅ |
+| 36 | `sync_groups:write` | Создание/изменение Sync Groups | A, O | — | только бэкенд |
+| 37 | `sync_groups:delete` | Удаление Sync Groups | A | — | только бэкенд |
+| 38 | `credentials:read` | Просмотр учётных данных | A | `/admin/integrations` (credentials tab) | ✅ |
+| 39 | `credentials:use` | Использование учётных данных (для source providers) | A, O | — | только бэкенд |
+| 40 | `reports:read` | Генерация отчётов зеркалирования | A | `/mirroring/reports` | ✅ |
+| 41 | `users:read` | Просмотр пользователей | A, V | `/admin/users` | ✅ |
+| 42 | `users:write` | Создание/изменение пользователей | A | — | только бэкенд |
+| 43 | `users:delete` | Удаление пользователей | A | — | только бэкенд |
+| 44 | `roles:read` | Просмотр ролей | A, V | — | только бэкенд |
+| 45 | `roles:write` | Создание/изменение ролей (включая scope) | A | — | только бэкенд |
+| 46 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
+| 47 | `system:config` | Изменение конфигурации системы | A | — | только бэкенд |
+| 48 | `integrations:read` | Просмотр конфигураций интеграций | A, V | `/admin/integrations` | ✅ |
+| 49 | `integrations:write` | Управление интеграциями | A | — | только бэкенд |
+| 50 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
+| 51 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
+| 52 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
 
 **Обозначения:** A = Admin, O = Operator, V = Viewer. `—` = не используется (нет `PermissionGate` в роутере). `✅` = есть и в seed, и в роутере.
 
@@ -57,9 +69,15 @@
 | `mirrors:write` | ✅ | ✅ | |
 | `mirrors:delete` | ✅ | | |
 | `mirrors:sync` | ✅ | ✅ | |
+| `mirrors:import` | ✅ | ✅ | |
+| `mirrors:integrity_check` | ✅ | ✅ | |
+| `mirrors:manage_orphaned` | ✅ | | |
 | `projects:read` | ✅ | ✅ | ✅ |
 | `projects:write` | ✅ | ✅ | |
 | `projects:delete` | ✅ | | |
+| `source_groups:read` | ✅ | ✅ | ✅ |
+| `source_groups:write` | ✅ | ✅ | |
+| `source_groups:refresh` | ✅ | ✅ | |
 | `helm:read` | ✅ | ✅ | ✅ |
 | `helm:write` | ✅ | ✅ | |
 | `helm:delete` | ✅ | | |
@@ -81,6 +99,12 @@
 | `pipelines:read` | ✅ | ✅ | ✅ |
 | `pipelines:write` | ✅ | ✅ | |
 | `pipelines:delete` | ✅ | | |
+| `sync_groups:read` | ✅ | ✅ | ✅ |
+| `sync_groups:write` | ✅ | ✅ | |
+| `sync_groups:delete` | ✅ | | |
+| `credentials:read` | ✅ | | |
+| `credentials:use` | ✅ | ✅ | |
+| `reports:read` | ✅ | | |
 | `users:read` | ✅ | | ✅ |
 | `users:write` | ✅ | | |
 | `users:delete` | ✅ | | |

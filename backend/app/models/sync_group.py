@@ -16,7 +16,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -66,12 +65,7 @@ class SyncGroup(Base):
 
     # Note: partial unique constraint on is_default=True will be enforced
     # via Alembic migration (postgresql_where).
-    __table_args__ = (
-        UniqueConstraint(
-            "is_default",
-            name="uq_sync_groups_default",
-        ),
-    )
+    __table_args__ = ()
 
     def __repr__(self) -> str:
         return f"<SyncGroup(id={self.id}, name='{self.name}', is_default={self.is_default})>"

@@ -32,6 +32,7 @@ class TestSourceRepositoryListOut:
             "latest_release_date",
             "source_pushed_at",
             "last_seen_at",
+            "is_deleted",
             "created_at",
         }
         assert fields == expected
