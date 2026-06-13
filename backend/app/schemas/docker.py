@@ -5,10 +5,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
-if TYPE_CHECKING:
-    from app.schemas.integrations import DockerRegistryInstanceOut
-
-# Import the class for runtime reference resolution
 from app.schemas.integrations import DockerRegistryInstanceOut
 
 # ──── DockerImageTag────────────────────────────────────────────────────────
