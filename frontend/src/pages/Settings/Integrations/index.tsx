@@ -29,7 +29,7 @@ export function SettingsIntegrations() {
         message.error(msg);
       }
     },
-    [message],
+    [message]
   );
 
   return (

@@ -17,7 +17,7 @@ from typing import Any
 import gitlab
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload
 
 from app.core.exceptions import BadRequestError, DomainException, NotFoundError
 from app.core.secrets import decrypt_secret
@@ -259,9 +259,7 @@ async def trigger_pipeline_from_config(
         raise BadRequestError(f"Pipeline '{pipeline.name}' is disabled")
 
     if not pipeline.gitlab_instance:
-        raise NotFoundError(
-            f"Pipeline '{pipeline.name}' has no gitlab_instance assigned"
-        )
+        raise NotFoundError(f"Pipeline '{pipeline.name}' has no gitlab_instance assigned")
 
     # -- Merge variables: defaults → mirror overrides -----------------------
     variables: dict[str, str] = dict(pipeline.default_variables or {})
@@ -348,8 +346,7 @@ async def monitor_pipeline_status(
 
     if not run.gitlab_pipeline_id:
         raise BadRequestError(
-            f"PipelineRun {pipeline_run_id} has no gitlab_pipeline_id — "
-            "cannot monitor status"
+            f"PipelineRun {pipeline_run_id} has no gitlab_pipeline_id — cannot monitor status"
         )
 
     instance = await _get_instance_or_404(db, run.gitlab_instance_id)
@@ -560,9 +557,7 @@ async def trigger_component(
     gl = _get_gitlab_client(instance)
 
     # Convert variables to python-gitlab format
-    gl_variables: list[dict[str, str]] = [
-        {"key": k, "value": str(v)} for k, v in inputs.items()
-    ]
+    gl_variables: list[dict[str, str]] = [{"key": k, "value": str(v)} for k, v in inputs.items()]
 
     try:
         project = gl.projects.get(component.project_path)
@@ -720,6 +715,7 @@ async def delete_component(db: AsyncSession, component_id: int) -> None:
 # Pipeline Config CRUD (git-mirroring v2)
 # ===================================================================
 
+
 async def get_pipeline_configs(
     db: AsyncSession,
     skip: int = 0,
@@ -762,7 +758,7 @@ async def get_pipeline_config(db: AsyncSession, pipeline_id: int) -> Pipeline | 
 
 async def _unset_default(db: AsyncSession) -> None:
     """Set is_default=False on the Pipeline that currently holds it (if any)."""
-    result = await db.execute(select(Pipeline).where(Pipeline.is_default == True))
+    result = await db.execute(select(Pipeline).where(Pipeline.is_default))
     current = result.scalar_one_or_none()
     if current:
         current.is_default = False
@@ -882,9 +878,11 @@ async def delete_pipeline(db: AsyncSession, pipeline_id: int) -> None:
 
     # check SyncGroup references
     result = await db.execute(
-        select(func.count()).select_from(SyncGroup).where(
+        select(func.count())
+        .select_from(SyncGroup)
+        .where(
             SyncGroup.pipeline_id == pipeline_id,
-            SyncGroup.is_deleted == False,
+            ~SyncGroup.is_deleted,
         )
     )
     sync_count = result.scalar_one()
@@ -951,7 +949,7 @@ async def get_default_pipeline(db: AsyncSession) -> Pipeline | None:
             joinedload(Pipeline.components).joinedload(PipelineComponent.component),
             joinedload(Pipeline.gitlab_instance),
         )
-        .where(Pipeline.is_default == True)
+        .where(Pipeline.is_default)
     )
     result = await db.execute(stmt)
     return result.unique().scalar_one_or_none()

@@ -8,7 +8,6 @@
 
 import pytest
 import pytest_asyncio
-from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -163,9 +162,7 @@ class TestCreateConfig:
                 "name": "with-components",
                 "description": "Has components",
                 "ref": "main",
-                "components": [
-                    {"component_id": comp.id, "order": 1, "overrides": {"env": "prod"}}
-                ],
+                "components": [{"component_id": comp.id, "order": 1, "overrides": {"env": "prod"}}],
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -327,7 +324,9 @@ class TestDuplicateConfig:
     """Tests for POST /api/pipelines/configs/{id}/duplicate"""
 
     @pytest.mark.asyncio
-    async def test_duplicate_config(self, client: AsyncClient, admin_token: str, db_session: AsyncSession):
+    async def test_duplicate_config(
+        self, client: AsyncClient, admin_token: str, db_session: AsyncSession
+    ):
         """Duplicate creates a copy with new name."""
         comp = (
             await db_session.execute(

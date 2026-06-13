@@ -4,7 +4,7 @@
              Handles CRUD, duplicate detection, import, sync triggering,
              freshness and integrity checks.
 @dependencies sqlalchemy, app.core.exceptions, app.services.pipeline,
-             app.services.audit, app.services.source_providers.github
+             app.services.audit, app.services.source_providers
 @relatedFiles ../models/mirror.py, ../models/mirror_log.py,
              ../models/source_repository.py, ../models/sync_group.py,
              ../schemas/mirror.py, ../services/pipeline.py, ../services/audit.py
@@ -18,7 +18,7 @@ from typing import Any
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import (
     BadRequestError,
@@ -26,11 +26,9 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.core.secrets import decrypt_secret
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline as PipelineModel
-from app.models.pipeline_run import PipelineRun
 from app.models.role_scope import RoleScopeSourceGroup, RoleScopeSyncGroup
 from app.models.source_group import SourceGroup
 from app.models.source_provider import SourceProvider
@@ -40,12 +38,11 @@ from app.models.user import User
 from app.schemas.mirror import (
     MirrorBulkCreate,
     MirrorCreate,
-    MirrorDuplicateCheck,
     MirrorUpdate,
 )
 from app.services.audit import AuditService
 from app.services.pipeline import trigger_pipeline  # standalone async function
-from app.services.source_providers.github import GitHubSourceProvider
+from app.services.source_providers import create_source_provider
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +84,7 @@ async def _get_mirror_or_404(db: AsyncSession, mirror_id: int) -> Mirror:
             .selectinload(PipelineModel.gitlab_instance),
             selectinload(Mirror.mirror_logs),
         )
-        .where(Mirror.id == mirror_id, Mirror.is_deleted == False)
+        .where(Mirror.id == mirror_id, ~Mirror.is_deleted)
     )
     mirror = result.scalar_one_or_none()
     if mirror is None:
@@ -102,7 +99,7 @@ async def _get_source_repo_or_404(db: AsyncSession, sr_id: int) -> SourceReposit
         .options(
             selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
         )
-        .where(SourceRepository.id == sr_id, SourceRepository.is_deleted == False)
+        .where(SourceRepository.id == sr_id, ~SourceRepository.is_deleted)
     )
     repo = result.scalar_one_or_none()
     if repo is None:
@@ -115,7 +112,7 @@ async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
     result = await db.execute(
         select(SyncGroup)
         .options(selectinload(SyncGroup.pipeline))
-        .where(SyncGroup.id == sg_id, SyncGroup.is_deleted == False)
+        .where(SyncGroup.id == sg_id, ~SyncGroup.is_deleted)
     )
     sg = result.scalar_one_or_none()
     if sg is None:
@@ -173,12 +170,10 @@ class MirrorService:
             Mirror.source_repository_id == data.source_repository_id,
             Mirror.target_namespace == data.target_namespace,
             Mirror.target_project_name == data.target_project_name,
-            Mirror.is_deleted == False,
+            ~Mirror.is_deleted,
         )
         if data.sync_group_id is not None:
-            duplicate_query = duplicate_query.where(
-                Mirror.sync_group_id == data.sync_group_id
-            )
+            duplicate_query = duplicate_query.where(Mirror.sync_group_id == data.sync_group_id)
         dup_result = await db.execute(duplicate_query)
         existing_mirror = dup_result.scalar_one_or_none()
 
@@ -258,7 +253,7 @@ class MirrorService:
                 sg_result = await db.execute(
                     select(SyncGroup)
                     .options(selectinload(SyncGroup.pipeline))
-                    .where(SyncGroup.id == data.sync_group_id, SyncGroup.is_deleted == False)
+                    .where(SyncGroup.id == data.sync_group_id, ~SyncGroup.is_deleted)
                 )
                 sync_group = sg_result.scalar_one_or_none()
                 if sync_group is not None and sync_group.pipeline is not None:
@@ -323,19 +318,15 @@ class MirrorService:
         sr_result = await db.execute(
             select(SourceRepository).where(
                 SourceRepository.id.in_(sr_ids),
-                SourceRepository.is_deleted == False,
+                ~SourceRepository.is_deleted,
             )
         )
-        sr_map: dict[int, SourceRepository] = {
-            sr.id: sr for sr in sr_result.scalars().all()
-        }
+        sr_map: dict[int, SourceRepository] = {sr.id: sr for sr in sr_result.scalars().all()}
 
         # Validate all source repos exist
         missing = sr_ids - set(sr_map.keys())
         if missing:
-            raise BadRequestError(
-                f"Source repositories not found: {sorted(missing)}"
-            )
+            raise BadRequestError(f"Source repositories not found: {sorted(missing)}")
 
         # Resolve sync group
         sg_id: int | None = None
@@ -347,19 +338,17 @@ class MirrorService:
         # target_namespace, target_project_name) combinations
         dup_conditions: list = []
         for m in mirror_list:
-            sr = sr_map[m.source_repository_id]
+            sr_map[m.source_repository_id]  # ensure key exists
             target_name = m.target_project_name
             target_ns = (
-                m.target_namespace
-                if m.target_namespace
-                else (data.default_target_namespace or "")
+                m.target_namespace if m.target_namespace else (data.default_target_namespace or "")
             )
             dup_conditions.append(
                 and_(
                     Mirror.source_repository_id == m.source_repository_id,
                     Mirror.target_namespace == target_ns,
                     Mirror.target_project_name == target_name,
-                    Mirror.is_deleted == False,
+                    ~Mirror.is_deleted,
                 )
             )
 
@@ -378,12 +367,10 @@ class MirrorService:
         # Build Mirror instances
         mirrors_to_create: list[Mirror] = []
         for m in mirror_list:
-            sr = sr_map[m.source_repository_id]
+            sr_map[m.source_repository_id]  # ensure key exists
             target_name = m.target_project_name
             target_ns = (
-                m.target_namespace
-                if m.target_namespace
-                else (data.default_target_namespace or "")
+                m.target_namespace if m.target_namespace else (data.default_target_namespace or "")
             )
             effective_sg_id = m.sync_group_id or sg_id
 
@@ -469,7 +456,7 @@ class MirrorService:
             )
             .where(
                 Mirror.source_repository_id.in_(source_repo_ids),
-                Mirror.is_deleted == False,
+                ~Mirror.is_deleted,
             )
         )
         all_mirrors = list(result.scalars().all())
@@ -518,7 +505,7 @@ class MirrorService:
     ) -> Mirror:
         """Import an existing mirror by verifying the source-target link.
 
-        Uses ``GitHubSourceProvider.get_commit_info()`` to verify that
+        Uses source provider ``get_commit_info()`` to verify that
         the source repository and target GitLab project share the same
         most recent commit, confirming they are a valid mirror pair.
 
@@ -546,22 +533,22 @@ class MirrorService:
             target_namespace = ""
             target_project_name = parts[0] if parts else target_path
 
-        # Find a SourceProvider that can handle this URL (GitHub)
+        # Find a SourceProvider that can handle this URL
         source_providers_result = await db.execute(
             select(SourceProvider).where(
                 SourceProvider.provider_type == "github",
-                SourceProvider.is_deleted == False,
+                ~SourceProvider.is_deleted,
             )
         )
         source_providers = list(source_providers_result.scalars().all())
 
         if not source_providers:
             raise DomainException(
-                "No GitHub source provider configured for verification",
+                "No source provider configured for verification",
                 status_code=400,
             )
 
-        # Try each GitHub provider to verify the source commit
+        # Try each provider to verify the source commit
         latest_commit: dict | None = None
         repo_external_id: str | None = None
         used_provider: SourceProvider | None = None
@@ -571,7 +558,7 @@ class MirrorService:
                 continue
             try:
                 credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-                gh_provider = GitHubSourceProvider(sp, credential_secret)
+                gh_provider = await create_source_provider(sp, credential_secret)
 
                 # Extract owner/repo from source_url
                 # source_url examples: https://github.com/owner/repo.git
@@ -600,7 +587,7 @@ class MirrorService:
         if latest_commit is None:
             raise DomainException(
                 f"Unable to verify source repository: {source_url}. "
-                "No GitHub provider could fetch commit information.",
+                "No source provider could fetch commit information.",
                 status_code=400,
             )
 
@@ -611,7 +598,7 @@ class MirrorService:
                     SourceRepository.clone_url_https == source_url,
                     SourceRepository.web_url == source_url,
                 ),
-                SourceRepository.is_deleted == False,
+                ~SourceRepository.is_deleted,
             )
         )
         source_repo = sr_result.scalar_one_or_none()
@@ -620,17 +607,18 @@ class MirrorService:
             # Auto-create a minimal SourceRepository
             # Need a source_group — find one from the provider
             sg_result = await db.execute(
-                select(SourceGroup).where(
+                select(SourceGroup)
+                .where(
                     SourceGroup.source_provider_id == used_provider.id,
-                    SourceGroup.is_deleted == False,
-                ).limit(1)
+                    ~SourceGroup.is_deleted,
+                )
+                .limit(1)
             )
             source_group = sg_result.scalar_one_or_none()
 
             if source_group is None:
                 raise DomainException(
-                    "No source group found for the GitHub provider. "
-                    "Run discovery first.",
+                    "No source group found for the provider. Run discovery first.",
                     status_code=400,
                 )
 
@@ -683,7 +671,10 @@ class MirrorService:
 
         logger.info(
             "Imported mirror: id=%d, source=%s, target=%s/%s",
-            mirror.id, source_url, target_namespace, target_project_name,
+            mirror.id,
+            source_url,
+            target_namespace,
+            target_project_name,
         )
         return mirror
 
@@ -726,9 +717,7 @@ class MirrorService:
             "last_sync_at": Mirror.last_sync_at,
             # source_url — sort by source_repository.full_name as proxy
         }
-        sort_col = sort_column_map.get(
-            sort_by, Mirror.created_at
-        )
+        sort_col = sort_column_map.get(sort_by, Mirror.created_at)
         if sort_by == "source_url":
             # Sort by the source repository name as a proxy for source_url
             sort_col = SourceRepository.full_name
@@ -739,7 +728,7 @@ class MirrorService:
         user_role_ids: list[int] = [ur.role_id for ur in user.user_roles]
 
         # ADMIN sees everything
-        from app.models.role import Role, UserRole
+        from app.models.role import Role
 
         is_admin_result = await db.execute(
             select(Role.name).where(
@@ -753,14 +742,12 @@ class MirrorService:
         base_query = (
             select(Mirror)
             .options(
-                selectinload(Mirror.source_repository).selectinload(
-                    SourceRepository.source_group
-                ),
-                selectinload(Mirror.sync_group).selectinload(
-                    SyncGroup.pipeline
-                ).selectinload(PipelineModel.gitlab_instance),
+                selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
+                selectinload(Mirror.sync_group)
+                .selectinload(SyncGroup.pipeline)
+                .selectinload(PipelineModel.gitlab_instance),
             )
-            .where(Mirror.is_deleted == False)
+            .where(~Mirror.is_deleted)
         )
 
         if not is_admin and user_role_ids:
@@ -772,30 +759,22 @@ class MirrorService:
                     RoleScopeSourceGroup.role_id.in_(user_role_ids)
                 )
             )
-            allowed_source_group_ids = {
-                row[0] for row in sg_scope_result
-            }
+            allowed_source_group_ids = {row[0] for row in sg_scope_result}
 
             sync_scope_result = await db.execute(
                 select(RoleScopeSyncGroup.sync_group_id).where(
                     RoleScopeSyncGroup.role_id.in_(user_role_ids)
                 )
             )
-            allowed_sync_group_ids = {
-                row[0] for row in sync_scope_result
-            }
+            allowed_sync_group_ids = {row[0] for row in sync_scope_result}
 
             scope_conditions: list = []
             if allowed_source_group_ids:
                 scope_conditions.append(
-                    SourceRepository.source_group_id.in_(
-                        allowed_source_group_ids
-                    )
+                    SourceRepository.source_group_id.in_(allowed_source_group_ids)
                 )
             if allowed_sync_group_ids:
-                scope_conditions.append(
-                    Mirror.sync_group_id.in_(allowed_sync_group_ids)
-                )
+                scope_conditions.append(Mirror.sync_group_id.in_(allowed_sync_group_ids))
 
             if scope_conditions:
                 base_query = base_query.join(
@@ -807,17 +786,12 @@ class MirrorService:
         # ── Apply filters ────────────────────────────────────────────
         if filters.get("source_group_id"):
             base_query = base_query.where(
-                SourceRepository.source_group_id
-                == filters["source_group_id"]
+                SourceRepository.source_group_id == filters["source_group_id"]
             )
         if filters.get("sync_group_id"):
-            base_query = base_query.where(
-                Mirror.sync_group_id == filters["sync_group_id"]
-            )
+            base_query = base_query.where(Mirror.sync_group_id == filters["sync_group_id"])
         if filters.get("status_flag") is not None:
-            base_query = base_query.where(
-                Mirror.status_flag == filters["status_flag"]
-            )
+            base_query = base_query.where(Mirror.status_flag == filters["status_flag"])
         if filters.get("search"):
             search_term = f"%{filters['search']}%"
             # Join SourceRepository for org/repo name search
@@ -836,9 +810,6 @@ class MirrorService:
             )
 
         # ── Count ────────────────────────────────────────────────────
-        count_q = select(func.count()).select_from(Mirror).where(
-            Mirror.is_deleted == False
-        )
         # Re-apply scope + filters to count query (simplified: no join)
         # For accurate count, apply same conditions as base_query
         # For simplicity, use the base_query's where clause
@@ -852,21 +823,16 @@ class MirrorService:
             )
             if scope_conditions:
                 count_base = count_base.where(or_(*scope_conditions))
-        count_base = count_base.where(Mirror.is_deleted == False)
+        count_base = count_base.where(~Mirror.is_deleted)
         # Re-apply filters
         if filters.get("source_group_id"):
             count_base = count_base.where(
-                SourceRepository.source_group_id
-                == filters["source_group_id"]
+                SourceRepository.source_group_id == filters["source_group_id"]
             )
         if filters.get("sync_group_id"):
-            count_base = count_base.where(
-                Mirror.sync_group_id == filters["sync_group_id"]
-            )
+            count_base = count_base.where(Mirror.sync_group_id == filters["sync_group_id"])
         if filters.get("status_flag") is not None:
-            count_base = count_base.where(
-                Mirror.status_flag == filters["status_flag"]
-            )
+            count_base = count_base.where(Mirror.status_flag == filters["status_flag"])
         if filters.get("search"):
             search_term = f"%{filters['search']}%"
             count_base = count_base.join(
@@ -915,15 +881,13 @@ class MirrorService:
         result = await db.execute(
             select(Mirror)
             .options(
-                selectinload(Mirror.source_repository).selectinload(
-                    SourceRepository.source_group
-                ),
-                selectinload(Mirror.sync_group).selectinload(
-                    SyncGroup.pipeline
-                ).selectinload(PipelineModel.gitlab_instance),
+                selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
+                selectinload(Mirror.sync_group)
+                .selectinload(SyncGroup.pipeline)
+                .selectinload(PipelineModel.gitlab_instance),
                 selectinload(Mirror.mirror_logs),
             )
-            .where(Mirror.id == mirror_id, Mirror.is_deleted == False)
+            .where(Mirror.id == mirror_id, ~Mirror.is_deleted)
         )
         mirror = result.unique().scalar_one_or_none()
         if mirror is None:
@@ -969,15 +933,16 @@ class MirrorService:
                 mirror.sync_group_id = data.sync_group_id
                 changed_fields.append("sync_group_id")
 
-        if data.target_namespace is not None:
-            if mirror.target_namespace != data.target_namespace:
-                mirror.target_namespace = data.target_namespace
-                changed_fields.append("target_namespace")
+        if data.target_namespace is not None and mirror.target_namespace != data.target_namespace:
+            mirror.target_namespace = data.target_namespace
+            changed_fields.append("target_namespace")
 
-        if data.target_project_name is not None:
-            if mirror.target_project_name != data.target_project_name:
-                mirror.target_project_name = data.target_project_name
-                changed_fields.append("target_project_name")
+        if (
+            data.target_project_name is not None
+            and mirror.target_project_name != data.target_project_name
+        ):
+            mirror.target_project_name = data.target_project_name
+            changed_fields.append("target_project_name")
 
         if not changed_fields:
             return mirror
@@ -1106,9 +1071,7 @@ class MirrorService:
 
         # Build pipeline variables
         source_url = (
-            _source_url_from_repo(mirror.source_repository)
-            if mirror.source_repository
-            else None
+            _source_url_from_repo(mirror.source_repository) if mirror.source_repository else None
         )
         target_path = ""
         if mirror.target_namespace and mirror.target_project_name:
@@ -1205,7 +1168,7 @@ class MirrorService:
         """Run a lightweight freshness check by comparing the latest
         source commit against the last known commit on the mirror.
 
-        Uses ``GitHubSourceProvider.get_commit_info()`` to fetch the
+        Uses source provider ``get_commit_info()`` to fetch the
         current HEAD commit from the source repository.
 
         Args:
@@ -1218,7 +1181,7 @@ class MirrorService:
             (status_text: ``"FRESH"`` / ``"STALE"`` / ``"ERROR"``).
 
         Raises:
-            DomainException: When the source provider is not GitHub or
+            DomainException: When the source provider is not configured or
                              cannot be accessed.
         """
         mirror = await _get_mirror_or_404(db, mirror_id)
@@ -1243,12 +1206,7 @@ class MirrorService:
                 status_code=400,
             )
 
-        if sp.provider_type != "github":
-            raise DomainException(
-                f"Freshness check only supports GitHub sources "
-                f"(got {sp.provider_type.value if sp.provider_type else sp.provider_type})",
-                status_code=400,
-            )
+        # Accept any provider type that supports commit info
 
         if sp.credential is None or not sp.credential.encrypted_secret:
             raise DomainException(
@@ -1264,7 +1222,7 @@ class MirrorService:
 
         try:
             credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-            gh_provider = GitHubSourceProvider(sp, credential_secret)
+            gh_provider = await create_source_provider(sp, credential_secret)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await gh_provider.get_commit_info(repo_external_id)
 
@@ -1282,10 +1240,7 @@ class MirrorService:
         # ── Compare with last known commit ──────────────────────────
         last_known = mirror.last_known_commit_sha
 
-        if error_message is not None:
-            status_flag = STATUS_FAILED
-            status_text = "ERROR"
-        elif source_sha is None:
+        if error_message is not None or source_sha is None:
             status_flag = STATUS_FAILED
             status_text = "ERROR"
         elif last_known is not None and source_sha != last_known:
@@ -1326,9 +1281,7 @@ class MirrorService:
             mirror.last_known_commit_sha = source_sha
             mirror.last_known_commit_date = source_date
             mirror.last_known_commit_author = source_author or commit_info.get("author")
-            mirror.target_diverged_commits = (
-                (mirror.target_diverged_commits or 0) + 1
-            )
+            mirror.target_diverged_commits = (mirror.target_diverged_commits or 0) + 1
 
         await db.commit()
         await db.refresh(mirror_log)
@@ -1414,9 +1367,7 @@ class MirrorService:
         gitlab_project_id = int(mirror.target_project_id)
 
         source_url = (
-            _source_url_from_repo(mirror.source_repository)
-            if mirror.source_repository
-            else None
+            _source_url_from_repo(mirror.source_repository) if mirror.source_repository else None
         )
         variables: dict[str, str] = {
             "SOURCE_URL": source_url or "",
@@ -1507,9 +1458,7 @@ class MirrorService:
     # ── Lookup helpers (for scheduler) ──────────────────────────────────
 
     @staticmethod
-    async def get_mirrors_by_group(
-        db: AsyncSession, sync_group_id: int
-    ) -> list[Mirror]:
+    async def get_mirrors_by_group(db: AsyncSession, sync_group_id: int) -> list[Mirror]:
         """Return all non-deleted mirrors belonging to a SyncGroup.
 
         Used by SyncScheduler to discover mirrors that need syncing or
@@ -1525,7 +1474,7 @@ class MirrorService:
         result = await db.execute(
             select(Mirror).where(
                 Mirror.sync_group_id == sync_group_id,
-                Mirror.is_deleted == False,
+                ~Mirror.is_deleted,
             )
         )
         return list(result.scalars().all())

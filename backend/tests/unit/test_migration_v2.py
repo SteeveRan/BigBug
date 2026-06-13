@@ -10,41 +10,28 @@ import importlib.util
 import os
 
 import sqlalchemy as sa
-from sqlalchemy import inspect, text
 
 from app.database import Base
-from app.models.credential import Credential, CredentialType
-from app.models.source_provider import SourceProvider, ProviderType
-from app.models.source_group import SourceGroup
-from app.models.source_repository import SourceRepository, DiscoveryStatus
-from app.models.mirror import Mirror
-from app.models.mirror_log import MirrorLog, MirrorLogType
-from app.models.mirror_release_log import MirrorReleaseLog
-from app.models.sync_group import SyncGroup
-from app.models.pipeline import Pipeline, PipelineComponent
-from app.models.pipeline_run import PipelineRun
-from app.models.role_scope import (
-    RoleScopeCredential,
-    RoleScopeSourceGroup,
-    RoleScopeSyncGroup,
-)
+from app.models.source_repository import DiscoveryStatus
 
 # ── Tables expected to exist after v2 migration ───────────────────────────
-V2_TABLES = frozenset({
-    "credentials",
-    "source_providers",
-    "source_groups",
-    "source_repositories",
-    "pipelines",
-    "pipeline_components",
-    "sync_groups",
-    "mirrors",
-    "mirror_logs",
-    "mirror_release_logs",
-    "role_scope_source_groups",
-    "role_scope_credentials",
-    "role_scope_sync_groups",
-})
+V2_TABLES = frozenset(
+    {
+        "credentials",
+        "source_providers",
+        "source_groups",
+        "source_repositories",
+        "pipelines",
+        "pipeline_components",
+        "sync_groups",
+        "mirrors",
+        "mirror_logs",
+        "mirror_release_logs",
+        "role_scope_source_groups",
+        "role_scope_credentials",
+        "role_scope_sync_groups",
+    }
+)
 
 # ── Path to the migration module ──────────────────────────────────────────
 _MIGRATION_PATH = os.path.join(
@@ -59,9 +46,7 @@ _MIGRATION_PATH = os.path.join(
 
 def _load_migration_module():
     """Load the migration module by file path (not importlib — not a package)."""
-    spec = importlib.util.spec_from_file_location(
-        "migration_v2_tables", _MIGRATION_PATH
-    )
+    spec = importlib.util.spec_from_file_location("migration_v2_tables", _MIGRATION_PATH)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -81,10 +66,21 @@ class TestMigrationV2Tables:
         table = Base.metadata.tables["credentials"]
         cols = {c.name for c in table.columns}
         expected = {
-            "id", "name", "credential_type", "provider", "username",
-            "encrypted_secret", "ssh_public_key", "base_url", "status_flag",
-            "status_text", "last_tested_at", "is_deleted", "deleted_at",
-            "created_at", "updated_at",
+            "id",
+            "name",
+            "credential_type",
+            "provider",
+            "username",
+            "encrypted_secret",
+            "ssh_public_key",
+            "base_url",
+            "status_flag",
+            "status_text",
+            "last_tested_at",
+            "is_deleted",
+            "deleted_at",
+            "created_at",
+            "updated_at",
         }
         assert cols >= expected
 

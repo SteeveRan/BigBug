@@ -19,7 +19,6 @@ import {
   Empty,
   Tag,
   Tooltip,
-  Badge,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined } from '@ant-design/icons';
@@ -28,7 +27,7 @@ import {
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
 } from '../../../store/api';
-import type { SourceRepository, SourceGroup } from '../../../types';
+import type { SourceRepository } from '../../../types';
 
 const DISCOVERY_STATUS_OPTIONS = [
   { label: 'All', value: -1 },
@@ -43,10 +42,7 @@ const RepositoriesPage = () => {
   const navigate = useNavigate();
 
   // Provider → Group selection
-  const {
-    data: providers = [],
-    isLoading: providersLoading,
-  } = useGetSourceProvidersQuery();
+  const { data: providers = [], isLoading: providersLoading } = useGetSourceProvidersQuery();
 
   const [selectedProviderId, setSelectedProviderId] = useState<number | undefined>(undefined);
   const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined);
@@ -61,12 +57,12 @@ const RepositoriesPage = () => {
   }, [selectedProviderId, providers]);
 
   // Fetch groups for selected provider
-  const {
-    data: groups = [],
-    isLoading: groupsLoading,
-  } = useGetSourceGroupsQuery(effectiveProviderId ?? 0, {
-    skip: effectiveProviderId == null,
-  });
+  const { data: groups = [], isLoading: groupsLoading } = useGetSourceGroupsQuery(
+    effectiveProviderId ?? 0,
+    {
+      skip: effectiveProviderId == null,
+    }
+  );
 
   // Auto-select first group
   const effectiveGroupId = useMemo(() => {
@@ -87,7 +83,7 @@ const RepositoriesPage = () => {
       search: search.trim() || undefined,
       is_archived: false,
     },
-    { skip: effectiveGroupId == null },
+    { skip: effectiveGroupId == null }
   );
 
   const columns: ColumnsType<SourceRepository> = [
@@ -107,16 +103,13 @@ const RepositoriesPage = () => {
       title: 'Language',
       dataIndex: 'language',
       key: 'language',
-      render: (lang: string | undefined) =>
-        lang ? <Tag>{lang}</Tag> : '—',
+      render: (lang: string | undefined) => (lang ? <Tag>{lang}</Tag> : '—'),
     },
     {
       title: 'Default Branch',
       dataIndex: 'default_branch',
       key: 'default_branch',
-      render: (branch: string) => (
-        <Typography.Text code>{branch}</Typography.Text>
-      ),
+      render: (branch: string) => <Typography.Text code>{branch}</Typography.Text>,
     },
     {
       title: 'Stars',
@@ -241,7 +234,11 @@ const RepositoriesPage = () => {
             columns={columns}
             dataSource={repositories as SourceRepository[]}
             rowKey="id"
-            pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }}
+            pagination={{
+              pageSize: 20,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+            }}
             locale={{ emptyText: <Empty description="No repositories found" /> }}
           />
         </Card>

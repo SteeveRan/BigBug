@@ -26,12 +26,7 @@ import {
   Tag,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  LockOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
 
 import type { Role, RoleCreate, RoleUpdate, User } from '../../types';
 import {
@@ -81,12 +76,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
   },
   {
     label: 'App Images',
-    permissions: [
-      'app_images:read',
-      'app_images:write',
-      'app_images:delete',
-      'app_images:build',
-    ],
+    permissions: ['app_images:read', 'app_images:write', 'app_images:delete', 'app_images:build'],
   },
   {
     label: 'Users',
@@ -163,9 +153,7 @@ function UsersTab() {
   const handleToggleActive = async (user: User) => {
     try {
       await updateUser({ id: user.id, data: { is_active: !user.is_active } }).unwrap();
-      message.success(
-        `User "${user.username}" ${user.is_active ? 'deactivated' : 'activated'}`,
-      );
+      message.success(`User "${user.username}" ${user.is_active ? 'deactivated' : 'activated'}`);
     } catch (err: unknown) {
       const detail =
         err && typeof err === 'object' && 'data' in err
@@ -361,28 +349,25 @@ function RolesTab() {
     (group: PermissionGroup): boolean => {
       return group.permissions.every((p) => selectedPermissions.includes(p));
     },
-    [selectedPermissions],
+    [selectedPermissions]
   );
 
   const isGroupSomeSelected = useCallback(
     (group: PermissionGroup): boolean => {
       return group.permissions.some((p) => selectedPermissions.includes(p));
     },
-    [selectedPermissions],
+    [selectedPermissions]
   );
 
-  const handleToggleGroup = useCallback(
-    (group: PermissionGroup, select: boolean) => {
-      setSelectedPermissions((prev) => {
-        if (select) {
-          const toAdd = group.permissions.filter((p) => !prev.includes(p));
-          return [...prev, ...toAdd];
-        }
-        return prev.filter((p) => !group.permissions.includes(p));
-      });
-    },
-    [],
-  );
+  const handleToggleGroup = useCallback((group: PermissionGroup, select: boolean) => {
+    setSelectedPermissions((prev) => {
+      if (select) {
+        const toAdd = group.permissions.filter((p) => !prev.includes(p));
+        return [...prev, ...toAdd];
+      }
+      return prev.filter((p) => !group.permissions.includes(p));
+    });
+  }, []);
 
   // ─── Dialog handlers ──────────────────────────────────────────────────────
 
@@ -494,9 +479,7 @@ function RolesTab() {
       title: 'Description',
       key: 'description',
       render: (_: unknown, record: Role) => (
-        <Typography.Text type="secondary">
-          {record.description ?? '—'}
-        </Typography.Text>
+        <Typography.Text type="secondary">{record.description ?? '—'}</Typography.Text>
       ),
     },
     {
@@ -511,9 +494,7 @@ function RolesTab() {
     {
       title: 'Permissions',
       key: 'permissions',
-      render: (_: unknown, record: Role) => (
-        <Tag>{record.permissions.length}</Tag>
-      ),
+      render: (_: unknown, record: Role) => <Tag>{record.permissions.length}</Tag>,
     },
     {
       title: 'Actions',
@@ -522,9 +503,7 @@ function RolesTab() {
       render: (_: unknown, record: Role) => (
         <Flex gap={4} justify="flex-end">
           <PermissionGate permission="roles:write">
-            <Tooltip
-              title={record.is_custom ? 'Edit role' : 'Built-in roles cannot be edited'}
-            >
+            <Tooltip title={record.is_custom ? 'Edit role' : 'Built-in roles cannot be edited'}>
               <Button
                 size="small"
                 type="text"
@@ -535,9 +514,7 @@ function RolesTab() {
             </Tooltip>
           </PermissionGate>
           <PermissionGate permission="roles:delete">
-            <Tooltip
-              title={record.is_custom ? 'Delete role' : 'Built-in roles cannot be deleted'}
-            >
+            <Tooltip title={record.is_custom ? 'Delete role' : 'Built-in roles cannot be deleted'}>
               <Button
                 size="small"
                 type="text"
@@ -642,9 +619,7 @@ function RolesTab() {
               <Card
                 key={group.label}
                 size="small"
-                title={
-                  <Typography.Text strong>{group.label}</Typography.Text>
-                }
+                title={<Typography.Text strong>{group.label}</Typography.Text>}
                 extra={
                   <Flex gap={4}>
                     <Button
@@ -672,12 +647,10 @@ function RolesTab() {
                     label: permissionLabel(perm),
                     value: perm,
                   }))}
-                  value={selectedPermissions.filter((p) =>
-                    group.permissions.includes(p),
-                  )}
+                  value={selectedPermissions.filter((p) => group.permissions.includes(p))}
                   onChange={(checkedValues: string[]) => {
                     const otherPerms = selectedPermissions.filter(
-                      (p) => !group.permissions.includes(p),
+                      (p) => !group.permissions.includes(p)
                     );
                     setSelectedPermissions([...otherPerms, ...checkedValues]);
                   }}

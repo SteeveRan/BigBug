@@ -417,7 +417,7 @@ export function DockerImageDetailPage() {
       render: (_: unknown, record: DockerSyncLog) => {
         if (record.started_at && record.finished_at) {
           const seconds = Math.round(
-            (new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000,
+            (new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000
           );
           return `${seconds}s`;
         }
@@ -492,9 +492,7 @@ export function DockerImageDetailPage() {
                 Last Synced
               </Typography.Text>
               <Typography.Text>
-                {s.last_synced_at
-                  ? new Date(s.last_synced_at).toLocaleString()
-                  : 'Never'}
+                {s.last_synced_at ? new Date(s.last_synced_at).toLocaleString() : 'Never'}
               </Typography.Text>
             </Flex>
             {s.target_registry_url && (
@@ -530,18 +528,18 @@ export function DockerImageDetailPage() {
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     GitLab Project
                   </Typography.Text>
-                  <Typography.Link href={s.gitlab_project_url} target="_blank" rel="noopener noreferrer">
+                  <Typography.Link
+                    href={s.gitlab_project_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {s.gitlab_project_id ?? s.gitlab_project_url}
                   </Typography.Link>
                 </Flex>
               </>
             )}
             <Divider style={{ margin: 0 }} />
-            <Button
-              size="small"
-              onClick={handleOpenEditDialog}
-              style={{ alignSelf: 'flex-start' }}
-            >
+            <Button size="small" onClick={handleOpenEditDialog} style={{ alignSelf: 'flex-start' }}>
               Edit Target Registry
             </Button>
           </Flex>
@@ -646,16 +644,12 @@ export function DockerImageDetailPage() {
           <Input
             placeholder="Target Registry URL (e.g. https://harbor.example.com)"
             value={editForm.target_registry_url}
-            onChange={(e) =>
-              setEditForm({ ...editForm, target_registry_url: e.target.value })
-            }
+            onChange={(e) => setEditForm({ ...editForm, target_registry_url: e.target.value })}
           />
           <Input
             placeholder="Target Project (e.g. library)"
             value={editForm.target_project}
-            onChange={(e) =>
-              setEditForm({ ...editForm, target_project: e.target.value })
-            }
+            onChange={(e) => setEditForm({ ...editForm, target_project: e.target.value })}
           />
         </Space>
         <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
@@ -689,7 +683,8 @@ export function DockerImageDetailPage() {
             label="Cron Expression"
             rules={[
               {
-                pattern: /^(\*|((\*\/)?([1-5]?\d)))\s+(\*|((\*\/)?(1?\d|2[0-3])))\s+(\*|((\*\/)?([12]?\d|3[01])))\s+(\*|((\*\/)?(1?\d|[12]\d|3[01])))\s+(\*|((\*\/)?([1-9]|1[0-2])))$/,
+                pattern:
+                  /^(\*|((\*\/)?([1-5]?\d)))\s+(\*|((\*\/)?(1?\d|2[0-3])))\s+(\*|((\*\/)?([12]?\d|3[01])))\s+(\*|((\*\/)?(1?\d|[12]\d|3[01])))\s+(\*|((\*\/)?([1-9]|1[0-2])))$/,
                 message: 'Please enter a valid cron expression (e.g. */30 * * * *)',
               },
             ]}

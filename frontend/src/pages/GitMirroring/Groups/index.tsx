@@ -21,12 +21,7 @@ import {
   Badge,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  ImportOutlined,
-  ReloadOutlined,
-  DeleteOutlined,
-  FolderOpenOutlined,
-} from '@ant-design/icons';
+import { ImportOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   useGetSourceProvidersQuery,
   useGetSourceGroupsQuery,
@@ -39,10 +34,9 @@ import { ImportGroupModal } from './ImportGroupModal';
 
 const GroupsPage = () => {
   const { message } = App.useApp();
-  const navigate = undefined; // not using react-router navigate for groups detail yet
 
   const [selectedProviderId, setSelectedProviderId] = useState<number | undefined>(undefined);
-  const [search, setSearch] = useState('');
+  const [search] = useState('');
   const [importModalOpen, setImportModalOpen] = useState(false);
 
   // Fetch providers for the selector
@@ -76,9 +70,7 @@ const GroupsPage = () => {
     if (!search.trim()) return groups;
     const term = search.toLowerCase();
     return groups.filter(
-      (g) =>
-        g.name.toLowerCase().includes(term) ||
-        g.full_name.toLowerCase().includes(term),
+      (g) => g.name.toLowerCase().includes(term) || g.full_name.toLowerCase().includes(term)
     );
   }, [groups, search]);
 
@@ -276,10 +268,7 @@ const GroupsPage = () => {
       )}
 
       {/* ── Import Group Modal ──────────────────────────────────────────────── */}
-      <ImportGroupModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-      />
+      <ImportGroupModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
     </Flex>
   );
 };

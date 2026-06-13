@@ -164,8 +164,9 @@ class GitHubService:
         # Sync releases
         # Schedule releases sync as a background task to avoid blocking
         import asyncio
+
         from app.database import AsyncSessionLocal
-        
+
         # Create a new session for the background task
         async def sync_releases_background():
             async with AsyncSessionLocal() as new_db:
@@ -175,31 +176,45 @@ class GitHubService:
                         select(GithubProject).where(GithubProject.id == project.id)
                     )
                     bg_project = result.scalar_one()
-                    
+
                     # Get fresh repo instance
                     gh = self._get_client(instance)
                     bg_gh_repo = gh.get_repo(project.full_name)
-                    
+
                     # Execute the sync with a timeout to prevent indefinite blocking
                     import asyncio
+
                     try:
                         await asyncio.wait_for(
                             self._sync_releases(bg_gh_repo, bg_project, new_db),
-                            timeout=30.0  # 30 second timeout for the sync operation
+                            timeout=30.0,  # 30 second timeout for the sync operation
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         import logging
+
                         logger = logging.getLogger(__name__)
-                        logger.error(f"Sync releases timed out for project {project.full_name} after 30 seconds")
-                        
+                        logger.error(
+                            f"Sync releases timed out for project "
+                            f"{project.full_name} after 30 seconds"
+                        )
+
                 except Exception as e:
                     import logging
+
                     logger = logging.getLogger(__name__)
-                    logger.error(f"Background sync releases failed for project {project.full_name}: {str(e)}")
+                    logger.error(
+                        f"Background sync releases failed for project {project.full_name}: {str(e)}"
+                    )
                     # Check if this is a GitHub API rate limit error
-                    if "rate limit" in str(e).lower() or ("403" in str(e) and "exceeded" in str(e).lower()):
-                        logger.error("This error may be caused by GitHub API rate limits. Please configure a GitHub personal access token to increase the rate limit.")
-        
+                    if "rate limit" in str(e).lower() or (
+                        "403" in str(e) and "exceeded" in str(e).lower()
+                    ):
+                        logger.error(
+                            "This error may be caused by GitHub API rate limits. "
+                            "Please configure a GitHub personal access token "
+                            "to increase the rate limit."
+                        )
+
         # Schedule the background task
         asyncio.create_task(sync_releases_background())
 
@@ -243,8 +258,9 @@ class GitHubService:
 
         # Schedule releases sync as a background task to avoid blocking
         import asyncio
+
         from app.database import AsyncSessionLocal
-        
+
         # Create a new session for the background task
         async def sync_releases_background():
             async with AsyncSessionLocal() as new_db:
@@ -254,31 +270,45 @@ class GitHubService:
                         select(GithubProject).where(GithubProject.id == project.id)
                     )
                     bg_project = result.scalar_one()
-                    
+
                     # Get fresh repo instance
                     gh = self._get_client(instance)
                     bg_gh_repo = gh.get_repo(project.full_name)
-                    
+
                     # Execute the sync with a timeout to prevent indefinite blocking
                     import asyncio
+
                     try:
                         await asyncio.wait_for(
                             self._sync_releases(bg_gh_repo, bg_project, new_db),
-                            timeout=30.0  # 30 second timeout for the sync operation
+                            timeout=30.0,  # 30 second timeout for the sync operation
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         import logging
+
                         logger = logging.getLogger(__name__)
-                        logger.error(f"Sync releases timed out for project {project.full_name} after 30 seconds")
-                        
+                        logger.error(
+                            f"Sync releases timed out for project "
+                            f"{project.full_name} after 30 seconds"
+                        )
+
                 except Exception as e:
                     import logging
+
                     logger = logging.getLogger(__name__)
-                    logger.error(f"Background sync releases failed for project {project.full_name}: {str(e)}")
+                    logger.error(
+                        f"Background sync releases failed for project {project.full_name}: {str(e)}"
+                    )
                     # Check if this is a GitHub API rate limit error
-                    if "rate limit" in str(e).lower() or ("403" in str(e) and "exceeded" in str(e).lower()):
-                        logger.error("This error may be caused by GitHub API rate limits. Please configure a GitHub personal access token to increase the rate limit.")
-        
+                    if "rate limit" in str(e).lower() or (
+                        "403" in str(e) and "exceeded" in str(e).lower()
+                    ):
+                        logger.error(
+                            "This error may be caused by GitHub API rate limits. "
+                            "Please configure a GitHub personal access token "
+                            "to increase the rate limit."
+                        )
+
         # Schedule the background task
         asyncio.create_task(sync_releases_background())
 
@@ -287,33 +317,36 @@ class GitHubService:
     async def _sync_releases(self, gh_repo, project: GithubProject, db: AsyncSession) -> None:
         """Sync GitHub releases to DB."""
         import logging
+
         logger = logging.getLogger(__name__)
-        
+
         try:
             logger.info(f"Starting to sync releases for project {project.full_name}")
-            
+
             # Execute GitHub API call with timeout to prevent blocking
             import asyncio
-            
+
             async def fetch_releases():
                 loop = asyncio.get_event_loop()
                 # Use run_in_executor to handle potential sync operations that might block
                 releases = await loop.run_in_executor(None, gh_repo.get_releases)
                 return list(releases)
-            
+
             # Fetch releases with timeout
             releases_list = await asyncio.wait_for(fetch_releases(), timeout=20.0)
-            logger.info(f"Found {len(releases_list)} releases from GitHub for project {project.full_name}")
-            
+            logger.info(
+                f"Found {len(releases_list)} releases from GitHub for project {project.full_name}"
+            )
+
             release_count = 0
             for gh_release in releases_list:
                 logger.debug(f"Processing release: {gh_release.tag_name} (ID: {gh_release.id})")
-                
+
                 rel_result = await db.execute(
                     select(GithubRelease).where(GithubRelease.github_release_id == gh_release.id)
                 )
                 release = rel_result.scalar_one_or_none()
-                
+
                 if not release:
                     logger.debug(f"Creating new release record for {gh_release.tag_name}")
                     release = GithubRelease(
@@ -330,25 +363,44 @@ class GitHubService:
                 release.is_draft = gh_release.draft
                 release.published_at = gh_release.published_at
                 release_count += 1
-                
-            logger.info(f"Successfully synced {release_count} releases for project {project.full_name}")
-            
+
+            logger.info(
+                f"Successfully synced {release_count} releases for project {project.full_name}"
+            )
+
             # Commit the changes to database
             await db.flush()
-            
-        except asyncio.TimeoutError:
+
+        except TimeoutError:
             logger.error(f"Timeout while syncing releases for project {project.full_name}")
         except GithubException as e:
-            logger.error(f"GitHub API error while syncing releases for project {project.full_name}: {str(e)} (Status: {e.status})")
+            logger.error(
+                f"GitHub API error while syncing releases for "
+                f"project {project.full_name}: {str(e)} (Status: {e.status})"
+            )
             # Check if this is a rate limit error
             if e.status == 403:
                 # Check specifically for rate limit exceeded
-                if "rate limit" in str(e.data).lower() or "api rate limit exceeded" in str(e.data).lower():
-                    logger.error("GitHub API rate limit exceeded. Please configure a GitHub personal access token in the settings or integration instance to increase the rate limit.")
+                if (
+                    "rate limit" in str(e.data).lower()
+                    or "api rate limit exceeded" in str(e.data).lower()
+                ):
+                    logger.error(
+                        "GitHub API rate limit exceeded. Please configure a GitHub personal "
+                        "access token in the settings or integration instance to increase the "
+                        "rate limit."
+                    )
                 else:
-                    logger.error("Access forbidden (403). This could be due to repository permissions or API rate limits. Please check your GitHub token configuration.")
+                    logger.error(
+                        "Access forbidden (403). This could be due to repository permissions "
+                        "or API rate limits. Please check your GitHub token configuration."
+                    )
         except Exception as e:
-            logger.error(f"Unexpected error while syncing releases for project {project.full_name}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Unexpected error while syncing releases for "
+                f"project {project.full_name}: {str(e)}",
+                exc_info=True,
+            )
 
 
 # Module-level singleton (backward-compatible)

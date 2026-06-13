@@ -5,7 +5,7 @@
 @dependencies backend/app/models/mirror_release_log.py
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.models.mirror_release_log import MirrorReleaseLog
 
@@ -21,7 +21,7 @@ class TestMirrorReleaseLogModel:
             name="Release v1.0.0",
             description="First stable release",
             url="https://github.com/org/repo/releases/tag/v1.0.0",
-            published_at=datetime(2026, 1, 15, 10, 0, 0, tzinfo=timezone.utc),
+            published_at=datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC),
             is_prerelease=False,
         )
         assert rl.source_repository_id == 1

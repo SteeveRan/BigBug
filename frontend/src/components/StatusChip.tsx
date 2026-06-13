@@ -35,12 +35,7 @@ const STATUS_COLORS: Record<number, string> = {
   4: 'default',
 };
 
-export function StatusChip({
-  status,
-  labels,
-  statusFlag,
-  statusText,
-}: StatusChipProps) {
+export function StatusChip({ status, labels, statusFlag, statusText }: StatusChipProps) {
   const effectiveStatus = status ?? statusFlag ?? 4;
   const labelMap = labels ?? DEFAULT_LABELS;
   const color = STATUS_COLORS[effectiveStatus] ?? 'default';

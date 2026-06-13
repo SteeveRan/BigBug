@@ -9,7 +9,11 @@ import { SsoCallbackPage } from '../pages/SsoCallback';
 import { DashboardPage } from '../pages/Overview';
 import { ProjectsPage, ProjectDetailPage } from '../pages/Mirroring/Repositories';
 import { HelmChartsPage, HelmChartDetailPage } from '../pages/Mirroring/HelmCharts';
-import { DockerImagesPage, DockerImageDetailPage, DockerImageComparePage } from '../pages/Mirroring/DockerImages';
+import {
+  DockerImagesPage,
+  DockerImageDetailPage,
+  DockerImageComparePage,
+} from '../pages/Mirroring/DockerImages';
 import { GoldImagesPage } from '../pages/Builds/GoldImages';
 import { AppImagesPage } from '../pages/Builds/AppImages';
 import { PipelinesPage } from '../pages/Pipelines/Runs';
@@ -28,6 +32,8 @@ const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'
 const GitMirroringGroups = lazy(() => import('@/pages/GitMirroring/Groups'));
 const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
 const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'));
+const RolesPage = lazy(() => import('@/pages/Admin/Roles'));
+const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
 
 /**
  * @file router/index.tsx
@@ -310,6 +316,24 @@ export function AppRouter() {
           }
         />
 
+        {/* ── Administration / Roles ────────────────────── */}
+        <Route
+          path="admin/roles"
+          element={
+            <PermissionGate permission="roles:read">
+              <RolesPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="admin/roles/:roleId"
+          element={
+            <PermissionGate permission="roles:read">
+              <RoleDetailPage />
+            </PermissionGate>
+          }
+        />
+
         {/* ════════════════════════════════════════════════════
             LEGACY REDIRECTS (старые URL → новые URL)
             Сохраняем обратную совместимость для закладок и прямых ссылок.
@@ -334,7 +358,10 @@ export function AppRouter() {
         {/* Old Docker Images → Mirroring / Docker Images */}
         <Route path="docker-images" element={<Navigate to="/mirroring/docker-images" replace />} />
         <Route path="docker-images/:id" element={<RedirectDockerImagesId />} />
-        <Route path="docker-images/compare" element={<Navigate to="/mirroring/docker-images/compare" replace />} />
+        <Route
+          path="docker-images/compare"
+          element={<Navigate to="/mirroring/docker-images/compare" replace />}
+        />
 
         {/* Old Gold Images → Builds / Gold Images */}
         <Route path="gold-images" element={<Navigate to="/builds/gold-images" replace />} />
@@ -349,10 +376,19 @@ export function AppRouter() {
         <Route path="admin" element={<Navigate to="/admin/users" replace />} />
 
         {/* Old Settings → Administration */}
-        <Route path="settings/integrations" element={<Navigate to="/admin/integrations" replace />} />
-        <Route path="settings/authentication" element={<Navigate to="/admin/authentication" replace />} />
+        <Route
+          path="settings/integrations"
+          element={<Navigate to="/admin/integrations" replace />}
+        />
+        <Route
+          path="settings/authentication"
+          element={<Navigate to="/admin/authentication" replace />}
+        />
         <Route path="settings/audit-log" element={<Navigate to="/admin/audit" replace />} />
-        <Route path="settings/pipelines/components" element={<Navigate to="/pipelines/components" replace />} />
+        <Route
+          path="settings/pipelines/components"
+          element={<Navigate to="/pipelines/components" replace />}
+        />
         <Route path="settings" element={<Navigate to="/admin/integrations" replace />} />
       </Route>
 

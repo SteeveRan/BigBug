@@ -69,6 +69,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
  * // mode === 'dark' | 'light'
  * // toggleTheme() — переключает тему
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useThemeMode(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {

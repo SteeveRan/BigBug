@@ -4,18 +4,8 @@
  * @dependencies antd, RTK Query
  */
 
-import { useState } from 'react';
-import {
-  Modal,
-  Form,
-  Select,
-  Input,
-  App,
-} from 'antd';
-import {
-  useImportSourceGroupMutation,
-  useGetSourceProvidersQuery,
-} from '../../../store/api';
+import { Modal, Form, Select, Input, App } from 'antd';
+import { useImportSourceGroupMutation, useGetSourceProvidersQuery } from '../../../store/api';
 
 interface ImportGroupModalProps {
   open: boolean;
@@ -34,7 +24,7 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
   const [importGroup, { isLoading }] = useImportSourceGroupMutation();
   const { data: providers = [], isLoading: providersLoading } = useGetSourceProvidersQuery(
     undefined,
-    { skip: !open },
+    { skip: !open }
   );
 
   const handleSubmit = async (values: FormValues) => {

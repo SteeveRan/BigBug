@@ -5,8 +5,8 @@
 @dependencies backend/app/models/source_provider.py, backend/app/models/credential.py
 """
 
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.credential import Credential, CredentialType
+from app.models.source_provider import ProviderType, SourceProvider
 
 
 class TestSourceProviderModel:

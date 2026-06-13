@@ -22,20 +22,13 @@ import {
   Spin,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   useListDockerImagesQuery,
   useCreateDockerImageMutation,
   useAnalyzeDockerImageMutation,
 } from '../../store/api';
-import {
-  DockerImageSource,
-  AnalyzeImageResponse,
-  DockerRegistryInstance,
-} from '../../types';
+import { DockerImageSource, AnalyzeImageResponse, DockerRegistryInstance } from '../../types';
 
 export function DockerImagesPage() {
   const navigate = useNavigate();
@@ -99,7 +92,7 @@ export function DockerImagesPage() {
     setSubmitting(true);
     try {
       const selectedRegistry = analysis.compatible_registries.find(
-        (r) => r.id === selectedRegistryId,
+        (r) => r.id === selectedRegistryId
       );
       await createSource({
         name: analysis.image_name,
@@ -225,8 +218,7 @@ export function DockerImagesPage() {
       dataIndex: 'updated_at',
       key: 'updated_at',
       width: 160,
-      render: (val: string) =>
-        val ? new Date(val).toLocaleString() : '—',
+      render: (val: string) => (val ? new Date(val).toLocaleString() : '—'),
     },
     {
       title: 'Actions',
@@ -254,7 +246,7 @@ export function DockerImagesPage() {
     (r: DockerRegistryInstance) => ({
       label: `${r.name} (${r.url})`,
       value: r.id,
-    }),
+    })
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -349,9 +341,7 @@ export function DockerImagesPage() {
                 <Spin tip="Analyzing image..." />
               </Flex>
             )}
-            {analysisError && (
-              <Alert type="error" message={analysisError} closable />
-            )}
+            {analysisError && <Alert type="error" message={analysisError} closable />}
           </Flex>
         )}
 

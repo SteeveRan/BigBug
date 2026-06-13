@@ -5,8 +5,8 @@
 @dependencies backend/app/models/sync_group.py
 """
 
-from app.models.sync_group import SyncGroup
 from app.models.pipeline import Pipeline
+from app.models.sync_group import SyncGroup
 
 
 class TestSyncGroupModel:

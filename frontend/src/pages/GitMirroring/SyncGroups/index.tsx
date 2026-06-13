@@ -26,12 +26,7 @@ import {
   InputNumber,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import {
   useGetSyncGroupsQuery,
   useCreateSyncGroupMutation,
@@ -101,9 +96,7 @@ const SyncGroupsPage = () => {
         id: applyPipelineTarget.id,
         pipeline_id: selectedPipelineId,
       }).unwrap();
-      message.success(
-        `Pipeline applied to "${applyPipelineTarget.name}"`
-      );
+      message.success(`Pipeline applied to "${applyPipelineTarget.name}"`);
       setApplyPipelineModalOpen(false);
       setApplyPipelineTarget(undefined);
       setSelectedPipelineId(undefined);
@@ -115,10 +108,12 @@ const SyncGroupsPage = () => {
   const handleSubmitModal = async (values: SyncGroupFormValues) => {
     try {
       // Provide defaults when conditional fields are not rendered
-      const sync_cron = values.sync_enabled ? (values.sync_cron || null) : null;
-      const sync_concurrency = values.sync_enabled ? (values.sync_concurrency || 1) : 1;
-      const freshness_cron = values.freshness_enabled ? (values.freshness_cron || null) : null;
-      const freshness_concurrency = values.freshness_enabled ? (values.freshness_concurrency || 1) : 1;
+      const sync_cron = values.sync_enabled ? values.sync_cron || null : null;
+      const sync_concurrency = values.sync_enabled ? values.sync_concurrency || 1 : 1;
+      const freshness_cron = values.freshness_enabled ? values.freshness_cron || null : null;
+      const freshness_concurrency = values.freshness_enabled
+        ? values.freshness_concurrency || 1
+        : 1;
 
       const commonData = {
         name: values.name,
@@ -184,9 +179,7 @@ const SyncGroupsPage = () => {
       title: 'Sync Cron',
       dataIndex: 'sync_cron',
       key: 'sync_cron',
-      render: (cron: string | null) => (
-        <Typography.Text>{cron || '—'}</Typography.Text>
-      ),
+      render: (cron: string | null) => <Typography.Text>{cron || '—'}</Typography.Text>,
     },
     {
       title: 'Sync Concurrency',
@@ -203,9 +196,7 @@ const SyncGroupsPage = () => {
       title: 'Freshness Cron',
       dataIndex: 'freshness_cron',
       key: 'freshness_cron',
-      render: (cron: string | null) => (
-        <Typography.Text>{cron || '—'}</Typography.Text>
-      ),
+      render: (cron: string | null) => <Typography.Text>{cron || '—'}</Typography.Text>,
     },
     {
       title: 'Freshness Concurrency',
@@ -354,7 +345,17 @@ const SyncGroupsPage = () => {
         cancelText="Cancel"
         destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmitModal} initialValues={{ sync_enabled: false, sync_concurrency: 1, freshness_enabled: false, freshness_concurrency: 1 }}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmitModal}
+          initialValues={{
+            sync_enabled: false,
+            sync_concurrency: 1,
+            freshness_enabled: false,
+            freshness_concurrency: 1,
+          }}
+        >
           <Form.Item
             name="name"
             label="Name"
@@ -367,10 +368,7 @@ const SyncGroupsPage = () => {
             <Input.TextArea rows={2} placeholder="Optional description" />
           </Form.Item>
 
-          <Form.Item
-            name="pipeline_id"
-            label="Pipeline"
-          >
+          <Form.Item name="pipeline_id" label="Pipeline">
             <Select
               placeholder="Select pipeline"
               allowClear
@@ -382,13 +380,11 @@ const SyncGroupsPage = () => {
           </Form.Item>
 
           {/* ── Sync Settings ─────────────────────────────────────────────── */}
-          <Typography.Title level={5} style={{ marginBottom: 8 }}>Sync Settings</Typography.Title>
+          <Typography.Title level={5} style={{ marginBottom: 8 }}>
+            Sync Settings
+          </Typography.Title>
 
-          <Form.Item
-            name="sync_enabled"
-            label="Sync Enabled"
-            valuePropName="checked"
-          >
+          <Form.Item name="sync_enabled" label="Sync Enabled" valuePropName="checked">
             <Switch />
           </Form.Item>
 
@@ -408,22 +404,17 @@ const SyncGroupsPage = () => {
           )}
 
           {syncEnabled && (
-            <Form.Item
-              name="sync_concurrency"
-              label="Sync Concurrency"
-            >
+            <Form.Item name="sync_concurrency" label="Sync Concurrency">
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>
           )}
 
           {/* ── Freshness Settings ─────────────────────────────────────────── */}
-          <Typography.Title level={5} style={{ marginBottom: 8 }}>Freshness Settings</Typography.Title>
+          <Typography.Title level={5} style={{ marginBottom: 8 }}>
+            Freshness Settings
+          </Typography.Title>
 
-          <Form.Item
-            name="freshness_enabled"
-            label="Freshness Enabled"
-            valuePropName="checked"
-          >
+          <Form.Item name="freshness_enabled" label="Freshness Enabled" valuePropName="checked">
             <Switch />
           </Form.Item>
 
@@ -443,10 +434,7 @@ const SyncGroupsPage = () => {
           )}
 
           {freshnessEnabled && (
-            <Form.Item
-              name="freshness_concurrency"
-              label="Freshness Concurrency"
-            >
+            <Form.Item name="freshness_concurrency" label="Freshness Concurrency">
               <InputNumber min={1} max={10} style={{ width: '100%' }} />
             </Form.Item>
           )}
@@ -456,9 +444,7 @@ const SyncGroupsPage = () => {
       {/* ── Apply Pipeline Modal ────────────────────────────────────────────── */}
       <Modal
         title={
-          applyPipelineTarget
-            ? `Apply Pipeline to "${applyPipelineTarget.name}"`
-            : 'Apply Pipeline'
+          applyPipelineTarget ? `Apply Pipeline to "${applyPipelineTarget.name}"` : 'Apply Pipeline'
         }
         open={applyPipelineModalOpen}
         onOk={handleApplyPipeline}

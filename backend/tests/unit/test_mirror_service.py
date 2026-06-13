@@ -9,14 +9,13 @@
 """
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import DomainException, NotFoundError, BadRequestError
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.source_group import SourceGroup
@@ -24,9 +23,8 @@ from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.models.user import User
-from app.schemas.mirror import MirrorBulkCreate, MirrorCreate, MirrorDuplicateCheck
+from app.schemas.mirror import MirrorBulkCreate, MirrorCreate
 from app.services.mirror import MirrorService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -120,7 +118,9 @@ class TestCreateMirror:
             target_project_name="test-project",
         )
 
-        with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock) as mock_audit:
+        with patch(
+            "app.services.mirror.AuditService.log_event", new_callable=AsyncMock
+        ) as mock_audit:
             mirror = await MirrorService.create_mirror(
                 db_session, data, user_id=1, username="testadmin"
             )
@@ -133,8 +133,9 @@ class TestCreateMirror:
         assert mirror.is_deleted is False
         # Audit should have been called at least once (for "mirror.created")
         audit_calls = [c.args[1] for c in mock_audit.call_args_list if len(c.args) >= 2]
-        assert "mirror.created" in audit_calls or any("mirror.created" in str(c) for c in mock_audit.call_args_list)
-
+        assert "mirror.created" in audit_calls or any(
+            "mirror.created" in str(c) for c in mock_audit.call_args_list
+        )
 
     @pytest.mark.asyncio
     async def test_create_mirror_duplicate_warning(self, db_session: AsyncSession):
@@ -153,7 +154,9 @@ class TestCreateMirror:
             )
 
         # Creating same again should produce a duplicate warning
-        with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock) as mock_audit:
+        with patch(
+            "app.services.mirror.AuditService.log_event", new_callable=AsyncMock
+        ) as mock_audit:
             second = await MirrorService.create_mirror(
                 db_session, data, user_id=1, username="testadmin"
             )
@@ -163,7 +166,9 @@ class TestCreateMirror:
         # Verify a duplicate_warning audit was logged
         duplicate_warning_found = False
         for call_args in mock_audit.call_args_list:
-            action = call_args.kwargs.get("action") or (call_args.args[1] if len(call_args.args) >= 2 else "")
+            action = call_args.kwargs.get("action") or (
+                call_args.args[1] if len(call_args.args) >= 2 else ""
+            )
             if "duplicate_warning" in str(action):
                 duplicate_warning_found = True
                 break
@@ -176,15 +181,27 @@ class TestBulkCreateMirrors:
     @pytest.mark.asyncio
     async def test_bulk_create_mirrors(self, db_session: AsyncSession):
         """bulk_create_mirrors creates multiple mirrors in one batch."""
-        sr1 = await _seed_source_repo(db_session, external_id="1", name="repo1", full_name="testorg/repo1")
-        sr2 = await _seed_source_repo(db_session, external_id="2", name="repo2", full_name="testorg/repo2")
-        sr3 = await _seed_source_repo(db_session, external_id="3", name="repo3", full_name="testorg/repo3")
+        sr1 = await _seed_source_repo(
+            db_session, external_id="1", name="repo1", full_name="testorg/repo1"
+        )
+        sr2 = await _seed_source_repo(
+            db_session, external_id="2", name="repo2", full_name="testorg/repo2"
+        )
+        sr3 = await _seed_source_repo(
+            db_session, external_id="3", name="repo3", full_name="testorg/repo3"
+        )
 
         data = MirrorBulkCreate(
             mirrors=[
-                MirrorCreate(source_repository_id=sr1.id, target_namespace="ns", target_project_name="p1"),
-                MirrorCreate(source_repository_id=sr2.id, target_namespace="ns", target_project_name="p2"),
-                MirrorCreate(source_repository_id=sr3.id, target_namespace="ns", target_project_name="p3"),
+                MirrorCreate(
+                    source_repository_id=sr1.id, target_namespace="ns", target_project_name="p1"
+                ),
+                MirrorCreate(
+                    source_repository_id=sr2.id, target_namespace="ns", target_project_name="p2"
+                ),
+                MirrorCreate(
+                    source_repository_id=sr3.id, target_namespace="ns", target_project_name="p3"
+                ),
             ],
             default_target_namespace="ns",
         )
@@ -211,12 +228,16 @@ class TestCheckDuplicates:
 
         # Create two mirrors for the same source repo
         data1 = MirrorCreate(
-            source_repository_id=sr.id, sync_group_id=sg.id,
-            target_namespace="ns", target_project_name="proj1",
+            source_repository_id=sr.id,
+            sync_group_id=sg.id,
+            target_namespace="ns",
+            target_project_name="proj1",
         )
         data2 = MirrorCreate(
-            source_repository_id=sr.id, sync_group_id=sg.id,
-            target_namespace="ns", target_project_name="proj2",
+            source_repository_id=sr.id,
+            sync_group_id=sg.id,
+            target_namespace="ns",
+            target_project_name="proj2",
         )
 
         with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
@@ -241,8 +262,10 @@ class TestGetMirrors:
         """get_mirrors supports filtering by status_flag and search."""
         # Re-fetch admin_user with eager-loaded roles (avoid MissingGreenlet)
         from app.models.user import User as UserModel
+
         admin_with_roles = await db_session.execute(
-            select(UserModel).options(selectinload(UserModel.user_roles))
+            select(UserModel)
+            .options(selectinload(UserModel.user_roles))
             .where(UserModel.id == admin_user.id)
         )
         user = admin_with_roles.scalar_one()
@@ -253,7 +276,11 @@ class TestGetMirrors:
         with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
             m1 = await MirrorService.create_mirror(
                 db_session,
-                MirrorCreate(source_repository_id=sr.id, target_namespace="ns", target_project_name="ok-project"),
+                MirrorCreate(
+                    source_repository_id=sr.id,
+                    target_namespace="ns",
+                    target_project_name="ok-project",
+                ),
                 user_id=1,
             )
             # Manually update status
@@ -263,7 +290,11 @@ class TestGetMirrors:
 
             m2 = await MirrorService.create_mirror(
                 db_session,
-                MirrorCreate(source_repository_id=sr.id, target_namespace="ns", target_project_name="failed-project"),
+                MirrorCreate(
+                    source_repository_id=sr.id,
+                    target_namespace="ns",
+                    target_project_name="failed-project",
+                ),
                 user_id=1,
             )
             m2.status_flag = 1
@@ -296,7 +327,11 @@ class TestGetMirrorDetail:
         with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
             mirror = await MirrorService.create_mirror(
                 db_session,
-                MirrorCreate(source_repository_id=sr.id, target_namespace="ns", target_project_name="detail-project"),
+                MirrorCreate(
+                    source_repository_id=sr.id,
+                    target_namespace="ns",
+                    target_project_name="detail-project",
+                ),
                 user_id=1,
             )
 
@@ -330,7 +365,11 @@ class TestSoftDeleteMirror:
         with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
             mirror = await MirrorService.create_mirror(
                 db_session,
-                MirrorCreate(source_repository_id=sr.id, target_namespace="ns", target_project_name="del-project"),
+                MirrorCreate(
+                    source_repository_id=sr.id,
+                    target_namespace="ns",
+                    target_project_name="del-project",
+                ),
                 user_id=1,
             )
 
@@ -350,8 +389,8 @@ class TestTriggerSync:
     @pytest.mark.asyncio
     async def test_trigger_sync(self, db_session: AsyncSession):
         """trigger_sync triggers a pipeline and creates a MirrorLog."""
-        from app.models.pipeline import Pipeline as PipelineModel
         from app.models.gitlab_instance import GitlabInstance
+        from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
@@ -417,11 +456,10 @@ class TestCheckFreshness:
     @pytest.mark.asyncio
     async def test_check_freshness(self, db_session: AsyncSession):
         """check_freshness compares source commit with mirror."""
-        from app.models.credential import Credential
+        from app.core.secrets import encrypt_secret
 
         # Build full chain: SourceProvider → SourceGroup → SourceRepository → Mirror
-        from app.models.credential import CredentialType
-        from app.core.secrets import encrypt_secret
+        from app.models.credential import Credential, CredentialType
 
         cred = Credential(
             name="test-cred-freshness",
@@ -472,19 +510,29 @@ class TestCheckFreshness:
         db_session.add(mirror)
         await db_session.commit()
 
-        # Mock GitHubSourceProvider.get_commit_info
-        mock_commit = {"sha": "abc123", "date": datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC), "author": "Test", "message": "msg"}
+        # Mock create_source_provider → get_commit_info
+        mock_commit = {
+            "sha": "abc123",
+            "date": datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
+            "author": "Test",
+            "message": "msg",
+        }
 
-        with patch.object(
-            MirrorService, "check_freshness", wraps=MirrorService.check_freshness
-        ) as wrapped:
-            with patch(
-                "app.services.mirror.GitHubSourceProvider.get_commit_info",
+        mock_provider = MagicMock()
+        mock_provider.get_commit_info = AsyncMock(return_value=mock_commit)
+
+        with (
+            patch.object(
+                MirrorService, "check_freshness", wraps=MirrorService.check_freshness
+            ) as wrapped,
+            patch(
+                "app.services.mirror.create_source_provider",
                 new_callable=AsyncMock,
-                return_value=mock_commit,
-            ):
-                with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
-                    mirror_log = await wrapped(db_session, mirror.id, username="testadmin")
+                return_value=mock_provider,
+            ),
+            patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock),
+        ):
+            mirror_log = await wrapped(db_session, mirror.id, username="testadmin")
 
         assert mirror_log.log_type == MirrorLogType.freshness
         # Its mirror should now have last_freshness_check_at set
@@ -499,10 +547,8 @@ class TestImportExistingMirror:
     @pytest.mark.asyncio
     async def test_import_existing_mirror_success(self, db_session: AsyncSession):
         """import_existing_mirror verifies commit and creates imported mirror."""
-        from app.models.credential import Credential
-
-        from app.models.credential import CredentialType
         from app.core.secrets import encrypt_secret
+        from app.models.credential import Credential, CredentialType
 
         cred = Credential(
             name="test-cred-import",
@@ -530,22 +576,31 @@ class TestImportExistingMirror:
         db_session.add(sg)
         await db_session.commit()
 
-        mock_commit = {"sha": "abc123", "date": datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC), "author": "Test"}
+        mock_commit = {
+            "sha": "abc123",
+            "date": datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC),
+            "author": "Test",
+        }
 
-        with patch(
-            "app.services.mirror.GitHubSourceProvider.get_commit_info",
-            new_callable=AsyncMock,
-            return_value=mock_commit,
+        mock_provider = MagicMock()
+        mock_provider.get_commit_info = AsyncMock(return_value=mock_commit)
+
+        with (
+            patch(
+                "app.services.mirror.create_source_provider",
+                new_callable=AsyncMock,
+                return_value=mock_provider,
+            ),
+            patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock),
         ):
-            with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
-                mirror = await MirrorService.import_existing_mirror(
-                    db_session,
-                    source_url="https://github.com/testorg/import-repo.git",
-                    target_gitlab_id=1,
-                    target_path="gitlab-ns/imported-project",
-                    user_id=1,
-                    username="testadmin",
-                )
+            mirror = await MirrorService.import_existing_mirror(
+                db_session,
+                source_url="https://github.com/testorg/import-repo.git",
+                target_gitlab_id=1,
+                target_path="gitlab-ns/imported-project",
+                user_id=1,
+                username="testadmin",
+            )
 
         assert mirror.is_imported is True
         assert mirror.target_namespace == "gitlab-ns"
@@ -597,12 +652,10 @@ class TestTriggerSyncCreatesPipelineRun:
     """Tests for MirrorService.trigger_sync() — full chain."""
 
     @pytest.mark.asyncio
-    async def test_trigger_sync_creates_pipeline_run_and_mirror_log(
-        self, db_session: AsyncSession
-    ):
+    async def test_trigger_sync_creates_pipeline_run_and_mirror_log(self, db_session: AsyncSession):
         """trigger_sync creates PipelineRun and MirrorLog when Pipeline is configured."""
-        from app.models.pipeline import Pipeline as PipelineModel
         from app.models.gitlab_instance import GitlabInstance
+        from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
@@ -682,8 +735,8 @@ class TestCheckFreshnessExtended:
         self, db_session: AsyncSession, mirror_sha: str | None = None
     ) -> Mirror:
         """Build a complete SourceProvider→SourceRepo→Mirror chain for freshness tests."""
-        from app.models.credential import Credential, CredentialType
         from app.core.secrets import encrypt_secret
+        from app.models.credential import Credential, CredentialType
 
         cred = Credential(
             name="test-cred-ext",
@@ -740,9 +793,7 @@ class TestCheckFreshnessExtended:
     @pytest.mark.asyncio
     async def test_check_freshness_detects_stale(self, db_session: AsyncSession):
         """check_freshness returns STALE when source SHA differs from last known."""
-        mirror = await self._build_freshness_chain(
-            db_session, mirror_sha="oldsha111"
-        )
+        mirror = await self._build_freshness_chain(db_session, mirror_sha="oldsha111")
 
         mock_commit = {
             "sha": "newsha222",
@@ -750,15 +801,20 @@ class TestCheckFreshnessExtended:
             "author": "Test Author",
         }
 
-        with patch(
-            "app.services.mirror.GitHubSourceProvider.get_commit_info",
-            new_callable=AsyncMock,
-            return_value=mock_commit,
+        mock_provider = MagicMock()
+        mock_provider.get_commit_info = AsyncMock(return_value=mock_commit)
+
+        with (
+            patch(
+                "app.services.mirror.create_source_provider",
+                new_callable=AsyncMock,
+                return_value=mock_provider,
+            ),
+            patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock),
         ):
-            with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
-                mirror_log = await MirrorService.check_freshness(
-                    db_session, mirror.id, username="testuser"
-                )
+            mirror_log = await MirrorService.check_freshness(
+                db_session, mirror.id, username="testuser"
+            )
 
         assert mirror_log.log_type == MirrorLogType.freshness
         assert mirror_log.status_text == "STALE"
@@ -774,9 +830,7 @@ class TestCheckFreshnessExtended:
     @pytest.mark.asyncio
     async def test_check_freshness_detects_fresh(self, db_session: AsyncSession):
         """check_freshness returns FRESH when source SHA matches last known."""
-        mirror = await self._build_freshness_chain(
-            db_session, mirror_sha="abc123match"
-        )
+        mirror = await self._build_freshness_chain(db_session, mirror_sha="abc123match")
 
         mock_commit = {
             "sha": "abc123match",
@@ -784,15 +838,20 @@ class TestCheckFreshnessExtended:
             "author": "Test Author",
         }
 
-        with patch(
-            "app.services.mirror.GitHubSourceProvider.get_commit_info",
-            new_callable=AsyncMock,
-            return_value=mock_commit,
+        mock_provider = MagicMock()
+        mock_provider.get_commit_info = AsyncMock(return_value=mock_commit)
+
+        with (
+            patch(
+                "app.services.mirror.create_source_provider",
+                new_callable=AsyncMock,
+                return_value=mock_provider,
+            ),
+            patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock),
         ):
-            with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
-                mirror_log = await MirrorService.check_freshness(
-                    db_session, mirror.id, username="testuser"
-                )
+            mirror_log = await MirrorService.check_freshness(
+                db_session, mirror.id, username="testuser"
+            )
 
         assert mirror_log.log_type == MirrorLogType.freshness
         assert mirror_log.status_text == "FRESH"
@@ -802,19 +861,22 @@ class TestCheckFreshnessExtended:
     @pytest.mark.asyncio
     async def test_check_freshness_handles_api_error(self, db_session: AsyncSession):
         """check_freshness returns ERROR when GitHub API call fails."""
-        mirror = await self._build_freshness_chain(
-            db_session, mirror_sha="oldsha333"
-        )
+        mirror = await self._build_freshness_chain(db_session, mirror_sha="oldsha333")
 
-        with patch(
-            "app.services.mirror.GitHubSourceProvider.get_commit_info",
-            new_callable=AsyncMock,
-            side_effect=Exception("GitHub API timeout"),
+        mock_provider = MagicMock()
+        mock_provider.get_commit_info = AsyncMock(side_effect=Exception("GitHub API timeout"))
+
+        with (
+            patch(
+                "app.services.mirror.create_source_provider",
+                new_callable=AsyncMock,
+                return_value=mock_provider,
+            ),
+            patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock),
         ):
-            with patch("app.services.mirror.AuditService.log_event", new_callable=AsyncMock):
-                mirror_log = await MirrorService.check_freshness(
-                    db_session, mirror.id, username="testuser"
-                )
+            mirror_log = await MirrorService.check_freshness(
+                db_session, mirror.id, username="testuser"
+            )
 
         assert mirror_log.log_type == MirrorLogType.freshness
         assert mirror_log.status_text == "ERROR"
@@ -829,8 +891,8 @@ class TestCreateMirrorAutoSync:
     @pytest.mark.asyncio
     async def test_create_mirror_triggers_initial_sync(self, db_session: AsyncSession):
         """create_mirror auto-triggers sync when SyncGroup has a Pipeline."""
-        from app.models.pipeline import Pipeline as PipelineModel
         from app.models.gitlab_instance import GitlabInstance
+        from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
@@ -947,15 +1009,11 @@ class TestGetLogs:
         await db_session.commit()
 
         # Get first 3
-        logs = await MirrorService.get_logs(
-            db_session, mirror.id, limit=3, offset=0
-        )
+        logs = await MirrorService.get_logs(db_session, mirror.id, limit=3, offset=0)
         assert len(logs) == 3
 
         # Get next 2
-        logs = await MirrorService.get_logs(
-            db_session, mirror.id, limit=3, offset=3
-        )
+        logs = await MirrorService.get_logs(db_session, mirror.id, limit=3, offset=3)
         assert len(logs) == 2
 
     @pytest.mark.asyncio
@@ -1000,11 +1058,11 @@ class TestGetLogs:
             db_session, mirror.id, log_type=MirrorLogType.sync, limit=50, offset=0
         )
         assert len(sync_logs) == 2
-        assert all(l.log_type == MirrorLogType.sync for l in sync_logs)
+        assert all(log.log_type == MirrorLogType.sync for log in sync_logs)
 
         # Filter by FRESHNESS type
         freshness_logs = await MirrorService.get_logs(
             db_session, mirror.id, log_type=MirrorLogType.freshness, limit=50, offset=0
         )
         assert len(freshness_logs) == 2
-        assert all(l.log_type == MirrorLogType.freshness for l in freshness_logs)
+        assert all(log.log_type == MirrorLogType.freshness for log in freshness_logs)

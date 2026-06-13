@@ -5,26 +5,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  Switch,
-  Typography,
-  App,
-} from 'antd';
+import { Modal, Form, Input, Select, Switch, Typography, App } from 'antd';
 import {
   useCreatePipelineConfigMutation,
   useUpdatePipelineConfigMutation,
   useGetGitlabInstancesQuery,
   useGetComponentsQuery,
 } from '../../../store/api';
-import type {
-  PipelineConfig,
-  PipelineConfigCreate,
-  PipelineConfigUpdate,
-} from '../../../types';
+import type { PipelineConfig, PipelineConfigCreate, PipelineConfigUpdate } from '../../../types';
 
 interface PipelineModalProps {
   open: boolean;
@@ -118,10 +106,11 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
           is_enabled: values.is_enabled ?? null,
-          components: values.component_ids?.map((cid) => ({
-            component_id: cid,
-            order: 0,
-          })) ?? null,
+          components:
+            values.component_ids?.map((cid) => ({
+              component_id: cid,
+              order: 0,
+            })) ?? null,
         };
         await updateConfig({ id: pipeline.id, data }).unwrap();
         message.success('Pipeline configuration updated successfully');
@@ -134,10 +123,11 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
           is_enabled: values.is_enabled,
-          components: values.component_ids?.map((cid) => ({
-            component_id: cid,
-            order: 0,
-          })) ?? null,
+          components:
+            values.component_ids?.map((cid) => ({
+              component_id: cid,
+              order: 0,
+            })) ?? null,
         };
         await createConfig(data).unwrap();
         message.success('Pipeline configuration created successfully');
@@ -214,10 +204,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           help={jsonError ?? 'Enter a valid JSON object, e.g. {"KEY": "value"}'}
           validateStatus={jsonError ? 'error' : undefined}
         >
-          <Input.TextArea
-            placeholder='{"VAR_NAME": "default_value"}'
-            rows={4}
-          />
+          <Input.TextArea placeholder='{"VAR_NAME": "default_value"}' rows={4} />
         </Form.Item>
 
         <Form.Item name="component_ids" label="Components">

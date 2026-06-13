@@ -57,42 +57,25 @@ export function SsoCallbackPage() {
         navigate('/', { replace: true });
       })
       .catch((err) => {
-        const detail =
-          (err as { data?: { detail?: string } })?.data?.detail || 'SSO login failed';
+        const detail = (err as { data?: { detail?: string } })?.data?.detail || 'SSO login failed';
         setFallbackError(detail);
         navigate(`/login?error=${encodeURIComponent(detail)}`, { replace: true });
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   // If navigation didn't happen (e.g. blocked), show a fallback error UI.
   if (fallbackError) {
     return (
-      <Flex
-        vertical
-        align="center"
-        justify="center"
-        style={{ minHeight: '100vh' }}
-        gap="middle"
-      >
-        <Alert
-          type="error"
-          title="SSO Login Failed"
-          description={fallbackError}
-          showIcon
-        />
+      <Flex vertical align="center" justify="center" style={{ minHeight: '100vh' }} gap="middle">
+        <Alert type="error" title="SSO Login Failed" description={fallbackError} showIcon />
         <Link onClick={() => navigate('/login')}>Back to login</Link>
       </Flex>
     );
   }
 
   return (
-    <Flex
-      vertical
-      align="center"
-      justify="center"
-      style={{ minHeight: '100vh' }}
-      gap="middle"
-    >
+    <Flex vertical align="center" justify="center" style={{ minHeight: '100vh' }} gap="middle">
       <Spin size="large" />
       <Text type="secondary">Completing sign in…</Text>
     </Flex>

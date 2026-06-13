@@ -60,10 +60,7 @@ class RoleScopeCredential(Base):
     credential = relationship("Credential", back_populates="role_scopes")
 
     def __repr__(self) -> str:
-        return (
-            f"<RoleScopeCredential(role_id={self.role_id}, "
-            f"credential_id={self.credential_id})>"
-        )
+        return f"<RoleScopeCredential(role_id={self.role_id}, credential_id={self.credential_id})>"
 
 
 class RoleScopeSyncGroup(Base):
@@ -86,7 +83,4 @@ class RoleScopeSyncGroup(Base):
     sync_group = relationship("SyncGroup", back_populates="role_scopes")
 
     def __repr__(self) -> str:
-        return (
-            f"<RoleScopeSyncGroup(role_id={self.role_id}, "
-            f"sync_group_id={self.sync_group_id})>"
-        )
+        return f"<RoleScopeSyncGroup(role_id={self.role_id}, sync_group_id={self.sync_group_id})>"

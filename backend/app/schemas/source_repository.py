@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from app.schemas.source_group import SourceGroupListOut
     from app.schemas.mirror import MirrorListOut
+    from app.schemas.source_group import SourceGroupListOut
 
 
 # ──── SourceRepository List Out ────────────────────────────────────────────

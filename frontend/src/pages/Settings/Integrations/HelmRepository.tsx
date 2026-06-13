@@ -6,25 +6,9 @@
  */
 
 import { useState } from 'react';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Spin,
-  Modal,
-  Input,
-  Checkbox,
-  Tooltip,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, Modal, Input, Checkbox, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { StatusChip } from '../../../components/StatusChip';
 import type {
   HelmRepositoryInstance,
@@ -91,7 +75,7 @@ export function HelmRepositoryPanel({ showMessage }: PanelProps) {
       const result: ConnectionTestResult = await testConnection(id).unwrap();
       showMessage(
         result.success ? 'Connection successful' : `Connection failed: ${result.message}`,
-        result.success ? 'success' : 'error',
+        result.success ? 'success' : 'error'
       );
     } catch {
       showMessage('Connection test failed', 'error');
@@ -107,8 +91,7 @@ export function HelmRepositoryPanel({ showMessage }: PanelProps) {
     {
       title: 'Default',
       key: 'is_default',
-      render: (_: unknown, record: HelmRepositoryInstance) =>
-        record.is_default ? 'Yes' : 'No',
+      render: (_: unknown, record: HelmRepositoryInstance) => (record.is_default ? 'Yes' : 'No'),
     },
     {
       title: 'Status',
@@ -228,13 +211,13 @@ function HelmRepositoryDialog({
   const [username, setUsername] = useState((dialogState.defaultValues?.username as string) ?? '');
   const [password, setPassword] = useState((dialogState.defaultValues?.password as string) ?? '');
   const [isActive, setIsActive] = useState(
-    (dialogState.defaultValues?.is_active as boolean) ?? true,
+    (dialogState.defaultValues?.is_active as boolean) ?? true
   );
   const [verifySsl, setVerifySsl] = useState(
-    (dialogState.defaultValues?.verify_ssl as boolean) ?? true,
+    (dialogState.defaultValues?.verify_ssl as boolean) ?? true
   );
   const [isDefault, setIsDefault] = useState(
-    (dialogState.defaultValues?.is_default as boolean) ?? false,
+    (dialogState.defaultValues?.is_default as boolean) ?? false
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);

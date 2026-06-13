@@ -19,40 +19,42 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import DomainException, NotFoundError
-from app.core.rbac import get_current_user, require_permission
+from app.core.rbac import get_current_user, require_permission, require_scope_permission
 from app.database import get_db
-from app.models.mirror_log import MirrorLog, MirrorLogType
+from app.models.mirror import Mirror
+from app.models.mirror_log import MirrorLogType
 from app.models.source_group import SourceGroup
 from app.models.source_provider import SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.user import User
+from app.schemas.mirror import (
+    MirrorBulkCreate,
+    MirrorCreate,
+    MirrorDetailOut,
+    MirrorListOut,
+    MirrorUpdate,
+)
+from app.schemas.mirror_log import MirrorLogOut
+from app.schemas.source_group import SourceGroupDetailOut, SourceGroupListOut
 from app.schemas.source_provider import SourceProviderCreate, SourceProviderOut
-from app.schemas.source_group import SourceGroupDetailOut, SourceGroupListOut, SourceGroupCreate
 from app.schemas.source_repository import (
     SourceRepositoryDetailOut,
     SourceRepositoryListOut,
     SourceRepositoryReadmeOut,
     SourceRepositoryReleaseOut,
 )
-from app.schemas.mirror import (
-    MirrorCreate,
-    MirrorBulkCreate,
-    MirrorUpdate,
-    MirrorListOut,
-    MirrorDetailOut,
-)
-from app.schemas.mirror_log import MirrorLogOut
 from app.schemas.sync_group import (
     SyncGroupCreate,
-    SyncGroupUpdate,
     SyncGroupOut,
+    SyncGroupUpdate,
 )
 from app.services.mirror import MirrorService
+from app.services.rbac_service import RBACService
 from app.services.release import ReleaseService
 from app.services.sync_group import SyncGroupService
 
@@ -114,7 +116,7 @@ async def list_source_providers(
     result = await db.execute(
         select(SourceProvider)
         .options(selectinload(SourceProvider.credential))
-        .where(SourceProvider.is_deleted == False)
+        .where(~SourceProvider.is_deleted)
         .order_by(SourceProvider.label.asc())
     )
     providers = result.unique().scalars().all()
@@ -157,11 +159,13 @@ async def get_source_provider(
     result = await db.execute(
         select(SourceProvider)
         .options(selectinload(SourceProvider.credential))
-        .where(SourceProvider.id == provider_id, SourceProvider.is_deleted == False)
+        .where(SourceProvider.id == provider_id, ~SourceProvider.is_deleted)
     )
     provider = result.scalar_one_or_none()
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"SourceProvider with id={provider_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
     return SourceProviderOut.model_validate(provider)
 
 
@@ -176,11 +180,13 @@ async def update_source_provider(
     result = await db.execute(
         select(SourceProvider)
         .options(selectinload(SourceProvider.credential))
-        .where(SourceProvider.id == provider_id, SourceProvider.is_deleted == False)
+        .where(SourceProvider.id == provider_id, ~SourceProvider.is_deleted)
     )
     provider = result.scalar_one_or_none()
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"SourceProvider with id={provider_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
 
     changed = False
     if data.label is not None and data.label != provider.label:
@@ -207,12 +213,14 @@ async def delete_source_provider(
     result = await db.execute(
         select(SourceProvider).where(
             SourceProvider.id == provider_id,
-            SourceProvider.is_deleted == False,
+            ~SourceProvider.is_deleted,
         )
     )
     provider = result.scalar_one_or_none()
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"SourceProvider with id={provider_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
 
     provider.is_deleted = True
     await db.commit()
@@ -234,11 +242,13 @@ async def list_source_groups(
     prov_result = await db.execute(
         select(SourceProvider).where(
             SourceProvider.id == provider_id,
-            SourceProvider.is_deleted == False,
+            ~SourceProvider.is_deleted,
         )
     )
     if prov_result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail=f"SourceProvider with id={provider_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
 
     result = await db.execute(
         select(SourceGroup)
@@ -248,7 +258,7 @@ async def list_source_groups(
         )
         .where(
             SourceGroup.source_provider_id == provider_id,
-            SourceGroup.is_deleted == False,
+            ~SourceGroup.is_deleted,
         )
         .order_by(SourceGroup.name.asc())
     )
@@ -270,7 +280,7 @@ async def import_source_group(
     """Import an organization/group from GitHub and its repositories.
 
     Uses the SourceProvider's credential to fetch group metadata
-    and all repositories via GitHubSourceProvider.
+    and all repositories via the configured SourceProvider.
     """
     # 1. Resolve provider + credential
     prov_result = await db.execute(
@@ -278,12 +288,14 @@ async def import_source_group(
         .options(selectinload(SourceProvider.credential))
         .where(
             SourceProvider.id == provider_id,
-            SourceProvider.is_deleted == False,
+            ~SourceProvider.is_deleted,
         )
     )
     provider = prov_result.scalar_one_or_none()
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"SourceProvider with id={provider_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
 
     if provider.credential is None or not provider.credential.encrypted_secret:
         raise HTTPException(
@@ -292,16 +304,19 @@ async def import_source_group(
         )
 
     from app.core.secrets import decrypt_secret
-    from app.services.source_providers.github import GitHubSourceProvider
+    from app.services.source_providers import create_source_provider
 
     credential_secret = decrypt_secret(provider.credential.encrypted_secret)
-    gh_provider = GitHubSourceProvider(provider, credential_secret)
+    gh_provider = await create_source_provider(provider, credential_secret)
 
     # 2. Find the group on GitHub
     github_groups = await gh_provider.list_groups()
     target_group = None
     for g in github_groups:
-        if g.get("name", "").lower() == group_name.lower() or g.get("login", "").lower() == group_name.lower():
+        if (
+            g.get("name", "").lower() == group_name.lower()
+            or g.get("login", "").lower() == group_name.lower()
+        ):
             target_group = g
             break
 
@@ -311,14 +326,16 @@ async def import_source_group(
             detail=f"Group '{group_name}' not found on GitHub for provider {provider_id}",
         )
 
-    external_id = target_group.get("external_id") or target_group.get("login") or target_group.get("name")
+    external_id = (
+        target_group.get("external_id") or target_group.get("login") or target_group.get("name")
+    )
 
     # 3. Upsert SourceGroup
     existing_result = await db.execute(
         select(SourceGroup).where(
             SourceGroup.source_provider_id == provider_id,
             SourceGroup.external_id == external_id,
-            SourceGroup.is_deleted == False,
+            ~SourceGroup.is_deleted,
         )
     )
     source_group = existing_result.scalar_one_or_none()
@@ -336,7 +353,9 @@ async def import_source_group(
         await db.flush()
         logger.info("Created SourceGroup id=%d name='%s'", source_group.id, source_group.name)
     else:
-        logger.info("SourceGroup id=%d name='%s' already exists", source_group.id, source_group.name)
+        logger.info(
+            "SourceGroup id=%d name='%s' already exists", source_group.id, source_group.name
+        )
 
     # 4. Import repositories
     repos = await gh_provider.list_repositories(external_id)
@@ -350,7 +369,7 @@ async def import_source_group(
             select(SourceRepository).where(
                 SourceRepository.source_group_id == source_group.id,
                 SourceRepository.external_id == repo_ext_id,
-                SourceRepository.is_deleted == False,
+                ~SourceRepository.is_deleted,
             )
         )
         if existing_repo.scalar_one_or_none() is not None:
@@ -405,7 +424,7 @@ async def import_source_group(
 async def get_source_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:read")),
+    _: bool = Depends(require_scope_permission("source_groups:read", "source_group", "group_id")),
 ):
     """Get details of a single source group with nested repositories."""
     result = await db.execute(
@@ -414,7 +433,7 @@ async def get_source_group(
             selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
-        .where(SourceGroup.id == group_id, SourceGroup.is_deleted == False)
+        .where(SourceGroup.id == group_id, ~SourceGroup.is_deleted)
     )
     group = result.unique().scalar_one_or_none()
     if group is None:
@@ -426,7 +445,9 @@ async def get_source_group(
 async def refresh_source_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:refresh")),
+    _: bool = Depends(
+        require_scope_permission("source_groups:refresh", "source_group", "group_id")
+    ),
 ):
     """Re-fetch repository list for a source group from the upstream provider."""
     # Get group with provider + credential
@@ -436,7 +457,7 @@ async def refresh_source_group(
             selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
-        .where(SourceGroup.id == group_id, SourceGroup.is_deleted == False)
+        .where(SourceGroup.id == group_id, ~SourceGroup.is_deleted)
     )
     group = result.unique().scalar_one_or_none()
     if group is None:
@@ -450,10 +471,10 @@ async def refresh_source_group(
         raise HTTPException(status_code=400, detail="SourceProvider has no credential configured")
 
     from app.core.secrets import decrypt_secret
-    from app.services.source_providers.github import GitHubSourceProvider
+    from app.services.source_providers import create_source_provider
 
     credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-    gh_provider = GitHubSourceProvider(sp, credential_secret)
+    gh_provider = await create_source_provider(sp, credential_secret)
 
     external_id = group.external_id or group.name
     repos = await gh_provider.list_repositories(external_id)
@@ -468,7 +489,7 @@ async def refresh_source_group(
             select(SourceRepository).where(
                 SourceRepository.source_group_id == group.id,
                 SourceRepository.external_id == repo_ext_id,
-                SourceRepository.is_deleted == False,
+                ~SourceRepository.is_deleted,
             )
         )
         sr = existing_repo.scalar_one_or_none()
@@ -530,13 +551,13 @@ async def refresh_source_group(
 async def delete_source_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:write")),
+    _: bool = Depends(require_scope_permission("source_groups:write", "source_group", "group_id")),
 ):
     """Soft-delete a source group."""
     result = await db.execute(
         select(SourceGroup).where(
             SourceGroup.id == group_id,
-            SourceGroup.is_deleted == False,
+            ~SourceGroup.is_deleted,
         )
     )
     group = result.scalar_one_or_none()
@@ -561,14 +582,14 @@ async def list_source_repositories(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:read")),
+    _: bool = Depends(require_scope_permission("source_groups:read", "source_group", "group_id")),
 ):
     """List repositories in a source group with optional filtering."""
     # Verify group exists
     grp_result = await db.execute(
         select(SourceGroup).where(
             SourceGroup.id == group_id,
-            SourceGroup.is_deleted == False,
+            ~SourceGroup.is_deleted,
         )
     )
     if grp_result.scalar_one_or_none() is None:
@@ -579,7 +600,7 @@ async def list_source_repositories(
         .options(selectinload(SourceRepository.source_group))
         .where(
             SourceRepository.source_group_id == group_id,
-            SourceRepository.is_deleted == False,
+            ~SourceRepository.is_deleted,
         )
     )
 
@@ -602,10 +623,10 @@ async def list_source_repositories(
 async def get_source_repository(
     repository_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:read")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:read")),
 ):
     """Get details of a single source repository."""
-    from app.models.mirror import Mirror
 
     result = await db.execute(
         select(SourceRepository)
@@ -613,22 +634,51 @@ async def get_source_repository(
             selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
             selectinload(SourceRepository.mirrors),
         )
-        .where(SourceRepository.id == repository_id, SourceRepository.is_deleted == False)
+        .where(SourceRepository.id == repository_id, ~SourceRepository.is_deleted)
     )
     repo = result.unique().scalar_one_or_none()
     if repo is None:
-        raise HTTPException(status_code=404, detail=f"SourceRepository with id={repository_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceRepository with id={repository_id} not found"
+        )
+    # Scope check via parent SourceGroup
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
     return SourceRepositoryDetailOut.model_validate(repo)
 
 
-@router.get("/repositories/{repository_id}/releases/", response_model=list[SourceRepositoryReleaseOut])
+@router.get(
+    "/repositories/{repository_id}/releases/", response_model=list[SourceRepositoryReleaseOut]
+)
 async def get_repository_releases(
     repository_id: int,
     include_prereleases: bool = Query(False),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:read")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:read")),
 ):
     """List tracked releases for a source repository."""
+    # Scope check via parent SourceGroup
+    repo_result = await db.execute(
+        select(SourceRepository).where(
+            SourceRepository.id == repository_id,
+            ~SourceRepository.is_deleted,
+        )
+    )
+    repo = repo_result.scalar_one_or_none()
+    if repo is None:
+        raise HTTPException(
+            status_code=404, detail=f"SourceRepository with id={repository_id} not found"
+        )
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
     releases = await ReleaseService.get_releases(
         db,
         repository_id=repository_id,
@@ -641,18 +691,27 @@ async def get_repository_releases(
 async def get_repository_readme(
     repository_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("source_groups:read")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:read")),
 ):
     """Get cached README content for a source repository."""
     result = await db.execute(
         select(SourceRepository).where(
             SourceRepository.id == repository_id,
-            SourceRepository.is_deleted == False,
+            ~SourceRepository.is_deleted,
         )
     )
     repo = result.scalar_one_or_none()
     if repo is None:
-        raise HTTPException(status_code=404, detail=f"SourceRepository with id={repository_id} not found")
+        raise HTTPException(
+            status_code=404, detail=f"SourceRepository with id={repository_id} not found"
+        )
+    # Scope check via parent SourceGroup
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
     return SourceRepositoryReadmeOut(
         readme_html=repo.readme_html,
         readme_fetched_at=repo.readme_fetched_at,
@@ -704,13 +763,20 @@ async def list_mirrors(
 async def get_mirror(
     mirror_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("mirrors:read")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:read")),
 ):
     """Get mirror details with relationships and recent logs."""
     try:
         mirror = await MirrorService.get_mirror_detail(db, mirror_id)
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail) from e
+    # Scope check via parent SyncGroup
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(current_user.id, "sync_group", mirror.sync_group_id):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
     return MirrorDetailOut.model_validate(mirror)
 
 
@@ -761,9 +827,23 @@ async def update_mirror(
     mirror_id: int,
     data: MirrorUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("mirrors:write")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:write")),
 ):
     """Partially update a mirror's target fields."""
+    # Scope check via parent SyncGroup
+    result = await db.execute(select(Mirror).where(Mirror.id == mirror_id, ~Mirror.is_deleted))
+    mirror_for_scope = result.scalar_one_or_none()
+    if mirror_for_scope is None:
+        raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
     try:
         mirror = await MirrorService.update_mirror(
             db,
@@ -782,9 +862,23 @@ async def update_mirror(
 async def delete_mirror(
     mirror_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("mirrors:delete")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:delete")),
 ):
     """Soft-delete a mirror."""
+    # Scope check via parent SyncGroup
+    result = await db.execute(select(Mirror).where(Mirror.id == mirror_id, ~Mirror.is_deleted))
+    mirror_for_scope = result.scalar_one_or_none()
+    if mirror_for_scope is None:
+        raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
     try:
         await MirrorService.soft_delete_mirror(
             db,
@@ -799,9 +893,23 @@ async def delete_mirror(
 async def trigger_mirror_sync(
     mirror_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("mirrors:sync")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:sync")),
 ):
     """Trigger a sync pipeline for a mirror."""
+    # Scope check via parent SyncGroup
+    result = await db.execute(select(Mirror).where(Mirror.id == mirror_id, ~Mirror.is_deleted))
+    mirror_for_scope = result.scalar_one_or_none()
+    if mirror_for_scope is None:
+        raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
     try:
         mirror_log = await MirrorService.trigger_sync(
             db,
@@ -820,9 +928,23 @@ async def trigger_mirror_sync(
 async def check_mirror_freshness(
     mirror_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("mirrors:sync")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:sync")),
 ):
     """Run a freshness check comparing source HEAD against last known commit."""
+    # Scope check via parent SyncGroup
+    result = await db.execute(select(Mirror).where(Mirror.id == mirror_id, ~Mirror.is_deleted))
+    mirror_for_scope = result.scalar_one_or_none()
+    if mirror_for_scope is None:
+        raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
+
     try:
         mirror_log = await MirrorService.check_freshness(
             db,
@@ -885,17 +1007,24 @@ async def get_mirror_logs(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("mirrors:read")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("mirrors:read")),
 ):
     """List log entries for a mirror with optional type filter."""
-    # Verify mirror exists
-    from app.models.mirror import Mirror
-
+    # Verify mirror exists + scope check via parent SyncGroup
     mirror_result = await db.execute(
-        select(Mirror).where(Mirror.id == mirror_id, Mirror.is_deleted == False)
+        select(Mirror).where(Mirror.id == mirror_id, ~Mirror.is_deleted)
     )
-    if mirror_result.scalar_one_or_none() is None:
+    mirror_for_scope = mirror_result.scalar_one_or_none()
+    if mirror_for_scope is None:
         raise HTTPException(status_code=404, detail=f"Mirror with id={mirror_id} not found")
+    rbac = RBACService(db)
+    if not await rbac.check_scope_access(
+        current_user.id, "sync_group", mirror_for_scope.sync_group_id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Access denied: resource not in your role scope"
+        )
 
     logs = await MirrorService.get_logs(
         db,
@@ -946,7 +1075,7 @@ async def create_sync_group(
 async def get_sync_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("sync_groups:read")),
+    _: bool = Depends(require_scope_permission("sync_groups:read", "sync_group", "group_id")),
 ):
     """Get details of a single sync group."""
     try:
@@ -963,7 +1092,8 @@ async def update_sync_group(
     group_id: int,
     data: SyncGroupUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sync_groups:write")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_scope_permission("sync_groups:write", "sync_group", "group_id")),
 ):
     """Partially update a sync group."""
     try:
@@ -984,7 +1114,7 @@ async def update_sync_group(
 async def delete_sync_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("sync_groups:delete")),
+    _: bool = Depends(require_scope_permission("sync_groups:delete", "sync_group", "group_id")),
 ):
     """Soft-delete a sync group (mirrors are migrated to default group)."""
     try:
@@ -1002,7 +1132,8 @@ async def bulk_assign_mirrors_to_group(
     group_id: int,
     data: AssignMirrorsRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sync_groups:write")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_scope_permission("sync_groups:write", "sync_group", "group_id")),
 ):
     """Bulk assign mirrors to a SyncGroup.
 
@@ -1034,7 +1165,8 @@ async def apply_pipeline_to_sync_group(
     group_id: int,
     request: ApplyPipelineRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("sync_groups:write")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_scope_permission("sync_groups:write", "sync_group", "group_id")),
 ):
     """Apply a Pipeline configuration to a SyncGroup.
 

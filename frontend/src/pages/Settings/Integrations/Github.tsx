@@ -6,25 +6,9 @@
  */
 
 import { useState } from 'react';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Spin,
-  Modal,
-  Input,
-  Checkbox,
-  Tooltip,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, Modal, Input, Checkbox, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { StatusChip } from '../../../components/StatusChip';
 import type {
   GithubInstance,
@@ -88,7 +72,7 @@ export function GithubPanel({ showMessage }: PanelProps) {
       const result: ConnectionTestResult = await testConnection(id).unwrap();
       showMessage(
         result.success ? 'Connection successful' : `Connection failed: ${result.message}`,
-        result.success ? 'success' : 'error',
+        result.success ? 'success' : 'error'
       );
     } catch {
       showMessage('Connection test failed', 'error');
@@ -226,10 +210,10 @@ function GithubDialog({
   const [name, setName] = useState((dialogState.defaultValues?.name as string) ?? '');
   const [token, setToken] = useState((dialogState.defaultValues?.token as string) ?? '');
   const [isActive, setIsActive] = useState(
-    (dialogState.defaultValues?.is_active as boolean) ?? true,
+    (dialogState.defaultValues?.is_active as boolean) ?? true
   );
   const [isDefault, setIsDefault] = useState(
-    (dialogState.defaultValues?.is_default as boolean) ?? false,
+    (dialogState.defaultValues?.is_default as boolean) ?? false
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);

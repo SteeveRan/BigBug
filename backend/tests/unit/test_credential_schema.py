@@ -8,8 +8,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.credential import CredentialCreate, CredentialUpdate, CredentialOut
 from app.models.credential import CredentialType
+from app.schemas.credential import CredentialCreate, CredentialOut, CredentialUpdate
 
 
 class TestCredentialCreate:
@@ -114,9 +114,18 @@ class TestCredentialOut:
         """Verify all expected public fields are present."""
         fields = set(CredentialOut.model_fields.keys())
         expected = {
-            "id", "name", "credential_type", "provider", "username",
-            "ssh_public_key", "base_url", "status_flag", "status_text",
-            "last_tested_at", "created_at", "updated_at",
+            "id",
+            "name",
+            "credential_type",
+            "provider",
+            "username",
+            "ssh_public_key",
+            "base_url",
+            "status_flag",
+            "status_text",
+            "last_tested_at",
+            "created_at",
+            "updated_at",
         }
         assert fields == expected
 

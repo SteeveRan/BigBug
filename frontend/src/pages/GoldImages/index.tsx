@@ -185,7 +185,7 @@ export function GoldImagesPage() {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
             },
-          },
+          }
         );
         const data = await resp.json();
         setVersions((prev) => ({ ...prev, [imageId]: data }));
@@ -214,10 +214,7 @@ export function GoldImagesPage() {
       title: 'Status',
       key: 'status',
       render: (_: unknown, record: ImageVersion) => (
-        <StatusChip
-          status={record.status_flag}
-          statusText={record.status_text ?? undefined}
-        />
+        <StatusChip status={record.status_flag} statusText={record.status_text ?? undefined} />
       ),
     },
     {
@@ -235,10 +232,7 @@ export function GoldImagesPage() {
       title: 'Signature',
       key: 'signature',
       render: (_: unknown, record: ImageVersion) => (
-        <SignatureBadge
-          isSigned={record.is_signed}
-          signature={record.cosign_signature}
-        />
+        <SignatureBadge isSigned={record.is_signed} signature={record.cosign_signature} />
       ),
     },
     {
@@ -344,7 +338,10 @@ export function GoldImagesPage() {
         </Flex>
       ) : images.length === 0 ? (
         <Card>
-          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}
+          >
             No gold images yet. Create one to get started.
           </Typography.Text>
         </Card>

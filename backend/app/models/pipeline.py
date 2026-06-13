@@ -10,15 +10,14 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Column,
     DateTime,
     ForeignKey,
     Integer,
-    JSON,
     String,
     Text,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -56,9 +55,7 @@ class Pipeline(Base):
     pipeline_runs = relationship(
         "PipelineRun", back_populates="pipeline", cascade="all, delete-orphan"
     )
-    sync_groups = relationship(
-        "SyncGroup", back_populates="pipeline", cascade="all, delete-orphan"
-    )
+    sync_groups = relationship("SyncGroup", back_populates="pipeline", cascade="all, delete-orphan")
 
     # Note: partial unique constraint on is_default=True is enforced
     # via Alembic migration (postgresql_where) for PostgreSQL.

@@ -13,18 +13,20 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     Integer,
     String,
     Text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
-class DiscoveryStatus(str, enum.Enum):
+class DiscoveryStatus(enum.StrEnum):
     new = "new"
     existing = "existing"
     removed = "removed"

@@ -10,15 +10,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.models.sync_group import SyncGroup
 from app.models.user import User
 from app.services.mirror import MirrorService
 from app.services.sync_group import SyncGroupService
@@ -38,11 +37,11 @@ class SyncScheduler:
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         self._session_factory = session_factory
-        self._scheduler: Optional[AsyncIOScheduler] = None
-        self._sync_jobs: dict[int, str] = {}       # sync_group_id -> job_id
+        self._scheduler: AsyncIOScheduler | None = None
+        self._sync_jobs: dict[int, str] = {}  # sync_group_id -> job_id
         self._freshness_jobs: dict[int, str] = {}  # sync_group_id -> job_id
         self._semaphores: dict[int, asyncio.Semaphore] = {}
-        self._system_user_id: Optional[int] = None   # cached at startup
+        self._system_user_id: int | None = None  # cached at startup
 
     # ==================================================================
     # Lifecycle
@@ -110,7 +109,9 @@ class SyncScheduler:
         self._sync_jobs[sync_group_id] = job_id
         logger.info(
             "Scheduled sync job for SyncGroup %d (cron=%s, concurrency=%d)",
-            sync_group_id, cron_expr, concurrency,
+            sync_group_id,
+            cron_expr,
+            concurrency,
         )
 
     async def schedule_freshness_job(
@@ -145,7 +146,9 @@ class SyncScheduler:
         self._freshness_jobs[sync_group_id] = job_id
         logger.info(
             "Scheduled freshness job for SyncGroup %d (cron=%s, concurrency=%d)",
-            sync_group_id, cron_expr, concurrency,
+            sync_group_id,
+            cron_expr,
+            concurrency,
         )
 
     def remove_sync_job(self, sync_group_id: int) -> None:
@@ -181,23 +184,29 @@ class SyncScheduler:
                 if group.sync_enabled and group.sync_cron:
                     try:
                         await self.schedule_sync_job(
-                            group.id, group.sync_cron, group.sync_concurrency,
+                            group.id,
+                            group.sync_cron,
+                            group.sync_concurrency,
                         )
                     except Exception:
                         logger.exception(
                             "Failed to schedule sync job for SyncGroup %d (cron=%r)",
-                            group.id, group.sync_cron,
+                            group.id,
+                            group.sync_cron,
                         )
 
                 if group.freshness_enabled and group.freshness_cron:
                     try:
                         await self.schedule_freshness_job(
-                            group.id, group.freshness_cron, group.freshness_concurrency,
+                            group.id,
+                            group.freshness_cron,
+                            group.freshness_concurrency,
                         )
                     except Exception:
                         logger.exception(
                             "Failed to schedule freshness job for SyncGroup %d (cron=%r)",
-                            group.id, group.freshness_cron,
+                            group.id,
+                            group.freshness_cron,
                         )
 
     # ==================================================================
@@ -205,7 +214,9 @@ class SyncScheduler:
     # ==================================================================
 
     async def _run_sync_for_group(
-        self, sync_group_id: int, concurrency: int,
+        self,
+        sync_group_id: int,
+        concurrency: int,
     ) -> None:
         """APScheduler job: trigger sync for all mirrors in *sync_group_id*.
 
@@ -218,25 +229,26 @@ class SyncScheduler:
         semaphore = self._get_semaphore(sync_group_id, concurrency)
 
         async def _sync_one(mirror_id: int) -> None:
-            async with semaphore:
-                async with self._session_factory() as db:
-                    try:
-                        user_id = await self._resolve_user_id(db)
-                        await MirrorService.trigger_sync(
-                            db=db,
-                            mirror_id=mirror_id,
-                            user_id=user_id,
-                            username="scheduler",
-                        )
-                        logger.info(
-                            "Sync triggered for mirror %d (group %d)",
-                            mirror_id, sync_group_id,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Sync failed for mirror %d (group %d)",
-                            mirror_id, sync_group_id,
-                        )
+            async with semaphore, self._session_factory() as db:
+                try:
+                    user_id = await self._resolve_user_id(db)
+                    await MirrorService.trigger_sync(
+                        db=db,
+                        mirror_id=mirror_id,
+                        user_id=user_id,
+                        username="scheduler",
+                    )
+                    logger.info(
+                        "Sync triggered for mirror %d (group %d)",
+                        mirror_id,
+                        sync_group_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Sync failed for mirror %d (group %d)",
+                        mirror_id,
+                        sync_group_id,
+                    )
 
         async with self._session_factory() as db:
             mirrors = await MirrorService.get_mirrors_by_group(db, sync_group_id)
@@ -250,11 +262,14 @@ class SyncScheduler:
 
         logger.info(
             "Sync job finished for SyncGroup %d (%d mirror(s) processed)",
-            sync_group_id, len(mirrors),
+            sync_group_id,
+            len(mirrors),
         )
 
     async def _run_freshness_for_group(
-        self, sync_group_id: int, concurrency: int,
+        self,
+        sync_group_id: int,
+        concurrency: int,
     ) -> None:
         """APScheduler job: run freshness check for all mirrors in *sync_group_id*.
 
@@ -267,23 +282,24 @@ class SyncScheduler:
         semaphore = self._get_semaphore(sync_group_id, concurrency)
 
         async def _check_one(mirror_id: int) -> None:
-            async with semaphore:
-                async with self._session_factory() as db:
-                    try:
-                        await MirrorService.check_freshness(
-                            db=db,
-                            mirror_id=mirror_id,
-                            username="scheduler",
-                        )
-                        logger.info(
-                            "Freshness check done for mirror %d (group %d)",
-                            mirror_id, sync_group_id,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Freshness check failed for mirror %d (group %d)",
-                            mirror_id, sync_group_id,
-                        )
+            async with semaphore, self._session_factory() as db:
+                try:
+                    await MirrorService.check_freshness(
+                        db=db,
+                        mirror_id=mirror_id,
+                        username="scheduler",
+                    )
+                    logger.info(
+                        "Freshness check done for mirror %d (group %d)",
+                        mirror_id,
+                        sync_group_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Freshness check failed for mirror %d (group %d)",
+                        mirror_id,
+                        sync_group_id,
+                    )
 
         async with self._session_factory() as db:
             mirrors = await MirrorService.get_mirrors_by_group(db, sync_group_id)
@@ -297,7 +313,8 @@ class SyncScheduler:
 
         logger.info(
             "Freshness job finished for SyncGroup %d (%d mirror(s) processed)",
-            sync_group_id, len(mirrors),
+            sync_group_id,
+            len(mirrors),
         )
 
     # ==================================================================
@@ -305,7 +322,9 @@ class SyncScheduler:
     # ==================================================================
 
     def _get_semaphore(
-        self, sync_group_id: int, concurrency: int,
+        self,
+        sync_group_id: int,
+        concurrency: int,
     ) -> asyncio.Semaphore:
         """Return (or create) a semaphore for *sync_group_id*."""
         if sync_group_id not in self._semaphores:
@@ -328,7 +347,7 @@ class SyncScheduler:
         result = await db.execute(
             select(User.id).where(
                 User.username == "system",
-                User.is_active == True,
+                User.is_active,
             )
         )
         user_id = result.scalar_one_or_none()
@@ -338,7 +357,7 @@ class SyncScheduler:
 
         # Fall back to the first active user
         result = await db.execute(
-            select(User.id).where(User.is_active == True).order_by(User.id.asc()).limit(1)
+            select(User.id).where(User.is_active).order_by(User.id.asc()).limit(1)
         )
         user_id = result.scalar_one_or_none()
         if user_id is not None:
@@ -350,11 +369,9 @@ class SyncScheduler:
         self._system_user_id = 1
         return 1
 
-    def _remove_job_safe(self, job_id: Optional[str]) -> None:
+    def _remove_job_safe(self, job_id: str | None) -> None:
         """Remove an APScheduler job if it exists, catching any errors."""
         if job_id is None or self._scheduler is None:
             return
-        try:
+        with contextlib.suppress(Exception):
             self._scheduler.remove_job(job_id)
-        except Exception:
-            pass

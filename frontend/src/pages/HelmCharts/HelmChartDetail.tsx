@@ -4,22 +4,9 @@
  * @dependencies antd, @ant-design/icons, Redux store
  */
 import { useParams, useNavigate } from 'react-router';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Spin,
-  Divider,
-  Tooltip,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, Divider, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  ArrowLeftOutlined,
-  ReloadOutlined,
-  LinkOutlined,
-} from '@ant-design/icons';
+import { ArrowLeftOutlined, ReloadOutlined, LinkOutlined } from '@ant-design/icons';
 import {
   useGetHelmChartQuery,
   useGetHelmChartVersionsQuery,
@@ -168,7 +155,7 @@ export function HelmChartDetailPage() {
       render: (_: unknown, record: HelmSyncLog) => {
         if (record.started_at && record.finished_at) {
           const seconds = Math.round(
-            (new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000,
+            (new Date(record.finished_at).getTime() - new Date(record.started_at).getTime()) / 1000
           );
           return `${seconds}s`;
         }
@@ -197,12 +184,7 @@ export function HelmChartDetailPage() {
             Re-index
           </Button>
         </Tooltip>
-        <Button
-          icon={<LinkOutlined />}
-          href={c.repo_url}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <Button icon={<LinkOutlined />} href={c.repo_url} target="_blank" rel="noopener noreferrer">
           Open Repo
         </Button>
       </Flex>
@@ -243,9 +225,7 @@ export function HelmChartDetailPage() {
                 Last Synced
               </Typography.Text>
               <Typography.Text>
-                {c.last_synced_at
-                  ? new Date(c.last_synced_at).toLocaleString()
-                  : 'Never'}
+                {c.last_synced_at ? new Date(c.last_synced_at).toLocaleString() : 'Never'}
               </Typography.Text>
             </Flex>
             {c.gitlab_project_url && (
@@ -255,7 +235,11 @@ export function HelmChartDetailPage() {
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     GitLab Project
                   </Typography.Text>
-                  <Typography.Link href={c.gitlab_project_url} target="_blank" rel="noopener noreferrer">
+                  <Typography.Link
+                    href={c.gitlab_project_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     {c.gitlab_project_id ?? c.gitlab_project_url}
                   </Typography.Link>
                 </Flex>
@@ -277,8 +261,7 @@ export function HelmChartDetailPage() {
             pagination={false}
             scroll={{ y: 360 }}
             locale={{
-              emptyText:
-                'No versions indexed yet. Click "Re-index" to fetch chart versions.',
+              emptyText: 'No versions indexed yet. Click "Re-index" to fetch chart versions.',
             }}
           />
         </Card>

@@ -158,7 +158,7 @@ export function AuthenticationSettings() {
         message.error(msg);
       }
     },
-    [message],
+    [message]
   );
 
   // ─── Role mapping handlers ─────────────────────────────────────────────────
@@ -422,11 +422,7 @@ export function AuthenticationSettings() {
       <Card
         title="Role Mapping"
         extra={
-          <Button
-            icon={<PlusOutlined />}
-            onClick={handleAddMapping}
-            disabled={isSaving}
-          >
+          <Button icon={<PlusOutlined />} onClick={handleAddMapping} disabled={isSaving}>
             Add Mapping
           </Button>
         }

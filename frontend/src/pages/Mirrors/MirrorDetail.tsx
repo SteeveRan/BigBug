@@ -17,11 +17,7 @@ import {
   Spin,
   Space,
 } from 'antd';
-import {
-  ArrowLeftOutlined,
-  PlayCircleOutlined,
-  LinkOutlined,
-} from '@ant-design/icons';
+import { ArrowLeftOutlined, PlayCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import {
   useGetMirrorQuery,

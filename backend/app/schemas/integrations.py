@@ -206,7 +206,10 @@ class DockerRegistryInstanceCreate(BaseModel):
     )
     registry_provider: str = Field(
         "generic",
-        description="Known registry provider for auto-detection: docker_hub, quay_io, gcr, ecr, acr, ghcr, harbor, generic",
+        description=(
+            "Known registry provider for auto-detection: "
+            "docker_hub, quay_io, gcr, ecr, acr, ghcr, harbor, generic"
+        ),
     )
     priority: int = Field(0, description="Higher priority = preferred for auto-selection")
 

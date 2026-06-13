@@ -80,16 +80,16 @@ describe('HelmChartsPage', () => {
   });
 
   function renderPage() {
-      return render(
-        <Provider store={store}>
-          <BrowserRouter>
-            <App>
-              <HelmChartsPage />
-            </App>
-          </BrowserRouter>
-        </Provider>
-      );
-    }
+    return render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <App>
+            <HelmChartsPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    );
+  }
 
   it('renders the Helm Charts heading', () => {
     renderPage();
@@ -120,7 +120,9 @@ describe('HelmChartsPage', () => {
     expect(screen.getByText('Add Helm Chart Source')).toBeInTheDocument();
     // antd Input uses placeholder
     expect(dialog.getByPlaceholderText('Name (e.g. stable)')).toBeInTheDocument();
-    expect(dialog.getByPlaceholderText('Repository URL (e.g. https://charts.helm.sh/stable)')).toBeInTheDocument();
+    expect(
+      dialog.getByPlaceholderText('Repository URL (e.g. https://charts.helm.sh/stable)')
+    ).toBeInTheDocument();
     expect(dialog.getByPlaceholderText('Description')).toBeInTheDocument();
   });
 

@@ -9,8 +9,8 @@ from pydantic import ValidationError
 
 from app.schemas.sync_group import (
     SyncGroupCreate,
-    SyncGroupUpdate,
     SyncGroupOut,
+    SyncGroupUpdate,
 )
 
 
@@ -90,10 +90,21 @@ class TestSyncGroupOut:
         """Verify all expected fields including computed mirrors_count."""
         fields = set(SyncGroupOut.model_fields.keys())
         expected = {
-            "id", "name", "description", "pipeline_id", "is_default",
-            "sync_cron", "sync_enabled", "sync_concurrency",
-            "freshness_cron", "freshness_enabled", "freshness_concurrency",
-            "is_deleted", "created_at", "updated_at", "pipeline",
+            "id",
+            "name",
+            "description",
+            "pipeline_id",
+            "is_default",
+            "sync_cron",
+            "sync_enabled",
+            "sync_concurrency",
+            "freshness_cron",
+            "freshness_enabled",
+            "freshness_concurrency",
+            "is_deleted",
+            "created_at",
+            "updated_at",
+            "pipeline",
         }
         # mirrors_count is a computed_field, not in model_fields
         assert fields == expected

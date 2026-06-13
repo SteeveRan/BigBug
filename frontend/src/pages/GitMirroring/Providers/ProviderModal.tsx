@@ -4,20 +4,18 @@
  * @dependencies antd, RTK Query
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import {
-  Modal,
-  Form,
-  Select,
-  Input,
-  App,
-  Typography,
-} from 'antd';
+import { useEffect } from 'react';
+import { Modal, Form, Select, Input, App, Typography } from 'antd';
 import {
   useCreateSourceProviderMutation,
   useUpdateSourceProviderMutation,
 } from '../../../store/api';
-import type { SourceProvider, SourceProviderCreate, SourceProviderUpdate } from '../../../types';
+import type {
+  SourceProvider,
+  SourceProviderCreate,
+  SourceProviderUpdate,
+  ProviderType,
+} from '../../../types';
 
 interface ProviderModalProps {
   open: boolean;
@@ -27,7 +25,7 @@ interface ProviderModalProps {
 
 interface FormValues {
   name: string;
-  provider_type: string;
+  provider_type: ProviderType;
   credential_id: number;
 }
 
@@ -35,6 +33,7 @@ const PROVIDER_TYPES = [
   { label: 'GitHub', value: 'github' },
   { label: 'GitLab', value: 'gitlab' },
   { label: 'Bitbucket', value: 'bitbucket' },
+  { label: 'Generic Git', value: 'generic' },
 ];
 
 export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
@@ -95,11 +94,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
       cancelText="Cancel"
       destroyOnClose
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-      >
+      <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Form.Item
           name="name"
           label="Label"
@@ -113,11 +108,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
           label="Provider Type"
           rules={[{ required: true, message: 'Provider type is required' }]}
         >
-          <Select
-            placeholder="Select provider type"
-            disabled={isEdit}
-            options={PROVIDER_TYPES}
-          />
+          <Select placeholder="Select provider type" disabled={isEdit} options={PROVIDER_TYPES} />
         </Form.Item>
 
         <Form.Item
@@ -137,7 +128,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
         <Typography.Text type="secondary">
           {isEdit
             ? 'Update provider label or credential.'
-            : 'Create a new source provider to connect to GitHub, GitLab, or Bitbucket.'}
+            : 'Create a new source provider to connect to GitHub, GitLab, Bitbucket, or any Git server via Generic Git.'}
         </Typography.Text>
       </Form>
     </Modal>

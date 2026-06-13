@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from app.schemas.source_repository import SourceRepositoryListOut, SourceRepositoryDetailOut
-    from app.schemas.sync_group import SyncGroupOut
     from app.schemas.mirror_log import MirrorLogOut
+    from app.schemas.source_repository import SourceRepositoryDetailOut, SourceRepositoryListOut
+    from app.schemas.sync_group import SyncGroupOut
 
 
 # ──── Mirror Create ────────────────────────────────────────────────────────

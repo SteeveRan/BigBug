@@ -6,25 +6,9 @@
  */
 
 import { useState } from 'react';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Spin,
-  Modal,
-  Input,
-  Checkbox,
-  Tooltip,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, Modal, Input, Checkbox, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { StatusChip } from '../../../components/StatusChip';
 import type {
   GitlabInstance,
@@ -91,7 +75,7 @@ export function GitlabPanel({ showMessage }: PanelProps) {
       const result: ConnectionTestResult = await testConnection(id).unwrap();
       showMessage(
         result.success ? 'Connection successful' : `Connection failed: ${result.message}`,
-        result.success ? 'success' : 'error',
+        result.success ? 'success' : 'error'
       );
     } catch {
       showMessage('Connection test failed', 'error');
@@ -225,16 +209,16 @@ function GitlabDialog({
   const [url, setUrl] = useState((dialogState.defaultValues?.url as string) ?? '');
   const [token, setToken] = useState((dialogState.defaultValues?.token as string) ?? '');
   const [isActive, setIsActive] = useState(
-    (dialogState.defaultValues?.is_active as boolean) ?? true,
+    (dialogState.defaultValues?.is_active as boolean) ?? true
   );
   const [verifySsl, setVerifySsl] = useState(
-    (dialogState.defaultValues?.verify_ssl as boolean) ?? true,
+    (dialogState.defaultValues?.verify_ssl as boolean) ?? true
   );
   const [isDefault, setIsDefault] = useState(
-    (dialogState.defaultValues?.is_default as boolean) ?? false,
+    (dialogState.defaultValues?.is_default as boolean) ?? false
   );
   const [defaultGroupId, setDefaultGroupId] = useState(
-    (dialogState.defaultValues?.default_group_id as string) ?? '',
+    (dialogState.defaultValues?.default_group_id as string) ?? ''
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -271,11 +255,11 @@ function GitlabDialog({
 
     try {
       let payload: GitlabInstanceCreate | GitlabInstanceUpdate;
-      
+
       if (isEdit) {
         // При редактировании создаем объект с опциональными полями
         payload = {};
-        
+
         // Добавляем поля только если они изменились
         if (name.trim()) {
           payload.name = name.trim();
@@ -283,12 +267,12 @@ function GitlabDialog({
         if (url.trim()) {
           payload.url = url.trim();
         }
-        
+
         // Всегда передаем изменяемые булевы поля
         payload.is_active = isActive;
         payload.verify_ssl = verifySsl;
         payload.is_default = isDefault;
-        
+
         // Обработка default_group_id
         if (defaultGroupId && defaultGroupId.toString().trim() !== '') {
           const parsedGroupId = isNaN(Number(defaultGroupId)) ? null : Number(defaultGroupId);
@@ -296,7 +280,7 @@ function GitlabDialog({
         } else {
           payload.default_group_id = null;
         }
-        
+
         // Обработка токена: если поле не пустое, то обновляем токен, иначе не включаем в payload
         // Это позволяет не обновлять токен, если пользователь не ввел новое значение
         if (token !== '') {
@@ -311,7 +295,12 @@ function GitlabDialog({
           is_active: isActive,
           verify_ssl: verifySsl,
           is_default: isDefault,
-          default_group_id: defaultGroupId && defaultGroupId.toString().trim() !== '' ? (isNaN(Number(defaultGroupId)) ? null : Number(defaultGroupId)) : null,
+          default_group_id:
+            defaultGroupId && defaultGroupId.toString().trim() !== ''
+              ? isNaN(Number(defaultGroupId))
+                ? null
+                : Number(defaultGroupId)
+              : null,
         };
       }
 

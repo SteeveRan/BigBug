@@ -1,9 +1,10 @@
 from collections.abc import Callable
 from enum import StrEnum
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.core.security import decode_token
@@ -122,5 +123,100 @@ def require_permission(permission: str) -> Callable:
             )
 
         return current_user
+
+    return dependency
+
+
+def require_scope_permission(
+    permission: str,
+    resource_type: str,
+    resource_id_param: str = "id",
+) -> Callable:
+    """
+    FastAPI dependency factory that checks both a base permission AND
+    that the user has scope access to the specific resource.
+
+    Usage::
+
+        @router.get("/api/source-groups/{id}")
+        async def get_source_group(
+            id: int,
+            _: bool = Depends(require_scope_permission("source_groups:read", "source_group")),
+        ):
+            ...
+
+        @router.post("/api/mirroring/sync-groups/{sync_group_id}/mirrors")
+        async def create_mirror(
+            sync_group_id: int,
+            _: bool = Depends(
+                require_scope_permission("sync_groups:write", "sync_group", "sync_group_id")
+            ),
+        ):
+            ...
+
+    :param permission:     Permission string to check (e.g. ``"source_groups:read"``).
+    :param resource_type:  Scope resource type — one of ``"source_group"``,
+                           ``"credential"`` or ``"sync_group"``.
+    :param resource_id_param: Name of the path parameter that holds the resource ID
+                              (default ``"id"``).
+    :returns: An async dependency that returns ``True`` if both checks pass.
+
+    Behaviour:
+
+    1. Verifies the caller holds *permission* (same logic as
+       :func:`require_permission`).
+    2. Extracts the resource ID from *request.path_params*.
+    3. If the ID is ``None`` (resource not yet created — typical for POST /
+       PUT that create a new entity) the scope check is **skipped**.
+    4. Otherwise calls :meth:`RBACService.check_scope_access` which grants
+       access to admins or users whose effective scope includes the resource.
+    5. Raises ``HTTP 403`` when either the permission or the scope check fails.
+    """
+
+    async def dependency(
+        request: Request,
+        current_user=Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> bool:
+        # ------------------------------------------------------------------
+        # 1. Check base permission (same logic as require_permission)
+        # ------------------------------------------------------------------
+        cached: list[str] = getattr(current_user, "_cached_permissions", [])
+
+        if not cached:
+            from app.services.rbac_service import RBACService
+
+            rbac_service = RBACService(db)
+            cached = await rbac_service.get_user_permissions(current_user.id)
+
+        if permission not in cached:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: '{permission}' required",
+            )
+
+        # ------------------------------------------------------------------
+        # 2. Extract resource ID from path parameters
+        # ------------------------------------------------------------------
+        resource_id = request.path_params.get(resource_id_param)
+        if resource_id is None:
+            # Resource not yet created — skip scope check
+            return True
+
+        # ------------------------------------------------------------------
+        # 3. Scope-based access check
+        # ------------------------------------------------------------------
+        from app.services.rbac_service import RBACService
+
+        rbac = RBACService(db)
+        has_access = await rbac.check_scope_access(current_user.id, resource_type, int(resource_id))
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: resource not in your role scope",
+            )
+
+        return True
 
     return dependency

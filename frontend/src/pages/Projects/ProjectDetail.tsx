@@ -53,7 +53,11 @@ const releaseColumns = [
     dataIndex: 'is_prerelease',
     key: 'is_prerelease',
     render: (val: boolean) =>
-      val ? <Tag color="orange">Pre-release</Tag> : <Typography.Text type="secondary">—</Typography.Text>,
+      val ? (
+        <Tag color="orange">Pre-release</Tag>
+      ) : (
+        <Typography.Text type="secondary">—</Typography.Text>
+      ),
   },
   {
     title: 'Draft',
@@ -67,7 +71,11 @@ const releaseColumns = [
     dataIndex: 'published_at',
     key: 'published_at',
     render: (val: string | null) =>
-      val ? new Date(val).toLocaleDateString() : <Typography.Text type="secondary">—</Typography.Text>,
+      val ? (
+        new Date(val).toLocaleDateString()
+      ) : (
+        <Typography.Text type="secondary">—</Typography.Text>
+      ),
   },
 ];
 
@@ -83,10 +91,13 @@ export function ProjectDetailPage() {
   const [editDesc, setEditDesc] = useState(false);
   const [customDesc, setCustomDesc] = useState('');
 
-  const { data: releases = [], isLoading: releasesLoading } = useGetProjectReleasesQuery(Number(projectId), {
-    pollingInterval: 30000, // Poll every 30 seconds to update releases
-    refetchOnMountOrArgChange: true,
-  });
+  const { data: releases = [], isLoading: releasesLoading } = useGetProjectReleasesQuery(
+    Number(projectId),
+    {
+      pollingInterval: 30000, // Poll every 30 seconds to update releases
+      refetchOnMountOrArgChange: true,
+    }
+  );
 
   const p = project as GithubProject | undefined;
 
@@ -205,7 +216,11 @@ export function ProjectDetailPage() {
                       >
                         Save
                       </Button>
-                      <Button size="small" icon={<CloseOutlined />} onClick={() => setEditDesc(false)}>
+                      <Button
+                        size="small"
+                        icon={<CloseOutlined />}
+                        onClick={() => setEditDesc(false)}
+                      >
                         Cancel
                       </Button>
                     </Flex>

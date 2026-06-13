@@ -82,7 +82,7 @@ function renderPage() {
           <DashboardPage />
         </App>
       </BrowserRouter>
-    </Provider>,
+    </Provider>
   );
 }
 
@@ -142,7 +142,10 @@ describe('OverviewPage (Dashboard)', () => {
       isError: false,
     });
     (useListGoldImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [{ id: 1, name: 'gold-1' }, { id: 2, name: 'gold-2' }],
+      data: [
+        { id: 1, name: 'gold-1' },
+        { id: 2, name: 'gold-2' },
+      ],
       isLoading: false,
       isError: false,
     });

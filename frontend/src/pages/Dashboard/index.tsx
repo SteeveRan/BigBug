@@ -1,10 +1,5 @@
 import { Card, Col, Flex, Row, Spin, Typography } from 'antd';
-import {
-  GithubOutlined,
-  SwapOutlined,
-  BlockOutlined,
-  AppstoreOutlined,
-} from '@ant-design/icons';
+import { GithubOutlined, SwapOutlined, BlockOutlined, AppstoreOutlined } from '@ant-design/icons';
 import {
   useListProjectsQuery,
   useListMirrorsQuery,
@@ -103,16 +98,12 @@ export function DashboardPage() {
           </Title>
           {failedMirrors.length > 0 && (
             <Flex style={{ marginBottom: 8 }}>
-              <Text type="danger">
-                {failedMirrors.length} mirror(s) failed last sync
-              </Text>
+              <Text type="danger">{failedMirrors.length} mirror(s) failed last sync</Text>
             </Flex>
           )}
           {staleMirrors.length > 0 && (
             <Flex>
-              <Text type="warning">
-                {staleMirrors.length} mirror(s) are stale
-              </Text>
+              <Text type="warning">{staleMirrors.length} mirror(s) are stale</Text>
             </Flex>
           )}
         </Card>
@@ -132,9 +123,7 @@ export function DashboardPage() {
                 <StatusChip statusFlag={mirror.status_flag} statusText={mirror.status_text} />
               </Flex>
             ))}
-            {mirrors.length === 0 && (
-              <Text type="secondary">No mirrors configured yet</Text>
-            )}
+            {mirrors.length === 0 && <Text type="secondary">No mirrors configured yet</Text>}
           </Flex>
         )}
       </Card>

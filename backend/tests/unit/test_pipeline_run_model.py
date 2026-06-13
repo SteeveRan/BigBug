@@ -5,8 +5,8 @@
 @dependencies backend/app/models/pipeline_run.py
 """
 
-from app.models.pipeline_run import PipelineRun
 from app.models.pipeline import Pipeline
+from app.models.pipeline_run import PipelineRun
 
 
 class TestPipelineRunModel:

@@ -25,5 +25,5 @@ createRoot(root).render(
         <App />
       </AntdApp>
     </Provider>
-  </StrictMode>,
+  </StrictMode>
 );

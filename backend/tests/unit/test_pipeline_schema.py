@@ -9,16 +9,16 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.pipeline import (
+    ComponentRunRequest,
+    GitLabComponentCreate,
+    GitLabComponentOut,
+    PipelineComponentOut,
     PipelineComponentRef,
     PipelineCreate,
-    PipelineUpdate,
-    PipelineComponentOut,
     PipelineOut,
     PipelineRunCreate,
     PipelineRunOut,
-    GitLabComponentCreate,
-    GitLabComponentOut,
-    ComponentRunRequest,
+    PipelineUpdate,
 )
 
 
@@ -116,9 +116,18 @@ class TestPipelineOut:
         """Verify all expected fields including nested relations."""
         fields = set(PipelineOut.model_fields.keys())
         expected = {
-            "id", "name", "description", "gitlab_instance_id", "ref",
-            "default_variables", "is_default", "is_enabled", "created_at",
-            "updated_at", "components", "gitlab_instance",
+            "id",
+            "name",
+            "description",
+            "gitlab_instance_id",
+            "ref",
+            "default_variables",
+            "is_default",
+            "is_enabled",
+            "created_at",
+            "updated_at",
+            "components",
+            "gitlab_instance",
         }
         assert fields == expected
 

@@ -19,12 +19,7 @@ import {
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  ReloadOutlined,
-  ExportOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, ExportOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   useListProjectsQuery,
   useCreateProjectMutation,
@@ -119,7 +114,11 @@ export function ProjectsPage() {
       dataIndex: 'last_synced_at',
       key: 'last_synced_at',
       render: (val: string | null) =>
-        val ? new Date(val).toLocaleDateString() : <Typography.Text type="secondary">—</Typography.Text>,
+        val ? (
+          new Date(val).toLocaleDateString()
+        ) : (
+          <Typography.Text type="secondary">—</Typography.Text>
+        ),
     },
     {
       title: 'Status',

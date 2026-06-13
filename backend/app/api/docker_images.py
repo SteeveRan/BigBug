@@ -8,7 +8,6 @@ from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
-from app.models.docker_registry_instance import DockerRegistryInstance
 from app.models.docker_sync_log import DockerSyncLog
 from app.models.sync_schedule import SyncSchedule
 from app.schemas.docker import (
@@ -39,9 +38,7 @@ async def list_sources(
     _=Depends(require_viewer()),
 ):
     result = await db.execute(
-        select(DockerImageSource).options(
-            selectinload(DockerImageSource.registry_instance)
-        )
+        select(DockerImageSource).options(selectinload(DockerImageSource.registry_instance))
     )
     return result.scalars().all()
 
@@ -286,7 +283,7 @@ async def mirror_image(
         )
         return log
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # ──── Tags ─────────────────────────────────────────────────────────────────
@@ -403,7 +400,11 @@ async def get_docker_sync_schedules(
     return result.scalars().all()
 
 
-@router.post("/{source_id}/schedule", response_model=DockerSyncScheduleOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{source_id}/schedule",
+    response_model=DockerSyncScheduleOut,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_docker_sync_schedule(
     source_id: int,
     data: CreateDockerSyncScheduleRequest,
@@ -541,9 +542,9 @@ async def analyze_image(
         normalized_image=normalized,
         detected_registry_host=registry_host,
         detected_provider=provider,
-        suggested_registry=DockerRegistryInstanceOut.model_validate(suggested) if suggested else None,
-        compatible_registries=[
-            DockerRegistryInstanceOut.model_validate(r) for r in compatible
-        ],
+        suggested_registry=DockerRegistryInstanceOut.model_validate(suggested)
+        if suggested
+        else None,
+        compatible_registries=[DockerRegistryInstanceOut.model_validate(r) for r in compatible],
         is_new_registry_needed=suggested is None,
     )

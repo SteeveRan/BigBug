@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 
 from app.models.credential import CredentialType
 
-
 # ──── Credential Create ────────────────────────────────────────────────────
 
 
@@ -29,7 +28,9 @@ class CredentialCreate(BaseModel):
     username: str | None = Field(None, max_length=255)
     secret: str = Field(..., description="Token, password, or SSH private key — plaintext input")
     ssh_public_key: str | None = Field(None, description="SSH public key for SSH_KEY type")
-    base_url: str | None = Field(None, max_length=500, description="Base URL for self-hosted instances")
+    base_url: str | None = Field(
+        None, max_length=500, description="Base URL for self-hosted instances"
+    )
 
 
 class CredentialUpdate(BaseModel):
@@ -38,9 +39,13 @@ class CredentialUpdate(BaseModel):
 
     name: str | None = Field(None, max_length=255)
     username: str | None = Field(None, max_length=255)
-    secret: str | None = Field(None, description="Token, password, or SSH private key — plaintext input")
+    secret: str | None = Field(
+        None, description="Token, password, or SSH private key — plaintext input"
+    )
     ssh_public_key: str | None = Field(None, description="SSH public key for SSH_KEY type")
-    base_url: str | None = Field(None, max_length=500, description="Base URL for self-hosted instances")
+    base_url: str | None = Field(
+        None, max_length=500, description="Base URL for self-hosted instances"
+    )
 
 
 # ──── Credential Out ───────────────────────────────────────────────────────

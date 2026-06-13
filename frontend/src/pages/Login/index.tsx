@@ -51,12 +51,7 @@ export function LoginPage() {
   };
 
   return (
-    <Flex
-      vertical
-      align="center"
-      justify="center"
-      style={{ minHeight: '100vh', padding: 16 }}
-    >
+    <Flex vertical align="center" justify="center" style={{ minHeight: '100vh', padding: 16 }}>
       <Card style={{ width: '100%', maxWidth: 400 }}>
         <Flex vertical gap="middle">
           <div>
@@ -85,13 +80,7 @@ export function LoginPage() {
                 required
                 size="large"
               />
-              <Button
-                type="primary"
-                htmlType="submit"
-                block
-                size="large"
-                loading={isLoading}
-              >
+              <Button type="primary" htmlType="submit" block size="large" loading={isLoading}>
                 Sign In
               </Button>
             </Flex>

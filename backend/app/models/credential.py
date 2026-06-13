@@ -9,13 +9,14 @@
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Enum as SAEnum, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
-class CredentialType(str, enum.Enum):
+class CredentialType(enum.StrEnum):
     github_token = "github_token"
     gitlab_token = "gitlab_token"
     https_basic = "https_basic"

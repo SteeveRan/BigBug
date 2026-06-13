@@ -7,18 +7,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Spin,
-  Modal,
-  Input,
-  Select,
-  Tag,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, Modal, Input, Select, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { AuditLog } from '../../../types';
 import { useGetAuditLogsQuery } from '../../../store/api';
@@ -98,9 +87,7 @@ export default function AuditLogPage() {
       title: 'Action',
       dataIndex: 'action',
       key: 'action',
-      render: (text: string) => (
-        <Tag color={ACTION_COLORS[text] || 'default'}>{text}</Tag>
-      ),
+      render: (text: string) => <Tag color={ACTION_COLORS[text] || 'default'}>{text}</Tag>,
     },
     { title: 'Resource Type', dataIndex: 'resource_type', key: 'resource_type' },
     {
@@ -175,7 +162,10 @@ export default function AuditLogPage() {
 
       {/* Empty state */}
       {!isLoading && data && data.items.length === 0 && (
-        <Typography.Text type="secondary" style={{ padding: '40px 0', textAlign: 'center', display: 'block' }}>
+        <Typography.Text
+          type="secondary"
+          style={{ padding: '40px 0', textAlign: 'center', display: 'block' }}
+        >
           No audit logs found
         </Typography.Text>
       )}

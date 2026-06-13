@@ -59,9 +59,7 @@ class SyncGroup(Base):
 
     # Relationships
     pipeline = relationship("Pipeline", back_populates="sync_groups")
-    mirrors = relationship(
-        "Mirror", back_populates="sync_group", cascade="all, delete-orphan"
-    )
+    mirrors = relationship("Mirror", back_populates="sync_group", cascade="all, delete-orphan")
     role_scopes = relationship(
         "RoleScopeSyncGroup", back_populates="sync_group", cascade="all, delete-orphan"
     )

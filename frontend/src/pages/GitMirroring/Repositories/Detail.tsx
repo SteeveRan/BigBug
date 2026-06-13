@@ -24,25 +24,14 @@ import {
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  LinkOutlined,
-  GithubOutlined,
-  StarOutlined,
-  ForkOutlined,
-  BookOutlined,
-} from '@ant-design/icons';
+import { LinkOutlined, GithubOutlined, StarOutlined, ForkOutlined } from '@ant-design/icons';
 import {
   useGetSourceRepositoryQuery,
   useGetRepositoryReleasesQuery,
   useGetRepositoryReadmeQuery,
   useGetMirrorsQuery,
 } from '../../../store/api';
-import type {
-  SourceRepository,
-  SourceRepositoryRelease,
-  Mirror,
-  MirrorFilters,
-} from '../../../types';
+import type { SourceRepositoryRelease, Mirror, MirrorFilters } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
 
 const RepositoryDetailPage = () => {
@@ -63,7 +52,7 @@ const RepositoryDetailPage = () => {
   // Fetch releases (only when releases tab is active)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
     { repository_id: repositoryId, include_prereleases: includePrereleases },
-    { skip: activeTab !== 'releases' || isNaN(repositoryId) },
+    { skip: activeTab !== 'releases' || isNaN(repositoryId) }
   );
 
   // Fetch README (only when readme tab is active)
@@ -77,15 +66,12 @@ const RepositoryDetailPage = () => {
 
   // Fetch mirrors for this repo
   const mirrorsParams: MirrorFilters = { limit: 100 };
-  const { data: mirrors = [], isLoading: mirrorsLoading } = useGetMirrorsQuery(
-    mirrorsParams,
-    { skip: activeTab !== 'mirrors' },
-  );
+  const { data: mirrors = [], isLoading: mirrorsLoading } = useGetMirrorsQuery(mirrorsParams, {
+    skip: activeTab !== 'mirrors',
+  });
 
   // Filter mirrors for this specific source repository
-  const repoMirrors = mirrors.filter(
-    (m) => m.source_repository_id === repositoryId,
-  );
+  const repoMirrors = mirrors.filter((m) => m.source_repository_id === repositoryId);
 
   if (repoLoading) {
     return (
@@ -111,9 +97,7 @@ const RepositoryDetailPage = () => {
       title: 'Tag',
       dataIndex: 'release_tag',
       key: 'release_tag',
-      render: (tag: string) => (
-        <Typography.Text code>{tag}</Typography.Text>
-      ),
+      render: (tag: string) => <Typography.Text code>{tag}</Typography.Text>,
     },
     {
       title: 'Name',
@@ -161,8 +145,7 @@ const RepositoryDetailPage = () => {
     {
       title: 'Sync Group',
       key: 'sync_group',
-      render: (_: unknown, record: Mirror) =>
-        record.sync_group_name ?? record.sync_group_id,
+      render: (_: unknown, record: Mirror) => record.sync_group_name ?? record.sync_group_id,
     },
     {
       title: 'Status',
@@ -222,11 +205,7 @@ const RepositoryDetailPage = () => {
               {repo.private ? <Tag>Yes</Tag> : 'No'}
             </Descriptions.Item>
             <Descriptions.Item label="License">
-              {repo.license_spdx ? (
-                <Tag>{repo.license_spdx}</Tag>
-              ) : (
-                '—'
-              )}
+              {repo.license_spdx ? <Tag>{repo.license_spdx}</Tag> : '—'}
             </Descriptions.Item>
             <Descriptions.Item label="HTML URL" span={2}>
               <Button
@@ -244,9 +223,7 @@ const RepositoryDetailPage = () => {
                 <Space>
                   <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
                   {repo.latest_release_name && (
-                    <Typography.Text type="secondary">
-                      ({repo.latest_release_name})
-                    </Typography.Text>
+                    <Typography.Text type="secondary">({repo.latest_release_name})</Typography.Text>
                   )}
                 </Space>
               ) : (
@@ -261,9 +238,7 @@ const RepositoryDetailPage = () => {
             <Descriptions.Item label="Has README">
               {repo.has_readme ? <Tag color="green">Yes</Tag> : <Tag color="default">No</Tag>}
             </Descriptions.Item>
-            <Descriptions.Item label="Mirrors Count">
-              {repo.mirrors_count ?? '—'}
-            </Descriptions.Item>
+            <Descriptions.Item label="Mirrors Count">{repo.mirrors_count ?? '—'}</Descriptions.Item>
           </Descriptions>
         </Card>
       ),
@@ -276,10 +251,7 @@ const RepositoryDetailPage = () => {
           <Flex justify="flex-end">
             <Space>
               <Typography.Text>Include pre-releases:</Typography.Text>
-              <Switch
-                checked={includePrereleases}
-                onChange={(v) => setIncludePrereleases(v)}
-              />
+              <Switch checked={includePrereleases} onChange={(v) => setIncludePrereleases(v)} />
             </Space>
           </Flex>
           <Card>
@@ -373,11 +345,7 @@ const RepositoryDetailPage = () => {
 
       {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <Card>
-        <Tabs
-          activeKey={activeTab}
-          onChange={(key) => setActiveTab(key)}
-          items={tabItems}
-        />
+        <Tabs activeKey={activeTab} onChange={(key) => setActiveTab(key)} items={tabItems} />
       </Card>
     </Flex>
   );

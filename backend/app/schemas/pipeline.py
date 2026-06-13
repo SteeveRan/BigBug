@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 
 from app.schemas.integrations import GitlabInstanceOut
 
-
 # ──────────────────────────────────────────────────────────────────────
 # Pipeline Component Ref (for Pipeline Create/Update)
 # ──────────────────────────────────────────────────────────────────────
@@ -26,7 +25,9 @@ class PipelineComponentRef(BaseModel):
 
     component_id: int
     order: int = Field(0, ge=0, description="Execution order")
-    overrides: dict[str, Any] | None = Field(None, description="Variable overrides for this component")
+    overrides: dict[str, Any] | None = Field(
+        None, description="Variable overrides for this component"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -203,5 +204,3 @@ class ComponentRunRequest(BaseModel):
 
     ref: str = Field("main", description="Branch, tag, or commit SHA")
     inputs: dict[str, str] = Field(default_factory=dict, description="Component input variables")
-
-

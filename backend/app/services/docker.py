@@ -10,9 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
-from app.models.docker_registry_instance import DockerRegistryInstance, RegistryProvider
 from app.models.docker_sync_log import DockerSyncLog
-
 
 # ──── Registry Parsing Utilities ────────────────────────────────────────────
 
@@ -104,9 +102,7 @@ def normalize_registry_image_ref(image_name: str) -> str:
         parts = name_part.split("/")
         if len(parts) == 1:
             normalized = f"library/{parts[0]}"
-        elif parts[0] in ("library", "docker.io", "_"):
-            normalized = "/".join(parts)
-        elif "." not in parts[0]:
+        elif parts[0] in ("library", "docker.io", "_") or "." not in parts[0]:
             normalized = "/".join(parts)
         else:
             normalized = "/".join(parts[1:])
@@ -114,10 +110,7 @@ def normalize_registry_image_ref(image_name: str) -> str:
 
     # Other registries: strip registry host from path
     parts = name_part.split("/")
-    if parts[0] == registry_host:
-        remaining = "/".join(parts[1:])
-    else:
-        remaining = "/".join(parts)
+    remaining = "/".join(parts[1:]) if parts[0] == registry_host else "/".join(parts)
     return f"{registry_host}/{remaining}:{tag}"
 
 
@@ -170,6 +163,7 @@ class DockerRegistryService:
         # Auto-detect registry instance if not explicitly provided
         if registry_instance_id is None:
             from app.services.integrations import DockerRegistryInstanceService
+
             inst_service = DockerRegistryInstanceService(db)
             provider = detect_provider_from_url(registry_url)
             registry_host, _ = parse_registry_from_image(image_name or name)
@@ -415,7 +409,10 @@ class DockerRegistryService:
 
             # Use crane copy for mirroring
             process = await asyncio.create_subprocess_exec(
-                "crane", "copy", source_ref, target_ref,
+                "crane",
+                "copy",
+                source_ref,
+                target_ref,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

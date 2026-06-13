@@ -5,23 +5,9 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Modal,
-  Input,
-  App,
-  Tooltip,
-  Space,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Modal, Input, App, Tooltip, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import {
   useListMirrorsQuery,
   useImportMirrorMutation,
@@ -85,8 +71,7 @@ export function MirrorsPage() {
       title: 'Last Sync',
       dataIndex: 'last_sync_at',
       key: 'last_sync_at',
-      render: (val: string | null) =>
-        val ? new Date(val).toLocaleString() : '—',
+      render: (val: string | null) => (val ? new Date(val).toLocaleString() : '—'),
     },
     {
       title: 'Last Release Tag',

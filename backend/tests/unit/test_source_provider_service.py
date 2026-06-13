@@ -15,7 +15,6 @@ from app.core.exceptions import DomainException
 from app.models.source_provider import ProviderType, SourceProvider
 from app.services.source_providers.github import GitHubSourceProvider
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -178,9 +177,11 @@ class TestCheckAccess:
             status=401, data={"message": "Bad credentials"}
         )
 
-        with patch.object(gh_provider, "_get_client", return_value=mock_gh):
-            with pytest.raises(DomainException) as exc_info:
-                await gh_provider.check_access()
+        with (
+            patch.object(gh_provider, "_get_client", return_value=mock_gh),
+            pytest.raises(DomainException) as exc_info,
+        ):
+            await gh_provider.check_access()
 
         assert "authentication failed" in str(exc_info.value).lower()
         assert exc_info.value.status_code == 401
@@ -224,10 +225,12 @@ class TestListRepositories:
         provider = _make_provider()
         gh_provider = GitHubSourceProvider(provider, credential_secret="fake-token")
 
-        repos_page1 = [_make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}")
-                       for i in range(3)]
-        repos_page2 = [_make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}")
-                       for i in range(3, 5)]
+        repos_page1 = [
+            _make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}") for i in range(3)
+        ]
+        repos_page2 = [
+            _make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}") for i in range(3, 5)
+        ]
 
         mock_owner = MagicMock()
         # Simulate two pages: first get_repos(), then get_repos() again
@@ -239,14 +242,10 @@ class TestListRepositories:
         with patch.object(gh_provider, "_get_client", return_value=mock_gh):
             repos = await gh_provider.list_repositories("testorg")
 
-        # Note: current implementation calls get_repos() once and materializes with list()
-        # So side_effect with 2 values means first call gets page1 only
-        # Actually, looking at the code: `repos = list(owner.get_repos())`
-        # get_repos() returns a PaginatedList. PaginatedList.__iter__ handles pagination automatically.
-        # So if we return a list from get_repos(), list() will just use it.
-        # To test pagination, we'd need a mock that returns different pages.
-        # But the actual code uses PaginatedList which handles pagination internally.
-        # For the basic test, the first page is sufficient.
+        # Note: current implementation calls get_repos() once and materializes
+        # with list(). list(owner.get_repos()) — PaginatedList.__iter__ handles
+        # pagination automatically. Returning a list from get_repos() means
+        # list() will just use it. The first page is sufficient for basic testing.
         assert len(repos) == 3
         assert repos[0]["name"] == "repo-0"
         assert repos[0]["external_id"] == 12345
@@ -259,8 +258,9 @@ class TestListRepositories:
         gh_provider = GitHubSourceProvider(provider, credential_secret="fake-token")
 
         # Simulate a PaginatedList-like behavior: build 150 mock repos
-        all_repos = [_make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}")
-                     for i in range(150)]
+        all_repos = [
+            _make_mock_repo(name=f"repo-{i}", full_name=f"testorg/repo-{i}") for i in range(150)
+        ]
 
         mock_owner = MagicMock()
         mock_owner.get_repos.return_value = all_repos
@@ -286,9 +286,11 @@ class TestListRepositories:
             status=403, data={"message": "API rate limit exceeded"}
         )
 
-        with patch.object(gh_provider, "_get_client", return_value=mock_gh):
-            with pytest.raises(DomainException) as exc_info:
-                await gh_provider.list_repositories("testorg")
+        with (
+            patch.object(gh_provider, "_get_client", return_value=mock_gh),
+            pytest.raises(DomainException) as exc_info,
+        ):
+            await gh_provider.list_repositories("testorg")
 
         assert "rate limit" in str(exc_info.value).lower()
         assert exc_info.value.status_code == 429
@@ -306,9 +308,11 @@ class TestListRepositories:
             status=401, data={"message": "Bad credentials"}
         )
 
-        with patch.object(gh_provider, "_get_client", return_value=mock_gh):
-            with pytest.raises(DomainException) as exc_info:
-                await gh_provider.list_repositories("testorg")
+        with (
+            patch.object(gh_provider, "_get_client", return_value=mock_gh),
+            pytest.raises(DomainException) as exc_info,
+        ):
+            await gh_provider.list_repositories("testorg")
 
         assert exc_info.value.status_code == 401
 
@@ -394,9 +398,7 @@ class TestGetCommitInfo:
         mock_gh.get_repo.return_value = mock_repo
 
         with patch.object(gh_provider, "_get_client", return_value=mock_gh):
-            commit_info = await gh_provider.get_commit_info(
-                "testorg/awesome-project", ref="v1.0"
-            )
+            commit_info = await gh_provider.get_commit_info("testorg/awesome-project", ref="v1.0")
 
         assert commit_info["sha"] == "def456abc123def456abc123def456abc123def4"
         assert commit_info["author"] == "Tag Author"

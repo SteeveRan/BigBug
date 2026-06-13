@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,8 +15,6 @@ from app.schemas.project import (
     ImportProjectRequest,
     UpdateProjectRequest,
 )
-from sqlalchemy.orm import selectinload
-from sqlalchemy import func
 
 router = APIRouter()
 
@@ -26,19 +24,19 @@ async def list_projects(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
-    from sqlalchemy import select, func
-    
+    from sqlalchemy import func, select
+
     # First get all projects
     result = await db.execute(select(GithubProject).options(selectinload(GithubProject.org)))
     projects = result.scalars().all()
-    
+
     # Then get release counts for each project
     for project in projects:
         releases_count_result = await db.execute(
             select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
         )
         project.releases_count = releases_count_result.scalar_one()
-    
+
     return projects
 
 
@@ -54,13 +52,13 @@ async def get_project(
     project = project_result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    
+
     # Count releases for this project
     releases_count_result = await db.execute(
         select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project_id)
     )
     project.releases_count = releases_count_result.scalar_one()
-    
+
     return project
 
 
@@ -87,22 +85,23 @@ async def create_project(
     from app.services.github import github_service
 
     project = await github_service.import_project_from_url(data.github_url, db)
-    
+
     # Refresh the project with org relationship to avoid lazy loading issues
     from sqlalchemy import select
+
     result = await db.execute(
         select(GithubProject)
         .options(selectinload(GithubProject.org))
         .where(GithubProject.id == project.id)
     )
     project = result.scalar_one()
-    
+
     # Count releases for this project
     releases_count_result = await db.execute(
         select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
     )
     project.releases_count = releases_count_result.scalar_one()
-    
+
     return project
 
 
@@ -115,9 +114,10 @@ async def import_project(
     from app.services.github import github_service
 
     project = await github_service.import_project_from_url(data.github_url, db)
-    
+
     # Refresh the project with org relationship to avoid lazy loading issues
     from sqlalchemy import select
+
     result = await db.execute(
         select(GithubProject)
         .options(selectinload(GithubProject.org))
@@ -151,15 +151,17 @@ async def update_project(
     await db.commit()
     # Refresh only modified scalar attributes; keep eagerly-loaded relationships intact.
     await db.refresh(project, attribute_names=["custom_description", "stale_threshold_days"])
-    
+
     # Count releases for this project (needed for the response schema)
     from sqlalchemy import func
+
     from app.models.github_release import GithubRelease
+
     releases_count_result = await db.execute(
         select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project_id)
     )
     project.releases_count = releases_count_result.scalar_one()
-    
+
     return project
 
 
@@ -182,7 +184,7 @@ async def refresh_project(
     from app.services.github import github_service
 
     await github_service.refresh_project(project, db)
-    
+
     # Refresh the project with org relationship to avoid lazy loading issues
     result = await db.execute(
         select(GithubProject)
@@ -190,13 +192,13 @@ async def refresh_project(
         .where(GithubProject.id == project.id)
     )
     project = result.scalar_one()
-    
+
     # Count releases for this project
     releases_count_result = await db.execute(
         select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project.id)
     )
     project.releases_count = releases_count_result.scalar_one()
-    
+
     return project
 
 

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,9 +16,18 @@ from app.database import get_db
 from app.models.role import Role, UserRole
 from app.models.user import User
 from app.schemas.auth import UserCreate, UserOut, UserUpdate
-from app.schemas.rbac import PermissionOut, RoleCreate, RoleDetailOut, RoleUpdate
+from app.schemas.rbac import (
+    PermissionOut,
+    RoleCreate,
+    RoleDetailOut,
+    RoleScopeOut,
+    RoleScopeUpdate,
+    RoleUpdate,
+)
 from app.services.audit import AuditService
 from app.services.rbac_service import RBACService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -325,3 +336,312 @@ async def delete_role(
         resource_name=role_name,
         ip_address=request.client.host if request.client else None,
     )
+
+
+# ------------------------------------------------------------------
+# RBAC — Role Scope: Source Groups
+# ------------------------------------------------------------------
+
+
+@router.get(
+    "/roles/{role_id}/scopes/source-groups",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def get_role_scope_source_groups(
+    role_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Get source groups scope for a role."""
+    service = RBACService(db)
+    try:
+        source_group_ids = await service.get_role_scope_source_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(source_group_ids=source_group_ids)
+
+
+@router.post(
+    "/roles/{role_id}/scopes/source-groups",
+    response_model=RoleScopeOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin"],
+)
+async def add_role_scope_source_group(
+    role_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Add a single source group to role scope."""
+    source_group_id = body.get("source_group_id")
+    if source_group_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Field 'source_group_id' is required",
+        )
+
+    service = RBACService(db)
+    try:
+        await service.add_role_scope_source_group(role_id, int(source_group_id))
+        source_group_ids = await service.get_role_scope_source_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(source_group_ids=source_group_ids)
+
+
+@router.put(
+    "/roles/{role_id}/scopes/source-groups",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def set_role_scope_source_groups(
+    role_id: int,
+    data: RoleScopeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Replace all source groups scope for a role (atomic)."""
+    service = RBACService(db)
+    try:
+        await service.set_role_scope_source_groups(role_id, data.source_group_ids or [])
+        source_group_ids = await service.get_role_scope_source_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(source_group_ids=source_group_ids)
+
+
+@router.delete(
+    "/roles/{role_id}/scopes/source-groups/{source_group_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+)
+async def remove_role_scope_source_group(
+    role_id: int,
+    source_group_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Remove a single source group from role scope."""
+    service = RBACService(db)
+    try:
+        await service.remove_role_scope_source_group(role_id, source_group_id)
+    except Exception as e:
+        logger.exception(
+            "Failed to remove source group scope: role_id=%s, source_group_id=%s",
+            role_id,
+            source_group_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error"
+        ) from e
+
+
+# ------------------------------------------------------------------
+# RBAC — Role Scope: Credentials
+# ------------------------------------------------------------------
+
+
+@router.get(
+    "/roles/{role_id}/scopes/credentials",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def get_role_scope_credentials(
+    role_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Get credentials scope for a role."""
+    service = RBACService(db)
+    try:
+        credential_ids = await service.get_role_scope_credentials(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(credential_ids=credential_ids)
+
+
+@router.post(
+    "/roles/{role_id}/scopes/credentials",
+    response_model=RoleScopeOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin"],
+)
+async def add_role_scope_credential(
+    role_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Add a single credential to role scope."""
+    credential_id = body.get("credential_id")
+    if credential_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Field 'credential_id' is required",
+        )
+
+    service = RBACService(db)
+    try:
+        await service.add_role_scope_credential(role_id, int(credential_id))
+        credential_ids = await service.get_role_scope_credentials(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(credential_ids=credential_ids)
+
+
+@router.put(
+    "/roles/{role_id}/scopes/credentials",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def set_role_scope_credentials(
+    role_id: int,
+    data: RoleScopeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Replace all credentials scope for a role (atomic)."""
+    service = RBACService(db)
+    try:
+        await service.set_role_scope_credentials(role_id, data.credential_ids or [])
+        credential_ids = await service.get_role_scope_credentials(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(credential_ids=credential_ids)
+
+
+@router.delete(
+    "/roles/{role_id}/scopes/credentials/{credential_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+)
+async def remove_role_scope_credential(
+    role_id: int,
+    credential_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Remove a single credential from role scope."""
+    service = RBACService(db)
+    try:
+        await service.remove_role_scope_credential(role_id, credential_id)
+    except Exception as e:
+        logger.exception(
+            "Failed to remove credential scope: role_id=%s, credential_id=%s",
+            role_id,
+            credential_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error"
+        ) from e
+
+
+# ------------------------------------------------------------------
+# RBAC — Role Scope: Sync Groups
+# ------------------------------------------------------------------
+
+
+@router.get(
+    "/roles/{role_id}/scopes/sync-groups",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def get_role_scope_sync_groups(
+    role_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Get sync groups scope for a role."""
+    service = RBACService(db)
+    try:
+        sync_group_ids = await service.get_role_scope_sync_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(sync_group_ids=sync_group_ids)
+
+
+@router.post(
+    "/roles/{role_id}/scopes/sync-groups",
+    response_model=RoleScopeOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin"],
+)
+async def add_role_scope_sync_group(
+    role_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Add a single sync group to role scope."""
+    sync_group_id = body.get("sync_group_id")
+    if sync_group_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Field 'sync_group_id' is required",
+        )
+
+    service = RBACService(db)
+    try:
+        await service.add_role_scope_sync_group(role_id, int(sync_group_id))
+        sync_group_ids = await service.get_role_scope_sync_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(sync_group_ids=sync_group_ids)
+
+
+@router.put(
+    "/roles/{role_id}/scopes/sync-groups",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def set_role_scope_sync_groups(
+    role_id: int,
+    data: RoleScopeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Replace all sync groups scope for a role (atomic)."""
+    service = RBACService(db)
+    try:
+        await service.set_role_scope_sync_groups(role_id, data.sync_group_ids or [])
+        sync_group_ids = await service.get_role_scope_sync_groups(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(sync_group_ids=sync_group_ids)
+
+
+@router.delete(
+    "/roles/{role_id}/scopes/sync-groups/{sync_group_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+)
+async def remove_role_scope_sync_group(
+    role_id: int,
+    sync_group_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin()),
+):
+    """Remove a single sync group from role scope."""
+    service = RBACService(db)
+    try:
+        await service.remove_role_scope_sync_group(role_id, sync_group_id)
+    except Exception as e:
+        logger.exception(
+            "Failed to remove sync group scope: role_id=%s, sync_group_id=%s",
+            role_id,
+            sync_group_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error"
+        ) from e

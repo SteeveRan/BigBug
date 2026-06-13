@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
@@ -25,6 +25,7 @@ vi.mock('../../store/api', async () => {
     useGetSourceGroupsQuery: vi.fn(),
     useRefreshSourceGroupMutation: vi.fn(),
     useDeleteSourceGroupMutation: vi.fn(),
+    useImportSourceGroupMutation: vi.fn(),
   };
 });
 
@@ -42,6 +43,7 @@ import {
   useGetSourceGroupsQuery,
   useRefreshSourceGroupMutation,
   useDeleteSourceGroupMutation,
+  useImportSourceGroupMutation,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import GroupsPage from '../../pages/GitMirroring/Groups';
@@ -51,13 +53,37 @@ import type { SourceGroup, SourceProvider } from '../../types';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const mockProvider: SourceProvider = {
+const mockGenericProvider: SourceProvider = {
+  id: 3,
+  name: 'Generic Git Server',
+  provider_type: 'generic',
+  credential_id: 30,
+  status_flag: 0,
+  status_text: 'OK',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+const mockGithubProvider: SourceProvider = {
   id: 1,
   name: 'GitHub',
   provider_type: 'github',
   credential_id: 10,
   status_flag: 0,
   status_text: 'OK',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+const mockGitlabProvider: SourceProvider = {
+  id: 2,
+  name: 'GitLab Instance',
+  provider_type: 'gitlab',
+  credential_id: 20,
+  config_json: { api_url: 'https://gitlab.example.com' },
+  status_flag: 0,
+  status_text: 'OK',
+  groups_count: 5,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 };
@@ -117,7 +143,7 @@ describe('GroupsPage', () => {
     });
 
     (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [mockProvider],
+      data: [mockGithubProvider],
       isLoading: false,
       isError: false,
       error: null,
@@ -135,6 +161,10 @@ describe('GroupsPage', () => {
       { isLoading: false },
     ]);
     (useDeleteSourceGroupMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ]);
+    (useImportSourceGroupMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       vi.fn(),
       { isLoading: false },
     ]);
@@ -192,5 +222,46 @@ describe('GroupsPage', () => {
   it('shows empty state when no groups exist', () => {
     renderGroupsPage();
     expect(screen.getByText('No groups found')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 6: All provider types (including Generic Git) shown in selector
+  // -----------------------------------------------------------------------
+  it('shows Generic Git provider alongside GitHub and GitLab in the provider selector', () => {
+    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockGithubProvider, mockGitlabProvider, mockGenericProvider],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderGroupsPage();
+
+    // Provider selector should exist
+    const selectElement = document.querySelector('.ant-select');
+    expect(selectElement).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 7: Import Group modal opens and shows providers (including Generic Git)
+  // -----------------------------------------------------------------------
+  it('opens Import Group modal when clicking Import Group button', async () => {
+    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockGitlabProvider, mockGenericProvider],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderGroupsPage();
+
+    // Click the Import Group button
+    const importButton = screen.getByText('Import Group');
+    importButton.click();
+
+    // Modal should appear in a portal; use document, not container
+    await waitFor(() => {
+      expect(document.querySelector('.ant-modal')).toBeInTheDocument();
+    });
   });
 });

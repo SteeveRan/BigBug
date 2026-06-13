@@ -119,9 +119,7 @@ describe('DockerImagesPage', () => {
     normalized_image: 'library/nginx:latest',
     detected_registry_host: 'docker.io',
     detected_provider: 'dockerhub',
-    compatible_registries: [
-      { id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' },
-    ],
+    compatible_registries: [{ id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' }],
     suggested_registry: { id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' },
     is_new_registry_needed: false,
   };
@@ -137,7 +135,9 @@ describe('DockerImagesPage', () => {
     expect(screen.getByText('Add Docker Image')).toBeInTheDocument();
 
     // Step 1: image name input + Analyze button
-    const imageInput = dialog.getByPlaceholderText('e.g. nginx:latest or quay.io/prometheus/node-exporter:latest');
+    const imageInput = dialog.getByPlaceholderText(
+      'e.g. nginx:latest or quay.io/prometheus/node-exporter:latest'
+    );
     expect(imageInput).toBeInTheDocument();
     expect(dialog.getByRole('button', { name: 'Analyze' })).toBeDisabled();
   });

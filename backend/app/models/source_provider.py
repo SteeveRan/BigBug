@@ -9,16 +9,18 @@
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Enum as SAEnum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
-class ProviderType(str, enum.Enum):
+class ProviderType(enum.StrEnum):
     github = "github"
     gitlab = "gitlab"
     bitbucket = "bitbucket"
+    generic = "generic"
 
 
 class SourceProvider(Base):

@@ -7,8 +7,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.source_provider import SourceProviderCreate, SourceProviderOut
 from app.models.source_provider import ProviderType
+from app.schemas.source_provider import SourceProviderCreate, SourceProviderOut
 
 
 class TestSourceProviderCreate:
@@ -50,8 +50,14 @@ class TestSourceProviderOut:
         """Verify all expected fields are present."""
         fields = set(SourceProviderOut.model_fields.keys())
         expected = {
-            "id", "credential_id", "provider_type", "label",
-            "is_deleted", "created_at", "updated_at", "credential",
+            "id",
+            "credential_id",
+            "provider_type",
+            "label",
+            "is_deleted",
+            "created_at",
+            "updated_at",
+            "credential",
         }
         assert fields == expected
 

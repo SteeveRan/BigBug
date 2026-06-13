@@ -3,7 +3,7 @@
 @description ReleaseService — tracks releases, collects license info,
              and fetches README content via GitHub API.
 @dependencies sqlalchemy, app.core.exceptions, app.services.audit,
-             app.services.source_providers.github
+             app.services.source_providers
 @relatedFiles ../models/source_repository.py, ../models/mirror_release_log.py,
              ../services/audit.py
 """
@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from github import GithubException
 from sqlalchemy import desc, select
@@ -25,7 +25,7 @@ from app.models.source_repository import SourceRepository
 from app.services.audit import AuditService
 
 if TYPE_CHECKING:
-    from app.services.source_providers.github import GitHubSourceProvider
+    from app.services.source_provider import BaseSourceProvider
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class ReleaseService:
     """
     Service for tracking releases, collecting license information,
-    and fetching README content from source repositories via GitHub API.
+    and fetching README content from source repositories via source provider API.
     """
 
     # ------------------------------------------------------------------
@@ -44,10 +44,10 @@ class ReleaseService:
     async def check_new_releases(
         db: AsyncSession,
         source_repository: SourceRepository,
-        github_provider: "GitHubSourceProvider",
-    ) -> Optional[MirrorReleaseLog]:
+        github_provider: BaseSourceProvider,
+    ) -> MirrorReleaseLog | None:
         """
-        Check for new releases on the source repository via GitHub API.
+        Check for new releases on the source repository via source provider API.
 
         Compares the latest release tag from GitHub with the cached tag
         in ``source_repository``. If a new release is detected, updates
@@ -57,14 +57,15 @@ class ReleaseService:
         Args:
             db: Active database session.
             source_repository: The :class:`SourceRepository` ORM object.
-            github_provider: Configured :class:`GitHubSourceProvider`.
+            github_provider: Configured :class:`BaseSourceProvider`.
 
         Returns:
             The new :class:`MirrorReleaseLog` if a release was detected,
             ``None`` if the latest tag is unchanged or no releases exist.
 
         Raises:
-            DomainException: On GitHub API errors (mapped from GithubException).
+            DomainException: On source provider API errors (mapped from
+                provider-specific exceptions).
         """
         from app.services.source_providers.github import _map_github_exception
 
@@ -74,9 +75,7 @@ class ReleaseService:
 
             releases = repo.get_releases()
             if releases.totalCount == 0:
-                logger.debug(
-                    "No releases found for '%s'", source_repository.full_name
-                )
+                logger.debug("No releases found for '%s'", source_repository.full_name)
                 return None
 
             # First page, first item = latest release
@@ -175,13 +174,9 @@ class ReleaseService:
         )
 
         if not include_prereleases:
-            stmt = stmt.where(MirrorReleaseLog.is_prerelease == False)
+            stmt = stmt.where(~MirrorReleaseLog.is_prerelease)
 
-        stmt = (
-            stmt.order_by(desc(MirrorReleaseLog.published_at))
-            .offset(offset)
-            .limit(limit)
-        )
+        stmt = stmt.order_by(desc(MirrorReleaseLog.published_at)).offset(offset).limit(limit)
 
         result = await db.execute(stmt)
         return list(result.scalars().all())
@@ -194,12 +189,12 @@ class ReleaseService:
     async def fetch_readme_from_source(
         db: AsyncSession,
         source_repository: SourceRepository,
-        github_provider: "GitHubSourceProvider",
+        github_provider: BaseSourceProvider,
     ) -> str:
         """
-        Fetch README content from GitHub and cache it in the database.
+        Fetch README content from source provider and cache it in the database.
 
-        Retrieves the default-branch README via the GitHub API, decodes
+        Retrieves the default-branch README via the source provider API, decodes
         the base64 content, stores the markdown text in
         ``source_repository.readme_html``, and updates
         ``readme_fetched_at``.
@@ -207,13 +202,13 @@ class ReleaseService:
         Args:
             db: Active database session.
             source_repository: The :class:`SourceRepository` to fetch for.
-            github_provider: Configured :class:`GitHubSourceProvider`.
+            github_provider: Configured :class:`BaseSourceProvider`.
 
         Returns:
             The raw README markdown content as a string.
 
         Raises:
-            DomainException: On GitHub API errors or if the content cannot
+            DomainException: On source provider API errors or if the content cannot
                 be decoded.
         """
         from app.services.source_providers.github import _map_github_exception
@@ -239,13 +234,10 @@ class ReleaseService:
             return content
 
         except GithubException as exc:
-            raise _map_github_exception(
-                exc, f"fetch_readme/{source_repository.full_name}"
-            ) from exc
+            raise _map_github_exception(exc, f"fetch_readme/{source_repository.full_name}") from exc
         except UnicodeDecodeError as exc:
             raise DomainException(
-                f"Failed to decode README for "
-                f"'{source_repository.full_name}': {exc}",
+                f"Failed to decode README for '{source_repository.full_name}': {exc}",
                 status_code=422,
             ) from exc
 
@@ -257,19 +249,19 @@ class ReleaseService:
     async def fetch_license_from_source(
         db: AsyncSession,
         source_repository: SourceRepository,
-        github_provider: "GitHubSourceProvider",
+        github_provider: BaseSourceProvider,
     ) -> dict[str, Any]:
         """
-        Fetch license information from GitHub and cache it.
+        Fetch license information from source provider and cache it.
 
-        Retrieves the license via the GitHub API, stores the SPDX
+        Retrieves the license via the source provider API, stores the SPDX
         identifier and human-readable name in ``source_repository``,
         and determines whether the license is restricted.
 
         Args:
             db: Active database session.
             source_repository: The :class:`SourceRepository` to fetch for.
-            github_provider: Configured :class:`GitHubSourceProvider`.
+            github_provider: Configured :class:`BaseSourceProvider`.
 
         Returns:
             Dict with keys:
@@ -280,7 +272,7 @@ class ReleaseService:
               restricted list
 
         Raises:
-            DomainException: On GitHub API errors or if no license is found.
+            DomainException: On source provider API errors or if no license is found.
         """
         from app.services.source_providers.github import _map_github_exception
 
@@ -338,11 +330,7 @@ class ReleaseService:
         if not restricted_env or not license_spdx:
             return False
 
-        restricted_set = {
-            lic.strip().upper()
-            for lic in restricted_env.split(",")
-            if lic.strip()
-        }
+        restricted_set = {lic.strip().upper() for lic in restricted_env.split(",") if lic.strip()}
         return license_spdx.strip().upper() in restricted_set
 
     # ------------------------------------------------------------------
@@ -350,9 +338,7 @@ class ReleaseService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def get_readme(
-        db: AsyncSession, repository_id: int
-    ) -> Optional[dict[str, Any]]:
+    async def get_readme(db: AsyncSession, repository_id: int) -> dict[str, Any] | None:
         """
         Retrieve cached README content for a source repository.
 
@@ -373,9 +359,7 @@ class ReleaseService:
         repo = result.scalar_one_or_none()
 
         if repo is None:
-            raise NotFoundError(
-                f"SourceRepository with id={repository_id} not found"
-            )
+            raise NotFoundError(f"SourceRepository with id={repository_id} not found")
 
         if repo.readme_html is None:
             return None
@@ -389,7 +373,7 @@ class ReleaseService:
     @staticmethod
     async def get_license_report(
         db: AsyncSession,
-        source_group_id: Optional[int] = None,
+        source_group_id: int | None = None,
     ) -> list[dict[str, Any]]:
         """
         Generate an aggregated license report across source repositories.
@@ -416,14 +400,12 @@ class ReleaseService:
             Results are sorted alphabetically by license name.
         """
         stmt = select(SourceRepository).where(
-            SourceRepository.is_deleted == False,
+            ~SourceRepository.is_deleted,
             SourceRepository.license_spdx.isnot(None),
         )
 
         if source_group_id is not None:
-            stmt = stmt.where(
-                SourceRepository.source_group_id == source_group_id
-            )
+            stmt = stmt.where(SourceRepository.source_group_id == source_group_id)
 
         result = await db.execute(stmt)
         repos = result.scalars().all()
@@ -437,9 +419,7 @@ class ReleaseService:
                     "spdx": spdx,
                     "name": repo.license_name,
                     "count": 0,
-                    "is_restricted": ReleaseService.check_restricted_license(
-                        spdx
-                    ),
+                    "is_restricted": ReleaseService.check_restricted_license(spdx),
                     "repositories": [],
                 }
             grouped[spdx]["count"] += 1

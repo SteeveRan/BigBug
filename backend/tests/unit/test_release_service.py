@@ -8,18 +8,15 @@
 """
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, AsyncMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.source_group import SourceGroup
 from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
-from app.models.mirror_release_log import MirrorReleaseLog
 from app.services.release import ReleaseService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -105,9 +102,7 @@ class TestCheckNewReleases:
         gh_provider._get_client.return_value = mock_gh
 
         with patch("app.services.release.AuditService.log_event", new_callable=AsyncMock):
-            release_log = await ReleaseService.check_new_releases(
-                db_session, sr, gh_provider
-            )
+            release_log = await ReleaseService.check_new_releases(db_session, sr, gh_provider)
 
         assert release_log is not None
         assert release_log.tag == "v2.0.0"
@@ -121,7 +116,8 @@ class TestCheckNewReleases:
     @pytest.mark.asyncio
     async def test_check_new_releases_no_change(self, db_session: AsyncSession):
         """check_new_releases returns None when tag is unchanged."""
-        sr = await _seed_source_repo(db_session,
+        sr = await _seed_source_repo(
+            db_session,
             latest_release_tag="v1.0.0",
             latest_release_name="First Release",
         )
@@ -143,9 +139,7 @@ class TestCheckNewReleases:
         gh_provider._get_client.return_value = mock_gh
 
         with patch("app.services.release.AuditService.log_event", new_callable=AsyncMock):
-            result = await ReleaseService.check_new_releases(
-                db_session, sr, gh_provider
-            )
+            result = await ReleaseService.check_new_releases(db_session, sr, gh_provider)
 
         assert result is None
 
@@ -156,7 +150,6 @@ class TestFetchReadme:
     @pytest.mark.asyncio
     async def test_fetch_readme(self, db_session: AsyncSession):
         """fetch_readme_from_source decodes base64 and caches content."""
-        import base64
 
         sr = await _seed_source_repo(db_session)
         gh_provider = _make_github_provider_mock()
@@ -173,9 +166,7 @@ class TestFetchReadme:
         mock_gh.get_repo.return_value = mock_repo
         gh_provider._get_client.return_value = mock_gh
 
-        content = await ReleaseService.fetch_readme_from_source(
-            db_session, sr, gh_provider
-        )
+        content = await ReleaseService.fetch_readme_from_source(db_session, sr, gh_provider)
 
         assert "# Test README" in content
         await db_session.refresh(sr)
@@ -205,9 +196,7 @@ class TestFetchLicense:
         mock_gh.get_repo.return_value = mock_repo
         gh_provider._get_client.return_value = mock_gh
 
-        result = await ReleaseService.fetch_license_from_source(
-            db_session, sr, gh_provider
-        )
+        result = await ReleaseService.fetch_license_from_source(db_session, sr, gh_provider)
 
         assert result["spdx"] == "MIT"
         assert result["name"] == "MIT License"
@@ -268,7 +257,7 @@ class TestGetLicenseReport:
     @pytest.mark.asyncio
     async def test_get_license_report(self, db_session: AsyncSession):
         """get_license_report aggregates licenses across repositories."""
-        sr1 = await _seed_source_repo(
+        await _seed_source_repo(
             db_session,
             external_id="1",
             name="repo1",
@@ -277,7 +266,7 @@ class TestGetLicenseReport:
             license_name="MIT License",
             web_url="https://github.com/testorg/repo1",
         )
-        sr2 = await _seed_source_repo(
+        await _seed_source_repo(
             db_session,
             external_id="2",
             name="repo2",
@@ -286,7 +275,7 @@ class TestGetLicenseReport:
             license_name="MIT License",
             web_url="https://github.com/testorg/repo2",
         )
-        sr3 = await _seed_source_repo(
+        await _seed_source_repo(
             db_session,
             external_id="3",
             name="repo3",

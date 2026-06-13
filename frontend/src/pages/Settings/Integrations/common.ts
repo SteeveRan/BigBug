@@ -6,7 +6,13 @@
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-export const TAB_LABELS = ['GitLab', 'Internal Registries', 'GitHub', 'External Registries', 'Helm Repository'] as const;
+export const TAB_LABELS = [
+  'GitLab',
+  'Internal Registries',
+  'GitHub',
+  'External Registries',
+  'Helm Repository',
+] as const;
 
 // ─── Dialog state ────────────────────────────────────────────────────────────
 

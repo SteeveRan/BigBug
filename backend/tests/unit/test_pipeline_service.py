@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, DomainException, NotFoundError
 from app.models.gitlab_component import GitLabComponent
-from app.models.pipeline import Pipeline, PipelineComponent
+from app.models.pipeline import Pipeline
 from app.models.pipeline_run import PipelineRun
 from app.models.sync_group import SyncGroup
 from app.schemas.pipeline import PipelineCreate, PipelineUpdate
@@ -366,7 +366,9 @@ class TestPipelineConfigCRUD:
     async def test_create_pipeline_success(self, db_session: AsyncSession):
         """Create a Pipeline with components — verify all fields."""
         comp = (
-            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+            await db_session.execute(
+                select(GitLabComponent).where(GitLabComponent.name == "test-component")
+            )
         ).scalar_one()
 
         data = PipelineCreate(
@@ -445,7 +447,9 @@ class TestPipelineConfigCRUD:
     async def test_get_pipeline_config_by_id_found(self, db_session: AsyncSession):
         """get_pipeline_config returns pipeline with eager-loaded relations."""
         comp = (
-            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+            await db_session.execute(
+                select(GitLabComponent).where(GitLabComponent.name == "test-component")
+            )
         ).scalar_one()
 
         data = PipelineCreate(
@@ -471,10 +475,6 @@ class TestPipelineConfigCRUD:
     @pytest.mark.asyncio
     async def test_update_pipeline_fields(self, db_session: AsyncSession):
         """Update scalar fields of a pipeline."""
-        comp = (
-            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
-        ).scalar_one()
-
         created = await pipeline_service.create_pipeline(
             db_session, PipelineCreate(name="update-me", description="old")
         )
@@ -491,10 +491,14 @@ class TestPipelineConfigCRUD:
     async def test_update_pipeline_components(self, db_session: AsyncSession):
         """Replace components on update."""
         comp = (
-            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+            await db_session.execute(
+                select(GitLabComponent).where(GitLabComponent.name == "test-component")
+            )
         ).scalar_one()
 
-        created = await pipeline_service.create_pipeline(db_session, PipelineCreate(name="comp-pipe"))
+        created = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="comp-pipe")
+        )
 
         updated = await pipeline_service.update_pipeline(
             db_session,
@@ -567,9 +571,7 @@ class TestPipelineConfigCRUD:
     @pytest.mark.asyncio
     async def test_delete_pipeline_in_use_fails(self, db_session: AsyncSession):
         """Cannot delete pipeline referenced by a SyncGroup."""
-        created = await pipeline_service.create_pipeline(
-            db_session, PipelineCreate(name="in-use")
-        )
+        created = await pipeline_service.create_pipeline(db_session, PipelineCreate(name="in-use"))
 
         sg = SyncGroup(name="test-sg", pipeline_id=created.id)
         db_session.add(sg)
@@ -593,7 +595,9 @@ class TestPipelineConfigCRUD:
     async def test_duplicate_pipeline(self, db_session: AsyncSession):
         """Duplicate copies name, is_enabled, components — forces is_default=False."""
         comp = (
-            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+            await db_session.execute(
+                select(GitLabComponent).where(GitLabComponent.name == "test-component")
+            )
         ).scalar_one()
 
         original = await pipeline_service.create_pipeline(
@@ -607,9 +611,7 @@ class TestPipelineConfigCRUD:
             ),
         )
 
-        duplicate = await pipeline_service.duplicate_pipeline(
-            db_session, original.id, "duplicated"
-        )
+        duplicate = await pipeline_service.duplicate_pipeline(db_session, original.id, "duplicated")
 
         assert duplicate.name == "duplicated"
         assert duplicate.description == "Original desc"
@@ -626,9 +628,7 @@ class TestPipelineConfigCRUD:
         )
 
         with pytest.raises(DomainException) as exc_info:
-            await pipeline_service.duplicate_pipeline(
-                db_session, existing.id, "existing-name"
-            )
+            await pipeline_service.duplicate_pipeline(db_session, existing.id, "existing-name")
         assert exc_info.value.status_code == 409
 
     # ── get_default_pipeline ─────────────────────────────────────────
@@ -637,7 +637,7 @@ class TestPipelineConfigCRUD:
     async def test_get_default_pipeline_returns_default(self, db_session: AsyncSession):
         """Returns the pipeline with is_default=True."""
         await pipeline_service.create_pipeline(db_session, PipelineCreate(name="non-default"))
-        default = await pipeline_service.create_pipeline(
+        await pipeline_service.create_pipeline(
             db_session, PipelineCreate(name="the-default", is_default=True)
         )
 
@@ -661,9 +661,7 @@ class TestPipelineConfigCRUD:
 class TestTriggerPipelineFromConfig:
     """Tests for trigger_pipeline_from_config()"""
 
-    async def _seed_pipeline_with_instance(
-        self, db_session: AsyncSession, **kwargs
-    ) -> Pipeline:
+    async def _seed_pipeline_with_instance(self, db_session: AsyncSession, **kwargs) -> Pipeline:
         """Create a Pipeline with a real GitlabInstance in the DB,
         reload with gitlab_instance eager-loaded, and return it."""
         from app.core.secrets import encrypt_secret

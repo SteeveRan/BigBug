@@ -26,6 +26,9 @@ class RoleOut(BaseModel):
     description: str | None
     is_custom: bool
     created_by_user_id: int | None
+    source_group_ids: list[int] | None = None
+    credential_ids: list[int] | None = None
+    sync_group_ids: list[int] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -66,3 +69,21 @@ class UserPermissionsOut(BaseModel):
     user_id: int
     role: str
     permissions: list[str]
+
+
+class RoleScopeOut(BaseModel):
+    """Scope assigned to a role."""
+
+    source_group_ids: list[int] = []
+    credential_ids: list[int] = []
+    sync_group_ids: list[int] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RoleScopeUpdate(BaseModel):
+    """Request to update role scope."""
+
+    source_group_ids: list[int] | None = None
+    credential_ids: list[int] | None = None
+    sync_group_ids: list[int] | None = None

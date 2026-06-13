@@ -5,10 +5,10 @@
 """
 
 from app.schemas.source_repository import (
-    SourceRepositoryListOut,
     SourceRepositoryDetailOut,
-    SourceRepositoryReleaseOut,
+    SourceRepositoryListOut,
     SourceRepositoryReadmeOut,
+    SourceRepositoryReleaseOut,
 )
 
 
@@ -19,10 +19,20 @@ class TestSourceRepositoryListOut:
         """Verify all expected list fields are present."""
         fields = set(SourceRepositoryListOut.model_fields.keys())
         expected = {
-            "id", "source_group_id", "name", "full_name", "web_url",
-            "default_branch", "is_archived", "is_fork", "discovery_status",
-            "latest_release_tag", "latest_release_date", "source_pushed_at",
-            "last_seen_at", "created_at",
+            "id",
+            "source_group_id",
+            "name",
+            "full_name",
+            "web_url",
+            "default_branch",
+            "is_archived",
+            "is_fork",
+            "discovery_status",
+            "latest_release_tag",
+            "latest_release_date",
+            "source_pushed_at",
+            "last_seen_at",
+            "created_at",
         }
         assert fields == expected
 
@@ -63,8 +73,13 @@ class TestSourceRepositoryReleaseOut:
         """Verify release fields."""
         fields = set(SourceRepositoryReleaseOut.model_fields.keys())
         expected = {
-            "tag", "name", "description", "url", "published_at",
-            "is_prerelease", "detected_at",
+            "tag",
+            "name",
+            "description",
+            "url",
+            "published_at",
+            "is_prerelease",
+            "detected_at",
         }
         assert fields == expected
 

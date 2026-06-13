@@ -9,7 +9,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -63,9 +63,7 @@ class Mirror(Base):
     # Relationships
     source_repository = relationship("SourceRepository", back_populates="mirrors")
     sync_group = relationship("SyncGroup", back_populates="mirrors")
-    mirror_logs = relationship(
-        "MirrorLog", back_populates="mirror", cascade="all, delete-orphan"
-    )
+    mirror_logs = relationship("MirrorLog", back_populates="mirror", cascade="all, delete-orphan")
 
     @property
     def pipeline(self):

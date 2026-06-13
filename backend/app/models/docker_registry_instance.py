@@ -16,20 +16,22 @@ from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String, Text
 from app.database import Base
 
 
-class RegistryType(str, enum.Enum):
+class RegistryType(enum.StrEnum):
     """Classification of registries for UI grouping and matching logic."""
+
     INTERNAL = "internal"
     EXTERNAL = "external"
 
 
-class RegistryProvider(str, enum.Enum):
+class RegistryProvider(enum.StrEnum):
     """Known registry providers for auto-detection and matching."""
+
     DOCKER_HUB = "docker_hub"
     QUAY_IO = "quay_io"
-    GCR = "gcr"          # Google Container Registry
-    ECR = "ecr"          # AWS Elastic Container Registry
-    ACR = "acr"          # Azure Container Registry
-    GHCR = "ghcr"        # GitHub Container Registry
+    GCR = "gcr"  # Google Container Registry
+    ECR = "ecr"  # AWS Elastic Container Registry
+    ACR = "acr"  # Azure Container Registry
+    GHCR = "ghcr"  # GitHub Container Registry
     HARBOR = "harbor"
     GENERIC = "generic"
 

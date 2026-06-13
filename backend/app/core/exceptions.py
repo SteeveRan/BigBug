@@ -84,7 +84,7 @@ class RoleNotFoundError(RuntimeError):
     """The requested role does not exist."""
 
 
-class DomainException(Exception):
+class DomainException(Exception):  # noqa: N818
     """Domain-layer exception with an HTTP status code.
 
     Used in service layers to signal business-rule violations

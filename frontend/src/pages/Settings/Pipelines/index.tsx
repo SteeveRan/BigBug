@@ -23,12 +23,7 @@ import {
   Space,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import {
   useGetComponentsQuery,
   useCreateComponentMutation,
@@ -131,7 +126,7 @@ export function GitLabComponentsPage() {
 
     try {
       const values = await runForm.validateFields();
-      
+
       await runComponent({
         componentId: selectedComponent.id,
         data: {
@@ -139,14 +134,17 @@ export function GitLabComponentsPage() {
           inputs: values.inputs || {},
         },
       }).unwrap();
-      
+
       setRunModalOpen(false);
       runForm.resetFields();
       setSelectedComponent(null);
       message.success('Component run triggered successfully');
     } catch (error) {
       console.error('Failed to run component:', error);
-      message.error('Failed to trigger component run: ' + (error as any)?.data?.detail || 'Unknown error');
+      message.error(
+        'Failed to trigger component run: ' +
+          (error as { data?: { detail?: string } })?.data?.detail || 'Unknown error'
+      );
     }
   };
 
@@ -332,7 +330,7 @@ export function GitLabComponentsPage() {
           />
         </Flex>
       </Modal>
-      
+
       {/* Run Component Modal */}
       <Modal
         title={`Run Component: ${selectedComponent?.name || ''}`}
@@ -342,12 +340,7 @@ export function GitLabComponentsPage() {
           <Button key="cancel" onClick={() => setRunModalOpen(false)}>
             Cancel
           </Button>,
-          <Button
-            key="run"
-            type="primary"
-            loading={isRunning}
-            onClick={handleRunSubmit}
-          >
+          <Button key="run" type="primary" loading={isRunning} onClick={handleRunSubmit}>
             Run
           </Button>,
         ]}
@@ -373,17 +366,20 @@ export function GitLabComponentsPage() {
                 { label: 'master', value: 'master' },
               ]}
               style={{ width: '100%' }}
-            >
-            </Select>
+            ></Select>
           </Form.Item>
-          
+
           {selectedComponent?.inputs_schema && (
             <Form.Item label="Component Inputs">
               <Space direction="vertical" style={{ width: '100%' }}>
                 {Object.entries(selectedComponent.inputs_schema).map(([key, schema]) => {
                   // Type assertion to handle the unknown type
-                  const inputSchema: any = schema;
-                  
+                  const inputSchema = schema as {
+                    type?: string;
+                    default?: unknown;
+                    description?: string;
+                  };
+
                   // Determine input type based on schema properties
                   let inputElement;
                   if (inputSchema.type === 'boolean') {
@@ -414,14 +410,18 @@ export function GitLabComponentsPage() {
                       />
                     );
                   }
-                  
+
                   return (
                     <Form.Item
                       key={key}
                       label={inputSchema.title || key}
                       name={['inputs', key]}
                       tooltip={inputSchema.description}
-                      rules={inputSchema.required ? [{ required: true, message: `Please enter ${key}` }] : []}
+                      rules={
+                        inputSchema.required
+                          ? [{ required: true, message: `Please enter ${key}` }]
+                          : []
+                      }
                     >
                       {inputElement}
                     </Form.Item>

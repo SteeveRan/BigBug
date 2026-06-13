@@ -14,20 +14,18 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import DomainException, NotFoundError
+from app.core.exceptions import DomainException
 from app.models.mirror import Mirror
-from app.models.pipeline import Pipeline, PipelineComponent
-from app.models.role import Role, UserRole
+from app.models.role import Role
 from app.models.role_scope import RoleScopeSyncGroup
 from app.models.sync_group import SyncGroup
 from app.models.user import User
-from app.schemas.pipeline import PipelineCreate, PipelineComponentRef
+from app.schemas.pipeline import PipelineCreate
 from app.schemas.sync_group import SyncGroupCreate, SyncGroupUpdate
 from app.services.audit import AuditService
 from app.services.pipeline import (
@@ -68,7 +66,7 @@ class SyncGroupService:
         result = await db.execute(
             select(SyncGroup)
             .options(selectinload(SyncGroup.pipeline))
-            .where(SyncGroup.is_default == True, SyncGroup.is_deleted == False)
+            .where(SyncGroup.is_default, ~SyncGroup.is_deleted)
         )
         default_group = result.scalar_one_or_none()
 
@@ -88,9 +86,7 @@ class SyncGroupService:
                 is_default=True,
             )
             default_pipeline = await create_pipeline(db, pipeline_create)
-            logger.info(
-                "Created default Pipeline (id=%d)", default_pipeline.id
-            )
+            logger.info("Created default Pipeline (id=%d)", default_pipeline.id)
 
         # Create default SyncGroup
         default_group = SyncGroup(
@@ -145,7 +141,7 @@ class SyncGroupService:
         result = await db.execute(
             select(SyncGroup).where(
                 SyncGroup.name == data.name,
-                SyncGroup.is_deleted == False,
+                ~SyncGroup.is_deleted,
             )
         )
         if result.scalar_one_or_none() is not None:
@@ -234,7 +230,7 @@ class SyncGroupService:
                 selectinload(SyncGroup.pipeline),
                 selectinload(SyncGroup.mirrors),
             )
-            .where(SyncGroup.is_deleted == False)
+            .where(~SyncGroup.is_deleted)
         )
 
         if not is_admin and user_role_ids:
@@ -243,14 +239,10 @@ class SyncGroupService:
                     RoleScopeSyncGroup.role_id.in_(user_role_ids)
                 )
             )
-            allowed_sync_group_ids = {
-                row[0] for row in sync_scope_result
-            }
+            allowed_sync_group_ids = {row[0] for row in sync_scope_result}
 
             if allowed_sync_group_ids:
-                base_query = base_query.where(
-                    SyncGroup.id.in_(allowed_sync_group_ids)
-                )
+                base_query = base_query.where(SyncGroup.id.in_(allowed_sync_group_ids))
             else:
                 return []
 
@@ -287,7 +279,7 @@ class SyncGroupService:
                 selectinload(SyncGroup.pipeline),
                 selectinload(SyncGroup.mirrors),
             )
-            .where(SyncGroup.id == group_id, SyncGroup.is_deleted == False)
+            .where(SyncGroup.id == group_id, ~SyncGroup.is_deleted)
         )
         group = result.scalar_one_or_none()
 
@@ -329,7 +321,7 @@ class SyncGroupService:
         result = await db.execute(
             select(SyncGroup)
             .options(selectinload(SyncGroup.pipeline))
-            .where(SyncGroup.id == group_id, SyncGroup.is_deleted == False)
+            .where(SyncGroup.id == group_id, ~SyncGroup.is_deleted)
         )
         group = result.scalar_one_or_none()
         if group is None:
@@ -413,7 +405,7 @@ class SyncGroupService:
             .options(
                 selectinload(SyncGroup.mirrors),
             )
-            .where(SyncGroup.id == group_id, SyncGroup.is_deleted == False)
+            .where(SyncGroup.id == group_id, ~SyncGroup.is_deleted)
         )
         group = result.scalar_one_or_none()
         if group is None:
@@ -499,7 +491,7 @@ class SyncGroupService:
         group_result = await db.execute(
             select(SyncGroup).where(
                 SyncGroup.id == group_id,
-                SyncGroup.is_deleted == False,
+                ~SyncGroup.is_deleted,
             )
         )
         if group_result.scalar_one_or_none() is None:
@@ -515,7 +507,7 @@ class SyncGroupService:
         result = await db.execute(
             select(Mirror).where(
                 Mirror.id.in_(mirror_ids),
-                Mirror.is_deleted == False,
+                ~Mirror.is_deleted,
             )
         )
         mirrors = list(result.scalars().all())
@@ -527,9 +519,7 @@ class SyncGroupService:
 
         # ── Audit ──────────────────────────────────────────────────────
         name = None
-        group_name_result = await db.execute(
-            select(SyncGroup.name).where(SyncGroup.id == group_id)
-        )
+        group_name_result = await db.execute(select(SyncGroup.name).where(SyncGroup.id == group_id))
         row = group_name_result.scalar_one_or_none()
         if row:
             name = row
@@ -604,7 +594,7 @@ class SyncGroupService:
             .options(selectinload(SyncGroup.pipeline))
             .where(
                 SyncGroup.id == sync_group_id,
-                SyncGroup.is_deleted == False,
+                ~SyncGroup.is_deleted,
             )
         )
         group = group_result.scalar_one_or_none()
@@ -622,7 +612,7 @@ class SyncGroupService:
         result = await db.execute(
             select(Mirror).where(
                 Mirror.id.in_(mirror_ids),
-                Mirror.is_deleted == False,
+                ~Mirror.is_deleted,
             )
         )
         mirrors_map: dict[int, Mirror] = {m.id: m for m in result.scalars().all()}
@@ -708,7 +698,7 @@ class SyncGroupService:
             .options(selectinload(SyncGroup.pipeline))
             .where(
                 SyncGroup.id == sync_group_id,
-                SyncGroup.is_deleted == False,
+                ~SyncGroup.is_deleted,
             )
         )
         group = result.scalar_one_or_none()
@@ -773,8 +763,8 @@ class SyncGroupService:
             select(SyncGroup)
             .options(selectinload(SyncGroup.pipeline))
             .where(
-                SyncGroup.is_deleted == False,
-                (SyncGroup.sync_enabled == True) | (SyncGroup.freshness_enabled == True),
+                ~SyncGroup.is_deleted,
+                (SyncGroup.sync_enabled) | (SyncGroup.freshness_enabled),
             )
         )
         return list(result.unique().scalars().all())

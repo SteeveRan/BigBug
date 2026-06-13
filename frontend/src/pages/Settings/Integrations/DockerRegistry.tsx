@@ -21,12 +21,7 @@ import {
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { StatusChip } from '../../../components/StatusChip';
 import type {
   DockerRegistryInstance,
@@ -96,7 +91,7 @@ export function DockerRegistryPanel({ showMessage }: PanelProps) {
       const result: ConnectionTestResult = await testConnection(id).unwrap();
       showMessage(
         result.success ? 'Connection successful' : `Connection failed: ${result.message}`,
-        result.success ? 'success' : 'error',
+        result.success ? 'success' : 'error'
       );
     } catch {
       showMessage('Connection test failed', 'error');
@@ -112,8 +107,7 @@ export function DockerRegistryPanel({ showMessage }: PanelProps) {
     {
       title: 'Default',
       key: 'is_default',
-      render: (_: unknown, record: DockerRegistryInstance) =>
-        record.is_default ? 'Yes' : 'No',
+      render: (_: unknown, record: DockerRegistryInstance) => (record.is_default ? 'Yes' : 'No'),
     },
     {
       title: 'Status',
@@ -233,23 +227,21 @@ function DockerRegistryDialog({
   const [username, setUsername] = useState((dialogState.defaultValues?.username as string) ?? '');
   const [password, setPassword] = useState((dialogState.defaultValues?.password as string) ?? '');
   const [isActive, setIsActive] = useState(
-    (dialogState.defaultValues?.is_active as boolean) ?? true,
+    (dialogState.defaultValues?.is_active as boolean) ?? true
   );
   const [verifySsl, setVerifySsl] = useState(
-    (dialogState.defaultValues?.verify_ssl as boolean) ?? true,
+    (dialogState.defaultValues?.verify_ssl as boolean) ?? true
   );
   const [isDefault, setIsDefault] = useState(
-    (dialogState.defaultValues?.is_default as boolean) ?? false,
+    (dialogState.defaultValues?.is_default as boolean) ?? false
   );
   const [registryType, setRegistryType] = useState(
-    (dialogState.defaultValues?.registry_type as string) ?? 'external',
+    (dialogState.defaultValues?.registry_type as string) ?? 'external'
   );
   const [registryProvider, setRegistryProvider] = useState(
-    (dialogState.defaultValues?.registry_provider as string) ?? 'generic',
+    (dialogState.defaultValues?.registry_provider as string) ?? 'generic'
   );
-  const [priority, setPriority] = useState(
-    (dialogState.defaultValues?.priority as number) ?? 0,
-  );
+  const [priority, setPriority] = useState((dialogState.defaultValues?.priority as number) ?? 0);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -407,7 +399,10 @@ function DockerRegistryDialog({
           )}
         </div>
         <div>
-          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+          >
             Registry Type
           </Typography.Text>
           <Select
@@ -430,7 +425,10 @@ function DockerRegistryDialog({
         </div>
         {registryType !== 'internal' && (
           <div>
-            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+            >
               Registry Provider
             </Typography.Text>
             <Select
@@ -454,7 +452,10 @@ function DockerRegistryDialog({
           </div>
         )}
         <div>
-          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 12, display: 'block', marginBottom: 4 }}
+          >
             Priority
           </Typography.Text>
           <InputNumber

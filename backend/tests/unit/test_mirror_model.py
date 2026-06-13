@@ -6,8 +6,8 @@
 """
 
 from app.models.mirror import Mirror
-from app.models.sync_group import SyncGroup
 from app.models.pipeline import Pipeline
+from app.models.sync_group import SyncGroup
 
 
 class TestMirrorModel:

@@ -11,9 +11,7 @@ const GitMirroring = () => {
   return (
     <Card>
       <Title level={3}>Git Mirroring</Title>
-      <Paragraph>
-        Git repository mirroring configuration will be available here.
-      </Paragraph>
+      <Paragraph>Git repository mirroring configuration will be available here.</Paragraph>
     </Card>
   );
 };

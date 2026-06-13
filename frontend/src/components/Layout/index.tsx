@@ -24,6 +24,7 @@ import {
   UserOutlined,
   SunOutlined,
   MoonOutlined,
+  IdcardOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../store/authSlice';
@@ -143,6 +144,7 @@ export function Layout() {
       type: 'group',
       children: [
         { key: '/admin/users', icon: <TeamOutlined />, label: 'Users & Roles' },
+        { key: '/admin/roles', icon: <IdcardOutlined />, label: 'Roles' },
         { key: '/admin/integrations', icon: <ApiOutlined />, label: 'Integrations' },
         { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
         { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
@@ -233,10 +235,7 @@ export function Layout() {
           }}
         >
           <Space>
-            <Typography.Title
-              level={4}
-              style={{ margin: 0, color: headerTextColor }}
-            >
+            <Typography.Title level={4} style={{ margin: 0, color: headerTextColor }}>
               BigBug
             </Typography.Title>
           </Space>

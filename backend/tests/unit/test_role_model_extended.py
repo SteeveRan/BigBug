@@ -5,13 +5,13 @@
 @dependencies backend/app/models/role.py
 """
 
+from app.models.credential import Credential, CredentialType
 from app.models.role import Role
 from app.models.role_scope import (
     RoleScopeCredential,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
 )
-from app.models.credential import Credential, CredentialType
 from app.models.source_group import SourceGroup
 from app.models.sync_group import SyncGroup
 

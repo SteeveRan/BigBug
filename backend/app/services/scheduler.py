@@ -106,9 +106,7 @@ class SchedulerService:
                             image_names = names_result.scalars().all()
                             for image_name in image_names:
                                 try:
-                                    await docker_service.refresh_source(
-                                        source, image_name, db
-                                    )
+                                    await docker_service.refresh_source(source, image_name, db)
                                     logger.info(
                                         f"Refreshed docker source {source.id} for {image_name}"
                                     )
@@ -120,7 +118,9 @@ class SchedulerService:
 
                     elif schedule.sync_type == "helm_chart" and schedule.helm_chart_source_id:
                         # Helm chart sync — to be implemented
-                        logger.info(f"Helm chart sync not yet implemented for schedule {schedule.id}")
+                        logger.info(
+                            f"Helm chart sync not yet implemented for schedule {schedule.id}"
+                        )
                         continue
 
                     schedule.last_run_at = now

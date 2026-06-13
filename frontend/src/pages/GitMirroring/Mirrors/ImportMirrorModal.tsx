@@ -4,19 +4,8 @@
  * @dependencies antd, RTK Query
  */
 
-import { useState } from 'react';
-import {
-  Modal,
-  Form,
-  Select,
-  Input,
-  App,
-  Alert,
-} from 'antd';
-import {
-  useImportExistingMirrorMutation,
-  useGetSourceRepositoriesQuery,
-} from '../../../store/api';
+import { Modal, Form, Select, Input, App, Alert } from 'antd';
+import { useImportExistingMirrorMutation, useGetSourceRepositoriesQuery } from '../../../store/api';
 import type { ImportMirrorRequest } from '../../../types';
 
 interface ImportMirrorModalProps {
@@ -39,7 +28,7 @@ export function ImportMirrorModal({ open, onClose, groupId }: ImportMirrorModalP
 
   const { data: repositories = [], isLoading: reposLoading } = useGetSourceRepositoriesQuery(
     { group_id: groupId ?? 0 },
-    { skip: !open },
+    { skip: !open }
   );
 
   const handleSubmit = async (values: FormValues) => {
@@ -74,7 +63,7 @@ export function ImportMirrorModal({ open, onClose, groupId }: ImportMirrorModalP
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Alert
-          message="Система проверит связь через сравнение commit history"
+          message="Система проверит связь через сравнение commit history. Поддерживаются GitHub, GitLab, Bitbucket и Generic Git репозитории."
           type="info"
           showIcon
           style={{ marginBottom: 16 }}

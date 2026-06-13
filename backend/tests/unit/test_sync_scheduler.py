@@ -8,15 +8,14 @@
 """
 
 import asyncio
+import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.sync_group import SyncGroup
 from app.services.sync_scheduler import SyncScheduler
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -190,13 +189,14 @@ class TestLifecycle:
             _make_group(2, freshness_enabled=False, freshness_cron=None),
         ]
 
-        with patch(
-            "app.services.sync_scheduler.SyncGroupService.get_active_sync_groups",
-            new_callable=AsyncMock,
-            return_value=groups,
-        ), patch(
-            "app.services.sync_scheduler.AsyncIOScheduler"
-        ) as mock_scheduler_cls:
+        with (
+            patch(
+                "app.services.sync_scheduler.SyncGroupService.get_active_sync_groups",
+                new_callable=AsyncMock,
+                return_value=groups,
+            ),
+            patch("app.services.sync_scheduler.AsyncIOScheduler") as mock_scheduler_cls,
+        ):
             mock_scheduler_instance = MagicMock()
             mock_scheduler_cls.return_value = mock_scheduler_instance
 
@@ -268,10 +268,8 @@ class TestInvalidCron:
         scheduler._scheduler.add_job.side_effect = ValueError("Invalid cron")
 
         async def _run():
-            try:
+            with contextlib.suppress(ValueError):
                 await scheduler.schedule_sync_job(1, "bad", 5)
-            except ValueError:
-                pass
 
         asyncio.run(_run())
         assert 1 not in scheduler._sync_jobs
@@ -346,17 +344,21 @@ class TestJobErrorHandling:
                 raise RuntimeError("Simulated gitlab failure")
             return MagicMock()
 
-        with patch(
-            "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-            new_callable=AsyncMock,
-            return_value=mirrors,
-        ), patch(
-            "app.services.sync_scheduler.MirrorService.trigger_sync",
-            side_effect=_trigger_sync,
-        ), patch(
-            "app.services.sync_scheduler.SyncScheduler._resolve_user_id",
-            new_callable=AsyncMock,
-            return_value=1,
+        with (
+            patch(
+                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
+                new_callable=AsyncMock,
+                return_value=mirrors,
+            ),
+            patch(
+                "app.services.sync_scheduler.MirrorService.trigger_sync",
+                side_effect=_trigger_sync,
+            ),
+            patch(
+                "app.services.sync_scheduler.SyncScheduler._resolve_user_id",
+                new_callable=AsyncMock,
+                return_value=1,
+            ),
         ):
             scheduler = SyncScheduler(factory)
             await scheduler._run_sync_for_group(1, 3)
@@ -386,13 +388,16 @@ class TestJobErrorHandling:
                 raise RuntimeError("Simulated provider failure")
             return MagicMock()
 
-        with patch(
-            "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-            new_callable=AsyncMock,
-            return_value=mirrors,
-        ), patch(
-            "app.services.sync_scheduler.MirrorService.check_freshness",
-            side_effect=_check_freshness,
+        with (
+            patch(
+                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
+                new_callable=AsyncMock,
+                return_value=mirrors,
+            ),
+            patch(
+                "app.services.sync_scheduler.MirrorService.check_freshness",
+                side_effect=_check_freshness,
+            ),
         ):
             scheduler = SyncScheduler(factory)
             await scheduler._run_freshness_for_group(1, 2)
@@ -404,14 +409,17 @@ class TestJobErrorHandling:
         """When a group has no mirrors, _run_sync_for_group logs and returns."""
         factory, mock_db = _mock_session_factory()
 
-        with patch(
-            "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-            new_callable=AsyncMock,
-            return_value=[],
-        ), patch(
-            "app.services.sync_scheduler.MirrorService.trigger_sync",
-            new_callable=AsyncMock,
-        ) as mock_trigger:
+        with (
+            patch(
+                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
+                "app.services.sync_scheduler.MirrorService.trigger_sync",
+                new_callable=AsyncMock,
+            ) as mock_trigger,
+        ):
             scheduler = SyncScheduler(factory)
             await scheduler._run_sync_for_group(1, 3)
 

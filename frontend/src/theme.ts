@@ -18,8 +18,7 @@ const sharedToken = {
   borderRadius: 6,
   borderRadiusLG: 8,
   borderRadiusSM: 4,
-  fontFamily:
-    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   fontSize: 14,
   lineHeight: 1.5715,
   wireframe: false,

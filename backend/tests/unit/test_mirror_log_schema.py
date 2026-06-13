@@ -7,8 +7,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.mirror_log import MirrorLogCreate, MirrorLogOut
 from app.models.mirror_log import MirrorLogType
+from app.schemas.mirror_log import MirrorLogCreate, MirrorLogOut
 
 
 class TestMirrorLogCreate:
@@ -69,14 +69,27 @@ class TestMirrorLogOut:
         """Verify all expected fields including nested relations."""
         fields = set(MirrorLogOut.model_fields.keys())
         expected = {
-            "id", "mirror_id", "log_type", "pipeline_run_id",
-            "gitlab_pipeline_id", "gitlab_pipeline_url",
-            "status_flag", "status_text",
-            "source_commit_sha", "source_commit_date",
-            "target_commit_sha", "commits_behind", "target_extra_commits",
-            "started_at", "finished_at", "duration_ms",
-            "triggered_by", "details", "created_at",
-            "mirror", "pipeline_run",
+            "id",
+            "mirror_id",
+            "log_type",
+            "pipeline_run_id",
+            "gitlab_pipeline_id",
+            "gitlab_pipeline_url",
+            "status_flag",
+            "status_text",
+            "source_commit_sha",
+            "source_commit_date",
+            "target_commit_sha",
+            "commits_behind",
+            "target_extra_commits",
+            "started_at",
+            "finished_at",
+            "duration_ms",
+            "triggered_by",
+            "details",
+            "created_at",
+            "mirror",
+            "pipeline_run",
         }
         assert fields == expected
 

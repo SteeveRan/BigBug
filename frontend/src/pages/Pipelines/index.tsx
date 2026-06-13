@@ -18,12 +18,7 @@ import {
   Segmented,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlayCircleOutlined,
-  LinkOutlined,
-  StopOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { PlayCircleOutlined, LinkOutlined, StopOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   useGetPipelineRunsQuery,
   useTriggerPipelineMutation,
@@ -72,7 +67,7 @@ export function PipelinesPage() {
 
   const { data, isLoading } = useGetPipelineRunsQuery(
     { page, status: statusFilter === STATUS_FILTER_ALL ? undefined : statusFilter },
-    { pollingInterval: statusFilter === STATUS_FLAG.IN_PROGRESS ? 5000 : 0 },
+    { pollingInterval: statusFilter === STATUS_FLAG.IN_PROGRESS ? 5000 : 0 }
   );
   const [triggerPipeline, { isLoading: isTriggering }] = useTriggerPipelineMutation();
   const [cancelPipeline] = useCancelPipelineMutation();
@@ -206,11 +201,7 @@ export function PipelinesPage() {
               setPage(1);
             }}
           />
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            onClick={() => setDialogOpen(true)}
-          >
+          <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setDialogOpen(true)}>
             Run Pipeline
           </Button>
         </Flex>

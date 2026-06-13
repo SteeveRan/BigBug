@@ -179,14 +179,20 @@ describe('Component Run Functionality', () => {
     await userEvent.click(playCircleIcons[0]);
 
     // Wait for modal to appear
-    await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-    }, { timeout: 3000 }); // Add timeout to ensure modal appears
+    await waitFor(
+      () => {
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    ); // Add timeout to ensure modal appears
 
     // Wait for the form elements to be available
-    await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'GitLab Branch/Ref' })).toBeInTheDocument();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getByRole('combobox', { name: 'GitLab Branch/Ref' })).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
 
     // Select a branch/ref
     const selectRef = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
@@ -194,9 +200,12 @@ describe('Component Run Functionality', () => {
     await userEvent.click(screen.getByRole('option', { name: 'main' }));
 
     // Wait for input field to be available
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText('Enter Parameter 1')).toBeInTheDocument();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.getByPlaceholderText('Enter Parameter 1')).toBeInTheDocument();
+      },
+      { timeout: 3000 }
+    );
 
     // Fill in the required input field
     const param1Input = screen.getByPlaceholderText('Enter Parameter 1');
@@ -207,17 +216,20 @@ describe('Component Run Functionality', () => {
     await userEvent.click(runButton);
 
     // Verify the mutation was called with correct parameters
-    await waitFor(() => {
-      expect(mockRunComponent).toHaveBeenCalledWith({
-        componentId: 1,
-        data: {
-          ref: 'main',
-          inputs: {
-            param1: 'test-value',
+    await waitFor(
+      () => {
+        expect(mockRunComponent).toHaveBeenCalledWith({
+          componentId: 1,
+          data: {
+            ref: 'main',
+            inputs: {
+              param1: 'test-value',
+            },
           },
-        },
-      });
-    }, { timeout: 3000 });
+        });
+      },
+      { timeout: 3000 }
+    );
   });
 
   // -----------------------------------------------------------------------
@@ -225,11 +237,12 @@ describe('Component Run Functionality', () => {
   // -----------------------------------------------------------------------
   it('correctly integrates runComponent mutation with UI components', async () => {
     const mockRunComponent = vi.fn().mockReturnValue({
-      unwrap: () => Promise.resolve({
-        id: 1,
-        status_flag: STATUS_FLAG.OK,
-        status_text: 'Success'
-      }),
+      unwrap: () =>
+        Promise.resolve({
+          id: 1,
+          status_flag: STATUS_FLAG.OK,
+          status_text: 'Success',
+        }),
     });
     const mockRunComponentMutation = [mockRunComponent, { isLoading: false }];
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockRunComponentMutation);
@@ -253,7 +266,9 @@ describe('Component Run Functionality', () => {
     });
     // Click the visible popup option (second match, with .ant-select-item-option-content)
     const developOptions = screen.getAllByText('develop');
-    const visibleOption = developOptions.find(el => el.closest('.ant-select-item-option-content'));
+    const visibleOption = developOptions.find((el) =>
+      el.closest('.ant-select-item-option-content')
+    );
     await userEvent.click(visibleOption!);
 
     const paramInput = screen.getByPlaceholderText('Enter Parameter 1');
@@ -338,7 +353,9 @@ describe('Component Run Functionality', () => {
 
     // Verify tooltips appear for descriptions
     const param1Label = screen.getByText('Parameter 1');
-    expect(param1Label.parentElement?.querySelector('span[aria-label="question-circle"]')).toBeInTheDocument();
+    expect(
+      param1Label.parentElement?.querySelector('span[aria-label="question-circle"]')
+    ).toBeInTheDocument();
 
     // Verify boolean field renders as select
     const param2Select = screen.getByRole('combobox', { name: 'Parameter 2 question-circle' });
@@ -408,11 +425,12 @@ describe('Component Run Functionality', () => {
   // -----------------------------------------------------------------------
   it('handles success scenario when running component', async () => {
     const mockRunComponent = vi.fn().mockReturnValue({
-      unwrap: () => Promise.resolve({
-        id: 1,
-        status_flag: STATUS_FLAG.OK,
-        status_text: 'Success'
-      }),
+      unwrap: () =>
+        Promise.resolve({
+          id: 1,
+          status_flag: STATUS_FLAG.OK,
+          status_text: 'Success',
+        }),
     });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
@@ -460,13 +478,14 @@ describe('Component Run Functionality', () => {
   // -----------------------------------------------------------------------
   it('shows loading state while component is running', async () => {
     const mockRunComponent = vi.fn().mockReturnValue({
-      unwrap: () => Promise.resolve({
-        id: 1,
-        status_flag: STATUS_FLAG.IN_PROGRESS,
-        status_text: 'Running'
-      }),
+      unwrap: () =>
+        Promise.resolve({
+          id: 1,
+          status_flag: STATUS_FLAG.IN_PROGRESS,
+          status_text: 'Running',
+        }),
     });
-    
+
     // Initially return loading state
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
@@ -500,11 +519,12 @@ describe('Component Run Functionality', () => {
   // -----------------------------------------------------------------------
   it('validates required inputs in the form', async () => {
     const mockRunComponent = vi.fn().mockReturnValue({
-      unwrap: () => Promise.resolve({
-        id: 1,
-        status_flag: STATUS_FLAG.OK,
-        status_text: 'Success'
-      }),
+      unwrap: () =>
+        Promise.resolve({
+          id: 1,
+          status_flag: STATUS_FLAG.OK,
+          status_text: 'Success',
+        }),
     });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,

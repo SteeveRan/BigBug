@@ -13,19 +13,13 @@ import {
   Flex,
   Space,
   Input,
-  Switch,
   App,
   Tooltip,
   Tag,
   Popconfirm,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   useGetPipelineConfigsQuery,
   useDeletePipelineConfigMutation,
@@ -53,9 +47,7 @@ const PipelineConfigsPage = () => {
     if (!search.trim()) return configs;
     const q = search.toLowerCase();
     return configs.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.description?.toLowerCase().includes(q) ?? false),
+      (c) => c.name.toLowerCase().includes(q) || (c.description?.toLowerCase().includes(q) ?? false)
     );
   }, [configs, search]);
 
@@ -114,26 +106,21 @@ const PipelineConfigsPage = () => {
       title: 'GitLab Instance',
       key: 'gitlab_instance',
       render: (_: unknown, record: PipelineConfig) => (
-        <Typography.Text>
-          {record.gitlab_instance?.name ?? '—'}
-        </Typography.Text>
+        <Typography.Text>{record.gitlab_instance?.name ?? '—'}</Typography.Text>
       ),
     },
     {
       title: 'Ref',
       dataIndex: 'ref',
       key: 'ref',
-      render: (ref: string | null) => (
-        <Tag color="blue">{ref || 'main'}</Tag>
-      ),
+      render: (ref: string | null) => <Tag color="blue">{ref || 'main'}</Tag>,
     },
     {
       title: 'Default',
       dataIndex: 'is_default',
       key: 'is_default',
       align: 'center',
-      render: (isDefault: boolean) =>
-        isDefault ? <Tag color="green">Default</Tag> : <Tag>—</Tag>,
+      render: (isDefault: boolean) => (isDefault ? <Tag color="green">Default</Tag> : <Tag>—</Tag>),
     },
     {
       title: 'Components',
@@ -179,12 +166,7 @@ const PipelineConfigsPage = () => {
               okButtonProps={{ danger: true }}
             >
               <Tooltip title="Delete">
-                <Button
-                  size="small"
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                />
+                <Button size="small" type="text" danger icon={<DeleteOutlined />} />
               </Tooltip>
             </Popconfirm>
           </PermissionGate>
@@ -224,7 +206,9 @@ const PipelineConfigsPage = () => {
             rowKey="id"
             loading={isLoading}
             locale={{
-              emptyText: isError ? 'Failed to load pipeline configurations' : 'No pipeline configurations',
+              emptyText: isError
+                ? 'Failed to load pipeline configurations'
+                : 'No pipeline configurations',
             }}
             pagination={
               filteredConfigs.length > 20
@@ -235,11 +219,7 @@ const PipelineConfigsPage = () => {
         </Flex>
       </Card>
 
-      <PipelineModal
-        open={modalOpen}
-        onClose={handleClose}
-        pipeline={editingPipeline}
-      />
+      <PipelineModal open={modalOpen} onClose={handleClose} pipeline={editingPipeline} />
     </Flex>
   );
 };

@@ -21,7 +21,7 @@ from app.core.exceptions import DomainException
 from app.services.source_provider import BaseSourceProvider
 
 if TYPE_CHECKING:
-    from app.models.source_provider import SourceProvider
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +112,7 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
         "license_spdx": repo.license.spdx_id if repo.license else None,
         "license_name": repo.license.name if repo.license else None,
         # Releases (use totalCount to avoid loading all releases)
-        "releases_count": (
-            repo.get_releases().totalCount
-            if hasattr(repo, "get_releases")
-            else 0
-        ),
+        "releases_count": (repo.get_releases().totalCount if hasattr(repo, "get_releases") else 0),
     }
 
     if include_extra:
@@ -131,9 +127,7 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
                 "subscribers_count": repo.subscribers_count,
                 "network_count": repo.network_count,
                 "allow_forking": getattr(repo, "allow_forking", False),
-                "web_commit_signoff_required": getattr(
-                    repo, "web_commit_signoff_required", False
-                ),
+                "web_commit_signoff_required": getattr(repo, "web_commit_signoff_required", False),
             }
         )
 
@@ -146,9 +140,7 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
             result["last_commit_date"] = commit.commit.author.date
             result["last_commit_author"] = commit.commit.author.name
     except GithubException:
-        logger.debug(
-            "Failed to fetch last commit for repo %s", repo.full_name, exc_info=True
-        )
+        logger.debug("Failed to fetch last commit for repo %s", repo.full_name, exc_info=True)
 
     return result
 
@@ -242,9 +234,7 @@ class GitHubSourceProvider(BaseSourceProvider):
                             "description": org.description,
                             "avatar_url": org.avatar_url,
                             "public_repos": org.public_repos,
-                            "total_private_repos": getattr(
-                                org, "total_private_repos", 0
-                            ),
+                            "total_private_repos": getattr(org, "total_private_repos", 0),
                             "html_url": org.html_url,
                             "created_at": org.created_at,
                             "updated_at": org.updated_at,
@@ -326,9 +316,7 @@ class GitHubSourceProvider(BaseSourceProvider):
 
     # -- commit info --------------------------------------------------------
 
-    async def get_commit_info(
-        self, repo_external_id: str, ref: str | None = None
-    ) -> dict:
+    async def get_commit_info(self, repo_external_id: str, ref: str | None = None) -> dict:
         """
         Get metadata about the most recent commit on a repository.
 
@@ -354,11 +342,11 @@ class GitHubSourceProvider(BaseSourceProvider):
                     try:
                         branch = repo.get_branch(ref)
                         commit = branch.commit
-                    except GithubException:
+                    except GithubException as e:
                         raise DomainException(
                             f"Ref '{ref}' not found in repository '{repo_external_id}'",
                             status_code=404,
-                        )
+                        ) from e
             else:
                 branch = repo.get_branch(repo.default_branch)
                 commit = branch.commit

@@ -35,10 +35,11 @@ from app.models.user import User
 
 # ── Role → permission assignments (TO-BE, 2026-06-08) ───────────────────
 
-# Admin: all 40 permissions
+# Admin: all 48 permissions
 ADMIN_PERMISSIONS = [
     # Mirrors
     "mirrors:read", "mirrors:write", "mirrors:delete", "mirrors:sync",
+    "mirrors:import", "mirrors:integrity_check", "mirrors:manage_orphaned",
     # Projects
     "projects:read", "projects:write", "projects:delete",
     # Helm
@@ -63,6 +64,12 @@ ADMIN_PERMISSIONS = [
     "oidc:read", "oidc:write",
     # Audit
     "audit:read",
+    # Source Groups
+    "source_groups:write", "source_groups:refresh",
+    # Sync Groups
+    "sync_groups:write", "sync_groups:delete",
+    # Credentials
+    "credentials:use",
 ]
 
 # Operator: read + actions, no delete, no user/role/oidc/integrations management

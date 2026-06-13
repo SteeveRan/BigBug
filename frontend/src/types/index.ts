@@ -294,6 +294,12 @@ export interface Role {
   is_custom: boolean;
   created_by_user_id: number | null;
   permissions: Permission[];
+  /** Scope: IDs of source groups this role can access */
+  source_group_ids?: number[];
+  /** Scope: IDs of credentials this role can access */
+  credential_ids?: number[];
+  /** Scope: IDs of sync groups this role can access */
+  sync_group_ids?: number[];
 }
 
 /** Ответ от GET /api/auth/me/permissions */
@@ -315,6 +321,27 @@ export interface RoleUpdate {
   name?: string | null;
   description?: string | null;
   permission_names?: string[] | null;
+}
+
+/** Scope assigned to a role (full read representation) */
+export interface RoleScope {
+  source_group_ids: number[];
+  credential_ids: number[];
+  sync_group_ids: number[];
+}
+
+/** Request to replace role scope for a given scope type */
+export interface RoleScopeUpdate {
+  source_group_ids?: number[];
+  credential_ids?: number[];
+  sync_group_ids?: number[];
+}
+
+/** Single scope item add/remove */
+export interface ScopeItemRequest {
+  source_group_id?: number;
+  credential_id?: number;
+  sync_group_id?: number;
 }
 
 // ──── Integration Instance Types ────────────────────────────────────────────
@@ -442,7 +469,15 @@ export interface DockerRegistryInstance {
   verify_ssl: boolean;
   is_default: boolean;
   registry_type: 'internal' | 'external';
-  registry_provider: 'docker_hub' | 'quay_io' | 'gcr' | 'ecr' | 'acr' | 'ghcr' | 'harbor' | 'generic';
+  registry_provider:
+    | 'docker_hub'
+    | 'quay_io'
+    | 'gcr'
+    | 'ecr'
+    | 'acr'
+    | 'ghcr'
+    | 'harbor'
+    | 'generic';
   priority: number;
   status_flag: number;
   status_text: string;
@@ -718,6 +753,8 @@ export interface AnalyzeImageResponse {
 // Git Mirroring V2 Types
 // ============================================================
 
+export type ProviderType = 'github' | 'gitlab' | 'bitbucket' | 'generic';
+
 export interface Credential {
   id: number;
   name: string;
@@ -730,9 +767,10 @@ export interface Credential {
 export interface SourceProvider {
   id: number;
   name: string;
-  provider_type: string;
+  provider_type: ProviderType;
   credential_id: number;
   credential?: Credential;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
   config_json?: Record<string, any>;
   status_flag: number;
   status_text: string;
@@ -743,14 +781,16 @@ export interface SourceProvider {
 
 export interface SourceProviderCreate {
   name: string;
-  provider_type: string;
+  provider_type: ProviderType;
   credential_id: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
   config_json?: Record<string, any>;
 }
 
 export interface SourceProviderUpdate {
   name?: string;
   credential_id?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
   config_json?: Record<string, any>;
   status_flag?: number;
 }
@@ -879,6 +919,7 @@ export interface MirrorLog {
   status_flag: number;
   status_text: string;
   message?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic log details
   details_json?: Record<string, any>;
   started_at?: string;
   completed_at?: string;
@@ -893,7 +934,9 @@ export interface MirrorDuplicateCheck {
     target_path: string;
     sync_group_name: string;
   }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic duplicate check data
   accessible: any[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic duplicate check data
   inaccessible: any[];
 }
 

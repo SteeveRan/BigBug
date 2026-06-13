@@ -10,21 +10,22 @@ import enum
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     Column,
     DateTime,
-    Enum as SAEnum,
     ForeignKey,
     Integer,
-    JSON,
     String,
-    Text,
+)
+from sqlalchemy import (
+    Enum as SAEnum,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
-class MirrorLogType(str, enum.Enum):
+class MirrorLogType(enum.StrEnum):
     sync = "sync"
     freshness = "freshness"
     import_ = "import"

@@ -23,18 +23,15 @@ interface SignatureBadgeProps {
   signature?: string | null;
 }
 
-export function SignatureBadge({
-  signed,
-  verified,
-  isSigned,
-  signature,
-}: SignatureBadgeProps) {
+export function SignatureBadge({ signed, verified, isSigned, signature }: SignatureBadgeProps) {
   const effectiveSigned = signed ?? isSigned ?? false;
   const effectiveVerified = verified ?? false;
 
   if (effectiveSigned && effectiveVerified) {
     return (
-      <Tooltip title={signature ? `Signed & Verified: ${signature}` : 'Image is signed and verified'}>
+      <Tooltip
+        title={signature ? `Signed & Verified: ${signature}` : 'Image is signed and verified'}
+      >
         <Tag icon={<SafetyCertificateOutlined />} color="success">
           Signed & Verified
         </Tag>

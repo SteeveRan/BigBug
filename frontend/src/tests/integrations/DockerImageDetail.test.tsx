@@ -14,7 +14,12 @@ const mockNavigate = vi.fn();
 vi.mock('react-router', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => ({ id: '1' }),
-  useLocation: () => ({ pathname: '/mirroring/docker-images/1', search: '', hash: '', state: null }),
+  useLocation: () => ({
+    pathname: '/mirroring/docker-images/1',
+    search: '',
+    hash: '',
+    state: null,
+  }),
   Navigate: ({ to }: { to: string }) => <div data-testid="navigate" data-to={to} />,
   Outlet: () => <div data-testid="outlet" />,
   Link: ({ children, ...props }: Record<string, unknown>) => (
@@ -233,7 +238,10 @@ describe('DockerImageDetailPage', () => {
     expect(dialog.getByPlaceholderText('Image Name (e.g. library/nginx)')).toBeInTheDocument();
 
     // Fill image name
-    await user.type(dialog.getByPlaceholderText('Image Name (e.g. library/nginx)'), 'library/redis');
+    await user.type(
+      dialog.getByPlaceholderText('Image Name (e.g. library/nginx)'),
+      'library/redis'
+    );
 
     // Submit
     await user.click(dialog.getByRole('button', { name: /^Index$/ }));

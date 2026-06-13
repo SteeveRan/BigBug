@@ -177,7 +177,7 @@ export function AppImagesPage() {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`,
             },
-          },
+          }
         );
         const data = await resp.json();
         setVersions((prev) => ({ ...prev, [imageId]: data }));
@@ -206,10 +206,7 @@ export function AppImagesPage() {
       title: 'Status',
       key: 'status',
       render: (_: unknown, record: ImageVersion) => (
-        <StatusChip
-          status={record.status_flag}
-          statusText={record.status_text ?? undefined}
-        />
+        <StatusChip status={record.status_flag} statusText={record.status_text ?? undefined} />
       ),
     },
     {
@@ -227,10 +224,7 @@ export function AppImagesPage() {
       title: 'Signature',
       key: 'signature',
       render: (_: unknown, record: ImageVersion) => (
-        <SignatureBadge
-          isSigned={record.is_signed}
-          signature={record.cosign_signature}
-        />
+        <SignatureBadge isSigned={record.is_signed} signature={record.cosign_signature} />
       ),
     },
     {
@@ -341,7 +335,10 @@ export function AppImagesPage() {
         </Flex>
       ) : images.length === 0 ? (
         <Card>
-          <Typography.Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}>
+          <Typography.Text
+            type="secondary"
+            style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}
+          >
             No app images yet. Create one to get started.
           </Typography.Text>
         </Card>

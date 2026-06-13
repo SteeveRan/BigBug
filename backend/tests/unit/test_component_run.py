@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
-from fastapi import status
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,12 +25,10 @@ from app.models.gitlab_component import GitLabComponent
 from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
 from app.models.permission import Permission, role_permissions
 from app.models.pipeline_run import PipelineRun
-from app.services import pipeline as pipeline_service
-
 
 # Import the role model at the top with other imports
 from app.models.role import Role
-
+from app.services import pipeline as pipeline_service
 
 # Valid permissions required by integration endpoints
 REQUIRED_PERMISSIONS = [
@@ -84,10 +81,11 @@ async def seeded_permissions(db_session: AsyncSession):
 # ComponentRunRequest Schema Validation Tests
 # ──────────────────────────────────────────────────────────────────────
 
+
 def test_component_run_request_defaults():
     """ComponentRunRequest has correct default values."""
     from app.schemas.pipeline import ComponentRunRequest
-    
+
     request = ComponentRunRequest()
     assert request.ref == "main"
     assert request.inputs == {}
@@ -96,7 +94,7 @@ def test_component_run_request_defaults():
 def test_component_run_request_custom_values():
     """ComponentRunRequest accepts custom values."""
     from app.schemas.pipeline import ComponentRunRequest
-    
+
     request = ComponentRunRequest(ref="develop", inputs={"KEY": "VALUE"})
     assert request.ref == "develop"
     assert request.inputs == {"KEY": "VALUE"}
@@ -105,7 +103,7 @@ def test_component_run_request_custom_values():
 def test_component_run_request_input_validation():
     """ComponentRunRequest validates input types."""
     from app.schemas.pipeline import ComponentRunRequest
-    
+
     # Should accept string inputs
     request = ComponentRunRequest(inputs={"str_field": "value", "num_field": "42"})
     assert request.inputs == {"str_field": "value", "num_field": "42"}
@@ -114,6 +112,7 @@ def test_component_run_request_input_validation():
 # ──────────────────────────────────────────────────────────────────────
 # trigger_component Service Method Tests
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TestTriggerComponent:
     """Tests for trigger_component() service method."""
@@ -130,11 +129,11 @@ class TestTriggerComponent:
         assert "component" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_trigger_component_validates_inputs_against_schema(self, db_session: AsyncSession):
+    async def test_trigger_component_validates_inputs_against_schema(
+        self, db_session: AsyncSession
+    ):
         """trigger_component validates inputs against component's input schema."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-gitlab",
@@ -144,7 +143,7 @@ class TestTriggerComponent:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component with input schema requiring specific fields
         component = GitLabComponent(
             name="test-component",
@@ -158,11 +157,11 @@ class TestTriggerComponent:
                     "optional_field": {"type": "integer"},
                 },
                 "required": ["required_field"],
-            }
+            },
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         # Try to trigger with missing required field - should raise BadRequestError
         with pytest.raises(Exception) as exc_info:  # Will be BadRequestError
             await pipeline_service.trigger_component(
@@ -175,9 +174,7 @@ class TestTriggerComponent:
     @pytest.mark.asyncio
     async def test_trigger_component_handles_missing_gitlab_project(self, db_session: AsyncSession):
         """trigger_component records failed run when GitLab project doesn't exist."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-gitlab",
@@ -187,7 +184,7 @@ class TestTriggerComponent:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="test-component",
@@ -197,11 +194,11 @@ class TestTriggerComponent:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             import gitlab
-            
+
             # Simulate project not found error
             mock_gl.projects.get.side_effect = gitlab.GitlabError("Project not found")
             mock_client_factory.return_value = mock_gl
@@ -224,9 +221,7 @@ class TestTriggerComponent:
     @pytest.mark.asyncio
     async def test_trigger_component_handles_gitlab_api_error(self, db_session: AsyncSession):
         """trigger_component records failed run on GitLab API error during pipeline creation."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-gitlab",
@@ -236,7 +231,7 @@ class TestTriggerComponent:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="test-component",
@@ -246,12 +241,12 @@ class TestTriggerComponent:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             import gitlab
-            
+
             # Set the project ID
             mock_project.id = 42
             # Simulate pipeline creation failure
@@ -278,9 +273,7 @@ class TestTriggerComponent:
     @pytest.mark.asyncio
     async def test_trigger_component_creates_run_record_on_success(self, db_session: AsyncSession):
         """trigger_component creates PipelineRun on successful pipeline trigger."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-gitlab-success",
@@ -290,7 +283,7 @@ class TestTriggerComponent:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="test-component-success",
@@ -300,7 +293,7 @@ class TestTriggerComponent:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
@@ -334,9 +327,7 @@ class TestTriggerComponent:
     @pytest.mark.asyncio
     async def test_trigger_component_with_empty_inputs(self, db_session: AsyncSession):
         """trigger_component works with empty inputs."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-gitlab-empty-inputs",
@@ -346,7 +337,7 @@ class TestTriggerComponent:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="test-component-empty-inputs",
@@ -356,7 +347,7 @@ class TestTriggerComponent:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
@@ -388,27 +379,30 @@ class TestTriggerComponent:
 # POST /api/components/{id}/run Endpoint Tests
 # ──────────────────────────────────────────────────────────────────────
 
+
 class TestComponentRunEndpoint:
     """Tests for POST /api/components/{id}/run endpoint."""
 
     @pytest.mark.asyncio
-    async def test_run_component_endpoint_component_not_found(self, client: AsyncClient, admin_token: str):
+    async def test_run_component_endpoint_component_not_found(
+        self, client: AsyncClient, admin_token: str
+    ):
         """Endpoint returns 404 when component doesn't exist."""
         response = await client.post(
             "/api/components/99999/run",
             json={"inputs": {}},
-            headers={"Authorization": f"Bearer {admin_token}"}
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
-        
+
         assert response.status_code == 404
         assert "component" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_run_component_endpoint_success(self, client: AsyncClient, db_session: AsyncSession, admin_token: str):
+    async def test_run_component_endpoint_success(
+        self, client: AsyncClient, db_session: AsyncSession, admin_token: str
+    ):
         """Endpoint successfully triggers component run."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-instance",
@@ -418,7 +412,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="api-test-component",
@@ -428,7 +422,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
@@ -443,9 +437,9 @@ class TestComponentRunEndpoint:
             response = await client.post(
                 f"/api/components/{component.id}/run",
                 json={"ref": "feature-branch", "inputs": {"PARAM1": "VALUE1"}},
-                headers={"Authorization": f"Bearer {admin_token}"}
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["gitlab_pipeline_id"] == 99999
@@ -455,11 +449,11 @@ class TestComponentRunEndpoint:
         assert data["status_flag"] == 3  # IN_PROGRESS
 
     @pytest.mark.asyncio
-    async def test_run_component_endpoint_invalid_input_schema(self, client: AsyncClient, db_session: AsyncSession, admin_token: str):
+    async def test_run_component_endpoint_invalid_input_schema(
+        self, client: AsyncClient, db_session: AsyncSession, admin_token: str
+    ):
         """Endpoint returns 422 when input validation fails."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-instance-validation",
@@ -469,7 +463,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component with input schema
         component = GitLabComponent(
             name="api-test-component-validation",
@@ -482,29 +476,29 @@ class TestComponentRunEndpoint:
                     "required_param": {"type": "string"},
                 },
                 "required": ["required_param"],
-            }
+            },
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         # Try to trigger with missing required param
         response = await client.post(
             f"/api/components/{component.id}/run",
             json={"inputs": {}},  # Missing required_param
-            headers={"Authorization": f"Bearer {admin_token}"}
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
-        
+
         # Should return 400 for validation error (FastAPI default for Pydantic validation)
         assert response.status_code in [400, 422]  # Accept either 400 or 422
         # The error should indicate validation failure
         assert "required_param" in str(response.json())
 
     @pytest.mark.asyncio
-    async def test_run_component_endpoint_gitlab_error(self, client: AsyncClient, db_session: AsyncSession, admin_token: str):
+    async def test_run_component_endpoint_gitlab_error(
+        self, client: AsyncClient, db_session: AsyncSession, admin_token: str
+    ):
         """Endpoint returns 201 but with failed run when GitLab API fails."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-instance-error",
@@ -514,7 +508,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="api-test-component-error",
@@ -524,19 +518,20 @@ class TestComponentRunEndpoint:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             import gitlab
+
             mock_gl.projects.get.side_effect = gitlab.GitlabError("Project not found")
             mock_client_factory.return_value = mock_gl
 
             response = await client.post(
                 f"/api/components/{component.id}/run",
                 json={"inputs": {"PARAM1": "VALUE1"}},
-                headers={"Authorization": f"Bearer {admin_token}"}
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
-        
+
         # Should still return 201 as the call was processed, but run should be marked as failed
         assert response.status_code == 201
         data = response.json()
@@ -545,11 +540,11 @@ class TestComponentRunEndpoint:
         assert data["component_id"] == component.id
 
     @pytest.mark.asyncio
-    async def test_run_component_endpoint_with_defaults(self, client: AsyncClient, db_session: AsyncSession, admin_token: str):
+    async def test_run_component_endpoint_with_defaults(
+        self, client: AsyncClient, db_session: AsyncSession, admin_token: str
+    ):
         """Endpoint uses default ref value when not provided."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-instance-defaults",
@@ -559,7 +554,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(instance)
         await db_session.commit()
-        
+
         # Create a component
         component = GitLabComponent(
             name="api-test-component-defaults",
@@ -569,7 +564,7 @@ class TestComponentRunEndpoint:
         )
         db_session.add(component)
         await db_session.commit()
-        
+
         with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
@@ -585,9 +580,9 @@ class TestComponentRunEndpoint:
             response = await client.post(
                 f"/api/components/{component.id}/run",
                 json={"inputs": {"PARAM1": "VALUE1"}},  # No ref provided
-                headers={"Authorization": f"Bearer {admin_token}"}
+                headers={"Authorization": f"Bearer {admin_token}"},
             )
-        
+
         assert response.status_code == 201
         data = response.json()
         assert data["gitlab_pipeline_id"] == 11111
@@ -599,6 +594,7 @@ class TestComponentRunEndpoint:
 # Updated PipelineRun Model Tests
 # ──────────────────────────────────────────────────────────────────────
 
+
 class TestUpdatedPipelineRunModel:
     """Tests for the updated PipelineRun model with component_id."""
 
@@ -608,10 +604,10 @@ class TestUpdatedPipelineRunModel:
             gitlab_instance_id=1,
             gitlab_project_id=42,
             ref="main",
-            component_id=5  # This should be supported now
+            component_id=5,  # This should be supported now
         )
-        
-        assert hasattr(run, 'component_id')
+
+        assert hasattr(run, "component_id")
         assert run.component_id == 5
 
     def test_pipeline_run_component_id_nullable(self, db_session: AsyncSession):
@@ -622,14 +618,12 @@ class TestUpdatedPipelineRunModel:
             ref="main",
             # component_id is None by default
         )
-        
+
         assert run.component_id is None
 
     def test_pipeline_run_with_component_relationship(self, db_session: AsyncSession):
         """PipelineRun can be associated with a GitLabComponent."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-        
+
         # Create a GitLab instance
         instance = GitlabInstanceModel(
             name="test-instance-model",
@@ -640,7 +634,7 @@ class TestUpdatedPipelineRunModel:
         db_session.add(instance)
         # Note: We're just testing the model structure, not persisting to DB in this test
         # So we don't need to flush/commit here
-        
+
         # Create a component
         component = GitLabComponent(
             name="model-test-component",
@@ -649,15 +643,15 @@ class TestUpdatedPipelineRunModel:
             component_path=".gitlab/components/test.yml",
         )
         # Don't add to session - just testing the model structure
-        
+
         # Create a run with component association
         run = PipelineRun(
             gitlab_instance_id=instance.id,
             gitlab_project_id=42,
             ref="main",
-            component_id=component.id
+            component_id=component.id,
         )
-        
+
         # Verify the relationship can be established
         assert run.component_id == component.id
         # Note: The actual relationship would be loaded when queried from DB

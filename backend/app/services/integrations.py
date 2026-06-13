@@ -767,7 +767,6 @@ class DockerRegistryInstanceService:
                 "status_code": None,
             }
 
-
     # ── Registry matching ──────────────────────────────────────────────
 
     async def find_matching_registry(
@@ -821,9 +820,7 @@ class DockerRegistryInstanceService:
         # Filter by host match or provider match
         compatible = []
         for r in active:
-            if registry_host in r.url:
-                compatible.append(r)
-            elif provider and r.registry_provider == provider:
+            if registry_host in r.url or provider and r.registry_provider == provider:
                 compatible.append(r)
 
         if not compatible:

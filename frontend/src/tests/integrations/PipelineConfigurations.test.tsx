@@ -327,9 +327,9 @@ describe('PipelineConfigsPage', () => {
     renderPage();
 
     // Find buttons with CopyOutlined icon
-    const copyButtons = screen.getAllByRole('button').filter((btn) =>
-      btn.querySelector('.anticon-copy'),
-    );
+    const copyButtons = screen
+      .getAllByRole('button')
+      .filter((btn) => btn.querySelector('.anticon-copy'));
     expect(copyButtons.length).toBeGreaterThan(0);
     await userEvent.click(copyButtons[0]);
 

@@ -4,7 +4,7 @@
  * @dependencies antd, @ant-design/icons, RTK Query, PermissionGate, StatusChip
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   Typography,
@@ -18,35 +18,46 @@ import {
   Alert,
   Empty,
   Tag,
+  Select,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-} from '@ant-design/icons';
-import {
-  useGetSourceProvidersQuery,
-  useDeleteSourceProviderMutation,
-} from '../../../store/api';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { useGetSourceProvidersQuery, useDeleteSourceProviderMutation } from '../../../store/api';
 import type { SourceProvider } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { ProviderModal } from './ProviderModal';
 
+const PROVIDER_TYPE_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'GitHub', value: 'github' },
+  { label: 'GitLab', value: 'gitlab' },
+  { label: 'Bitbucket', value: 'bitbucket' },
+  { label: 'Generic Git', value: 'generic' },
+];
+
+const PROVIDER_TYPE_COLORS: Record<string, string> = {
+  github: '#24292f',
+  gitlab: '#fc6d26',
+  bitbucket: '#0052cc',
+  generic: '#8c8c8c',
+};
+
 const ProvidersPage = () => {
   const { message } = App.useApp();
 
-  const {
-    data: providers = [],
-    isLoading,
-    isError,
-  } = useGetSourceProvidersQuery();
+  const { data: providers = [], isLoading, isError } = useGetSourceProvidersQuery();
 
   const [deleteProvider] = useDeleteSourceProviderMutation();
   const [modalOpen, setModalOpen] = useState(false);
   const [editProvider, setEditProvider] = useState<SourceProvider | undefined>(undefined);
+  const [typeFilter, setTypeFilter] = useState<string>('');
+
+  // Client-side filter by provider type
+  const filteredProviders = useMemo(() => {
+    if (!typeFilter) return providers;
+    return providers.filter((p) => p.provider_type === typeFilter);
+  }, [providers, typeFilter]);
 
   const handleDelete = async (id: number, name: string) => {
     if (!window.confirm(`Delete provider "${name}"?`)) return;
@@ -85,7 +96,10 @@ const ProvidersPage = () => {
       title: 'Provider Type',
       dataIndex: 'provider_type',
       key: 'provider_type',
-      render: (type: string) => <Tag>{type}</Tag>,
+      render: (type: string) => {
+        const label = type === 'generic' ? 'Generic Git' : type;
+        return <Tag color={PROVIDER_TYPE_COLORS[type] ?? 'default'}>{label}</Tag>;
+      },
     },
     {
       title: 'Credential',
@@ -165,6 +179,12 @@ const ProvidersPage = () => {
           Source Providers
         </Typography.Title>
         <Space>
+          <Select
+            style={{ width: 150 }}
+            value={typeFilter}
+            onChange={(v) => setTypeFilter(v)}
+            options={PROVIDER_TYPE_OPTIONS}
+          />
           <PermissionGate permission="source_groups:write">
             <Button
               type="primary"
@@ -200,7 +220,7 @@ const ProvidersPage = () => {
         <Card>
           <Table
             columns={columns}
-            dataSource={providers as SourceProvider[]}
+            dataSource={filteredProviders as SourceProvider[]}
             rowKey="id"
             pagination={false}
             locale={{ emptyText: <Empty description="No source providers configured" /> }}

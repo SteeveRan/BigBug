@@ -5,23 +5,9 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Card,
-  Typography,
-  Button,
-  Table,
-  Flex,
-  Modal,
-  Input,
-  App,
-  Tooltip,
-  Space,
-} from 'antd';
+import { Card, Typography, Button, Table, Flex, Modal, Input, App, Tooltip, Space } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  PlusOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   useListHelmChartsQuery,
   useCreateHelmChartMutation,
@@ -89,8 +75,7 @@ export function HelmChartsPage() {
       title: 'Last Synced',
       dataIndex: 'last_synced_at',
       key: 'last_synced_at',
-      render: (val: string | null) =>
-        val ? new Date(val).toLocaleString() : '—',
+      render: (val: string | null) => (val ? new Date(val).toLocaleString() : '—'),
     },
     {
       title: 'Status',

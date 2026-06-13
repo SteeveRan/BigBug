@@ -3,6 +3,9 @@ import type { RootState } from './index';
 import type {
   Permission,
   Role,
+  RoleScope,
+  RoleScopeUpdate,
+  ScopeItemRequest,
   UserPermissions,
   RoleCreate,
   RoleUpdate,
@@ -68,8 +71,6 @@ import type {
   PipelineConfig,
   PipelineConfigCreate,
   PipelineConfigUpdate,
-  PipelineConfigDuplicateRequest,
-  PipelineListItem,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -99,6 +100,7 @@ export const api = createApi({
     'DockerSyncSchedule',
     'Permissions',
     'Roles',
+    'RoleScope',
     'Integration',
     'OIDCConfig',
     'Pipeline',
@@ -432,9 +434,7 @@ export const api = createApi({
         method: 'DELETE',
         body: { tag_ids: tagIds },
       }),
-      invalidatesTags: (_result, _error, { sourceId }) => [
-        { type: 'DockerImage', id: sourceId },
-      ],
+      invalidatesTags: (_result, _error, { sourceId }) => [{ type: 'DockerImage', id: sourceId }],
     }),
 
     analyzeDockerImage: builder.mutation<AnalyzeImageResponse, { image_name: string }>({
@@ -445,8 +445,7 @@ export const api = createApi({
       DockerImageCompareResponse,
       { sourceAId: number; sourceBId: number }
     >({
-      query: ({ sourceAId, sourceBId }) =>
-        `/docker-images/${sourceAId}/compare/${sourceBId}`,
+      query: ({ sourceAId, sourceBId }) => `/docker-images/${sourceAId}/compare/${sourceBId}`,
     }),
 
     // Sync Schedule
@@ -554,6 +553,55 @@ export const api = createApi({
         method: 'DELETE',
       }),
       invalidatesTags: ['Roles'],
+    }),
+
+    // RBAC: Role Scope
+    getRoleScope: builder.query<
+      RoleScope,
+      { roleId: number; scopeType: 'source-groups' | 'credentials' | 'sync-groups' }
+    >({
+      query: ({ roleId, scopeType }) => `/admin/roles/${roleId}/scopes/${scopeType}`,
+      providesTags: (_result, _error, { roleId }) => [{ type: 'RoleScope', id: roleId }],
+    }),
+    addRoleScopeItem: builder.mutation<
+      RoleScope,
+      {
+        roleId: number;
+        scopeType: 'source-groups' | 'credentials' | 'sync-groups';
+        item: ScopeItemRequest;
+      }
+    >({
+      query: ({ roleId, scopeType, item }) => ({
+        url: `/admin/roles/${roleId}/scopes/${scopeType}`,
+        method: 'POST',
+        body: item,
+      }),
+      invalidatesTags: (_result, _error, { roleId }) => [{ type: 'RoleScope', id: roleId }],
+    }),
+    setRoleScope: builder.mutation<
+      RoleScope,
+      {
+        roleId: number;
+        scopeType: 'source-groups' | 'credentials' | 'sync-groups';
+        data: RoleScopeUpdate;
+      }
+    >({
+      query: ({ roleId, scopeType, data }) => ({
+        url: `/admin/roles/${roleId}/scopes/${scopeType}`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { roleId }) => [{ type: 'RoleScope', id: roleId }],
+    }),
+    removeRoleScopeItem: builder.mutation<
+      void,
+      { roleId: number; scopeType: 'source-groups' | 'credentials' | 'sync-groups'; itemId: number }
+    >({
+      query: ({ roleId, scopeType, itemId }) => ({
+        url: `/admin/roles/${roleId}/scopes/${scopeType}/${itemId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { roleId }) => [{ type: 'RoleScope', id: roleId }],
     }),
 
     // ──── GitLab Instances ──────────────────────────────────────────────
@@ -768,18 +816,23 @@ export const api = createApi({
       query: (data) => ({ url: '/components', method: 'POST', body: data }),
       invalidatesTags: ['Component'],
     }),
-    updateComponent: builder.mutation<GitLabComponent, { id: number; data: GitLabComponentUpdate }>({
-      query: ({ id, data }) => ({ url: `/components/${id}`, method: 'PATCH', body: data }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: 'Component', id }, 'Component'],
-    }),
+    updateComponent: builder.mutation<GitLabComponent, { id: number; data: GitLabComponentUpdate }>(
+      {
+        query: ({ id, data }) => ({ url: `/components/${id}`, method: 'PATCH', body: data }),
+        invalidatesTags: (_result, _error, { id }) => [{ type: 'Component', id }, 'Component'],
+      }
+    ),
     deleteComponent: builder.mutation<void, number>({
       query: (id) => ({ url: `/components/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Component'],
     }),
-    
+
     // ──── GitLab Component Run ───────────────────────────────────────────────
-    
-    runComponent: builder.mutation<PipelineRun, { componentId: number; data: { ref: string; inputs: Record<string, string> } }>({
+
+    runComponent: builder.mutation<
+      PipelineRun,
+      { componentId: number; data: { ref: string; inputs: Record<string, string> } }
+    >({
       query: ({ componentId, data }) => ({
         url: `/components/${componentId}/run`,
         method: 'POST',
@@ -790,7 +843,10 @@ export const api = createApi({
 
     // ──── Pipeline Configurations (Git Mirroring V2) ──────────────────────
 
-    getPipelineConfigs: builder.query<PipelineConfig[], { search?: string; is_enabled?: boolean } | void>({
+    getPipelineConfigs: builder.query<
+      PipelineConfig[],
+      { search?: string; is_enabled?: boolean } | void
+    >({
       query: (params) => ({ url: '/pipelines/configs', params: params ?? undefined }),
       providesTags: ['PipelineConfig'],
     }),
@@ -802,16 +858,26 @@ export const api = createApi({
       query: (data) => ({ url: '/pipelines/configs', method: 'POST', body: data }),
       invalidatesTags: ['PipelineConfig'],
     }),
-    updatePipelineConfig: builder.mutation<PipelineConfig, { id: number; data: PipelineConfigUpdate }>({
+    updatePipelineConfig: builder.mutation<
+      PipelineConfig,
+      { id: number; data: PipelineConfigUpdate }
+    >({
       query: ({ id, data }) => ({ url: `/pipelines/configs/${id}`, method: 'PATCH', body: data }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: 'PipelineConfig', id }, 'PipelineConfig'],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'PipelineConfig', id },
+        'PipelineConfig',
+      ],
     }),
     deletePipelineConfig: builder.mutation<void, number>({
       query: (id) => ({ url: `/pipelines/configs/${id}`, method: 'DELETE' }),
       invalidatesTags: ['PipelineConfig'],
     }),
     duplicatePipelineConfig: builder.mutation<PipelineConfig, { id: number; name: string }>({
-      query: ({ id, name }) => ({ url: `/pipelines/configs/${id}/duplicate`, method: 'POST', body: { name } }),
+      query: ({ id, name }) => ({
+        url: `/pipelines/configs/${id}/duplicate`,
+        method: 'POST',
+        body: { name },
+      }),
       invalidatesTags: ['PipelineConfig'],
     }),
 
@@ -828,9 +894,19 @@ export const api = createApi({
       query: (body) => ({ url: '/mirroring/source-providers', method: 'POST', body }),
       invalidatesTags: ['SourceProvider'],
     }),
-    updateSourceProvider: builder.mutation<SourceProvider, { id: number; data: SourceProviderUpdate }>({
-      query: ({ id, data }) => ({ url: `/mirroring/source-providers/${id}`, method: 'PATCH', body: data }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: 'SourceProvider', id }, 'SourceProvider'],
+    updateSourceProvider: builder.mutation<
+      SourceProvider,
+      { id: number; data: SourceProviderUpdate }
+    >({
+      query: ({ id, data }) => ({
+        url: `/mirroring/source-providers/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'SourceProvider', id },
+        'SourceProvider',
+      ],
     }),
     deleteSourceProvider: builder.mutation<void, number>({
       query: (id) => ({ url: `/mirroring/source-providers/${id}`, method: 'DELETE' }),
@@ -866,9 +942,19 @@ export const api = createApi({
     // Source Repositories
     getSourceRepositories: builder.query<
       SourceRepository[],
-      { group_id: number; discovery_status?: number; is_archived?: boolean; search?: string; limit?: number; offset?: number }
+      {
+        group_id: number;
+        discovery_status?: number;
+        is_archived?: boolean;
+        search?: string;
+        limit?: number;
+        offset?: number;
+      }
     >({
-      query: ({ group_id, ...params }) => ({ url: `/mirroring/source-groups/${group_id}/repositories`, params }),
+      query: ({ group_id, ...params }) => ({
+        url: `/mirroring/source-groups/${group_id}/repositories`,
+        params,
+      }),
       providesTags: ['SourceRepository'],
     }),
     getSourceRepository: builder.query<SourceRepository, number>({
@@ -879,8 +965,10 @@ export const api = createApi({
       SourceRepositoryRelease[],
       { repository_id: number; include_prereleases?: boolean }
     >({
-      query: ({ repository_id, ...params }) => `/mirroring/source-repositories/${repository_id}/releases`,
-      providesTags: (_result, _error, { repository_id }) => [{ type: 'SourceRepository', id: repository_id }],
+      query: ({ repository_id }) => `/mirroring/source-repositories/${repository_id}/releases`,
+      providesTags: (_result, _error, { repository_id }) => [
+        { type: 'SourceRepository', id: repository_id },
+      ],
     }),
     getRepositoryReadme: builder.query<SourceRepositoryReadme, number>({
       query: (id) => `/mirroring/source-repositories/${id}/readme`,
@@ -933,7 +1021,10 @@ export const api = createApi({
       MirrorLog[],
       { mirror_id: number; log_type?: string; limit?: number; offset?: number }
     >({
-      query: ({ mirror_id, ...params }) => ({ url: `/mirroring/mirrors/${mirror_id}/logs`, params }),
+      query: ({ mirror_id, ...params }) => ({
+        url: `/mirroring/mirrors/${mirror_id}/logs`,
+        params,
+      }),
       providesTags: ['MirrorLog'],
     }),
 
@@ -951,7 +1042,11 @@ export const api = createApi({
       providesTags: (_result, _error, id) => [{ type: 'SyncGroup', id }],
     }),
     updateSyncGroup: builder.mutation<SyncGroup, { id: number; data: SyncGroupUpdate }>({
-      query: ({ id, data }) => ({ url: `/mirroring/sync-groups/${id}`, method: 'PATCH', body: data }),
+      query: ({ id, data }) => ({
+        url: `/mirroring/sync-groups/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
       invalidatesTags: (_result, _error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
     }),
     deleteSyncGroup: builder.mutation<void, number>({
@@ -972,10 +1067,7 @@ export const api = createApi({
         method: 'POST',
         body: { pipeline_id },
       }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'SyncGroup', id },
-        'SyncGroup',
-      ],
+      invalidatesTags: (result, error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
     }),
 
     // ──── Audit Logs ────────────────────────────────────────────────────────
@@ -1049,6 +1141,11 @@ export const {
   useCreateRoleMutation,
   useUpdateRoleMutation,
   useDeleteRoleMutation,
+  // Role Scope
+  useGetRoleScopeQuery,
+  useAddRoleScopeItemMutation,
+  useSetRoleScopeMutation,
+  useRemoveRoleScopeItemMutation,
   useListHelmChartsQuery,
   useGetHelmChartQuery,
   useCreateHelmChartMutation,

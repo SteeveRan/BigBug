@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -55,7 +54,7 @@ class DockerImageSourceOut(BaseModel):
     registry_url: str
     description: str | None
     registry_instance_id: int | None = None
-    registry_instance: 'DockerRegistryInstanceOut | None' = None
+    registry_instance: DockerRegistryInstanceOut | None = None
     gitlab_project_id: str | None
     gitlab_project_url: str | None
     target_registry_url: str | None = None

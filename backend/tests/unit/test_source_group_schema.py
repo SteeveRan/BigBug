@@ -9,9 +9,9 @@ from pydantic import ValidationError
 
 from app.schemas.source_group import (
     SourceGroupCreate,
-    SourceGroupUpdate,
-    SourceGroupListOut,
     SourceGroupDetailOut,
+    SourceGroupListOut,
+    SourceGroupUpdate,
 )
 
 
@@ -72,8 +72,15 @@ class TestSourceGroupListOut:
         """Verify all expected fields are present."""
         fields = set(SourceGroupListOut.model_fields.keys())
         expected = {
-            "id", "source_provider_id", "name", "full_path", "web_url",
-            "total_repos", "mirrored_repos", "last_synced_at", "created_at",
+            "id",
+            "source_provider_id",
+            "name",
+            "full_path",
+            "web_url",
+            "total_repos",
+            "mirrored_repos",
+            "last_synced_at",
+            "created_at",
         }
         assert fields == expected
 

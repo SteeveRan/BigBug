@@ -189,7 +189,9 @@ describe('AdminPage', () => {
     renderAdminPage();
 
     expect(screen.getByText('Admin')).toBeInTheDocument();
-    expect(screen.getByText('Manage users, roles, and permissions for the BigBug platform.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Manage users, roles, and permissions for the BigBug platform.')
+    ).toBeInTheDocument();
 
     // antd Tabs render with role="tab"
     expect(screen.getByRole('tab', { name: 'Users' })).toBeInTheDocument();

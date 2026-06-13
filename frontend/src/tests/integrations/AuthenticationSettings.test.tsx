@@ -139,9 +139,7 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
       expect(screen.getByText('Authentication Settings')).toBeInTheDocument();
       // antd Typography.Text type="danger" — no role="alert"
-      expect(
-        screen.getByText(/Failed to load authentication configuration/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Failed to load authentication configuration/i)).toBeInTheDocument();
     });
   });
 
@@ -193,7 +191,9 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
       // antd uses Typography.Text labels above Input, NOT HTML <label>
       // Use getByDisplayValue to verify pre-filled input
-      expect(screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm')).toBeInTheDocument();
+      expect(
+        screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm')
+      ).toBeInTheDocument();
     });
 
     it('displays Backend Client ID from API', () => {
@@ -250,9 +250,7 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
       renderAuthenticationPage();
-      expect(
-        screen.getByText(/No role mappings configured/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/No role mappings configured/i)).toBeInTheDocument();
     });
   });
 
@@ -270,7 +268,9 @@ describe('AuthenticationSettings', () => {
       });
       renderAuthenticationPage();
       // antd Input.Password — find by placeholder since it's the masked state
-      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
+      const secretInput = screen.getByPlaceholderText(
+        'Enter new secret to change'
+      ) as HTMLInputElement;
       expect(secretInput.value).toBe('');
     });
 
@@ -282,7 +282,9 @@ describe('AuthenticationSettings', () => {
         error: null,
       });
       renderAuthenticationPage();
-      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
+      const secretInput = screen.getByPlaceholderText(
+        'Enter new secret to change'
+      ) as HTMLInputElement;
       expect(secretInput.placeholder).toBe('Enter new secret to change');
     });
 
@@ -678,11 +680,17 @@ describe('AuthenticationSettings', () => {
       renderAuthenticationPage();
 
       // All inputs should be disabled while mutation is in progress
-      const issuerInput = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm') as HTMLInputElement;
+      const issuerInput = screen.getByDisplayValue(
+        'https://keycloak.example.com/realms/myrealm'
+      ) as HTMLInputElement;
       const clientIdInput = screen.getByDisplayValue('bigbug-backend') as HTMLInputElement;
       const frontendClientIdInput = screen.getByDisplayValue('bigbug-frontend') as HTMLInputElement;
-      const publicUrlInput = screen.getByDisplayValue('https://auth.example.com') as HTMLInputElement;
-      const secretInput = screen.getByPlaceholderText('Enter new secret to change') as HTMLInputElement;
+      const publicUrlInput = screen.getByDisplayValue(
+        'https://auth.example.com'
+      ) as HTMLInputElement;
+      const secretInput = screen.getByPlaceholderText(
+        'Enter new secret to change'
+      ) as HTMLInputElement;
 
       expect(issuerInput).toBeDisabled();
       expect(clientIdInput).toBeDisabled();
@@ -725,7 +733,9 @@ describe('AuthenticationSettings', () => {
 
       renderAuthenticationPage();
 
-      const issuerInputFallback = screen.getByDisplayValue('https://keycloak.example.com/realms/myrealm');
+      const issuerInputFallback = screen.getByDisplayValue(
+        'https://keycloak.example.com/realms/myrealm'
+      );
       await userEvent.clear(issuerInputFallback);
       await userEvent.type(issuerInputFallback, 'https://changed.example.com');
 

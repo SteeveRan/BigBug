@@ -4,16 +4,8 @@
  * @dependencies antd, @ant-design/icons, RTK Query
  */
 
-import { useState, useEffect } from 'react';
-import {
-  Modal,
-  Form,
-  Select,
-  Input,
-  App,
-  Typography,
-} from 'antd';
-import type { FormInstance } from 'antd/es/form';
+import { useEffect } from 'react';
+import { Modal, Form, Select, Input, App, Typography } from 'antd';
 import {
   useCreateMirrorV2Mutation,
   useUpdateMirrorV2Mutation,
@@ -49,7 +41,7 @@ export function CreateMirrorModal({ open, onClose, mirror, groupId }: CreateMirr
   // Fetch source repositories — pass group_id if available, else pass 0 (all)
   const { data: repositories = [], isLoading: reposLoading } = useGetSourceRepositoriesQuery(
     { group_id: groupId ?? 0 },
-    { skip: !open },
+    { skip: !open }
   );
 
   // Fetch sync groups
@@ -162,7 +154,7 @@ export function CreateMirrorModal({ open, onClose, mirror, groupId }: CreateMirr
               // Auto-fill from source repository if creating
               if (!isEdit && e.target.value === '') {
                 const selectedRepo = repositories?.find(
-                  (r) => r.id === form.getFieldValue('source_repository_id'),
+                  (r) => r.id === form.getFieldValue('source_repository_id')
                 );
                 if (selectedRepo) {
                   // Only auto-fill once if user hasn't typed
@@ -190,7 +182,7 @@ export function CreateMirrorModal({ open, onClose, mirror, groupId }: CreateMirr
         <Typography.Text type="secondary">
           {isEdit
             ? 'Update mirror target or sync group assignment.'
-            : 'Create a new mirror from the selected source repository to GitLab.'}
+            : 'Create a new mirror from the selected source repository to GitLab. Supports GitHub, GitLab, Bitbucket, and Generic Git.'}
         </Typography.Text>
       </Form>
     </Modal>

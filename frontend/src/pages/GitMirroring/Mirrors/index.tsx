@@ -34,7 +34,6 @@ import {
   useDeleteMirrorV2Mutation,
   useTriggerMirrorSyncMutation,
   useTriggerFreshnessCheckMutation,
-  useGetSourceRepositoriesQuery,
 } from '../../../store/api';
 import type { Mirror, MirrorFilters } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
@@ -160,9 +159,7 @@ const MirrorsPage = () => {
       title: 'Last Sync',
       key: 'last_sync',
       render: (_: unknown, record: Mirror) =>
-        record.last_sync_at
-          ? new Date(record.last_sync_at).toLocaleString()
-          : '—',
+        record.last_sync_at ? new Date(record.last_sync_at).toLocaleString() : '—',
     },
     {
       title: 'Actions',
@@ -214,7 +211,7 @@ const MirrorsPage = () => {
                 onClick={() =>
                   handleDelete(
                     record.id,
-                    record.source_repository?.full_name ?? String(record.source_repository_id),
+                    record.source_repository?.full_name ?? String(record.source_repository_id)
                   )
                 }
               />
@@ -234,10 +231,7 @@ const MirrorsPage = () => {
         </Typography.Title>
         <Space wrap>
           <PermissionGate permission="mirrors:write">
-            <Button
-              icon={<ImportOutlined />}
-              onClick={() => setImportModalOpen(true)}
-            >
+            <Button icon={<ImportOutlined />} onClick={() => setImportModalOpen(true)}>
               Import Existing Mirror
             </Button>
           </PermissionGate>
@@ -331,10 +325,7 @@ const MirrorsPage = () => {
       />
 
       {/* ── Import Mirror Modal ─────────────────────────────────────────────── */}
-      <ImportMirrorModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-      />
+      <ImportMirrorModal open={importModalOpen} onClose={() => setImportModalOpen(false)} />
     </Flex>
   );
 };

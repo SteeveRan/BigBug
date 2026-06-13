@@ -8,13 +8,13 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.mirror import (
-    MirrorCreate,
     MirrorBulkCreate,
-    MirrorUpdate,
-    MirrorListOut,
+    MirrorCreate,
     MirrorDetailOut,
     MirrorDuplicateCheck,
     MirrorDuplicateCheckOut,
+    MirrorListOut,
+    MirrorUpdate,
 )
 
 
@@ -112,11 +112,22 @@ class TestMirrorListOut:
         """Verify all expected list fields plus source_repository nested."""
         fields = set(MirrorListOut.model_fields.keys())
         expected = {
-            "id", "source_repository_id", "sync_group_id", "target_namespace",
-            "target_project_name", "target_project_id", "target_web_url",
-            "status_flag", "status_text", "last_sync_at", "last_sync_status",
-            "last_freshness_check_at", "last_freshness_status", "is_imported",
-            "created_at", "source_repository",
+            "id",
+            "source_repository_id",
+            "sync_group_id",
+            "target_namespace",
+            "target_project_name",
+            "target_project_id",
+            "target_web_url",
+            "status_flag",
+            "status_text",
+            "last_sync_at",
+            "last_sync_status",
+            "last_freshness_check_at",
+            "last_freshness_status",
+            "is_imported",
+            "created_at",
+            "source_repository",
         }
         assert fields == expected
 

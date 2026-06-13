@@ -28,13 +28,14 @@ from app.models.sync_group import SyncGroup
 from app.schemas.sync_group import SyncGroupCreate
 from app.services.sync_group import SyncGroupService
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
 
-async def _seed_source_provider(db_session: AsyncSession, label: str = "github-test") -> SourceProvider:
+async def _seed_source_provider(
+    db_session: AsyncSession, label: str = "github-test"
+) -> SourceProvider:
     """Create a minimal SourceProvider in the DB."""
     sp = SourceProvider(
         provider_type=ProviderType.github,
@@ -150,9 +151,7 @@ class TestGetDefaultGroup:
         pipeline = await _seed_pipeline(db_session, "default-pipeline")
         default_group = await _seed_sync_group(db_session, "default", pipeline.id, is_default=True)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             result = await SyncGroupService.get_default_group(db_session)
 
         assert result.id == default_group.id
@@ -191,7 +190,7 @@ class TestGetDefaultGroup:
         mock_create.assert_awaited_once()
 
         # Verify the group was persisted
-        stmt = select(SyncGroup).where(SyncGroup.name == "default", SyncGroup.is_deleted == False)
+        stmt = select(SyncGroup).where(SyncGroup.name == "default", ~SyncGroup.is_deleted)
         db_result = await db_session.execute(stmt)
         persisted = db_result.scalar_one_or_none()
         assert persisted is not None
@@ -240,13 +239,11 @@ class TestCreateSyncGroup:
 
         data = SyncGroupCreate(name="duplicate-name")
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.create_sync_group(
-                    db_session, data, user_id=1
-                )
+            await SyncGroupService.create_sync_group(db_session, data, user_id=1)
 
         assert exc_info.value.status_code == 409
         assert "already exists" in str(exc_info.value)
@@ -265,8 +262,10 @@ class TestGetSyncGroups:
         """Admin user sees all non-deleted sync groups."""
         # Re-fetch admin_user with eager-loaded roles (avoid MissingGreenlet)
         from app.models.user import User as UserModel
+
         admin_with_roles = await db_session.execute(
-            select(UserModel).options(selectinload(UserModel.user_roles))
+            select(UserModel)
+            .options(selectinload(UserModel.user_roles))
             .where(UserModel.id == admin_user.id)
         )
         user = admin_with_roles.scalar_one()
@@ -274,9 +273,7 @@ class TestGetSyncGroups:
         pipeline = await _seed_pipeline(db_session, "p1")
         await _seed_sync_group(db_session, "group-a", pipeline.id)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             groups = await SyncGroupService.get_sync_groups(db_session, user)
 
         # admin_user from conftest has the "admin" role → sees everything
@@ -292,7 +289,7 @@ class TestGetSyncGroups:
 
         # Delete the only group
         group = await db_session.execute(
-            select(SyncGroup).where(SyncGroup.name == "default", SyncGroup.is_deleted == False)
+            select(SyncGroup).where(SyncGroup.name == "default", ~SyncGroup.is_deleted)
         )
         group = group.scalar_one_or_none()
         if group:
@@ -314,11 +311,11 @@ class TestDeleteSyncGroup:
         pipeline = await _seed_pipeline(db_session, "def-pipeline")
         default = await _seed_sync_group(db_session, "default", pipeline.id, is_default=True)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.delete_sync_group(db_session, default.id)
+            await SyncGroupService.delete_sync_group(db_session, default.id)
 
         assert exc_info.value.status_code == 400
         assert "Cannot delete the default" in str(exc_info.value)
@@ -338,9 +335,7 @@ class TestDeleteSyncGroup:
         m1 = await _seed_mirror(db_session, sr.id, target_group.id, "ns", "proj1")
         m2 = await _seed_mirror(db_session, sr.id, target_group.id, "ns", "proj2")
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             await SyncGroupService.delete_sync_group(
                 db_session, target_group.id, user_id=1, username="admin"
             )
@@ -360,11 +355,11 @@ class TestDeleteSyncGroup:
     @pytest.mark.asyncio
     async def test_delete_nonexistent_group_raises_404(self, db_session: AsyncSession):
         """Deleting a non-existent group raises DomainException(404)."""
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.delete_sync_group(db_session, 99999)
+            await SyncGroupService.delete_sync_group(db_session, 99999)
 
         assert exc_info.value.status_code == 404
 
@@ -386,15 +381,17 @@ class TestAssignMirrorsToGroup:
 
         pipeline = await _seed_pipeline(db_session, "ap-pipeline")
         # Use default+non-default to avoid SQLite UNIQUE(is_default) constraint
-        default_group = await _seed_sync_group(db_session, "ap-default", pipeline.id, is_default=True)
-        target_group = await _seed_sync_group(db_session, "ap-target", pipeline.id, is_default=False)
+        default_group = await _seed_sync_group(
+            db_session, "ap-default", pipeline.id, is_default=True
+        )
+        target_group = await _seed_sync_group(
+            db_session, "ap-target", pipeline.id, is_default=False
+        )
 
         m1 = await _seed_mirror(db_session, sr.id, default_group.id, "ns", "m1")
         m2 = await _seed_mirror(db_session, sr.id, default_group.id, "ns", "m2")
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             updated = await SyncGroupService.assign_mirrors_to_group(
                 db_session,
                 group_id=target_group.id,
@@ -414,13 +411,13 @@ class TestAssignMirrorsToGroup:
     @pytest.mark.asyncio
     async def test_assign_to_nonexistent_group_raises_404(self, db_session: AsyncSession):
         """Assigning mirrors to a non-existent group raises DomainException(404)."""
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.assign_mirrors_to_group(
-                    db_session, group_id=99999, mirror_ids=[1]
-                )
+            await SyncGroupService.assign_mirrors_to_group(
+                db_session, group_id=99999, mirror_ids=[1]
+            )
 
         assert exc_info.value.status_code == 404
 
@@ -440,9 +437,7 @@ class TestApplyPipeline:
         p2 = await _seed_pipeline(db_session, "pipeline-2")
         group = await _seed_sync_group(db_session, "test-group", p1.id, is_default=False)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             result = await SyncGroupService.apply_pipeline(
                 db_session,
                 sync_group_id=group.id,
@@ -457,15 +452,15 @@ class TestApplyPipeline:
     @pytest.mark.asyncio
     async def test_apply_pipeline_nonexistent_group(self, db_session: AsyncSession):
         """Applying a pipeline to a nonexistent group raises DomainException(404)."""
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.apply_pipeline(
-                    db_session,
-                    sync_group_id=99999,
-                    pipeline_id=1,
-                )
+            await SyncGroupService.apply_pipeline(
+                db_session,
+                sync_group_id=99999,
+                pipeline_id=1,
+            )
 
         assert exc_info.value.status_code == 404
         assert "SyncGroup" in str(exc_info.value)
@@ -476,15 +471,15 @@ class TestApplyPipeline:
         p1 = await _seed_pipeline(db_session, "pipeline-1")
         group = await _seed_sync_group(db_session, "test-group", p1.id, is_default=False)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
+        with (
+            patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock),
+            pytest.raises(DomainException) as exc_info,
         ):
-            with pytest.raises(DomainException) as exc_info:
-                await SyncGroupService.apply_pipeline(
-                    db_session,
-                    sync_group_id=group.id,
-                    pipeline_id=99999,
-                )
+            await SyncGroupService.apply_pipeline(
+                db_session,
+                sync_group_id=group.id,
+                pipeline_id=99999,
+            )
 
         assert exc_info.value.status_code == 404
         assert "Pipeline" in str(exc_info.value)
@@ -516,13 +511,9 @@ class TestBulkAssignMirrors:
         )
 
         # Mirror 1 already in target (should be skipped)
-        m1 = await _seed_mirror(
-            db_session, sr.id, target_group.id, "ns", "bam-m1"
-        )
+        m1 = await _seed_mirror(db_session, sr.id, target_group.id, "ns", "bam-m1")
         # Mirror 2 in default (should be moved)
-        m2 = await _seed_mirror(
-            db_session, sr.id, default_group.id, "ns", "bam-m2"
-        )
+        m2 = await _seed_mirror(db_session, sr.id, default_group.id, "ns", "bam-m2")
         # Mirror 3 has no group (should be assigned)
         m3 = Mirror(
             source_repository_id=sr.id,
@@ -536,9 +527,7 @@ class TestBulkAssignMirrors:
         await db_session.commit()
         await db_session.refresh(m3)
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             result = await SyncGroupService.bulk_assign_mirrors(
                 db_session,
                 sync_group_id=target_group.id,
@@ -571,21 +560,13 @@ class TestBulkAssignMirrors:
         sr = await _seed_source_repository(db_session, sg_source.id)
 
         pipeline = await _seed_pipeline(db_session, "bam-move-pipeline")
-        group_a = await _seed_sync_group(
-            db_session, "bam-group-a", pipeline.id, is_default=True
-        )
-        group_b = await _seed_sync_group(
-            db_session, "bam-group-b", pipeline.id, is_default=False
-        )
+        group_a = await _seed_sync_group(db_session, "bam-group-a", pipeline.id, is_default=True)
+        group_b = await _seed_sync_group(db_session, "bam-group-b", pipeline.id, is_default=False)
 
-        mirror = await _seed_mirror(
-            db_session, sr.id, group_a.id, "ns", "bam-move"
-        )
+        mirror = await _seed_mirror(db_session, sr.id, group_a.id, "ns", "bam-move")
         assert mirror.sync_group_id == group_a.id
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             result = await SyncGroupService.bulk_assign_mirrors(
                 db_session,
                 sync_group_id=group_b.id,
@@ -606,18 +587,12 @@ class TestBulkAssignMirrors:
         sr = await _seed_source_repository(db_session, sg_source.id)
 
         pipeline = await _seed_pipeline(db_session, "bam-skip-pipeline")
-        group = await _seed_sync_group(
-            db_session, "bam-skip-group", pipeline.id, is_default=True
-        )
+        group = await _seed_sync_group(db_session, "bam-skip-group", pipeline.id, is_default=True)
 
-        mirror = await _seed_mirror(
-            db_session, sr.id, group.id, "ns", "bam-skip"
-        )
+        mirror = await _seed_mirror(db_session, sr.id, group.id, "ns", "bam-skip")
         assert mirror.sync_group_id == group.id
 
-        with patch(
-            "app.services.sync_group.AuditService.log_event", new_callable=AsyncMock
-        ):
+        with patch("app.services.sync_group.AuditService.log_event", new_callable=AsyncMock):
             result = await SyncGroupService.bulk_assign_mirrors(
                 db_session,
                 sync_group_id=group.id,
@@ -635,12 +610,10 @@ class TestBulkAssignMirrors:
         """Raises ValueError when mirror IDs don't exist."""
         sp = await _seed_source_provider(db_session)
         sg_source = await _seed_source_group(db_session, sp.id)
-        sr = await _seed_source_repository(db_session, sg_source.id)
+        await _seed_source_repository(db_session, sg_source.id)
 
         pipeline = await _seed_pipeline(db_session, "bam-err-pipeline")
-        group = await _seed_sync_group(
-            db_session, "bam-err-group", pipeline.id, is_default=True
-        )
+        group = await _seed_sync_group(db_session, "bam-err-group", pipeline.id, is_default=True)
 
         with pytest.raises(ValueError) as exc_info:
             await SyncGroupService.bulk_assign_mirrors(

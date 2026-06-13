@@ -387,10 +387,8 @@ const MENU_PAGES: MenuPageConfig[] = [
 function setPermissions(enabledPermissions: string[]) {
   (usePermissions as ReturnType<typeof vi.fn>).mockReturnValue({
     hasPermission: (p: string) => enabledPermissions.includes(p),
-    hasAnyPermission: (ps: string[]) =>
-      ps.some((p) => enabledPermissions.includes(p)),
-    hasAllPermissions: (ps: string[]) =>
-      ps.every((p) => enabledPermissions.includes(p)),
+    hasAnyPermission: (ps: string[]) => ps.some((p) => enabledPermissions.includes(p)),
+    hasAllPermissions: (ps: string[]) => ps.every((p) => enabledPermissions.includes(p)),
     permissions: enabledPermissions,
     isLoading: false,
   });
@@ -443,29 +441,60 @@ function setupDefaultApiMocks() {
   // Mutations → [fn, { isLoading: false }]
   const mMock = mockMutation();
   const mutations = [
-    useCreateProjectMutation, useImportProjectMutation, useDeleteProjectMutation,
-    useRefreshProjectMutation, useUpdateProjectMutation,
-    useCreateHelmChartMutation, useIndexHelmChartMutation,
-    useCreateDockerImageMutation, useIndexDockerImageMutation,
-    useCreateGoldImageMutation, useUpdateGoldImageMutation, useDeleteGoldImageMutation,
-    useTriggerGoldBuildMutation, useScanGoldImageVersionMutation, useSignGoldImageVersionMutation,
-    useCreateAppImageMutation, useUpdateAppImageMutation, useDeleteAppImageMutation,
-    useTriggerAppBuildMutation, useScanAppImageVersionMutation, useSignAppImageVersionMutation,
-    useCreateUserMutation, useDeleteUserMutation, useUpdateUserMutation,
-    useCreateRoleMutation, useUpdateRoleMutation, useDeleteRoleMutation,
-    useCreateGitlabInstanceMutation, useUpdateGitlabInstanceMutation, useDeleteGitlabInstanceMutation,
+    useCreateProjectMutation,
+    useImportProjectMutation,
+    useDeleteProjectMutation,
+    useRefreshProjectMutation,
+    useUpdateProjectMutation,
+    useCreateHelmChartMutation,
+    useIndexHelmChartMutation,
+    useCreateDockerImageMutation,
+    useIndexDockerImageMutation,
+    useCreateGoldImageMutation,
+    useUpdateGoldImageMutation,
+    useDeleteGoldImageMutation,
+    useTriggerGoldBuildMutation,
+    useScanGoldImageVersionMutation,
+    useSignGoldImageVersionMutation,
+    useCreateAppImageMutation,
+    useUpdateAppImageMutation,
+    useDeleteAppImageMutation,
+    useTriggerAppBuildMutation,
+    useScanAppImageVersionMutation,
+    useSignAppImageVersionMutation,
+    useCreateUserMutation,
+    useDeleteUserMutation,
+    useUpdateUserMutation,
+    useCreateRoleMutation,
+    useUpdateRoleMutation,
+    useDeleteRoleMutation,
+    useCreateGitlabInstanceMutation,
+    useUpdateGitlabInstanceMutation,
+    useDeleteGitlabInstanceMutation,
     useTestGitlabConnectionMutation,
-    useCreateHarborInstanceMutation, useUpdateHarborInstanceMutation, useDeleteHarborInstanceMutation,
+    useCreateHarborInstanceMutation,
+    useUpdateHarborInstanceMutation,
+    useDeleteHarborInstanceMutation,
     useTestHarborConnectionMutation,
-    useCreateGithubInstanceMutation, useUpdateGithubInstanceMutation, useDeleteGithubInstanceMutation,
+    useCreateGithubInstanceMutation,
+    useUpdateGithubInstanceMutation,
+    useDeleteGithubInstanceMutation,
     useTestGithubConnectionMutation,
-    useCreateDockerRegistryInstanceMutation, useUpdateDockerRegistryInstanceMutation,
-    useDeleteDockerRegistryInstanceMutation, useTestDockerRegistryConnectionMutation,
-    useCreateHelmRepositoryInstanceMutation, useUpdateHelmRepositoryInstanceMutation,
-    useDeleteHelmRepositoryInstanceMutation, useTestHelmRepositoryConnectionMutation,
+    useCreateDockerRegistryInstanceMutation,
+    useUpdateDockerRegistryInstanceMutation,
+    useDeleteDockerRegistryInstanceMutation,
+    useTestDockerRegistryConnectionMutation,
+    useCreateHelmRepositoryInstanceMutation,
+    useUpdateHelmRepositoryInstanceMutation,
+    useDeleteHelmRepositoryInstanceMutation,
+    useTestHelmRepositoryConnectionMutation,
     useUpdateOidcConfigMutation,
-    useTriggerPipelineMutation, useCancelPipelineMutation, useRetryPipelineMutation,
-    useCreateComponentMutation, useUpdateComponentMutation, useDeleteComponentMutation,
+    useTriggerPipelineMutation,
+    useCancelPipelineMutation,
+    useRetryPipelineMutation,
+    useCreateComponentMutation,
+    useUpdateComponentMutation,
+    useDeleteComponentMutation,
   ];
   for (const m of mutations) {
     (m as ReturnType<typeof vi.fn>).mockReturnValue(mMock);
@@ -506,9 +535,7 @@ describe('NavigationMenu — все пункты меню', () => {
         ]);
 
         const pageElement = cfg.permission ? (
-          <PermissionGate permission={cfg.permission}>
-            {cfg.page}
-          </PermissionGate>
+          <PermissionGate permission={cfg.permission}>{cfg.page}</PermissionGate>
         ) : (
           cfg.page
         );
@@ -518,13 +545,13 @@ describe('NavigationMenu — все пункты меню', () => {
             <BrowserRouter>
               <App>{pageElement}</App>
             </BrowserRouter>
-          </Provider>,
+          </Provider>
         );
 
         // Каждая страница должна содержать свой заголовок/маркер
         // (используем getAllByText, т.к. текст может встречаться в заголовке и empty-state)
         expect(
-          screen.getAllByText(cfg.contentMarker, { exact: false }).length,
+          screen.getAllByText(cfg.contentMarker, { exact: false }).length
         ).toBeGreaterThanOrEqual(1);
       });
     }
@@ -558,18 +585,14 @@ describe('NavigationMenu — все пункты меню', () => {
           <Provider store={store}>
             <BrowserRouter>
               <App>
-                <PermissionGate permission={cfg.permission!}>
-                  {cfg.page}
-                </PermissionGate>
+                <PermissionGate permission={cfg.permission!}>{cfg.page}</PermissionGate>
               </App>
             </BrowserRouter>
-          </Provider>,
+          </Provider>
         );
 
         // PermissionGate должен вернуть null → контента нет на странице
-        expect(
-          screen.queryByText(cfg.contentMarker, { exact: false }),
-        ).not.toBeInTheDocument();
+        expect(screen.queryByText(cfg.contentMarker, { exact: false })).not.toBeInTheDocument();
       });
     }
   });
@@ -580,27 +603,51 @@ describe('NavigationMenu — все пункты меню', () => {
     it('все permission-строки из роутера присутствуют в PERMISSION_GROUPS', () => {
       // PERMISSION_GROUPS (Admin/index.tsx) — эталонный список
       const allCanonicalPermissions: string[] = [
-        'mirrors:read', 'mirrors:write', 'mirrors:delete', 'mirrors:sync',
-        'projects:read', 'projects:write', 'projects:delete',
-        'helm:read', 'helm:write', 'helm:delete', 'helm:sync',
-        'docker:read', 'docker:write', 'docker:delete', 'docker:sync',
-        'gold_images:read', 'gold_images:write', 'gold_images:delete', 'gold_images:build',
-        'app_images:read', 'app_images:write', 'app_images:delete', 'app_images:build',
-        'users:read', 'users:write', 'users:delete',
-        'roles:read', 'roles:write', 'roles:delete',
-        'system:settings', 'system:audit', 'system:integrations', 'system:oidc_config',
+        'mirrors:read',
+        'mirrors:write',
+        'mirrors:delete',
+        'mirrors:sync',
+        'projects:read',
+        'projects:write',
+        'projects:delete',
+        'helm:read',
+        'helm:write',
+        'helm:delete',
+        'helm:sync',
+        'docker:read',
+        'docker:write',
+        'docker:delete',
+        'docker:sync',
+        'gold_images:read',
+        'gold_images:write',
+        'gold_images:delete',
+        'gold_images:build',
+        'app_images:read',
+        'app_images:write',
+        'app_images:delete',
+        'app_images:build',
+        'users:read',
+        'users:write',
+        'users:delete',
+        'roles:read',
+        'roles:write',
+        'roles:delete',
+        'system:settings',
+        'system:audit',
+        'system:integrations',
+        'system:oidc_config',
         'pipelines:manage',
       ];
 
       // Все permission-строки из роутера (MENU_PAGES)
-      const routerPermissions = MENU_PAGES
-        .filter((c) => c.permission !== null)
-        .map((c) => c.permission!);
+      const routerPermissions = MENU_PAGES.filter((c) => c.permission !== null).map(
+        (c) => c.permission!
+      );
 
       for (const perm of routerPermissions) {
         expect(
           allCanonicalPermissions,
-          `Permission "${perm}" из router/index.tsx отсутствует в PERMISSION_GROUPS!`,
+          `Permission "${perm}" из router/index.tsx отсутствует в PERMISSION_GROUPS!`
         ).toContain(perm);
       }
     });

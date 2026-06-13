@@ -45,7 +45,7 @@ import {
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import RepositoryDetailPage from '../../pages/GitMirroring/Repositories/Detail';
-import type { SourceRepository, SourceRepositoryRelease, Mirror } from '../../types';
+import type { SourceRepository } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -79,35 +79,6 @@ const mockRepo: SourceRepository = {
   mirrors_count: 2,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
-};
-
-const mockRelease: SourceRepositoryRelease = {
-  id: 1,
-  release_tag: 'v1.0.0',
-  release_name: 'Release v1.0.0',
-  release_body: 'Initial release',
-  is_prerelease: false,
-  published_at: '2026-06-01T00:00:00Z',
-  html_url: 'https://github.com/owner/test-repo/releases/tag/v1.0.0',
-};
-
-const mockMirror: Mirror = {
-  id: 1,
-  source_repository_id: 10,
-  target_namespace: 'gitlab-ns',
-  target_project_name: 'test-repo',
-  target_path: 'gitlab-ns/test-repo',
-  sync_group_id: 5,
-  sync_group_name: 'default',
-  target_gitlab_name: 'gitlab-local',
-  status_flag: 0,
-  status_text: 'OK',
-  discovery_status: 0,
-  discovery_status_text: 'OK',
-  last_sync_at: '2026-06-07T12:00:00Z',
-  is_active: true,
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-06-07T12:00:00Z',
 };
 
 function createTestStore(): Store {

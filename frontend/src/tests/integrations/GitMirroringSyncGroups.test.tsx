@@ -326,9 +326,7 @@ describe('SyncGroupsPage', () => {
 
     // Pipeline Select should be in the modal
     await waitFor(() => {
-      expect(
-        screen.getByText('Pipeline Configuration')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Pipeline Configuration')).toBeInTheDocument();
     });
   });
 
@@ -497,9 +495,7 @@ describe('SyncGroupsPage', () => {
 
     // Validation error should appear
     await waitFor(() => {
-      expect(
-        screen.getByText('Invalid cron expression (5 fields required)')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Invalid cron expression (5 fields required)')).toBeInTheDocument();
     });
   });
 

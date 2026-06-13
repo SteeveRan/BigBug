@@ -21,14 +21,8 @@ import {
   Col,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  ArrowLeftOutlined,
-  SwapOutlined,
-} from '@ant-design/icons';
-import {
-  useListDockerImagesQuery,
-  useCompareDockerImagesQuery,
-} from '../../store/api';
+import { ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons';
+import { useListDockerImagesQuery, useCompareDockerImagesQuery } from '../../store/api';
 import type {
   DockerImageSource,
   DockerImageTagCompareItem,
@@ -82,7 +76,7 @@ export function DockerImageComparePage() {
     isFetching: compareFetching,
   } = useCompareDockerImagesQuery(
     { sourceAId: sourceAId!, sourceBId: sourceBId! },
-    { skip: sourceAId === null || sourceBId === null },
+    { skip: sourceAId === null || sourceBId === null }
   );
 
   const canCompare = sourceAId !== null && sourceBId !== null && sourceAId !== sourceBId;
@@ -103,7 +97,7 @@ export function DockerImageComparePage() {
         value: s.id,
         label: `${s.name} (${s.registry_url})`,
       })),
-    [sources],
+    [sources]
   );
 
   // Колонки таблицы сравнения
@@ -186,10 +180,7 @@ export function DockerImageComparePage() {
     <Flex vertical gap={16}>
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Flex align="center" gap={12} wrap="wrap">
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/mirroring/docker-images')}
-        >
+        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/mirroring/docker-images')}>
           Back
         </Button>
         <Typography.Title level={4} style={{ margin: 0, flex: 1 }}>
