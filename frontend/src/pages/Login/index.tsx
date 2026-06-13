@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Card, Input, Button, Typography, Divider, Flex, App } from 'antd';
-import { LockOutlined, MailOutlined } from '@ant-design/icons';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAppDispatch } from '../../store';
 import { setCredentials } from '../../store/authSlice';
 import { useLoginMutation } from '../../store/api';
@@ -69,8 +69,8 @@ export function LoginPage() {
           <form onSubmit={handleSubmit}>
             <Flex vertical gap="middle">
               <Input
-                prefix={<MailOutlined />}
-                placeholder="Email"
+                prefix={<UserOutlined />}
+                placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 autoFocus
