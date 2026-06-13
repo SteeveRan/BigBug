@@ -115,19 +115,12 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
     }
   }, [scope, scopeType]);
 
-  // Initialize selectedIds from currentIds on first render
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [idsInitialized, setIdsInitialized] = useState(false);
 
-  if (!idsInitialized && currentIds.length > 0) {
+  // Sync selectedIds when scope data loads or roleId/scopeType changes
+  useEffect(() => {
     setSelectedIds(currentIds.map(String));
-    setIdsInitialized(true);
-  }
-
-  // Reset when roleId/scopeType changes
-  useMemo(() => {
-    setSelectedIds(currentIds.map(String));
-  }, [roleId, scopeType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIds, roleId, scopeType]);
 
   const handleTransferChange = useCallback(
     (targetKeys: string[], _direction: string, _moveKeys: string[]) => {

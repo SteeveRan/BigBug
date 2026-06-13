@@ -30,7 +30,7 @@ import {
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../store/authSlice';
-import { useThemeMode } from '../../contexts/ThemeContext';
+import { useThemeMode } from '../../hooks/useThemeMode';
 
 const { Header, Content, Sider } = AntLayout;
 

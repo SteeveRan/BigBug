@@ -7,11 +7,14 @@ import { vi } from 'vitest';
 
 // Mock ThemeContext — used by Layout (Menu theme, headerBg) and theme-aware components
 vi.mock('../../contexts/ThemeContext', () => ({
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('../../hooks/useThemeMode', () => ({
   useThemeMode: () => ({
     mode: 'dark' as const,
     toggleTheme: vi.fn(),
   }),
-  ThemeProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 // antd Grid / useBreakpoint uses window.matchMedia

@@ -61,8 +61,7 @@ export function SsoCallbackPage() {
         setFallbackError(detail);
         navigate(`/login?error=${encodeURIComponent(detail)}`, { replace: true });
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dispatch, navigate, exchange, handleCallback]);
 
   // If navigation didn't happen (e.g. blocked), show a fallback error UI.
   if (fallbackError) {

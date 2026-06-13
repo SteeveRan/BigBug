@@ -113,11 +113,8 @@ describe('redirectToKeycloakLogin', () => {
       writable: true,
     });
 
-    // Mock window.location.href
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (window as any).location;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).location = { href: '', assign: vi.fn() };
+    // Mock window.location
+    vi.stubGlobal('location', { href: '', assign: vi.fn() });
   });
 
   it('stores the code_verifier in sessionStorage', async () => {

@@ -770,8 +770,7 @@ export interface SourceProvider {
   provider_type: ProviderType;
   credential_id: number;
   credential?: Credential;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
-  config_json?: Record<string, any>;
+  config_json?: Record<string, unknown>;
   status_flag: number;
   status_text: string;
   groups_count?: number;
@@ -783,15 +782,13 @@ export interface SourceProviderCreate {
   name: string;
   provider_type: ProviderType;
   credential_id: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
-  config_json?: Record<string, any>;
+  config_json?: Record<string, unknown>;
 }
 
 export interface SourceProviderUpdate {
   name?: string;
   credential_id?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic provider config
-  config_json?: Record<string, any>;
+  config_json?: Record<string, unknown>;
   status_flag?: number;
 }
 
@@ -929,9 +926,8 @@ export interface MirrorLog {
   status_flag: number;
   status_text: string;
   message?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic log details
-  details?: Record<string, any>;
-  details_json?: Record<string, any>;
+  details?: Record<string, unknown>;
+  details_json?: Record<string, unknown>;
   source_commit_sha?: string;
   source_commit_date?: string;
   target_commit_sha?: string;
@@ -953,10 +949,8 @@ export interface MirrorDuplicateCheck {
     target_path: string;
     sync_group_name: string;
   }>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic duplicate check data
-  accessible: any[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic duplicate check data
-  inaccessible: any[];
+  accessible: Record<string, unknown>[];
+  inaccessible: Record<string, unknown>[];
 }
 
 export interface MirrorFilters {

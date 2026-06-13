@@ -1,25 +1,19 @@
-import { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import { darkTheme, lightTheme } from '../theme';
+import { ThemeContext, type ThemeMode, type ThemeContextValue } from './themeTypes';
 
 /**
  * @file ThemeContext.tsx
- * @description Контекст и провайдер для переключения тёмной/светлой темы.
+ * @description Провайдер для переключения тёмной/светлой темы.
  *              Сохраняет выбор в localStorage, по умолчанию — тёмная тема.
  *              Применяет CSS data-атрибут `data-theme` на <html> для CSS-переменных.
- * @dependencies antd ConfigProvider, ../theme.ts
- * @relatedFiles ../theme.ts, ../colors.css
+ *              Типы и контекст вынесены в themeTypes.ts для react-refresh
+ *              (only-export-components).
+ * @dependencies antd ConfigProvider, ../theme.ts, ./themeTypes.ts
+ * @relatedFiles ./themeTypes.ts, ../hooks/useThemeMode.ts, ../theme.ts, ../colors.css
  */
-
-type ThemeMode = 'dark' | 'light';
-
-interface ThemeContextValue {
-  mode: ThemeMode;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'bigbug-theme';
 
@@ -61,19 +55,3 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Хук для получения текущего режима темы и функции переключения.
- *
- * @example
- * const { mode, toggleTheme } = useThemeMode();
- * // mode === 'dark' | 'light'
- * // toggleTheme() — переключает тему
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function useThemeMode(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) {
-    throw new Error('useThemeMode must be used within <ThemeProvider>');
-  }
-  return ctx;
-}
