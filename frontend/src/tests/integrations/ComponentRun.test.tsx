@@ -164,7 +164,9 @@ describe('Component Run Functionality', () => {
   // Test 1: runComponent mutation in isolation
   // -----------------------------------------------------------------------
   it('can trigger runComponent mutation with correct parameters', async () => {
-    const mockRunComponent = vi.fn().mockResolvedValue({ id: 1, status_flag: STATUS_FLAG.OK });
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.resolve({ id: 1, status_flag: STATUS_FLAG.OK }),
+    });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
       { isLoading: false },
@@ -183,13 +185,13 @@ describe('Component Run Functionality', () => {
 
     // Wait for the form elements to be available
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Select branch or tag')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'GitLab Branch/Ref' })).toBeInTheDocument();
     }, { timeout: 3000 });
 
     // Select a branch/ref
-    const selectRef = screen.getByPlaceholderText('Select branch or tag');
+    const selectRef = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
     await userEvent.click(selectRef);
-    await userEvent.click(screen.getByText('main'));
+    await userEvent.click(screen.getByRole('option', { name: 'main' }));
 
     // Wait for input field to be available
     await waitFor(() => {
@@ -201,7 +203,7 @@ describe('Component Run Functionality', () => {
     await userEvent.type(param1Input, 'test-value');
 
     // Click the run button
-    const runButton = screen.getByText('Run');
+    const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
     // Verify the mutation was called with correct parameters
@@ -222,10 +224,12 @@ describe('Component Run Functionality', () => {
   // Test 2: Integration between runComponent mutation and UI components
   // -----------------------------------------------------------------------
   it('correctly integrates runComponent mutation with UI components', async () => {
-    const mockRunComponent = vi.fn().mockResolvedValue({ 
-      id: 1, 
-      status_flag: STATUS_FLAG.OK,
-      status_text: 'Success'
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.resolve({
+        id: 1,
+        status_flag: STATUS_FLAG.OK,
+        status_text: 'Success'
+      }),
     });
     const mockRunComponentMutation = [mockRunComponent, { isLoading: false }];
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockRunComponentMutation);
@@ -233,22 +237,30 @@ describe('Component Run Functionality', () => {
     renderComponentsPage();
 
     // Trigger the run action for the first component
-    const runButtons = screen.getAllByTitle('Run');
+    const runButtons = screen.getAllByLabelText('play-circle');
     await userEvent.click(runButtons[0]);
 
     // Verify the modal opens with correct title
     expect(screen.getByText('Run Component: Test Component')).toBeInTheDocument();
 
     // Interact with form elements
-    const refSelect = screen.getByPlaceholderText('Select branch or tag');
+    const refSelect = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
     await userEvent.click(refSelect);
-    await userEvent.click(screen.getByText('develop'));
+    // Wait for the dropdown popup to appear (antd renders both hidden listbox and visible popup)
+    await waitFor(() => {
+      const options = screen.getAllByText('develop');
+      expect(options.length).toBeGreaterThanOrEqual(2);
+    });
+    // Click the visible popup option (second match, with .ant-select-item-option-content)
+    const developOptions = screen.getAllByText('develop');
+    const visibleOption = developOptions.find(el => el.closest('.ant-select-item-option-content'));
+    await userEvent.click(visibleOption!);
 
     const paramInput = screen.getByPlaceholderText('Enter Parameter 1');
     await userEvent.type(paramInput, 'integration-test-value');
 
     // Submit the form
-    const submitButton = screen.getByText('Run');
+    const submitButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(submitButton);
 
     // Verify the mutation was called with the correct data from the UI
@@ -292,14 +304,16 @@ describe('Component Run Functionality', () => {
 
     // Verify modal has correct buttons
     expect(screen.getByText('Cancel')).toBeInTheDocument();
-    expect(screen.getByText('Run')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run' })).toBeInTheDocument();
 
     // Close the modal
     const cancelButton = screen.getByText('Cancel');
     await userEvent.click(cancelButton);
 
-    // Verify modal closes
-    expect(modal).not.toBeInTheDocument();
+    // Verify modal closes (check inline style directly — jsdom getComputedStyle is unreliable)
+    await waitFor(() => {
+      expect(modal.style.display).toBe('none');
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -324,10 +338,10 @@ describe('Component Run Functionality', () => {
 
     // Verify tooltips appear for descriptions
     const param1Label = screen.getByText('Parameter 1');
-    expect(param1Label.parentElement?.querySelector('span[aria-label="info-circle"]')).toBeInTheDocument();
+    expect(param1Label.parentElement?.querySelector('span[aria-label="question-circle"]')).toBeInTheDocument();
 
     // Verify boolean field renders as select
-    const param2Select = screen.getByPlaceholderText('Select Parameter 2');
+    const param2Select = screen.getByRole('combobox', { name: 'Parameter 2 question-circle' });
     expect(param2Select).toBeInTheDocument();
 
     // Close the modal
@@ -350,7 +364,9 @@ describe('Component Run Functionality', () => {
   // Test 5: Error handling scenarios
   // -----------------------------------------------------------------------
   it('handles error scenarios when running component', async () => {
-    const mockRunComponent = vi.fn().mockRejectedValue(new Error('Failed to run component'));
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.reject(new Error('Failed to run component')),
+    });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
       { isLoading: false },
@@ -363,15 +379,15 @@ describe('Component Run Functionality', () => {
     await userEvent.click(playCircleIcons[0]);
 
     // Fill in required fields
-    const refSelect = screen.getByPlaceholderText('Select branch or tag');
+    const refSelect = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
     await userEvent.click(refSelect);
-    await userEvent.click(screen.getByText('main'));
+    await userEvent.click(screen.getByRole('option', { name: 'main' }));
 
     const paramInput = screen.getByPlaceholderText('Enter Parameter 1');
     await userEvent.type(paramInput, 'error-test-value');
 
     // Submit the form
-    const runButton = screen.getByText('Run');
+    const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
     // Verify error handling occurs
@@ -391,10 +407,12 @@ describe('Component Run Functionality', () => {
   // Test 6: Success scenarios
   // -----------------------------------------------------------------------
   it('handles success scenario when running component', async () => {
-    const mockRunComponent = vi.fn().mockResolvedValue({ 
-      id: 1, 
-      status_flag: STATUS_FLAG.OK,
-      status_text: 'Success'
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.resolve({
+        id: 1,
+        status_flag: STATUS_FLAG.OK,
+        status_text: 'Success'
+      }),
     });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
@@ -408,15 +426,15 @@ describe('Component Run Functionality', () => {
     await userEvent.click(playCircleIcons[0]);
 
     // Fill in required fields
-    const refSelect = screen.getByPlaceholderText('Select branch or tag');
+    const refSelect = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
     await userEvent.click(refSelect);
-    await userEvent.click(screen.getByText('main'));
+    await userEvent.click(screen.getByRole('option', { name: 'main' }));
 
     const paramInput = screen.getByPlaceholderText('Enter Parameter 1');
     await userEvent.type(paramInput, 'success-test-value');
 
     // Submit the form
-    const runButton = screen.getByText('Run');
+    const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
     // Verify success message appears
@@ -427,8 +445,11 @@ describe('Component Run Functionality', () => {
       }
     });
 
-    // Verify the modal closes after success
-    expect(() => screen.getByRole('dialog')).toThrow(); // Should throw because dialog is gone
+    // Verify the modal closes after success (check inline style directly)
+    await waitFor(() => {
+      const dialog = screen.queryByRole('dialog');
+      expect(dialog?.style.display).toBe('none');
+    });
 
     // Verify the mutation was called
     expect(mockRunComponent).toHaveBeenCalled();
@@ -438,10 +459,12 @@ describe('Component Run Functionality', () => {
   // Test 7: Loading state during component run
   // -----------------------------------------------------------------------
   it('shows loading state while component is running', async () => {
-    const mockRunComponent = vi.fn().mockResolvedValue({ 
-      id: 1, 
-      status_flag: STATUS_FLAG.IN_PROGRESS,
-      status_text: 'Running'
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.resolve({
+        id: 1,
+        status_flag: STATUS_FLAG.IN_PROGRESS,
+        status_text: 'Running'
+      }),
     });
     
     // Initially return loading state
@@ -457,19 +480,18 @@ describe('Component Run Functionality', () => {
     await userEvent.click(playCircleIcons[0]);
 
     // Fill in required fields
-    const refSelect = screen.getByPlaceholderText('Select branch or tag');
+    const refSelect = screen.getByRole('combobox', { name: 'GitLab Branch/Ref' });
     await userEvent.click(refSelect);
-    await userEvent.click(screen.getByText('main'));
+    await userEvent.click(screen.getByRole('option', { name: 'main' }));
 
     const paramInput = screen.getByPlaceholderText('Enter Parameter 1');
     await userEvent.type(paramInput, 'loading-test-value');
 
-    // Submit the form
-    const runButton = screen.getByText('Run');
+    // Submit the form (when loading, button accessible name becomes "loading Run")
+    const runButton = screen.getByRole('button', { name: /Run/ });
     await userEvent.click(runButton);
 
-    // Verify loading spinner appears on the run button
-    expect(runButton).toBeDisabled();
+    // Verify loading spinner appears on the run button (antd6: loading does NOT add disabled)
     expect(runButton.querySelector('.ant-btn-loading-icon')).toBeInTheDocument();
   });
 
@@ -477,10 +499,12 @@ describe('Component Run Functionality', () => {
   // Test 8: Form validation for required inputs
   // -----------------------------------------------------------------------
   it('validates required inputs in the form', async () => {
-    const mockRunComponent = vi.fn().mockResolvedValue({ 
-      id: 1, 
-      status_flag: STATUS_FLAG.OK,
-      status_text: 'Success'
+    const mockRunComponent = vi.fn().mockReturnValue({
+      unwrap: () => Promise.resolve({
+        id: 1,
+        status_flag: STATUS_FLAG.OK,
+        status_text: 'Success'
+      }),
     });
     (useRunComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockRunComponent,
@@ -494,18 +518,11 @@ describe('Component Run Functionality', () => {
     await userEvent.click(playCircleIcons[0]);
 
     // Try to submit without filling required fields
-    const runButton = screen.getByText('Run');
+    const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
-    // Verify validation error appears
-    await waitFor(() => {
-      expect(screen.getByText('Please select a branch/ref')).toBeInTheDocument();
-    });
-
-    // Select a ref
-    const refSelect = screen.getByPlaceholderText('Select branch or tag');
-    await userEvent.click(refSelect);
-    await userEvent.click(screen.getByText('main'));
+    // Note: ref is pre-filled with 'main' via initialValues, so ref validation won't fire.
+    // Parameter validation is tested below.
 
     // Try to submit without filling required parameter
     await userEvent.click(runButton);

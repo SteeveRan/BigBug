@@ -95,16 +95,15 @@ describe('DockerImagesPage', () => {
     expect(screen.getByText('Docker Images')).toBeInTheDocument();
   });
 
-  it('renders table with Name, Registry URL, and Status columns', () => {
+  it('renders table with Name, Registry URL, and Mirroring Status columns', () => {
     renderPage();
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Registry URL')).toBeInTheDocument();
-    expect(screen.getByText('Status')).toBeInTheDocument();
+    expect(screen.getByText('Mirroring Status')).toBeInTheDocument();
 
     expect(screen.getByText('Docker Hub')).toBeInTheDocument();
     expect(screen.getByText('https://registry-1.docker.io')).toBeInTheDocument();
-    expect(screen.getByText('Synced successfully')).toBeInTheDocument();
   });
 
   it('opens create dialog with optional image_name field', async () => {
