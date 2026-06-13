@@ -142,6 +142,27 @@ class DockerSyncScheduleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ──── Generic SyncSchedule (used by schedules.py for listing) ───────────────
+
+
+class SyncScheduleOut(BaseModel):
+    """Schema for sync schedule response (generic — covers docker and helm types)."""
+
+    id: int
+    sync_type: str  # 'docker_image', 'helm_chart'
+    docker_image_source_id: int | None = None
+    helm_chart_source_id: int | None = None
+    cron_expression: str | None
+    is_enabled: bool
+    use_default_schedule: bool
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ──── Compare ───────────────────────────────────────────────────────────────
 
 

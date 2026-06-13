@@ -11,16 +11,10 @@ class SyncSchedule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # Discriminator: 'git_mirror', 'docker_image', 'helm_chart'
+    # Discriminator: 'docker_image', 'helm_chart'
     sync_type = Column(String(20), nullable=False, index=True)
 
     # FK to parent entity — exactly one of these is set, the others are NULL
-    git_mirror_id = Column(
-        Integer,
-        ForeignKey("gitlab_mirrors.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-    )
     docker_image_source_id = Column(
         Integer,
         ForeignKey("docker_image_sources.id", ondelete="CASCADE"),
@@ -49,13 +43,6 @@ class SyncSchedule(Base):
     )
 
     # Relationships (conditional joins, same pattern as BuildSchedule)
-    git_mirror = relationship(
-        "GitlabMirror",
-        primaryjoin="and_(SyncSchedule.git_mirror_id == GitlabMirror.id, "
-        "SyncSchedule.sync_type == 'git_mirror')",
-        back_populates="sync_schedules",
-        foreign_keys=[git_mirror_id],
-    )
     docker_image_source = relationship(
         "DockerImageSource",
         primaryjoin="and_(SyncSchedule.docker_image_source_id == DockerImageSource.id, "
@@ -73,12 +60,8 @@ class SyncSchedule(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "(git_mirror_id IS NOT NULL AND docker_image_source_id IS NULL "
-            "AND helm_chart_source_id IS NULL) OR "
-            "(git_mirror_id IS NULL AND docker_image_source_id IS NOT NULL "
-            "AND helm_chart_source_id IS NULL) OR "
-            "(git_mirror_id IS NULL AND docker_image_source_id IS NULL "
-            "AND helm_chart_source_id IS NOT NULL)",
+            "(docker_image_source_id IS NOT NULL AND helm_chart_source_id IS NULL) OR "
+            "(docker_image_source_id IS NULL AND helm_chart_source_id IS NOT NULL)",
             name="chk_sync_schedule_only_one_fk",
         ),
     )

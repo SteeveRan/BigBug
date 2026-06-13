@@ -52,5 +52,4 @@ class GithubProject(Base):
     # Relationships
     org = relationship("GithubOrg", back_populates="projects")
     releases = relationship("GithubRelease", back_populates="project", cascade="all, delete-orphan")
-    mirrors = relationship("GitlabMirror", back_populates="project", cascade="all, delete-orphan")
     app_images = relationship("AppImage", back_populates="project")

@@ -11,10 +11,15 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import BadRequestError, DomainException, NotFoundError
+from app.models.gitlab_component import GitLabComponent
+from app.models.pipeline import Pipeline, PipelineComponent
 from app.models.pipeline_run import PipelineRun
+from app.models.sync_group import SyncGroup
+from app.schemas.pipeline import PipelineCreate, PipelineUpdate
 from app.services import pipeline as pipeline_service
 
 # ──────────────────────────────────────────────────────────────────────
@@ -328,3 +333,607 @@ class TestGitLabComponents:
 
         with pytest.raises(NotFoundError):
             await pipeline_service.get_component(db_session, comp.id)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pipeline Config CRUD (git-mirroring v2)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestPipelineConfigCRUD:
+    """Tests for Pipeline config CRUD operations."""
+
+    @pytest.fixture(autouse=True)
+    async def _seed_component(self, db_session: AsyncSession) -> None:
+        """Seed a GitLab component that PipelineComponent refs can point to."""
+        result = await db_session.execute(
+            select(GitLabComponent).where(GitLabComponent.name == "test-component")
+        )
+        if result.scalar_one_or_none() is not None:
+            return
+        comp = GitLabComponent(
+            name="test-component",
+            gitlab_instance_id=1,
+            project_path="group/project",
+            component_path=".gitlab/components/test.yml",
+        )
+        db_session.add(comp)
+        await db_session.commit()
+
+    # ── create_pipeline ──────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_create_pipeline_success(self, db_session: AsyncSession):
+        """Create a Pipeline with components — verify all fields."""
+        comp = (
+            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+        ).scalar_one()
+
+        data = PipelineCreate(
+            name="my-pipeline",
+            description="A test pipeline",
+            ref="main",
+            components=[{"component_id": comp.id, "order": 1, "overrides": {"k": "v"}}],
+        )
+        pipeline = await pipeline_service.create_pipeline(db_session, data)
+
+        assert pipeline.id is not None
+        assert pipeline.name == "my-pipeline"
+        assert pipeline.description == "A test pipeline"
+        assert pipeline.is_enabled is True
+        assert pipeline.is_default is False
+        assert len(pipeline.components) == 1
+        assert pipeline.components[0].component_id == comp.id
+
+    @pytest.mark.asyncio
+    async def test_create_pipeline_duplicate_name(self, db_session: AsyncSession):
+        """Creating a pipeline with duplicate name raises DomainException(409)."""
+        data = PipelineCreate(name="unique-name")
+        await pipeline_service.create_pipeline(db_session, data)
+
+        with pytest.raises(DomainException) as exc_info:
+            await pipeline_service.create_pipeline(db_session, PipelineCreate(name="unique-name"))
+        assert exc_info.value.status_code == 409
+        assert "Name already in use" in str(exc_info.value)
+
+    # ── get_pipeline_configs ─────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_configs_empty(self, db_session: AsyncSession):
+        """get_pipeline_configs returns empty list when no configs."""
+        configs = await pipeline_service.get_pipeline_configs(db_session)
+        assert configs == []
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_configs_with_items(self, db_session: AsyncSession):
+        """get_pipeline_configs returns created pipelines."""
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="cfg-a"))
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="cfg-b"))
+
+        configs = await pipeline_service.get_pipeline_configs(db_session)
+        assert len(configs) == 2
+        names = {c.name for c in configs}
+        assert names == {"cfg-a", "cfg-b"}
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_configs_filter_enabled(self, db_session: AsyncSession):
+        """Filter by is_enabled."""
+        await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="enabled-cfg", is_enabled=True)
+        )
+        await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="disabled-cfg", is_enabled=False)
+        )
+
+        configs = await pipeline_service.get_pipeline_configs(db_session, is_enabled=True)
+        assert len(configs) == 1
+        assert configs[0].name == "enabled-cfg"
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_configs_search(self, db_session: AsyncSession):
+        """Search by name substring."""
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="alpha-config"))
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="beta-pipe"))
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="alpha-gamma"))
+
+        configs = await pipeline_service.get_pipeline_configs(db_session, search="alpha")
+        assert len(configs) == 2
+
+    # ── get_pipeline_config ──────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_config_by_id_found(self, db_session: AsyncSession):
+        """get_pipeline_config returns pipeline with eager-loaded relations."""
+        comp = (
+            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+        ).scalar_one()
+
+        data = PipelineCreate(
+            name="detail-pipe",
+            components=[{"component_id": comp.id, "order": 1}],
+        )
+        created = await pipeline_service.create_pipeline(db_session, data)
+
+        fetched = await pipeline_service.get_pipeline_config(db_session, created.id)
+        assert fetched is not None
+        assert fetched.name == "detail-pipe"
+        assert len(fetched.components) == 1
+        assert fetched.components[0].component is not None
+
+    @pytest.mark.asyncio
+    async def test_get_pipeline_config_by_id_not_found(self, db_session: AsyncSession):
+        """Returns None for nonexistent ID."""
+        result = await pipeline_service.get_pipeline_config(db_session, 99999)
+        assert result is None
+
+    # ── update_pipeline ──────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_update_pipeline_fields(self, db_session: AsyncSession):
+        """Update scalar fields of a pipeline."""
+        comp = (
+            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+        ).scalar_one()
+
+        created = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="update-me", description="old")
+        )
+
+        updated = await pipeline_service.update_pipeline(
+            db_session, created.id, PipelineUpdate(description="new", is_enabled=False)
+        )
+
+        assert updated.description == "new"
+        assert updated.is_enabled is False
+        assert updated.name == "update-me"  # unchanged
+
+    @pytest.mark.asyncio
+    async def test_update_pipeline_components(self, db_session: AsyncSession):
+        """Replace components on update."""
+        comp = (
+            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+        ).scalar_one()
+
+        created = await pipeline_service.create_pipeline(db_session, PipelineCreate(name="comp-pipe"))
+
+        updated = await pipeline_service.update_pipeline(
+            db_session,
+            created.id,
+            PipelineUpdate(components=[{"component_id": comp.id, "order": 1}]),
+        )
+
+        assert len(updated.components) == 1
+        assert updated.components[0].component_id == comp.id
+
+        # Replace with different set
+        updated2 = await pipeline_service.update_pipeline(
+            db_session,
+            created.id,
+            PipelineUpdate(components=[]),
+        )
+        assert len(updated2.components) == 0
+
+    @pytest.mark.asyncio
+    async def test_update_pipeline_default_swap(self, db_session: AsyncSession):
+        """Setting is_default=True swaps the default flag from old default."""
+        # Create two pipelines, make first default
+        p1 = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="first-default", is_default=True)
+        )
+        p2 = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="second-not-default")
+        )
+
+        assert p1.is_default is True
+        assert p2.is_default is False
+
+        # Make second default
+        updated = await pipeline_service.update_pipeline(
+            db_session, p2.id, PipelineUpdate(is_default=True)
+        )
+        assert updated.is_default is True
+
+        # Verify first is no longer default
+        p1_after = await pipeline_service.get_pipeline_config(db_session, p1.id)
+        assert p1_after.is_default is False
+
+    # ── delete_pipeline ──────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_delete_pipeline_not_default(self, db_session: AsyncSession):
+        """Successfully delete a non-default pipeline."""
+        created = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="deletable")
+        )
+        pipeline_id = created.id
+
+        await pipeline_service.delete_pipeline(db_session, pipeline_id)
+
+        result = await pipeline_service.get_pipeline_config(db_session, pipeline_id)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_delete_default_pipeline_fails(self, db_session: AsyncSession):
+        """Cannot delete the default pipeline."""
+        created = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="my-default", is_default=True)
+        )
+
+        with pytest.raises(DomainException) as exc_info:
+            await pipeline_service.delete_pipeline(db_session, created.id)
+        assert exc_info.value.status_code == 409
+        assert "Cannot delete default" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_delete_pipeline_in_use_fails(self, db_session: AsyncSession):
+        """Cannot delete pipeline referenced by a SyncGroup."""
+        created = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="in-use")
+        )
+
+        sg = SyncGroup(name="test-sg", pipeline_id=created.id)
+        db_session.add(sg)
+        await db_session.commit()
+
+        with pytest.raises(DomainException) as exc_info:
+            await pipeline_service.delete_pipeline(db_session, created.id)
+        assert exc_info.value.status_code == 409
+        assert "in use by sync groups" in str(exc_info.value).lower()
+
+    @pytest.mark.asyncio
+    async def test_delete_pipeline_nonexistent(self, db_session: AsyncSession):
+        """Deleting nonexistent pipeline raises DomainException(404)."""
+        with pytest.raises(DomainException) as exc_info:
+            await pipeline_service.delete_pipeline(db_session, 99999)
+        assert exc_info.value.status_code == 404
+
+    # ── duplicate_pipeline ───────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_duplicate_pipeline(self, db_session: AsyncSession):
+        """Duplicate copies name, is_enabled, components — forces is_default=False."""
+        comp = (
+            await db_session.execute(select(GitLabComponent).where(GitLabComponent.name == "test-component"))
+        ).scalar_one()
+
+        original = await pipeline_service.create_pipeline(
+            db_session,
+            PipelineCreate(
+                name="original",
+                description="Original desc",
+                is_enabled=False,
+                is_default=True,
+                components=[{"component_id": comp.id, "order": 1}],
+            ),
+        )
+
+        duplicate = await pipeline_service.duplicate_pipeline(
+            db_session, original.id, "duplicated"
+        )
+
+        assert duplicate.name == "duplicated"
+        assert duplicate.description == "Original desc"
+        assert duplicate.is_enabled is False  # inherited
+        assert duplicate.is_default is False  # forced
+        assert len(duplicate.components) == 1
+        assert duplicate.components[0].component_id == comp.id
+
+    @pytest.mark.asyncio
+    async def test_duplicate_pipeline_name_conflict(self, db_session: AsyncSession):
+        """Duplicate with existing name raises DomainException(409)."""
+        existing = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="existing-name")
+        )
+
+        with pytest.raises(DomainException) as exc_info:
+            await pipeline_service.duplicate_pipeline(
+                db_session, existing.id, "existing-name"
+            )
+        assert exc_info.value.status_code == 409
+
+    # ── get_default_pipeline ─────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_get_default_pipeline_returns_default(self, db_session: AsyncSession):
+        """Returns the pipeline with is_default=True."""
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="non-default"))
+        default = await pipeline_service.create_pipeline(
+            db_session, PipelineCreate(name="the-default", is_default=True)
+        )
+
+        result = await pipeline_service.get_default_pipeline(db_session)
+        assert result is not None
+        assert result.name == "the-default"
+
+    @pytest.mark.asyncio
+    async def test_get_default_pipeline_returns_none(self, db_session: AsyncSession):
+        """Returns None when no default pipeline exists."""
+        await pipeline_service.create_pipeline(db_session, PipelineCreate(name="only-one"))
+        result = await pipeline_service.get_default_pipeline(db_session)
+        assert result is None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# trigger_pipeline_from_config
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestTriggerPipelineFromConfig:
+    """Tests for trigger_pipeline_from_config()"""
+
+    async def _seed_pipeline_with_instance(
+        self, db_session: AsyncSession, **kwargs
+    ) -> Pipeline:
+        """Create a Pipeline with a real GitlabInstance in the DB,
+        reload with gitlab_instance eager-loaded, and return it."""
+        from app.core.secrets import encrypt_secret
+        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
+
+        instance = GitlabInstanceModel(
+            name=kwargs.pop("instance_name", "trigger-cfg-gitlab"),
+            url="https://gitlab.example.com",
+            token=encrypt_secret("fake-token"),
+            verify_ssl=True,
+        )
+        db_session.add(instance)
+        await db_session.flush()
+
+        pipeline = Pipeline(
+            name=kwargs.pop("name", "trigger-cfg-pipeline"),
+            gitlab_instance_id=instance.id,
+            ref=kwargs.pop("ref", "main"),
+            default_variables=kwargs.pop("default_variables", {}),
+            is_enabled=kwargs.pop("is_enabled", True),
+            **kwargs,
+        )
+        db_session.add(pipeline)
+        await db_session.commit()
+
+        # Reload with gitlab_instance eager-loaded
+        return await pipeline_service.get_pipeline_config(db_session, pipeline.id)
+
+    @pytest.mark.asyncio
+    async def test_trigger_from_config_success(self, db_session: AsyncSession):
+        """Successful trigger creates PipelineRun with RUNNING status."""
+        pipeline = await self._seed_pipeline_with_instance(
+            db_session,
+            default_variables={"SOURCE": "default-src"},
+        )
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            mock_gl_pipeline = MagicMock()
+            mock_gl_pipeline.id = 999
+            mock_gl_pipeline.web_url = "https://gitlab.example.com/pipelines/999"
+            mock_project.pipelines.create.return_value = mock_gl_pipeline
+            mock_gl.projects.get.return_value = mock_project
+            mock_client_factory.return_value = mock_gl
+
+            run = await pipeline_service.trigger_pipeline_from_config(
+                db_session,
+                pipeline=pipeline,
+                gitlab_project_id=42,
+                mirror_variables={"MIRROR": "val"},
+                user_id=1,
+            )
+
+        assert run is not None
+        assert run.status_flag == 3  # STATUS_IN_PROGRESS
+        assert run.status_text == "Running"
+        assert run.gitlab_pipeline_id == 999
+        assert run.gitlab_project_id == 42
+        assert run.pipeline_id == pipeline.id
+        assert run.triggered_by_user_id == 1
+        assert run.web_url == "https://gitlab.example.com/pipelines/999"
+        assert run.started_at is not None
+        # Variables: defaults merged with mirror
+        assert run.variables == {"SOURCE": "default-src", "MIRROR": "val"}
+
+    @pytest.mark.asyncio
+    async def test_trigger_from_config_merges_variables(self, db_session: AsyncSession):
+        """mirror_variables override default_variables with the same key."""
+        pipeline = await self._seed_pipeline_with_instance(
+            db_session,
+            default_variables={"KEY1": "default", "KEY2": "default2"},
+        )
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            mock_gl_pipeline = MagicMock()
+            mock_gl_pipeline.id = 1
+            mock_gl_pipeline.web_url = "https://gitlab.example.com/pipelines/1"
+            mock_project.pipelines.create.return_value = mock_gl_pipeline
+            mock_gl.projects.get.return_value = mock_project
+            mock_client_factory.return_value = mock_gl
+
+            run = await pipeline_service.trigger_pipeline_from_config(
+                db_session,
+                pipeline=pipeline,
+                gitlab_project_id=1,
+                mirror_variables={"KEY1": "overridden", "KEY3": "extra"},
+            )
+
+        # KEY1 overridden, KEY2 preserved, KEY3 added
+        assert run.variables == {"KEY1": "overridden", "KEY2": "default2", "KEY3": "extra"}
+
+    @pytest.mark.asyncio
+    async def test_trigger_from_config_disabled_pipeline(self, db_session: AsyncSession):
+        """Disabled pipeline raises BadRequestError."""
+        pipeline = await self._seed_pipeline_with_instance(
+            db_session, is_enabled=False, name="disabled-pipe"
+        )
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await pipeline_service.trigger_pipeline_from_config(
+                db_session,
+                pipeline=pipeline,
+                gitlab_project_id=1,
+            )
+        assert "disabled" in str(exc_info.value.detail).lower()
+
+    @pytest.mark.asyncio
+    async def test_trigger_from_config_no_gitlab_instance(self, db_session: AsyncSession):
+        """Pipeline without gitlab_instance raises NotFoundError."""
+        pipeline = Pipeline(
+            name="no-instance-pipe",
+            gitlab_instance_id=None,
+            ref="main",
+            default_variables={},
+            is_enabled=True,
+        )
+        # Manually ensure gitlab_instance is None (the relationship yields None when FK is None)
+        pipeline.gitlab_instance = None
+
+        with pytest.raises(NotFoundError) as exc_info:
+            await pipeline_service.trigger_pipeline_from_config(
+                db_session,
+                pipeline=pipeline,
+                gitlab_project_id=1,
+            )
+        assert "gitlab_instance" in str(exc_info.value.detail).lower()
+
+    @pytest.mark.asyncio
+    async def test_trigger_from_config_gitlab_api_error(self, db_session: AsyncSession):
+        """GitLab API error records a FAILED PipelineRun."""
+        pipeline = await self._seed_pipeline_with_instance(
+            db_session,
+            default_variables={"VAR": "val"},
+        )
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            import gitlab
+
+            mock_project.pipelines.create.side_effect = gitlab.GitlabError("Connection refused")
+            mock_gl.projects.get.return_value = mock_project
+            mock_client_factory.return_value = mock_gl
+
+            run = await pipeline_service.trigger_pipeline_from_config(
+                db_session,
+                pipeline=pipeline,
+                gitlab_project_id=42,
+            )
+
+        assert run.status_flag == 1  # STATUS_FAILED
+        assert "GitLab API error" in run.status_text
+        assert run.pipeline_id == pipeline.id
+        assert run.gitlab_project_id == 42
+        assert run.variables == {"VAR": "val"}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# monitor_pipeline_status
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestMonitorPipelineStatus:
+    """Tests for monitor_pipeline_status()"""
+
+    async def _seed_pipeline_run(self, db_session: AsyncSession, **kwargs) -> PipelineRun:
+        """Create a PipelineRun with a real GitlabInstance in the DB."""
+        from app.core.secrets import encrypt_secret
+        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
+
+        instance = GitlabInstanceModel(
+            name=kwargs.pop("instance_name", "monitor-gitlab"),
+            url="https://gitlab.example.com",
+            token=encrypt_secret("fake-token"),
+            verify_ssl=True,
+        )
+        db_session.add(instance)
+        await db_session.flush()
+
+        run = PipelineRun(
+            gitlab_instance_id=instance.id,
+            gitlab_project_id=kwargs.pop("gitlab_project_id", 42),
+            gitlab_pipeline_id=kwargs.pop("gitlab_pipeline_id", 555),
+            ref=kwargs.pop("ref", "main"),
+            status_flag=kwargs.pop("status_flag", 3),  # RUNNING
+            status_text=kwargs.pop("status_text", "Running"),
+            **kwargs,
+        )
+        db_session.add(run)
+        await db_session.commit()
+        await db_session.refresh(run)
+        return run
+
+    @pytest.mark.asyncio
+    async def test_monitor_nonexistent_run(self, db_session: AsyncSession):
+        """monitor_pipeline_status raises NotFoundError for nonexistent run."""
+        with pytest.raises(NotFoundError) as exc_info:
+            await pipeline_service.monitor_pipeline_status(db_session, 99999)
+        assert "id=99999" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_monitor_no_gitlab_pipeline_id(self, db_session: AsyncSession):
+        """Raises BadRequestError if PipelineRun has no gitlab_pipeline_id."""
+        run = await self._seed_pipeline_run(db_session, gitlab_pipeline_id=None)
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await pipeline_service.monitor_pipeline_status(db_session, run.id)
+        assert "gitlab_pipeline_id" in str(exc_info.value.detail).lower()
+
+    @pytest.mark.asyncio
+    async def test_monitor_updates_status_to_success(self, db_session: AsyncSession):
+        """Polling a successful pipeline updates status to OK."""
+        run = await self._seed_pipeline_run(db_session)
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            mock_gl_pipeline = MagicMock()
+            mock_gl_pipeline.status = "success"
+            mock_gl_pipeline.web_url = "https://gitlab.example.com/pipelines/555"
+            mock_gl_pipeline.duration = 120
+            mock_project.pipelines.get.return_value = mock_gl_pipeline
+            mock_gl.projects.get.return_value = mock_project
+            mock_client_factory.return_value = mock_gl
+
+            updated = await pipeline_service.monitor_pipeline_status(db_session, run.id)
+
+        assert updated.status_flag == 0  # STATUS_OK
+        assert updated.status_text == "Success"
+        assert updated.duration == 120
+        assert updated.web_url == "https://gitlab.example.com/pipelines/555"
+        assert updated.finished_at is not None
+
+    @pytest.mark.asyncio
+    async def test_monitor_updates_status_to_failed(self, db_session: AsyncSession):
+        """Polling a failed pipeline updates status to FAILED."""
+        run = await self._seed_pipeline_run(db_session)
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            mock_gl_pipeline = MagicMock()
+            mock_gl_pipeline.status = "failed"
+            mock_gl_pipeline.duration = None
+            mock_gl_pipeline.web_url = None
+            mock_project.pipelines.get.return_value = mock_gl_pipeline
+            mock_gl.projects.get.return_value = mock_project
+            mock_client_factory.return_value = mock_gl
+
+            updated = await pipeline_service.monitor_pipeline_status(db_session, run.id)
+
+        assert updated.status_flag == 1  # STATUS_FAILED
+        assert updated.status_text == "Failed"
+
+    @pytest.mark.asyncio
+    async def test_monitor_handles_gitlab_error(self, db_session: AsyncSession):
+        """GitLab API error sets status to WARNING."""
+        run = await self._seed_pipeline_run(db_session)
+
+        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+            mock_gl = MagicMock()
+            import gitlab
+
+            mock_gl.projects.get.side_effect = gitlab.GitlabError("Timeout")
+            mock_client_factory.return_value = mock_gl
+
+            updated = await pipeline_service.monitor_pipeline_status(db_session, run.id)
+
+        assert updated.status_flag == 2  # STATUS_WARNING
+        assert "GitLab API error" in updated.status_text

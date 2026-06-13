@@ -23,6 +23,12 @@ class PipelineRun(Base):
     gitlab_instance_id = Column(Integer, ForeignKey("gitlab_instances.id"), nullable=False)
     gitlab_project_id = Column(Integer, nullable=False)
     gitlab_pipeline_id = Column(Integer, nullable=True)  # null until triggered
+    pipeline_id = Column(
+        Integer,
+        ForeignKey("pipelines.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     component_id = Column(
         Integer,
         ForeignKey("gitlab_components.id", ondelete="SET NULL"),
@@ -45,6 +51,8 @@ class PipelineRun(Base):
     gitlab_instance = relationship("GitlabInstance", lazy="select")
     triggered_by = relationship("User", lazy="select")
     component = relationship("GitLabComponent", lazy="select")
+    pipeline = relationship("Pipeline", back_populates="pipeline_runs")
+    mirror_logs = relationship("MirrorLog", back_populates="pipeline_run")
 
     def __repr__(self) -> str:
         return (

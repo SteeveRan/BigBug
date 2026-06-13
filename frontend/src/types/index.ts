@@ -1,3 +1,4 @@
+/** @deprecated Используй SourceGroup/SourceRepository из Git Mirroring V2 */
 export interface GithubOrg {
   id: number;
   login: string;
@@ -15,6 +16,7 @@ export interface GithubRelease {
   published_at: string | null;
 }
 
+/** @deprecated Используй SourceGroup/SourceRepository из Git Mirroring V2 */
 export interface GithubProject {
   id: number;
   org_id: number;
@@ -710,4 +712,322 @@ export interface AnalyzeImageResponse {
   suggested_registry: DockerRegistryInstance | null;
   compatible_registries: DockerRegistryInstance[];
   is_new_registry_needed: boolean;
+}
+
+// ============================================================
+// Git Mirroring V2 Types
+// ============================================================
+
+export interface Credential {
+  id: number;
+  name: string;
+  credential_type: string;
+  status_flag: number;
+  status_text: string;
+  created_at: string;
+}
+
+export interface SourceProvider {
+  id: number;
+  name: string;
+  provider_type: string;
+  credential_id: number;
+  credential?: Credential;
+  config_json?: Record<string, any>;
+  status_flag: number;
+  status_text: string;
+  groups_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceProviderCreate {
+  name: string;
+  provider_type: string;
+  credential_id: number;
+  config_json?: Record<string, any>;
+}
+
+export interface SourceProviderUpdate {
+  name?: string;
+  credential_id?: number;
+  config_json?: Record<string, any>;
+  status_flag?: number;
+}
+
+export interface SourceGroup {
+  id: number;
+  external_id: string;
+  name: string;
+  full_name: string;
+  description?: string;
+  avatar_url?: string;
+  source_provider_id: number;
+  source_provider?: SourceProvider;
+  repositories_total: number;
+  repositories_mirrored: number;
+  new_repos_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceRepository {
+  id: number;
+  external_id: string;
+  name: string;
+  full_name: string;
+  description?: string;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  language?: string;
+  default_branch: string;
+  html_url: string;
+  clone_url: string;
+  stars: number;
+  forks: number;
+  source_group_id: number;
+  source_group_name?: string;
+  license_spdx?: string;
+  license_name?: string;
+  latest_release_tag?: string;
+  latest_release_name?: string;
+  latest_release_published_at?: string;
+  discovery_status: number;
+  discovery_status_text: string;
+  has_readme: boolean;
+  is_mirrored?: boolean;
+  mirrors_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SourceRepositoryReadme {
+  repository_id: number;
+  html?: string;
+  markdown?: string;
+  fetched_at?: string;
+}
+
+export interface SourceRepositoryRelease {
+  id: number;
+  release_tag: string;
+  release_name?: string;
+  release_body?: string;
+  is_prerelease: boolean;
+  published_at: string;
+  html_url: string;
+}
+
+export interface Mirror {
+  id: number;
+  source_repository_id: number;
+  source_repository?: SourceRepository;
+  target_namespace: string;
+  target_project_name: string;
+  target_path: string;
+  sync_group_id: number;
+  sync_group_name?: string;
+  target_gitlab_name?: string;
+  status_flag: number;
+  status_text: string;
+  discovery_status: number;
+  discovery_status_text: string;
+  last_sync_at?: string;
+  last_freshness_check_at?: string;
+  is_active: boolean;
+  is_imported?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MirrorDetail extends Mirror {
+  logs?: MirrorLog[];
+  source_repository?: SourceRepository;
+  sync_group?: SyncGroup;
+}
+
+export interface MirrorCreate {
+  source_repository_id: number;
+  target_namespace: string;
+  target_project_name: string;
+  sync_group_id: number;
+}
+
+export interface MirrorBulkCreate {
+  mirrors: MirrorCreate[];
+}
+
+export interface MirrorUpdate {
+  target_namespace?: string;
+  target_project_name?: string;
+  sync_group_id?: number;
+  is_active?: boolean;
+}
+
+export interface ImportMirrorRequest {
+  source_repository_id: number;
+  target_namespace: string;
+  target_project_name: string;
+}
+
+export interface MirrorLog {
+  id: number;
+  mirror_id: number;
+  pipeline_run_id?: number;
+  log_type: 'sync' | 'freshness' | 'integrity' | 'release' | 'import';
+  status_flag: number;
+  status_text: string;
+  message?: string;
+  details_json?: Record<string, any>;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface MirrorDuplicateCheck {
+  duplicates: Array<{
+    mirror_id: number;
+    source_repo_id: number;
+    source_url: string;
+    target_path: string;
+    sync_group_name: string;
+  }>;
+  accessible: any[];
+  inaccessible: any[];
+}
+
+export interface MirrorFilters {
+  source_group_id?: number;
+  sync_group_id?: number;
+  status_flag?: number;
+  search?: string;
+  limit?: number;
+  offset?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface SyncGroup {
+  id: number;
+  name: string;
+  description?: string;
+  pipeline_id: number | null;
+  pipeline?: PipelineConfig | null;
+  is_default: boolean;
+  mirrors_count?: number;
+  sync_cron: string | null;
+  sync_enabled: boolean;
+  sync_concurrency: number;
+  freshness_cron: string | null;
+  freshness_enabled: boolean;
+  freshness_concurrency: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SyncGroupCreate {
+  name: string;
+  description?: string;
+  pipeline_id?: number | null;
+  sync_cron?: string | null;
+  sync_enabled?: boolean;
+  sync_concurrency?: number;
+  freshness_cron?: string | null;
+  freshness_enabled?: boolean;
+  freshness_concurrency?: number;
+}
+
+export interface SyncGroupUpdate {
+  name?: string;
+  description?: string;
+  pipeline_id?: number | null;
+  sync_cron?: string | null;
+  sync_enabled?: boolean;
+  sync_concurrency?: number;
+  freshness_cron?: string | null;
+  freshness_enabled?: boolean;
+  freshness_concurrency?: number;
+}
+
+// ──── Pipeline Configuration Types ─────────────────────────────────────────
+
+export interface PipelineComponentRef {
+  component_id: number;
+  order?: number;
+  overrides?: Record<string, unknown> | null;
+}
+
+export interface PipelineConfigComponent {
+  id: number;
+  pipeline_id: number;
+  component_id: number;
+  order: number;
+  overrides: Record<string, unknown>;
+  component?: GitLabComponent | null;
+}
+
+export interface PipelineConfig {
+  id: number;
+  name: string;
+  description: string | null;
+  gitlab_instance_id: number | null;
+  ref: string | null;
+  default_variables: Record<string, unknown> | null;
+  is_default: boolean;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  components: PipelineConfigComponent[];
+  gitlab_instance?: GitlabInstance | null;
+}
+
+export interface PipelineConfigCreate {
+  name: string;
+  description?: string | null;
+  gitlab_instance_id?: number | null;
+  ref?: string | null;
+  default_variables?: Record<string, unknown> | null;
+  is_default?: boolean | null;
+  is_enabled?: boolean;
+  components?: PipelineComponentRef[] | null;
+}
+
+export interface PipelineConfigUpdate {
+  description?: string | null;
+  gitlab_instance_id?: number | null;
+  ref?: string | null;
+  default_variables?: Record<string, unknown> | null;
+  is_default?: boolean | null;
+  is_enabled?: boolean | null;
+  components?: PipelineComponentRef[] | null;
+}
+
+export interface PipelineConfigDuplicateRequest {
+  name: string;
+}
+
+export interface PipelineListItem {
+  id: number;
+  name: string;
+  gitlab_instance_name: string | null;
+  ref: string | null;
+  is_default: boolean;
+  is_enabled: boolean;
+  components_count: number;
+  sync_groups_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LicenseReportItem {
+  spdx: string;
+  name: string;
+  count: number;
+  is_restricted: boolean;
+  repositories: Array<{
+    id: number;
+    name: string;
+    full_name: string;
+  }>;
 }

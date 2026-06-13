@@ -1,20 +1,111 @@
 """
 @file pipeline.py
-@description Pydantic schemas for PipelineRun and GitLabComponent CRUD operations.
+@description Pydantic schemas for Pipeline, PipelineComponent, PipelineRun,
+             and GitLabComponent CRUD operations.
 @dependencies pydantic
-@relatedFiles ../models/pipeline_run.py, ../models/gitlab_component.py,
-               ../../services/pipeline.py
+@relatedFiles ../models/pipeline.py, ../models/pipeline_run.py,
+              ../models/gitlab_component.py, ../models/gitlab_instance.py,
+              ../../services/pipeline.py
 """
-
-from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.integrations import GitlabInstanceOut
+
+
 # ──────────────────────────────────────────────────────────────────────
-# Pipeline Run Schemas
+# Pipeline Component Ref (for Pipeline Create/Update)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class PipelineComponentRef(BaseModel):
+    """Reference to a GitLab Component within a Pipeline definition."""
+
+    component_id: int
+    order: int = Field(0, ge=0, description="Execution order")
+    overrides: dict[str, Any] | None = Field(None, description="Variable overrides for this component")
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pipeline Schemas (NEW — git-mirroring v2)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class PipelineCreate(BaseModel):
+    """Payload to create a new Pipeline configuration."""
+
+    name: str = Field(..., max_length=255, description="Unique pipeline name")
+    description: str | None = Field(None)
+    gitlab_instance_id: int | None = Field(None)
+    ref: str | None = Field(None, max_length=255, description="Default branch or tag")
+    default_variables: dict[str, Any] | None = Field(None)
+    is_default: bool | None = Field(None)
+    is_enabled: bool = Field(True)
+    components: list[PipelineComponentRef] | None = Field(
+        None, description="Components with order and variable overrides"
+    )
+
+
+class PipelineUpdate(BaseModel):
+    """Partial update for a Pipeline configuration."""
+
+    description: str | None = Field(None)
+    gitlab_instance_id: int | None = Field(None)
+    ref: str | None = Field(None, max_length=255)
+    default_variables: dict[str, Any] | None = Field(None)
+    is_default: bool | None = Field(None)
+    is_enabled: bool | None = Field(None)
+    components: list[PipelineComponentRef] | None = Field(None)
+
+
+class PipelineDuplicateRequest(BaseModel):
+    """Payload for duplicating a Pipeline under a new name."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="New pipeline name")
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pipeline Component Out (for nested display)
+# ──────────────────────────────────────────────────────────────────────
+
+
+class PipelineComponentOut(BaseModel):
+    """Response for a single component within a pipeline."""
+
+    id: int
+    pipeline_id: int
+    component_id: int
+    order: int
+    overrides: dict[str, Any]
+    component: GitLabComponentOut | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class PipelineOut(BaseModel):
+    """Public representation of a Pipeline configuration."""
+
+    id: int
+    name: str
+    description: str | None = None
+    gitlab_instance_id: int | None = None
+    ref: str | None = None
+    default_variables: dict[str, Any] | None = None
+    is_default: bool
+    is_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+    components: list[PipelineComponentOut] = []
+    gitlab_instance: GitlabInstanceOut | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Pipeline Run Schemas (existing — kept for backward compatibility)
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -60,7 +151,7 @@ class PipelineRunList(BaseModel):
 
 
 # ──────────────────────────────────────────────────────────────────────
-# GitLab Component Schemas
+# GitLab Component Schemas (existing — kept for backward compatibility)
 # ──────────────────────────────────────────────────────────────────────
 
 
@@ -112,3 +203,5 @@ class ComponentRunRequest(BaseModel):
 
     ref: str = Field("main", description="Branch, tag, or commit SHA")
     inputs: dict[str, str] = Field(default_factory=dict, description="Component input variables")
+
+

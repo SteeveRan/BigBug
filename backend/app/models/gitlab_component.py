@@ -35,6 +35,9 @@ class GitLabComponent(Base):
 
     # Relationships
     gitlab_instance = relationship("GitlabInstance", lazy="select")
+    pipeline_components = relationship(
+        "PipelineComponent", back_populates="component", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return (

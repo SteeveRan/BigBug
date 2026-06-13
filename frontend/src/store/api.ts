@@ -45,6 +45,31 @@ import type {
   DockerImageCompareResponse,
   AnalyzeImageResponse,
   GithubRelease,
+  // Git Mirroring V2
+  SourceProvider,
+  SourceProviderCreate,
+  SourceProviderUpdate,
+  SourceGroup,
+  SourceRepository,
+  SourceRepositoryReadme,
+  SourceRepositoryRelease,
+  Mirror,
+  MirrorDetail,
+  MirrorCreate,
+  MirrorBulkCreate,
+  MirrorUpdate,
+  ImportMirrorRequest,
+  MirrorLog,
+  MirrorDuplicateCheck,
+  MirrorFilters,
+  SyncGroup,
+  SyncGroupCreate,
+  SyncGroupUpdate,
+  PipelineConfig,
+  PipelineConfigCreate,
+  PipelineConfigUpdate,
+  PipelineConfigDuplicateRequest,
+  PipelineListItem,
 } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -79,6 +104,12 @@ export const api = createApi({
     'Pipeline',
     'Component',
     'AuditLog',
+    'SourceProvider',
+    'SourceGroup',
+    'SourceRepository',
+    'MirrorLog',
+    'SyncGroup',
+    'PipelineConfig',
   ],
   endpoints: (builder) => ({
     // Auth
@@ -757,6 +788,196 @@ export const api = createApi({
       invalidatesTags: ['Component', 'Pipeline'],
     }),
 
+    // ──── Pipeline Configurations (Git Mirroring V2) ──────────────────────
+
+    getPipelineConfigs: builder.query<PipelineConfig[], { search?: string; is_enabled?: boolean } | void>({
+      query: (params) => ({ url: '/pipelines/configs', params: params ?? undefined }),
+      providesTags: ['PipelineConfig'],
+    }),
+    getPipelineConfig: builder.query<PipelineConfig, number>({
+      query: (id) => `/pipelines/configs/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'PipelineConfig', id }],
+    }),
+    createPipelineConfig: builder.mutation<PipelineConfig, PipelineConfigCreate>({
+      query: (data) => ({ url: '/pipelines/configs', method: 'POST', body: data }),
+      invalidatesTags: ['PipelineConfig'],
+    }),
+    updatePipelineConfig: builder.mutation<PipelineConfig, { id: number; data: PipelineConfigUpdate }>({
+      query: ({ id, data }) => ({ url: `/pipelines/configs/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'PipelineConfig', id }, 'PipelineConfig'],
+    }),
+    deletePipelineConfig: builder.mutation<void, number>({
+      query: (id) => ({ url: `/pipelines/configs/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['PipelineConfig'],
+    }),
+    duplicatePipelineConfig: builder.mutation<PipelineConfig, { id: number; name: string }>({
+      query: ({ id, name }) => ({ url: `/pipelines/configs/${id}/duplicate`, method: 'POST', body: { name } }),
+      invalidatesTags: ['PipelineConfig'],
+    }),
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Git Mirroring V2
+    // ═══════════════════════════════════════════════════════════════════
+
+    // Source Providers
+    getSourceProviders: builder.query<SourceProvider[], void>({
+      query: () => '/mirroring/source-providers',
+      providesTags: ['SourceProvider'],
+    }),
+    createSourceProvider: builder.mutation<SourceProvider, SourceProviderCreate>({
+      query: (body) => ({ url: '/mirroring/source-providers', method: 'POST', body }),
+      invalidatesTags: ['SourceProvider'],
+    }),
+    updateSourceProvider: builder.mutation<SourceProvider, { id: number; data: SourceProviderUpdate }>({
+      query: ({ id, data }) => ({ url: `/mirroring/source-providers/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'SourceProvider', id }, 'SourceProvider'],
+    }),
+    deleteSourceProvider: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/source-providers/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['SourceProvider'],
+    }),
+
+    // Source Groups
+    getSourceGroups: builder.query<SourceGroup[], number>({
+      query: (providerId) => `/mirroring/source-providers/${providerId}/groups`,
+      providesTags: ['SourceGroup'],
+    }),
+    importSourceGroup: builder.mutation<SourceGroup, { provider_id: number; group_name: string }>({
+      query: ({ provider_id, group_name }) => ({
+        url: `/mirroring/source-providers/${provider_id}/groups`,
+        method: 'POST',
+        body: { group_name },
+      }),
+      invalidatesTags: ['SourceGroup'],
+    }),
+    getSourceGroup: builder.query<SourceGroup, number>({
+      query: (id) => `/mirroring/source-groups/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'SourceGroup', id }],
+    }),
+    refreshSourceGroup: builder.mutation<SourceGroup, number>({
+      query: (id) => ({ url: `/mirroring/source-groups/${id}/refresh`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'SourceGroup', id }],
+    }),
+    deleteSourceGroup: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/source-groups/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['SourceGroup'],
+    }),
+
+    // Source Repositories
+    getSourceRepositories: builder.query<
+      SourceRepository[],
+      { group_id: number; discovery_status?: number; is_archived?: boolean; search?: string; limit?: number; offset?: number }
+    >({
+      query: ({ group_id, ...params }) => ({ url: `/mirroring/source-groups/${group_id}/repositories`, params }),
+      providesTags: ['SourceRepository'],
+    }),
+    getSourceRepository: builder.query<SourceRepository, number>({
+      query: (id) => `/mirroring/source-repositories/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'SourceRepository', id }],
+    }),
+    getRepositoryReleases: builder.query<
+      SourceRepositoryRelease[],
+      { repository_id: number; include_prereleases?: boolean }
+    >({
+      query: ({ repository_id, ...params }) => `/mirroring/source-repositories/${repository_id}/releases`,
+      providesTags: (_result, _error, { repository_id }) => [{ type: 'SourceRepository', id: repository_id }],
+    }),
+    getRepositoryReadme: builder.query<SourceRepositoryReadme, number>({
+      query: (id) => `/mirroring/source-repositories/${id}/readme`,
+    }),
+
+    // Mirrors
+    getMirrors: builder.query<Mirror[], MirrorFilters>({
+      query: (params) => ({ url: '/mirroring/mirrors', params }),
+      providesTags: ['Mirror'],
+    }),
+    getMirrorDetail: builder.query<MirrorDetail, number>({
+      query: (id) => `/mirroring/mirrors/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'Mirror', id }],
+    }),
+    createMirrorV2: builder.mutation<Mirror, MirrorCreate>({
+      query: (body) => ({ url: '/mirroring/mirrors', method: 'POST', body }),
+      invalidatesTags: ['Mirror', 'SourceRepository'],
+    }),
+    bulkCreateMirrors: builder.mutation<Mirror[], MirrorBulkCreate>({
+      query: (body) => ({ url: '/mirroring/mirrors/bulk', method: 'POST', body }),
+      invalidatesTags: ['Mirror', 'SourceRepository'],
+    }),
+    updateMirrorV2: builder.mutation<Mirror, { id: number; data: MirrorUpdate }>({
+      query: ({ id, data }) => ({ url: `/mirroring/mirrors/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Mirror', id }],
+    }),
+    deleteMirrorV2: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/mirrors/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Mirror'],
+    }),
+    triggerMirrorSync: builder.mutation<MirrorLog, number>({
+      query: (id) => ({ url: `/mirroring/mirrors/${id}/sync`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'Mirror', id }, 'MirrorLog'],
+    }),
+    triggerFreshnessCheck: builder.mutation<MirrorLog, number>({
+      query: (id) => ({ url: `/mirroring/mirrors/${id}/freshness`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'Mirror', id }, 'MirrorLog'],
+    }),
+    importExistingMirror: builder.mutation<Mirror, ImportMirrorRequest>({
+      query: (body) => ({ url: '/mirroring/mirrors/import', method: 'POST', body }),
+      invalidatesTags: ['Mirror', 'SourceRepository'],
+    }),
+    checkDuplicates: builder.mutation<
+      MirrorDuplicateCheck,
+      { source_repo_ids: number[]; sync_group_id: number }
+    >({
+      query: (body) => ({ url: '/mirroring/mirrors/check-duplicates', method: 'POST', body }),
+    }),
+    getMirrorLogsV2: builder.query<
+      MirrorLog[],
+      { mirror_id: number; log_type?: string; limit?: number; offset?: number }
+    >({
+      query: ({ mirror_id, ...params }) => ({ url: `/mirroring/mirrors/${mirror_id}/logs`, params }),
+      providesTags: ['MirrorLog'],
+    }),
+
+    // Sync Groups
+    getSyncGroups: builder.query<SyncGroup[], void>({
+      query: () => '/mirroring/sync-groups',
+      providesTags: ['SyncGroup'],
+    }),
+    createSyncGroup: builder.mutation<SyncGroup, SyncGroupCreate>({
+      query: (body) => ({ url: '/mirroring/sync-groups', method: 'POST', body }),
+      invalidatesTags: ['SyncGroup'],
+    }),
+    getSyncGroup: builder.query<SyncGroup, number>({
+      query: (id) => `/mirroring/sync-groups/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'SyncGroup', id }],
+    }),
+    updateSyncGroup: builder.mutation<SyncGroup, { id: number; data: SyncGroupUpdate }>({
+      query: ({ id, data }) => ({ url: `/mirroring/sync-groups/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
+    }),
+    deleteSyncGroup: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/sync-groups/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['SyncGroup'],
+    }),
+    assignMirrorsToGroup: builder.mutation<SyncGroup, { group_id: number; mirror_ids: number[] }>({
+      query: ({ group_id, ...body }) => ({
+        url: `/mirroring/sync-groups/${group_id}/mirrors/bulk`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['SyncGroup', 'Mirror'],
+    }),
+    applyPipelineToGroup: builder.mutation<SyncGroup, { id: number; pipeline_id: number }>({
+      query: ({ id, pipeline_id }) => ({
+        url: `/mirroring/sync-groups/${id}/apply-pipeline`,
+        method: 'POST',
+        body: { pipeline_id },
+      }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'SyncGroup', id },
+        'SyncGroup',
+      ],
+    }),
+
     // ──── Audit Logs ────────────────────────────────────────────────────────
 
     getAuditLogs: builder.query<
@@ -894,4 +1115,43 @@ export const {
   useDeleteComponentMutation,
   useRunComponentMutation,
   useGetAuditLogsQuery,
+  // Git Mirroring V2
+  useGetSourceProvidersQuery,
+  useCreateSourceProviderMutation,
+  useUpdateSourceProviderMutation,
+  useDeleteSourceProviderMutation,
+  useGetSourceGroupsQuery,
+  useImportSourceGroupMutation,
+  useGetSourceGroupQuery,
+  useRefreshSourceGroupMutation,
+  useDeleteSourceGroupMutation,
+  useGetSourceRepositoriesQuery,
+  useGetSourceRepositoryQuery,
+  useGetRepositoryReleasesQuery,
+  useGetRepositoryReadmeQuery,
+  useGetMirrorsQuery,
+  useGetMirrorDetailQuery,
+  useCreateMirrorV2Mutation,
+  useBulkCreateMirrorsMutation,
+  useUpdateMirrorV2Mutation,
+  useDeleteMirrorV2Mutation,
+  useTriggerMirrorSyncMutation,
+  useTriggerFreshnessCheckMutation,
+  useImportExistingMirrorMutation,
+  useCheckDuplicatesMutation,
+  useGetMirrorLogsV2Query,
+  useGetSyncGroupsQuery,
+  useCreateSyncGroupMutation,
+  useGetSyncGroupQuery,
+  useUpdateSyncGroupMutation,
+  useDeleteSyncGroupMutation,
+  useAssignMirrorsToGroupMutation,
+  useApplyPipelineToGroupMutation,
+  // Pipeline Configurations
+  useGetPipelineConfigsQuery,
+  useGetPipelineConfigQuery,
+  useCreatePipelineConfigMutation,
+  useUpdatePipelineConfigMutation,
+  useDeletePipelineConfigMutation,
+  useDuplicatePipelineConfigMutation,
 } = api;

@@ -24,6 +24,15 @@ class Role(Base):
         backref="roles",
         lazy="selectin",
     )
+    source_group_scopes = relationship(
+        "RoleScopeSourceGroup", back_populates="role", cascade="all, delete-orphan"
+    )
+    credential_scopes = relationship(
+        "RoleScopeCredential", back_populates="role", cascade="all, delete-orphan"
+    )
+    sync_group_scopes = relationship(
+        "RoleScopeSyncGroup", back_populates="role", cascade="all, delete-orphan"
+    )
 
 
 class UserRole(Base):

@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router';
 import { useAppSelector } from '../store';
 import { Layout } from '../components/Layout';
@@ -17,6 +18,16 @@ import { AdminPage } from '../pages/Admin/Users';
 import { SettingsIntegrations } from '../pages/Admin/Integrations';
 import { AuthenticationSettings } from '../pages/Admin/Authentication';
 import { AuditLogPage } from '../pages/Admin/AuditLog';
+import GitMirroring from '../pages/GitMirroring';
+
+// Git Mirroring V2 lazy imports
+const GitMirroringMirrors = lazy(() => import('@/pages/GitMirroring/Mirrors'));
+const GitMirroringRepositories = lazy(() => import('@/pages/GitMirroring/Repositories'));
+const GitMirroringRepositoryDetail = lazy(() => import('@/pages/GitMirroring/Repositories/Detail'));
+const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'));
+const GitMirroringGroups = lazy(() => import('@/pages/GitMirroring/Groups'));
+const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
+const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'));
 
 /**
  * @file router/index.tsx
@@ -141,6 +152,74 @@ export function AppRouter() {
           }
         />
 
+        {/* ── Mirroring / Git Mirroring (v2) ─────────────── */}
+        <Route
+          path="mirroring/git-mirroring"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroring />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Git Mirroring V2 ──────────────────────────── */}
+        <Route
+          path="git-mirroring/mirrors"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringMirrors />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/mirrors/:id"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringMirrors />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/repositories"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringRepositories />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/repositories/:id"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringRepositoryDetail />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/providers"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringProviders />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/groups"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringGroups />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/sync-groups"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringSyncGroups />
+            </PermissionGate>
+          }
+        />
+
         {/* ── Builds / Gold Images ──────────────────────── */}
         <Route
           path="builds/gold-images"
@@ -177,6 +256,16 @@ export function AppRouter() {
           element={
             <PermissionGate permission="pipelines:read">
               <GitLabComponentsPage />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Pipelines / Configurations ────────────────── */}
+        <Route
+          path="pipelines/configurations"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <PipelineConfigsPage />
             </PermissionGate>
           }
         />

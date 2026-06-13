@@ -13,7 +13,7 @@ from app.api import (
     gold_images,
     helm_charts,
     integrations,
-    mirrors,
+    mirroring,
     pipelines,
     projects,
     schedules,
@@ -25,11 +25,20 @@ from app.config import settings
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    from app.database import AsyncSessionLocal
     from app.services.scheduler import scheduler_service
+    from app.services.sync_scheduler import SyncScheduler
 
     await scheduler_service.start()
+
+    sync_scheduler = SyncScheduler(AsyncSessionLocal)
+    await sync_scheduler.start()
+    app.state.sync_scheduler = sync_scheduler
+
     yield
+
     # Shutdown
+    await sync_scheduler.stop()
     await scheduler_service.stop()
 
 
@@ -55,7 +64,6 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
-app.include_router(mirrors.router, prefix="/api/mirrors", tags=["mirrors"])
 app.include_router(gold_images.router, prefix="/api/gold-images", tags=["gold-images"])
 app.include_router(app_images.router, prefix="/api/app-images", tags=["app-images"])
 app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"])
@@ -66,6 +74,7 @@ app.include_router(integrations.router, prefix="/api/integrations", tags=["integ
 app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
 app.include_router(components.router, prefix="/api/components", tags=["components"])
 app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
+app.include_router(mirroring.router, prefix="/api/mirroring", tags=["mirroring"])
 
 
 @app.get("/api/health", tags=["health"])

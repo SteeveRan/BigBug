@@ -1,31 +1,25 @@
 """
 @file gitlab.py
-@description GitLab mirror service — import projects, trigger sync pipelines,
-             and poll pipeline status. Supports multi-instance: accepts an
-             optional ``instance`` parameter; falls back to the first active
-             DB instance, then to settings.GITLAB_URL / settings.GITLAB_TOKEN
-             for backward compatibility.
+@description GitLab service — instance resolution and client factory.
+             Supports multi-instance: accepts an optional ``instance`` parameter;
+             falls back to the first active DB instance, then to settings.GITLAB_URL
+             / settings.GITLAB_TOKEN for backward compatibility.
 @dependencies python-gitlab, app.config.settings, app.core.secrets,
-              app.services.integrations.get_default_gitlab_instance
-@relatedFiles ../models/gitlab_instance.py, ../models/gitlab_mirror.py,
-              ../core/secrets.py, ./integrations.py
+               app.services.integrations.get_default_gitlab_instance
+@relatedFiles ../models/gitlab_instance.py, ../core/secrets.py, ./integrations.py
 """
 
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import gitlab
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.core.exceptions import BadRequestError
 from app.core.secrets import decrypt_secret
-from app.models.gitlab_mirror import GitlabMirror
-from app.models.sync_log import SyncLog
-from app.models.sync_schedule import SyncSchedule
 
 if TYPE_CHECKING:
     from app.models.gitlab_instance import GitlabInstance
@@ -84,118 +78,6 @@ class GitLabService:
                 private_token=settings.gitlab_token or None,
             )
         return gitlab.Gitlab()
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    async def import_mirror_from_url(
-        self,
-        gitlab_url: str,
-        project_id: int,
-        db: AsyncSession,
-        *,
-        instance: GitlabInstance | None = None,
-    ) -> GitlabMirror:
-        """Import an existing GitLab project as a mirror."""
-        if instance is None:
-            instance = await self.get_default_instance(db)
-
-        try:
-            gl = self._get_client(instance)
-            namespace, name = _parse_gitlab_url(gitlab_url)
-            gl_project = gl.projects.get(f"{namespace}/{name}")
-        except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e)) from e
-
-        mirror = GitlabMirror(
-            project_id=project_id,
-            gitlab_project_id=str(gl_project.id),
-            gitlab_namespace=gl_project.namespace["full_path"],
-            gitlab_url=gl_project.web_url,
-            gitlab_name=gl_project.name,
-            is_imported=True,
-            status_flag=4,
-        )
-        db.add(mirror)
-        await db.flush()
-
-        # Create default sync schedule
-        schedule = SyncSchedule(
-            sync_type="git_mirror",
-            git_mirror_id=mirror.id,
-            is_enabled=True,
-            use_default_schedule=True,
-        )
-        db.add(schedule)
-
-        await db.commit()
-        await db.refresh(mirror)
-        return mirror
-
-    async def trigger_sync(
-        self,
-        mirror: GitlabMirror,
-        db: AsyncSession,
-        triggered_by: str = "manual",
-        *,
-        instance: GitlabInstance | None = None,
-    ) -> SyncLog:
-        """Trigger a GitLab pipeline for mirror sync."""
-        if not mirror.pipeline_trigger_token:
-            raise BadRequestError("Mirror has no pipeline trigger token configured")
-
-        if instance is None:
-            instance = await self.get_default_instance(db)
-
-        try:
-            gl = self._get_client(instance)
-            gl_project = gl.projects.get(mirror.gitlab_project_id)
-            pipeline = gl_project.trigger_pipeline(
-                mirror.mirrored_branch,
-                mirror.pipeline_trigger_token,
-            )
-        except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e)) from e
-
-        now = datetime.now(UTC)
-        sync_log = SyncLog(
-            mirror_id=mirror.id,
-            pipeline_id=str(pipeline.id),
-            pipeline_url=f"{mirror.gitlab_url}/-/pipelines/{pipeline.id}",
-            status_flag=3,  # in_progress
-            status_text="running",
-            triggered_by=triggered_by,
-            started_at=now,
-        )
-        db.add(sync_log)
-
-        mirror.status_flag = 3
-        mirror.status_text = "sync in progress"
-
-        await db.commit()
-        await db.refresh(sync_log)
-        return sync_log
-
-    async def get_pipeline_status(
-        self,
-        mirror: GitlabMirror,
-        pipeline_id: str,
-        *,
-        instance: GitlabInstance | None = None,
-        db: AsyncSession | None = None,
-    ) -> dict:
-        """Poll pipeline status from GitLab."""
-        if instance is None and db is not None:
-            instance = await self.get_default_instance(db)
-
-        try:
-            gl = self._get_client(instance)
-            gl_project = gl.projects.get(mirror.gitlab_project_id)
-            pipeline = gl_project.pipelines.get(int(pipeline_id))
-            return {"status": pipeline.status, "id": pipeline.id}
-        except gitlab.exceptions.GitlabError as e:
-            raise ExternalServiceError("GitLab", str(e)) from e
 
 
 # Module-level singleton (backward-compatible)

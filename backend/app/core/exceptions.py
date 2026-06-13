@@ -82,3 +82,18 @@ class RoleHasUsersError(RuntimeError):
 
 class RoleNotFoundError(RuntimeError):
     """The requested role does not exist."""
+
+
+class DomainException(Exception):
+    """Domain-layer exception with an HTTP status code.
+
+    Used in service layers to signal business-rule violations
+    (name conflicts, deletion restrictions, etc).  The API layer
+    catches these and maps them to :class:`fastapi.HTTPException`
+    so that transport concerns stay out of business logic.
+    """
+
+    def __init__(self, detail: str, status_code: int = 400) -> None:
+        self.detail = detail
+        self.status_code = status_code
+        super().__init__(detail)

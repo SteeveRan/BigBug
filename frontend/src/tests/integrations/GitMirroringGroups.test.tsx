@@ -1,0 +1,196 @@
+/**
+ * @file GitMirroringGroups.test.tsx
+ * @description Integration tests for the Git Mirroring Groups page
+ * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router
+ * @relatedFiles ../../../pages/GitMirroring/Groups/index.tsx, ../../../store/api.ts
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { BrowserRouter } from 'react-router';
+import { configureStore } from '@reduxjs/toolkit';
+import type { Store } from '@reduxjs/toolkit';
+import { App } from 'antd';
+
+// ---------------------------------------------------------------------------
+// Mocks
+// ---------------------------------------------------------------------------
+
+vi.mock('../../store/api', async () => {
+  const actual = await vi.importActual('../../store/api');
+  return {
+    ...(actual as object),
+    useGetSourceProvidersQuery: vi.fn(),
+    useGetSourceGroupsQuery: vi.fn(),
+    useRefreshSourceGroupMutation: vi.fn(),
+    useDeleteSourceGroupMutation: vi.fn(),
+  };
+});
+
+vi.mock('../../hooks/usePermissions', () => ({
+  usePermissions: vi.fn(),
+}));
+
+// ---------------------------------------------------------------------------
+// Imports
+// ---------------------------------------------------------------------------
+
+import { api } from '../../store/api';
+import {
+  useGetSourceProvidersQuery,
+  useGetSourceGroupsQuery,
+  useRefreshSourceGroupMutation,
+  useDeleteSourceGroupMutation,
+} from '../../store/api';
+import { usePermissions } from '../../hooks/usePermissions';
+import GroupsPage from '../../pages/GitMirroring/Groups';
+import type { SourceGroup, SourceProvider } from '../../types';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const mockProvider: SourceProvider = {
+  id: 1,
+  name: 'GitHub',
+  provider_type: 'github',
+  credential_id: 10,
+  status_flag: 0,
+  status_text: 'OK',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+const mockGroup: SourceGroup = {
+  id: 1,
+  external_id: 'test-org',
+  name: 'Test Org',
+  full_name: 'Test Org',
+  description: 'A test organization',
+  source_provider_id: 1,
+  repositories_total: 5,
+  repositories_mirrored: 2,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+function createTestStore(): Store {
+  return configureStore({
+    reducer: {
+      [api.reducerPath]: api.reducer,
+    },
+    middleware: (gdm) => gdm().concat(api.middleware),
+  });
+}
+
+function renderGroupsPage() {
+  const store = createTestStore();
+  return {
+    store,
+    ...render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <App>
+            <GroupsPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    ),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('GroupsPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    (usePermissions as ReturnType<typeof vi.fn>).mockReturnValue({
+      hasPermission: vi.fn(() => true),
+      hasAnyPermission: vi.fn(() => true),
+      hasAllPermissions: vi.fn(() => true),
+      permissions: [],
+      isLoading: false,
+    });
+
+    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockProvider],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useGetSourceGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useRefreshSourceGroupMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ]);
+    (useDeleteSourceGroupMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ]);
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 1: Page heading
+  // -----------------------------------------------------------------------
+  it('renders "Source Groups" heading', () => {
+    renderGroupsPage();
+    expect(screen.getByText('Source Groups')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 2: Provider selector
+  // -----------------------------------------------------------------------
+  it('renders provider selector', () => {
+    renderGroupsPage();
+    // The Select component should be in the DOM (antd renders options in a dropdown)
+    const selectElement = document.querySelector('.ant-select');
+    expect(selectElement).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 3: Import button
+  // -----------------------------------------------------------------------
+  it('renders "Import Group" button', () => {
+    renderGroupsPage();
+    expect(screen.getByText('Import Group')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 4: Groups table with data
+  // -----------------------------------------------------------------------
+  it('displays group data when groups are loaded', () => {
+    (useGetSourceGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockGroup],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderGroupsPage();
+
+    // "Test Org" appears in both name and full_name columns
+    expect(screen.getAllByText('Test Org').length).toBeGreaterThanOrEqual(1);
+    // Repository counts displayed via Badge
+    expect(screen.getByText('5')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 5: Empty state
+  // -----------------------------------------------------------------------
+  it('shows empty state when no groups exist', () => {
+    renderGroupsPage();
+    expect(screen.getByText('No groups found')).toBeInTheDocument();
+  });
+});

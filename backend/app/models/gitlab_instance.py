@@ -7,14 +7,15 @@
 """
 
 from datetime import UTC, datetime
-
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
 
 class GitlabInstance(Base):
     __tablename__ = "gitlab_instances"
+
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
@@ -35,6 +36,9 @@ class GitlabInstance(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+    # Relationships
+    pipelines = relationship("Pipeline", back_populates="gitlab_instance")
 
     def __repr__(self) -> str:
         return f"<GitlabInstance(id={self.id}, name='{self.name}', url='{self.url}')>"

@@ -7,11 +7,13 @@ import {
   GithubOutlined,
   CodeOutlined,
   ContainerOutlined,
+  ForkOutlined,
   BuildOutlined,
   GoldOutlined,
   AppstoreOutlined,
   ThunderboltOutlined,
   PlayCircleOutlined,
+  SettingOutlined,
   BlockOutlined,
   SafetyOutlined,
   TeamOutlined,
@@ -52,6 +54,7 @@ function computeSelectedKey(pathname: string): string[] {
 
   // For nested paths — match the first two segments as the parent menu key
   // e.g. /mirroring/repositories/123 → /mirroring/repositories
+  // e.g. /git-mirroring/mirrors/123 → /git-mirroring/mirrors
   // e.g. /admin/users → /admin/users
   const segments = normalized.split('/').filter(Boolean);
   if (segments.length >= 2) {
@@ -125,6 +128,7 @@ export function Layout() {
       type: 'group',
       children: [
         { key: '/pipelines/runs', icon: <PlayCircleOutlined />, label: 'Pipeline Runs' },
+        { key: '/pipelines/configurations', icon: <SettingOutlined />, label: 'Configurations' },
         { key: '/pipelines/components', icon: <BlockOutlined />, label: 'GitLab Components' },
       ],
     },
@@ -142,6 +146,23 @@ export function Layout() {
         { key: '/admin/integrations', icon: <ApiOutlined />, label: 'Integrations' },
         { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
         { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
+      ],
+    },
+    {
+      key: 'group-git-mirroring',
+      label: (
+        <span>
+          <ForkOutlined style={{ marginRight: 8 }} />
+          Git Mirroring
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/git-mirroring/mirrors', icon: <SyncOutlined />, label: 'Mirrors' },
+        { key: '/git-mirroring/repositories', icon: <GithubOutlined />, label: 'Repositories' },
+        { key: '/git-mirroring/providers', icon: <ApiOutlined />, label: 'Source Providers' },
+        { key: '/git-mirroring/groups', icon: <AppstoreOutlined />, label: 'Source Groups' },
+        { key: '/git-mirroring/sync-groups', icon: <BlockOutlined />, label: 'Sync Groups' },
       ],
     },
   ];

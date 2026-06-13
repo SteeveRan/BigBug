@@ -36,14 +36,12 @@ class SchedulerService:
         logger.info("Scheduler stopped")
 
     async def _run_sync_jobs(self) -> None:
-        """Run all enabled sync schedules of all types."""
+        """Run all enabled sync schedules (docker_image and helm_chart types)."""
         from app.database import AsyncSessionLocal
         from app.models.docker_image_source import DockerImageSource
         from app.models.docker_image_tag import DockerImageTag
-        from app.models.gitlab_mirror import GitlabMirror
         from app.models.sync_schedule import SyncSchedule
         from app.services.docker import docker_service
-        from app.services.gitlab import gitlab_service
 
         async with AsyncSessionLocal() as db:
             result = await db.execute(select(SyncSchedule).where(SyncSchedule.is_enabled.is_(True)))
@@ -63,16 +61,7 @@ class SchedulerService:
                     continue
 
                 try:
-                    if schedule.sync_type == "git_mirror" and schedule.git_mirror_id:
-                        mirror_result = await db.execute(
-                            select(GitlabMirror).where(GitlabMirror.id == schedule.git_mirror_id)
-                        )
-                        mirror = mirror_result.scalar_one_or_none()
-                        if mirror and mirror.pipeline_trigger_token:
-                            await gitlab_service.trigger_sync(mirror, db, triggered_by="scheduler")
-                            logger.info(f"Triggered sync for mirror {mirror.id}")
-
-                    elif schedule.sync_type == "docker_image" and schedule.docker_image_source_id:
+                    if schedule.sync_type == "docker_image" and schedule.docker_image_source_id:
                         source_result = await db.execute(
                             select(DockerImageSource).where(
                                 DockerImageSource.id == schedule.docker_image_source_id
