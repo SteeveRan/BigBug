@@ -1,6 +1,15 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from app.schemas.integrations import DockerRegistryInstanceOut
+
+# Import the class for runtime reference resolution
+from app.schemas.integrations import DockerRegistryInstanceOut
 
 # ──── DockerImageTag────────────────────────────────────────────────────────
 
@@ -49,6 +58,8 @@ class DockerImageSourceOut(BaseModel):
     name: str
     registry_url: str
     description: str | None
+    registry_instance_id: int | None = None
+    registry_instance: 'DockerRegistryInstanceOut | None' = None
     gitlab_project_id: str | None
     gitlab_project_url: str | None
     target_registry_url: str | None = None
@@ -76,6 +87,7 @@ class CreateDockerImageSourceRequest(BaseModel):
     registry_url: str
     description: str | None = None
     image_name: str | None = None  # Optional: pre-filter to a specific image
+    registry_instance_id: int | None = None  # Link to configured registry instance
     target_registry_url: str | None = None
     target_project: str | None = None
 
@@ -84,6 +96,7 @@ class UpdateDockerImageSourceRequest(BaseModel):
     name: str | None = None
     registry_url: str | None = None
     description: str | None = None
+    registry_instance_id: int | None = None  # Allow changing linked registry instance
     target_registry_url: str | None = None
     target_project: str | None = None
 

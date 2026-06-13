@@ -10,7 +10,115 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
+from app.models.docker_registry_instance import DockerRegistryInstance, RegistryProvider
 from app.models.docker_sync_log import DockerSyncLog
+
+
+# ──── Registry Parsing Utilities ────────────────────────────────────────────
+
+
+# Map of known registry hostnames to providers
+_REGISTRY_HOST_TO_PROVIDER: dict[str, str] = {
+    "registry-1.docker.io": "docker_hub",
+    "docker.io": "docker_hub",
+    "index.docker.io": "docker_hub",
+    "quay.io": "quay_io",
+    "gcr.io": "gcr",
+    "us.gcr.io": "gcr",
+    "eu.gcr.io": "gcr",
+    "asia.gcr.io": "gcr",
+    "public.ecr.aws": "ecr",
+    "mcr.microsoft.com": "acr",
+    "ghcr.io": "ghcr",
+}
+
+
+def parse_registry_from_image(image_name: str) -> tuple[str, str]:
+    """
+    Parse registry host and provider from an image reference.
+
+    Examples:
+        nginx:latest             -> ('registry-1.docker.io', 'docker_hub')
+        library/nginx:latest     -> ('registry-1.docker.io', 'docker_hub')
+        quay.io/prom/node:latest -> ('quay.io', 'quay_io')
+        myregistry.com/foo:tag   -> ('myregistry.com', 'generic')
+
+    Returns (registry_host, provider) tuple.
+    """
+    image_name = image_name.strip()
+    # Remove tag/digest for parsing
+    if ":" in image_name:
+        # Could be tag or port, careful
+        image_name = image_name.split("@")[0]
+
+    parts = image_name.split("/")
+
+    # Single segment: library image on Docker Hub
+    if len(parts) == 1:
+        return ("registry-1.docker.io", "docker_hub")
+
+    first = parts[0]
+
+    # Check if first part looks like a registry hostname (contains a dot or colon-port)
+    if "." in first or ":" in first:
+        registry_host = first
+        provider = _REGISTRY_HOST_TO_PROVIDER.get(registry_host, "generic")
+        return (registry_host, provider)
+
+    # First part is a Docker Hub username or "library"
+    # e.g., library/nginx -> Docker Hub
+    if first in ("library", "docker.io", "_"):
+        return ("registry-1.docker.io", "docker_hub")
+
+    # Two-part reference without dots: likely Docker Hub user/image
+    # e.g., node:latest (single segment already handled), prom/node-exporter
+    return ("registry-1.docker.io", "docker_hub")
+
+
+def detect_provider_from_url(url: str) -> str:
+    """Detect registry provider from a registry URL."""
+    url_lower = url.lower()
+    for host, provider in _REGISTRY_HOST_TO_PROVIDER.items():
+        if host in url_lower:
+            return provider
+    return "generic"
+
+
+def normalize_registry_image_ref(image_name: str) -> str:
+    """
+    Normalize an image reference to a full canonical form.
+
+    nginx:latest -> registry-1.docker.io/library/nginx:latest
+    quay.io/prom/node:latest -> quay.io/prometheus/node-exporter:latest
+    """
+    registry_host, _ = parse_registry_from_image(image_name)
+
+    # Extract tag
+    tag = "latest"
+    name_part = image_name
+    if ":" in image_name and "@" not in image_name:
+        name_part, tag = image_name.rsplit(":", 1)
+
+    # Build normalized path
+    if registry_host == "registry-1.docker.io":
+        parts = name_part.split("/")
+        if len(parts) == 1:
+            normalized = f"library/{parts[0]}"
+        elif parts[0] in ("library", "docker.io", "_"):
+            normalized = "/".join(parts)
+        elif "." not in parts[0]:
+            normalized = "/".join(parts)
+        else:
+            normalized = "/".join(parts[1:])
+        return f"{registry_host}/{normalized}:{tag}"
+
+    # Other registries: strip registry host from path
+    parts = name_part.split("/")
+    if parts[0] == registry_host:
+        remaining = "/".join(parts[1:])
+    else:
+        remaining = "/".join(parts)
+    return f"{registry_host}/{remaining}:{tag}"
 
 
 def _normalize_registry_url(url: str) -> str:
@@ -42,8 +150,13 @@ class DockerRegistryService:
         db: AsyncSession,
         target_registry_url: str | None = None,
         target_project: str | None = None,
+        registry_instance_id: int | None = None,
     ) -> DockerImageSource:
-        """Create a new DockerImageSource from a registry URL and index it."""
+        """Create a new DockerImageSource from a registry URL and index it.
+
+        If registry_instance_id is provided, links the image source to the
+        configured registry instance. Otherwise, attempts auto-detection.
+        """
         _validate_registry_url(registry_url)
         normalized_url = _normalize_registry_url(registry_url)
 
@@ -54,12 +167,23 @@ class DockerRegistryService:
         if existing_result.scalar_one_or_none() is not None:
             raise BadRequestError(f"Docker image source with name '{name}' already exists")
 
+        # Auto-detect registry instance if not explicitly provided
+        if registry_instance_id is None:
+            from app.services.integrations import DockerRegistryInstanceService
+            inst_service = DockerRegistryInstanceService(db)
+            provider = detect_provider_from_url(registry_url)
+            registry_host, _ = parse_registry_from_image(image_name or name)
+            matched = await inst_service.find_matching_registry(registry_host, provider)
+            if matched:
+                registry_instance_id = matched.id
+
         source = DockerImageSource(
             name=name,
             registry_url=normalized_url,
             status_flag=4,
             target_registry_url=target_registry_url,
             target_project=target_project,
+            registry_instance_id=registry_instance_id,
         )
         db.add(source)
         await db.flush()

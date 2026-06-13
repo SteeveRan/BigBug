@@ -161,10 +161,10 @@ export function HarborPanel({ showMessage }: PanelProps) {
     <Flex vertical gap={16}>
       <Flex justify="space-between" align="center">
         <Typography.Title level={5} style={{ margin: 0 }}>
-          Harbor Instances
+          Internal Registries
         </Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Add Instance
+          Add Registry
         </Button>
       </Flex>
 

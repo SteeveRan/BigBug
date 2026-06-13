@@ -200,6 +200,15 @@ class DockerRegistryInstanceCreate(BaseModel):
     is_active: bool = Field(True)
     is_default: bool = Field(False)
     verify_ssl: bool = Field(True)
+    registry_type: str = Field(
+        "external",
+        description="Classification: internal (company registries) or external (third-party)",
+    )
+    registry_provider: str = Field(
+        "generic",
+        description="Known registry provider for auto-detection: docker_hub, quay_io, gcr, ecr, acr, ghcr, harbor, generic",
+    )
+    priority: int = Field(0, description="Higher priority = preferred for auto-selection")
 
 
 class DockerRegistryInstanceUpdate(BaseModel):
@@ -213,6 +222,9 @@ class DockerRegistryInstanceUpdate(BaseModel):
     is_active: bool | None = None
     is_default: bool | None = None
     verify_ssl: bool | None = None
+    registry_type: str | None = None
+    registry_provider: str | None = None
+    priority: int | None = None
 
 
 class DockerRegistryInstanceOut(_DatetimeStrOut):
@@ -225,6 +237,9 @@ class DockerRegistryInstanceOut(_DatetimeStrOut):
     is_active: bool
     is_default: bool
     verify_ssl: bool
+    registry_type: str
+    registry_provider: str
+    priority: int
     status_flag: int
     status_text: str
     last_checked_at: str | None

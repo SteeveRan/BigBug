@@ -8,11 +8,30 @@
               ../../schemas/integrations.py
 """
 
+import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String, Text
 
 from app.database import Base
+
+
+class RegistryType(str, enum.Enum):
+    """Classification of registries for UI grouping and matching logic."""
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+
+class RegistryProvider(str, enum.Enum):
+    """Known registry providers for auto-detection and matching."""
+    DOCKER_HUB = "docker_hub"
+    QUAY_IO = "quay_io"
+    GCR = "gcr"          # Google Container Registry
+    ECR = "ecr"          # AWS Elastic Container Registry
+    ACR = "acr"          # Azure Container Registry
+    GHCR = "ghcr"        # GitHub Container Registry
+    HARBOR = "harbor"
+    GENERIC = "generic"
 
 
 class DockerRegistryInstance(Base):
@@ -26,6 +45,24 @@ class DockerRegistryInstance(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
     verify_ssl = Column(Boolean, default=True, nullable=False)
+    registry_type = Column(
+        Enum(RegistryType),
+        default=RegistryType.EXTERNAL,
+        nullable=False,
+        comment="Classification: internal (company registries) or external (third-party)",
+    )
+    registry_provider = Column(
+        Enum(RegistryProvider),
+        default=RegistryProvider.GENERIC,
+        nullable=False,
+        comment="Known registry provider for auto-detection and matching",
+    )
+    priority = Column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Higher priority = preferred for auto-selection when multiple registries match",
+    )
     last_checked_at = Column(DateTime(timezone=True), nullable=True)
     status_flag = Column(
         Integer, default=0, nullable=False

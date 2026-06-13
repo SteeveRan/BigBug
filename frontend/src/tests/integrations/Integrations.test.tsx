@@ -178,9 +178,9 @@ describe('SettingsIntegrations', () => {
     // Verify tablist is rendered (not just menu, actual content)
     expect(screen.getByRole('tablist')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'GitLab' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Harbor' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Internal Registries' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'GitHub' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Docker Registry' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'External Registries' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Helm Repository' })).toBeInTheDocument();
   });
 

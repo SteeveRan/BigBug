@@ -151,6 +151,15 @@ async def update_project(
     await db.commit()
     # Refresh only modified scalar attributes; keep eagerly-loaded relationships intact.
     await db.refresh(project, attribute_names=["custom_description", "stale_threshold_days"])
+    
+    # Count releases for this project (needed for the response schema)
+    from sqlalchemy import func
+    from app.models.github_release import GithubRelease
+    releases_count_result = await db.execute(
+        select(func.count(GithubRelease.id)).where(GithubRelease.project_id == project_id)
+    )
+    project.releases_count = releases_count_result.scalar_one()
+    
     return project
 
 

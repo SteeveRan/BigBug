@@ -43,6 +43,7 @@ import type {
   DockerSyncLog,
   DockerSyncSchedule,
   DockerImageCompareResponse,
+  AnalyzeImageResponse,
   GithubRelease,
 } from '../types';
 
@@ -362,6 +363,7 @@ export const api = createApi({
         registry_url: string;
         description?: string;
         image_name?: string;
+        registry_instance_id?: number;
         target_registry_url?: string;
         target_project?: string;
       }
@@ -402,6 +404,10 @@ export const api = createApi({
       invalidatesTags: (_result, _error, { sourceId }) => [
         { type: 'DockerImage', id: sourceId },
       ],
+    }),
+
+    analyzeDockerImage: builder.mutation<AnalyzeImageResponse, { image_name: string }>({
+      query: (body) => ({ url: '/docker-images/analyze', method: 'POST', body }),
     }),
 
     compareDockerImages: builder.query<
@@ -839,6 +845,7 @@ export const {
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useBatchDeleteDockerTagsMutation,
+  useAnalyzeDockerImageMutation,
   useGetDockerSyncSchedulesQuery,
   useCompareDockerImagesQuery,
   useCreateDockerSyncScheduleMutation,

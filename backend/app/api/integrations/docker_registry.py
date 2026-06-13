@@ -57,6 +57,9 @@ async def create_docker_registry_instance(
             is_active=data.is_active,
             verify_ssl=data.verify_ssl,
             is_default=data.is_default,
+            registry_type=data.registry_type,
+            registry_provider=data.registry_provider,
+            priority=data.priority,
         )
     except ConflictError as e:
         raise e
@@ -109,6 +112,9 @@ async def update_docker_registry_instance(
             is_active=data.is_active,
             verify_ssl=data.verify_ssl,
             is_default=data.is_default,
+            registry_type=data.registry_type,
+            registry_provider=data.registry_provider,
+            priority=data.priority,
         )
     except (NotFoundError, ConflictError) as e:
         raise e

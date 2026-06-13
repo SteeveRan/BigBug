@@ -16,6 +16,7 @@ vi.mock('../../store/api', async () => {
     ...(actual as object),
     useListDockerImagesQuery: vi.fn(),
     useCreateDockerImageMutation: vi.fn(),
+    useAnalyzeDockerImageMutation: vi.fn(),
     useIndexDockerImageMutation: vi.fn(),
   };
 });
@@ -23,10 +24,12 @@ vi.mock('../../store/api', async () => {
 import {
   useListDockerImagesQuery,
   useCreateDockerImageMutation,
+  useAnalyzeDockerImageMutation,
   useIndexDockerImageMutation,
 } from '../../store/api';
 
 const mockCreateFn = vi.fn();
+const mockAnalyzeFn = vi.fn();
 const mockIndexFn = vi.fn();
 
 function createTestStore() {
@@ -62,6 +65,7 @@ describe('DockerImagesPage', () => {
     store = createTestStore();
     vi.clearAllMocks();
     mockCreateFn.mockReset();
+    mockAnalyzeFn.mockReset();
     mockIndexFn.mockReset();
     (useListDockerImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockSources,
@@ -70,6 +74,10 @@ describe('DockerImagesPage', () => {
     });
     (useCreateDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       mockCreateFn,
+      { isLoading: false },
+    ]);
+    (useAnalyzeDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      mockAnalyzeFn,
       { isLoading: false },
     ]);
     (useIndexDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -106,72 +114,75 @@ describe('DockerImagesPage', () => {
     expect(screen.getByText('https://registry-1.docker.io')).toBeInTheDocument();
   });
 
-  it('opens create dialog with optional image_name field', async () => {
+  const mockAnalysisResponse = {
+    image_name: 'library/nginx',
+    normalized_image: 'library/nginx:latest',
+    detected_registry_host: 'docker.io',
+    detected_provider: 'dockerhub',
+    compatible_registries: [
+      { id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' },
+    ],
+    suggested_registry: { id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' },
+    is_new_registry_needed: false,
+  };
+
+  it('opens dialog with two-step Add Image flow', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByText('Add Registry'));
+    // Click "Add Image" button (new UI)
+    await user.click(screen.getByRole('button', { name: /Add Image/ }));
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(screen.getByText('Add Docker Registry')).toBeInTheDocument();
-    // antd Input uses placeholder, not aria-label
-    const imageNameInput = dialog.getByPlaceholderText('Image Name — optional (e.g. library/nginx)');
-    expect(imageNameInput).toBeInTheDocument();
+    expect(screen.getByText('Add Docker Image')).toBeInTheDocument();
 
-    // Name и Registry URL — antd required prop adds aria-required
-    expect(dialog.getByPlaceholderText('Name (e.g. Docker Hub)').closest('input')).toBeRequired();
-    expect(dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)').closest('input')).toBeRequired();
+    // Step 1: image name input + Analyze button
+    const imageInput = dialog.getByPlaceholderText('e.g. nginx:latest or quay.io/prometheus/node-exporter:latest');
+    expect(imageInput).toBeInTheDocument();
+    expect(dialog.getByRole('button', { name: 'Analyze' })).toBeDisabled();
   });
 
-  it('submits create form with optional image_name', async () => {
+  it('analyzes image and completes two-step creation flow', async () => {
+    mockAnalyzeFn.mockReturnValue({ unwrap: () => Promise.resolve(mockAnalysisResponse) });
     mockCreateFn.mockReturnValue({ unwrap: () => Promise.resolve({ data: { id: 2 } }) });
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByText('Add Registry'));
+    // Click "Add Image" button
+    await user.click(screen.getByRole('button', { name: /Add Image/ }));
 
     const dialog = within(screen.getByRole('dialog'));
 
-    await user.type(dialog.getByPlaceholderText('Name (e.g. Docker Hub)'), 'Private Hub');
+    // Step 1: enter image name
     await user.type(
-      dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)'),
-      'https://registry.example.com'
-    );
-    await user.type(dialog.getByPlaceholderText('Image Name — optional (e.g. library/nginx)'), 'library/nginx');
-
-    await user.click(dialog.getByRole('button', { name: /^Add$/ }));
-
-    expect(mockCreateFn).toHaveBeenCalledWith({
-      name: 'Private Hub',
-      registry_url: 'https://registry.example.com',
-      description: undefined,
-      image_name: 'library/nginx',
-    });
-  });
-
-  it('submits create form without image_name', async () => {
-    mockCreateFn.mockReturnValue({ unwrap: () => Promise.resolve({ data: { id: 2 } }) });
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByText('Add Registry'));
-
-    const dialog = within(screen.getByRole('dialog'));
-
-    await user.type(dialog.getByPlaceholderText('Name (e.g. Docker Hub)'), 'Private Hub');
-    await user.type(
-      dialog.getByPlaceholderText('Registry URL (e.g. https://registry-1.docker.io)'),
-      'https://registry.example.com'
+      dialog.getByPlaceholderText('e.g. nginx:latest or quay.io/prometheus/node-exporter:latest'),
+      'library/nginx:latest'
     );
 
-    await user.click(dialog.getByRole('button', { name: /^Add$/ }));
+    // Click Analyze
+    await user.click(dialog.getByRole('button', { name: 'Analyze' }));
 
-    expect(mockCreateFn).toHaveBeenCalledWith({
-      name: 'Private Hub',
-      registry_url: 'https://registry.example.com',
-      description: undefined,
-      image_name: undefined,
-    });
+    // Verify analyze mutation was called
+    expect(mockAnalyzeFn).toHaveBeenCalledWith({ image_name: 'library/nginx:latest' });
+
+    // Step 2 should show: we need to wait for the UI to update after the promise resolves
+    // The Select and "Add Image" button should appear
+    expect(await dialog.findByText('Normalized Image')).toBeInTheDocument();
+    expect(dialog.getByText('library/nginx:latest')).toBeInTheDocument();
+    expect(dialog.getByText('Detected Registry')).toBeInTheDocument();
+
+    // Click "Add Image" to submit
+    await user.click(dialog.getByRole('button', { name: 'Add Image' }));
+
+    // Verify create mutation was called with analysis-derived fields
+    expect(mockCreateFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'library/nginx',
+        registry_url: 'https://registry-1.docker.io',
+        image_name: 'library/nginx:latest',
+        registry_instance_id: 1,
+      })
+    );
   });
 
   it('shows loading spinner when isLoading', () => {

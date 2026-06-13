@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -7,6 +8,7 @@ from app.core.rbac import require_operator, require_viewer
 from app.database import get_db
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
+from app.models.docker_registry_instance import DockerRegistryInstance
 from app.models.docker_sync_log import DockerSyncLog
 from app.models.sync_schedule import SyncSchedule
 from app.schemas.docker import (
@@ -23,6 +25,7 @@ from app.schemas.docker import (
     UpdateDockerImageSourceRequest,
     UpdateDockerSyncScheduleRequest,
 )
+from app.schemas.integrations import DockerRegistryInstanceOut
 
 router = APIRouter()
 
@@ -35,7 +38,11 @@ async def list_sources(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_viewer()),
 ):
-    result = await db.execute(select(DockerImageSource))
+    result = await db.execute(
+        select(DockerImageSource).options(
+            selectinload(DockerImageSource.registry_instance)
+        )
+    )
     return result.scalars().all()
 
 
@@ -74,6 +81,7 @@ async def create_source(
         db,
         target_registry_url=data.target_registry_url,
         target_project=data.target_project,
+        registry_instance_id=data.registry_instance_id,
     )
     return source
 
@@ -99,6 +107,8 @@ async def update_source(
         source.registry_url = data.registry_url  # type: ignore[assignment]
     if data.description is not None:
         source.description = data.description  # type: ignore[assignment]
+    if data.registry_instance_id is not None:
+        source.registry_instance_id = data.registry_instance_id  # type: ignore[assignment]
     if data.target_registry_url is not None:
         source.target_registry_url = data.target_registry_url  # type: ignore[assignment]
     if data.target_project is not None:
@@ -478,3 +488,62 @@ async def delete_docker_sync_schedule(
     await db.delete(schedule)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ──── Image Analysis ────────────────────────────────────────────────────────
+
+
+class AnalyzeImageRequest(BaseModel):
+    """Request to analyze an image reference and suggest matching registries."""
+
+    image_name: str = Field(
+        ..., min_length=1, max_length=500, description="Image reference (e.g. nginx:latest)"
+    )
+
+
+class AnalyzeImageResponse(BaseModel):
+    """Result of image analysis with registry matching suggestions."""
+
+    image_name: str
+    normalized_image: str
+    detected_registry_host: str
+    detected_provider: str
+    suggested_registry: DockerRegistryInstanceOut | None = None
+    compatible_registries: list[DockerRegistryInstanceOut] = []
+    is_new_registry_needed: bool = False
+
+
+@router.post("/analyze", response_model=AnalyzeImageResponse)
+async def analyze_image(
+    data: AnalyzeImageRequest,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_operator()),
+):
+    """
+    Analyze an image reference and suggest matching registry instances.
+
+    Returns the detected registry host, provider, and a list of compatible
+    configured registry instances that can serve as the source.
+    """
+    from app.services.docker import normalize_registry_image_ref, parse_registry_from_image
+    from app.services.integrations import DockerRegistryInstanceService
+
+    image_name = data.image_name.strip()
+    registry_host, provider = parse_registry_from_image(image_name)
+    normalized = normalize_registry_image_ref(image_name)
+
+    inst_service = DockerRegistryInstanceService(db)
+    suggested = await inst_service.find_matching_registry(registry_host, provider)
+    compatible = await inst_service.get_compatible_registries(registry_host, provider)
+
+    return AnalyzeImageResponse(
+        image_name=image_name,
+        normalized_image=normalized,
+        detected_registry_host=registry_host,
+        detected_provider=provider,
+        suggested_registry=DockerRegistryInstanceOut.model_validate(suggested) if suggested else None,
+        compatible_registries=[
+            DockerRegistryInstanceOut.model_validate(r) for r in compatible
+        ],
+        is_new_registry_needed=suggested is None,
+    )

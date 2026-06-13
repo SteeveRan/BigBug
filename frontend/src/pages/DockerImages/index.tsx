@@ -1,6 +1,6 @@
 /**
  * @file index.tsx
- * @description Страница списка Docker Images: таблица с columns/dataSource, модальное окно добавления
+ * @description Страница списка Docker Images: таблица, модальное окно с двухшаговым добавлением (анализ → подтверждение)
  * @dependencies antd, @ant-design/icons, Redux store
  */
 import { useState } from 'react';
@@ -17,6 +17,9 @@ import {
   Tooltip,
   Space,
   Tag,
+  Select,
+  Alert,
+  Spin,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -26,40 +29,87 @@ import {
 import {
   useListDockerImagesQuery,
   useCreateDockerImageMutation,
+  useAnalyzeDockerImageMutation,
 } from '../../store/api';
-import { DockerImageSource } from '../../types';
+import {
+  DockerImageSource,
+  AnalyzeImageResponse,
+  DockerRegistryInstance,
+} from '../../types';
 
 export function DockerImagesPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { data: sources = [], isLoading } = useListDockerImagesQuery();
   const [createSource] = useCreateDockerImageMutation();
+  const [analyzeDockerImage] = useAnalyzeDockerImageMutation();
 
+  // ── Dialog state ──────────────────────────────────────────────────────────
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: '',
-    registry_url: '',
-    description: '',
-    image_name: '',
-    target_registry_url: '',
-    target_project: '',
-  });
+  const [imageName, setImageName] = useState('');
+  const [step, setStep] = useState<'input' | 'analyze'>('input');
+  const [analysis, setAnalysis] = useState<AnalyzeImageResponse | null>(null);
+  const [selectedRegistryId, setSelectedRegistryId] = useState<number | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const resetForm = () => {
+    setImageName('');
+    setStep('input');
+    setAnalysis(null);
+    setSelectedRegistryId(null);
+    setAnalysisError(null);
+  };
+
+  const handleOpenDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  // ── Step 1: Analyze image name ────────────────────────────────────────────
+
+  const handleAnalyze = async () => {
+    const trimmed = imageName.trim();
+    if (!trimmed) return;
+    setAnalyzing(true);
+    setAnalysisError(null);
+    try {
+      const result = await analyzeDockerImage({ image_name: trimmed }).unwrap();
+      setAnalysis(result);
+      setSelectedRegistryId(result.suggested_registry?.id ?? null);
+      setStep('analyze');
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === 'object' && 'data' in err
+          ? (err as { data?: { detail?: string } }).data?.detail
+          : undefined;
+      setAnalysisError(detail || 'Failed to analyze image');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // ── Step 2: Confirm & create ──────────────────────────────────────────────
+
   const handleCreate = async () => {
+    if (!analysis) return;
     setSubmitting(true);
     try {
+      const selectedRegistry = analysis.compatible_registries.find(
+        (r) => r.id === selectedRegistryId,
+      );
       await createSource({
-        name: form.name,
-        registry_url: form.registry_url,
-        description: form.description || undefined,
-        image_name: form.image_name || undefined,
-        target_registry_url: form.target_registry_url || undefined,
-        target_project: form.target_project || undefined,
+        name: analysis.image_name,
+        registry_url: selectedRegistry?.url || analysis.detected_registry_host,
+        image_name: analysis.normalized_image,
+        registry_instance_id: selectedRegistryId ?? undefined,
       }).unwrap();
-      message.success('Docker registry added successfully');
+      message.success('Docker image added successfully');
       setDialogOpen(false);
-      setForm({ name: '', registry_url: '', description: '', image_name: '', target_registry_url: '', target_project: '' });
+      resetForm();
     } catch {
       // error handled by RTK Query
     } finally {
@@ -67,10 +117,19 @@ export function DockerImagesPage() {
     }
   };
 
-  const handleOpenDialog = () => {
-    setForm({ name: '', registry_url: '', description: '', image_name: '', target_registry_url: '', target_project: '' });
-    setDialogOpen(true);
+  const handleBack = () => {
+    setStep('input');
+    setAnalysis(null);
+    setSelectedRegistryId(null);
+    setAnalysisError(null);
   };
+
+  const handleCancel = () => {
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  // ── Table columns ─────────────────────────────────────────────────────────
 
   const columns: ColumnsType<DockerImageSource> = [
     {
@@ -189,6 +248,17 @@ export function DockerImagesPage() {
     },
   ];
 
+  // ── Registry select options ───────────────────────────────────────────────
+
+  const registryOptions = (analysis?.compatible_registries || []).map(
+    (r: DockerRegistryInstance) => ({
+      label: `${r.name} (${r.url})`,
+      value: r.id,
+    }),
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <Flex vertical gap={16}>
       {/* ── Header ──────────────────────────────────────────────────────────── */}
@@ -197,7 +267,7 @@ export function DockerImagesPage() {
           Docker Images
         </Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenDialog}>
-          Add Registry
+          Add Image
         </Button>
       </Flex>
 
@@ -213,55 +283,122 @@ export function DockerImagesPage() {
             style: { cursor: 'pointer' },
           })}
           pagination={false}
-          locale={{ emptyText: 'No Docker image sources yet. Add a registry to get started.' }}
+          locale={{ emptyText: 'No Docker image sources yet. Add an image to get started.' }}
         />
       </Card>
 
-      {/* ── Create Modal ────────────────────────────────────────────────────── */}
+      {/* ── Add Image Modal ─────────────────────────────────────────────────── */}
       <Modal
-        title="Add Docker Registry"
+        title="Add Docker Image"
         open={dialogOpen}
-        onOk={handleCreate}
-        onCancel={() => setDialogOpen(false)}
-        confirmLoading={submitting}
-        okButtonProps={{ disabled: !form.name || !form.registry_url }}
-        okText="Add"
-        cancelText="Cancel"
+        onCancel={handleCancel}
+        footer={
+          step === 'input'
+            ? [
+                <Button key="cancel" onClick={handleCancel}>
+                  Cancel
+                </Button>,
+                <Button
+                  key="analyze"
+                  type="primary"
+                  loading={analyzing}
+                  disabled={!imageName.trim()}
+                  onClick={handleAnalyze}
+                >
+                  Analyze
+                </Button>,
+              ]
+            : [
+                <Button key="back" onClick={handleBack}>
+                  Back
+                </Button>,
+                <Button key="cancel" onClick={handleCancel}>
+                  Cancel
+                </Button>,
+                <Button
+                  key="create"
+                  type="primary"
+                  loading={submitting}
+                  disabled={!selectedRegistryId}
+                  onClick={handleCreate}
+                >
+                  Add Image
+                </Button>,
+              ]
+        }
       >
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Input
-            placeholder="Name (e.g. Docker Hub)"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-          <Input
-            placeholder="Registry URL (e.g. https://registry-1.docker.io)"
-            value={form.registry_url}
-            onChange={(e) => setForm({ ...form, registry_url: e.target.value })}
-            required
-          />
-          <Input
-            placeholder="Image Name — optional (e.g. library/nginx)"
-            value={form.image_name}
-            onChange={(e) => setForm({ ...form, image_name: e.target.value })}
-          />
-          <Input
-            placeholder="Target Registry URL — optional (e.g. https://harbor.example.com)"
-            value={form.target_registry_url}
-            onChange={(e) => setForm({ ...form, target_registry_url: e.target.value })}
-          />
-          <Input
-            placeholder="Target Project — optional (e.g. library)"
-            value={form.target_project}
-            onChange={(e) => setForm({ ...form, target_project: e.target.value })}
-          />
-          <Input
-            placeholder="Description"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </Space>
+        {/* ── Step 1: Input ─────────────────────────────────────────────────── */}
+        {step === 'input' && (
+          <Flex vertical gap={16}>
+            <Typography.Text>
+              Enter an image name to detect its registry and compatible registries.
+            </Typography.Text>
+            <Input
+              placeholder="e.g. nginx:latest or quay.io/prometheus/node-exporter:latest"
+              value={imageName}
+              onChange={(e) => {
+                setImageName(e.target.value);
+                setAnalysisError(null);
+              }}
+              onPressEnter={handleAnalyze}
+              size="large"
+              autoFocus
+            />
+            {analyzing && (
+              <Flex justify="center">
+                <Spin tip="Analyzing image..." />
+              </Flex>
+            )}
+            {analysisError && (
+              <Alert type="error" message={analysisError} closable />
+            )}
+          </Flex>
+        )}
+
+        {/* ── Step 2: Review & Confirm ──────────────────────────────────────── */}
+        {step === 'analyze' && analysis && (
+          <Flex vertical gap={16}>
+            {/* Normalized image */}
+            <Flex vertical gap={4}>
+              <Typography.Text strong>Normalized Image</Typography.Text>
+              <Typography.Text code>{analysis.normalized_image}</Typography.Text>
+            </Flex>
+
+            {/* Detected registry */}
+            <Flex vertical gap={4}>
+              <Typography.Text strong>Detected Registry</Typography.Text>
+              <Space>
+                <Tag>{analysis.detected_registry_host}</Tag>
+                <Tag color="blue">{analysis.detected_provider}</Tag>
+              </Space>
+            </Flex>
+
+            {/* Registry selection */}
+            <Flex vertical gap={4}>
+              <Typography.Text strong>Target Registry</Typography.Text>
+              <Select
+                style={{ width: '100%' }}
+                options={registryOptions}
+                value={selectedRegistryId}
+                onChange={(val) => setSelectedRegistryId(val)}
+                placeholder="Select a registry..."
+              />
+              <Typography.Text type="secondary">
+                The registry that will be used to pull this image
+              </Typography.Text>
+            </Flex>
+
+            {/* New registry needed warning */}
+            {analysis.is_new_registry_needed && (
+              <Alert
+                type="warning"
+                showIcon
+                message="No matching registry found"
+                description="You may need to add one in Settings → Integrations → External Registries"
+              />
+            )}
+          </Flex>
+        )}
       </Modal>
     </Flex>
   );

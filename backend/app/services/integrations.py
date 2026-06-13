@@ -638,6 +638,9 @@ class DockerRegistryInstanceService:
         is_active: bool = True,
         verify_ssl: bool = True,
         is_default: bool = False,
+        registry_type: str = "external",
+        registry_provider: str = "generic",
+        priority: int = 0,
     ) -> DockerRegistryInstance:
         await _check_unique_name(self.db, DockerRegistryInstance, name)
 
@@ -649,6 +652,9 @@ class DockerRegistryInstanceService:
             is_active=is_active,
             verify_ssl=verify_ssl,
             is_default=is_default,
+            registry_type=registry_type,  # type: ignore[call-arg]
+            registry_provider=registry_provider,  # type: ignore[call-arg]
+            priority=priority,  # type: ignore[call-arg]
             status_flag=STATUS_PENDING,
             status_text=_status_text(STATUS_PENDING),
         )
@@ -667,6 +673,9 @@ class DockerRegistryInstanceService:
         is_active: bool | None = None,
         verify_ssl: bool | None = None,
         is_default: bool | None = None,
+        registry_type: str | None = None,
+        registry_provider: str | None = None,
+        priority: int | None = None,
     ) -> DockerRegistryInstance:
         instance = await self.get_instance(instance_id)
 
@@ -685,6 +694,12 @@ class DockerRegistryInstanceService:
             instance.verify_ssl = verify_ssl
         if is_default is not None:
             instance.is_default = is_default
+        if registry_type is not None:
+            instance.registry_type = registry_type  # type: ignore[assignment]
+        if registry_provider is not None:
+            instance.registry_provider = registry_provider  # type: ignore[assignment]
+        if priority is not None:
+            instance.priority = priority  # type: ignore[assignment]
 
         await self.db.commit()
         await self.db.refresh(instance)
@@ -751,6 +766,71 @@ class DockerRegistryInstanceService:
                 "message": f"Could not reach {instance.url}: {exc}",
                 "status_code": None,
             }
+
+
+    # ── Registry matching ──────────────────────────────────────────────
+
+    async def find_matching_registry(
+        self,
+        registry_host: str,
+        provider: str | None = None,
+    ) -> DockerRegistryInstance | None:
+        """
+        Find the best matching DockerRegistryInstance for a given registry
+        host (e.g. 'registry-1.docker.io') and optional provider.
+        Prioritizes exact URL match, then provider match, then default.
+        """
+        registries = await self.list_instances()
+        active = [r for r in registries if r.is_active]
+
+        if not active:
+            return None
+
+        # 1. Exact URL match (contains the host)
+        for r in active:
+            if registry_host in r.url:
+                return r
+
+        # 2. Provider match
+        if provider:
+            for r in active:
+                if r.registry_provider == provider:
+                    return r
+
+        # 3. Default by priority (highest first)
+        active_sorted = sorted(
+            [r for r in active if r.registry_type == "external"],
+            key=lambda r: (-r.priority, -int(r.is_default), r.name),
+        )
+        if active_sorted:
+            return active_sorted[0]
+
+        return None
+
+    async def get_compatible_registries(
+        self,
+        registry_host: str,
+        provider: str | None = None,
+    ) -> list[DockerRegistryInstance]:
+        """Return all active registries that could serve the given host/provider."""
+        registries = await self.list_instances()
+        active = [r for r in registries if r.is_active]
+        if not active:
+            return []
+
+        # Filter by host match or provider match
+        compatible = []
+        for r in active:
+            if registry_host in r.url:
+                compatible.append(r)
+            elif provider and r.registry_provider == provider:
+                compatible.append(r)
+
+        if not compatible:
+            # Return all active external registries as fallback
+            compatible = [r for r in active if r.registry_type == "external"]
+
+        return sorted(compatible, key=lambda r: (-r.priority, r.name))
 
 
 # ===================================================================

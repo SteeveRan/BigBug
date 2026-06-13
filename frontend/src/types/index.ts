@@ -216,6 +216,8 @@ export interface DockerImageSource {
   name: string;
   registry_url: string;
   description: string | null;
+  registry_instance_id: number | null;
+  registry_instance: DockerRegistryInstance | null;
   gitlab_project_id: string | null;
   gitlab_project_url: string | null;
   target_registry_url?: string | null;
@@ -437,6 +439,9 @@ export interface DockerRegistryInstance {
   is_active: boolean;
   verify_ssl: boolean;
   is_default: boolean;
+  registry_type: 'internal' | 'external';
+  registry_provider: 'docker_hub' | 'quay_io' | 'gcr' | 'ecr' | 'acr' | 'ghcr' | 'harbor' | 'generic';
+  priority: number;
   status_flag: number;
   status_text: string;
   last_checked_at: string | null;
@@ -452,6 +457,9 @@ export interface DockerRegistryInstanceCreate {
   is_active?: boolean;
   verify_ssl?: boolean;
   is_default?: boolean;
+  registry_type?: string;
+  registry_provider?: string;
+  priority?: number;
 }
 
 export interface DockerRegistryInstanceUpdate {
@@ -462,6 +470,9 @@ export interface DockerRegistryInstanceUpdate {
   is_active?: boolean | null;
   verify_ssl?: boolean | null;
   is_default?: boolean | null;
+  registry_type?: string | null;
+  registry_provider?: string | null;
+  priority?: number | null;
 }
 
 // ── Helm Repository Instance ─────────────────────────────────────────────────
@@ -687,4 +698,16 @@ export interface DockerImageCompareResponse {
   source_b: DockerImageSource;
   tags: DockerImageTagCompareItem[];
   summary: DockerImageCompareSummary;
+}
+
+// ──── Docker Image Analysis ─────────────────────────────────────────────────
+
+export interface AnalyzeImageResponse {
+  image_name: string;
+  normalized_image: string;
+  detected_registry_host: string;
+  detected_provider: string;
+  suggested_registry: DockerRegistryInstance | null;
+  compatible_registries: DockerRegistryInstance[];
+  is_new_registry_needed: boolean;
 }

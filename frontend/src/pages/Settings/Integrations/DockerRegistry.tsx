@@ -15,6 +15,8 @@ import {
   Spin,
   Modal,
   Input,
+  InputNumber,
+  Select,
   Checkbox,
   Tooltip,
 } from 'antd';
@@ -70,6 +72,9 @@ export function DockerRegistryPanel({ showMessage }: PanelProps) {
         is_active: instance.is_active,
         verify_ssl: instance.verify_ssl,
         is_default: instance.is_default,
+        registry_type: instance.registry_type,
+        registry_provider: instance.registry_provider,
+        priority: instance.priority,
       },
     });
   };
@@ -161,10 +166,10 @@ export function DockerRegistryPanel({ showMessage }: PanelProps) {
     <Flex vertical gap={16}>
       <Flex justify="space-between" align="center">
         <Typography.Title level={5} style={{ margin: 0 }}>
-          Docker Registry Instances
+          External Registries
         </Typography.Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Add Instance
+          Add Registry
         </Button>
       </Flex>
 
@@ -236,6 +241,15 @@ function DockerRegistryDialog({
   const [isDefault, setIsDefault] = useState(
     (dialogState.defaultValues?.is_default as boolean) ?? false,
   );
+  const [registryType, setRegistryType] = useState(
+    (dialogState.defaultValues?.registry_type as string) ?? 'external',
+  );
+  const [registryProvider, setRegistryProvider] = useState(
+    (dialogState.defaultValues?.registry_provider as string) ?? 'generic',
+  );
+  const [priority, setPriority] = useState(
+    (dialogState.defaultValues?.priority as number) ?? 0,
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -282,6 +296,9 @@ function DockerRegistryDialog({
         is_active: isActive,
         verify_ssl: verifySsl,
         is_default: isDefault,
+        registry_type: registryType,
+        registry_provider: registryProvider,
+        priority,
       };
 
       if (isEdit && dialogState.instanceId) {
@@ -388,6 +405,68 @@ function DockerRegistryDialog({
               {errors.password}
             </Typography.Text>
           )}
+        </div>
+        <div>
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Registry Type
+          </Typography.Text>
+          <Select
+            value={registryType}
+            onChange={(value) => {
+              setRegistryType(value);
+              if (value === 'internal') {
+                setRegistryProvider('generic');
+              }
+            }}
+            options={[
+              { value: 'internal', label: 'Internal' },
+              { value: 'external', label: 'External' },
+            ]}
+            style={{ width: '100%' }}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Whether this is an internal private registry or an external public registry
+          </Typography.Text>
+        </div>
+        {registryType !== 'internal' && (
+          <div>
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+              Registry Provider
+            </Typography.Text>
+            <Select
+              value={registryProvider}
+              onChange={(value) => setRegistryProvider(value)}
+              options={[
+                { value: 'docker_hub', label: 'Docker Hub' },
+                { value: 'quay_io', label: 'Quay.io' },
+                { value: 'gcr', label: 'Google Container Registry' },
+                { value: 'ecr', label: 'AWS ECR' },
+                { value: 'acr', label: 'Azure Container Registry' },
+                { value: 'ghcr', label: 'GitHub Container Registry' },
+                { value: 'harbor', label: 'Harbor' },
+                { value: 'generic', label: 'Generic' },
+              ]}
+              style={{ width: '100%' }}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Auto-detected when adding images; used for matching
+            </Typography.Text>
+          </div>
+        )}
+        <div>
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+            Priority
+          </Typography.Text>
+          <InputNumber
+            min={0}
+            max={100}
+            value={priority}
+            onChange={(value) => setPriority(value || 0)}
+            style={{ width: '100%' }}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Higher values take precedence when multiple registries match
+          </Typography.Text>
         </div>
         <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)}>
           Active

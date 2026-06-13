@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -11,6 +11,9 @@ class DockerImageSource(Base):
 
     Represents an external Docker registry (Docker Hub, Harbor, etc.) from
     which images and their tags are tracked and synced.
+
+    Links back to the configured DockerRegistryInstance that provides credentials
+    and connection details for the source registry.
     """
 
     __tablename__ = "docker_image_sources"
@@ -19,6 +22,14 @@ class DockerImageSource(Base):
     name = Column(String(255), unique=True, nullable=False, index=True)
     registry_url = Column(String(500), nullable=False)  # e.g., https://registry-1.docker.io
     description = Column(Text, nullable=True)
+
+    # Link to the configured registry instance that provides credentials
+    registry_instance_id = Column(
+        Integer,
+        ForeignKey("docker_registry_instances.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Configured registry instance used as source for this image",
+    )
 
     # GitLab mirror project for Docker sync pipelines
     gitlab_project_id = Column(String(255), nullable=True)
@@ -47,4 +58,9 @@ class DockerImageSource(Base):
     sync_logs = relationship("DockerSyncLog", back_populates="source", cascade="all, delete-orphan")
     sync_schedules = relationship(
         "SyncSchedule", back_populates="docker_image_source", cascade="all, delete-orphan"
+    )
+    registry_instance = relationship(
+        "DockerRegistryInstance",
+        foreign_keys=[registry_instance_id],
+        lazy="selectin",
     )
