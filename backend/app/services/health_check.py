@@ -177,13 +177,13 @@ async def _check_single_mirror(
         )
         return items
 
-    sp = sg.source_provider
+    sp = sr.source_provider
     if sp is None:
         items.append(
             HealthCheckItem(
                 component=component,
                 severity=HealthCheckSeverity.ERROR,
-                message=f"SourceGroup {sg.id} has no linked SourceProvider",
+                message=f"SourceRepository {sr.id} has no linked SourceProvider",
             )
         )
         return items
@@ -407,8 +407,10 @@ class HealthCheckService:
             .options(
                 selectinload(SyncGroup.mirrors)
                 .selectinload(Mirror.source_repository)
-                .selectinload(SourceRepository.source_group)
-                .selectinload(SourceGroup.source_provider)
+                .selectinload(SourceRepository.source_group),
+                selectinload(SyncGroup.mirrors)
+                .selectinload(Mirror.source_repository)
+                .selectinload(SourceRepository.source_provider)
                 .selectinload(SourceProvider.credential),
                 selectinload(SyncGroup.pipeline),
             )
@@ -442,10 +444,7 @@ class HealthCheckService:
             sr = mirror.source_repository
             if sr is None:
                 continue
-            sg = sr.source_group
-            if sg is None:
-                continue
-            sp = sg.source_provider
+            sp = sr.source_provider
             if sp is None or sp.id in seen_sp_ids:
                 continue
             seen_sp_ids.add(sp.id)
@@ -507,8 +506,9 @@ class HealthCheckService:
             select(Mirror)
             .options(
                 selectinload(Mirror.source_repository)
-                .selectinload(SourceRepository.source_group)
-                .selectinload(SourceGroup.source_provider)
+                .selectinload(SourceRepository.source_group),
+                selectinload(Mirror.source_repository)
+                .selectinload(SourceRepository.source_provider)
                 .selectinload(SourceProvider.credential),
                 selectinload(Mirror.sync_group).selectinload(SyncGroup.pipeline),
             )

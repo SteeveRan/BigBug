@@ -257,12 +257,6 @@ export function RepositoriesTab() {
         />
       )}
 
-      {!isLoading && !reposError && effectiveGroupId === 0 && groups.length === 0 && repositories.length === 0 && (
-        <Card>
-          <Empty description="No groups available. Import a group first." />
-        </Card>
-      )}
-
       {!isLoading && !reposError && (
         <Card>
           <Table

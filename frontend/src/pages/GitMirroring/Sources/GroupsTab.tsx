@@ -58,7 +58,7 @@ export function GroupsTab() {
     data: groups = [],
     isLoading: groupsLoading,
     isError: groupsError,
-  } = useGetSourceGroupsQuery(effectiveProviderId ?? 0, {
+  } = useGetSourceGroupsQuery(effectiveProviderId, {
     skip: effectiveProviderId == null,
   });
 
@@ -104,15 +104,6 @@ export function GroupsTab() {
             {record.full_name}
           </Typography.Text>
         </Flex>
-      ),
-    },
-    {
-      title: 'Provider',
-      key: 'provider',
-      render: (_: unknown, record: SourceGroup) => (
-        <Typography.Text>
-          {record.source_provider?.label ?? record.source_provider_id}
-        </Typography.Text>
       ),
     },
     {

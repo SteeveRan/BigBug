@@ -52,7 +52,6 @@ async def _seed_source_group(
 ) -> SourceGroup:
     """Create a minimal SourceGroup linked to *sp*."""
     sg = SourceGroup(
-        source_provider_id=sp_id,
         external_id=external_id,
         name=external_id,
         full_path=external_id,
@@ -67,11 +66,13 @@ async def _seed_source_group(
 
 
 async def _seed_source_repository(
-    db_session: AsyncSession, sg_id: int, name: str = "test-repo"
+    db_session: AsyncSession, sg_id: int, name: str = "test-repo",
+    sp_id: int | None = None
 ) -> SourceRepository:
-    """Create a minimal SourceRepository linked to *sg*."""
+    """Create a minimal SourceRepository linked to *sg* and optionally *sp*."""
     sr = SourceRepository(
         source_group_id=sg_id,
+        source_provider_id=sp_id,
         external_id=f"{name}-ext",
         name=name,
         full_name=f"owner/{name}",

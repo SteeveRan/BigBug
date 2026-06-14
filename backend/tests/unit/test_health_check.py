@@ -57,7 +57,6 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
 
     # SourceGroup
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id="testorg",
         name="Test Org",
         full_path="testorg",

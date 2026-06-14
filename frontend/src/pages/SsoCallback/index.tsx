@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Typography, Spin, Alert, Flex } from 'antd';
 import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
-import { useSsoExchangeMutation } from '../../store/api';
+import { useSsoExchangeMutation, api } from '../../store/api';
 import { useAppDispatch } from '../../store';
 import { setCredentials } from '../../store/authSlice';
 
@@ -54,6 +54,8 @@ export function SsoCallbackPage() {
             user: me,
           })
         );
+        // Reset RTK Query cache so ProtectedRoute's useGetMeQuery fetches fresh
+        dispatch(api.util.resetApiState());
         navigate('/', { replace: true });
       })
       .catch((err) => {

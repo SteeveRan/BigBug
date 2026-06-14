@@ -3,7 +3,7 @@
 @description SourceProvider model — represents a configured source hosting platform
              (GitHub, GitLab) optionally authenticated via a Credential.
 @dependencies app.database.Base, ./credential.py
-@relatedFiles ./credential.py, ./source_group.py, ./role_scope.py
+@relatedFiles ./credential.py, ./source_repository.py, ./role_scope.py
 """
 
 import enum
@@ -50,8 +50,8 @@ class SourceProvider(Base):
 
     # Relationships
     credential = relationship("Credential", back_populates="source_providers")
-    source_groups = relationship(
-        "SourceGroup", back_populates="source_provider", cascade="all, delete-orphan"
+    source_repositories = relationship(
+        "SourceRepository", back_populates="source_provider"
     )
 
     def __repr__(self) -> str:

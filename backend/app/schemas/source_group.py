@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 class SourceGroupCreate(BaseModel):
     """Payload to register a new source group (org/group) for discovery."""
 
-    source_provider_id: int
     name: str = Field(..., max_length=255)
     full_path: str | None = Field(None, max_length=1000)
     web_url: str | None = Field(None, max_length=500)
@@ -44,7 +43,6 @@ class SourceGroupListOut(BaseModel):
     """Flat representation for list endpoints."""
 
     id: int
-    source_provider_id: int
     name: str
     full_path: str | None = None
     web_url: str | None = None
@@ -61,7 +59,6 @@ class SourceGroupDetailOut(BaseModel):
     """Detailed representation with nested relations."""
 
     id: int
-    source_provider_id: int
     name: str
     full_path: str | None = None
     web_url: str | None = None
@@ -74,7 +71,6 @@ class SourceGroupDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_provider: SourceProviderOut | None = None
     source_repositories: list[SourceRepositoryListOut] = []
 
     model_config = {"from_attributes": True}

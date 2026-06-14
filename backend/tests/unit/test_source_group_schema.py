@@ -21,10 +21,8 @@ class TestSourceGroupCreate:
     def test_create_minimal(self):
         """Create with required fields only."""
         data = SourceGroupCreate(
-            source_provider_id=1,
             name="my-org",
         )
-        assert data.source_provider_id == 1
         assert data.name == "my-org"
         assert data.full_path is None
         assert data.web_url is None
@@ -33,7 +31,6 @@ class TestSourceGroupCreate:
     def test_create_all_fields(self):
         """Create with all optional fields."""
         data = SourceGroupCreate(
-            source_provider_id=5,
             name="My Organization",
             full_path="parent/child",
             web_url="https://github.com/orgs/my-org",
@@ -43,10 +40,10 @@ class TestSourceGroupCreate:
         assert data.web_url == "https://github.com/orgs/my-org"
         assert data.description == "A test organization"
 
-    def test_create_requires_source_provider_id(self):
-        """source_provider_id is required."""
+    def test_create_requires_name(self):
+        """name is required."""
         with pytest.raises(ValidationError):
-            SourceGroupCreate(name="no-provider")
+            SourceGroupCreate(full_path="no-name")
 
 
 class TestSourceGroupUpdate:
@@ -73,7 +70,6 @@ class TestSourceGroupListOut:
         fields = set(SourceGroupListOut.model_fields.keys())
         expected = {
             "id",
-            "source_provider_id",
             "name",
             "full_path",
             "web_url",
@@ -94,9 +90,8 @@ class TestSourceGroupDetailOut:
     """Validation of SourceGroupDetailOut schema."""
 
     def test_detail_out_has_nested_relations(self):
-        """Detail has source_provider and source_repositories nested."""
+        """Detail has source_repositories nested."""
         fields = set(SourceGroupDetailOut.model_fields.keys())
-        assert "source_provider" in fields
         assert "source_repositories" in fields
         assert "description" in fields
         assert "external_id" in fields

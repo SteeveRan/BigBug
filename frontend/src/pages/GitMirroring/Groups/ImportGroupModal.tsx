@@ -30,8 +30,8 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
   const handleSubmit = async (values: FormValues) => {
     try {
       await importGroup({
-        provider_id: values.provider_id,
-        group_name: values.group_name,
+        providerId: values.provider_id,
+        groupName: values.group_name,
       }).unwrap();
       message.success('Group imported successfully');
       form.resetFields();

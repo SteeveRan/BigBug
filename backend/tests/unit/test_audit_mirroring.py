@@ -87,7 +87,6 @@ async def _seed_source_group(db: AsyncSession) -> SourceGroup:
     """Create a test source group."""
     sp = await _seed_source_provider(db)
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id="test-org",
         name="test-org",
         full_path="https://github.com/test-org",
@@ -99,9 +98,11 @@ async def _seed_source_group(db: AsyncSession) -> SourceGroup:
 
 
 async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
-    """Create a test source repository (with eager-loaded source_group)."""
+    """Create a test source repository (with eager-loaded source_provider)."""
     sg = await _seed_source_group(db)
+    sp = await _seed_source_provider(db)
     sr = SourceRepository(
+        source_provider_id=sp.id,
         source_group_id=sg.id,
         external_id="test/repo",
         name="repo",
@@ -114,7 +115,8 @@ async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
     result = await db.execute(
         select(SourceRepository)
         .options(
-            selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider)
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.source_provider),
         )
         .where(SourceRepository.id == sr.id)
     )
@@ -171,8 +173,9 @@ async def _seed_mirror(db: AsyncSession) -> Mirror:
         select(Mirror)
         .options(
             selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_group)
-            .selectinload(SourceGroup.source_provider),
+            .selectinload(SourceRepository.source_group),
+            selectinload(Mirror.source_repository)
+            .selectinload(SourceRepository.source_provider),
             selectinload(Mirror.sync_group)
             .selectinload(SyncGroup.pipeline)
             .selectinload(Pipeline.gitlab_instance),

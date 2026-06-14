@@ -40,7 +40,6 @@ class TestRoleScopeSourceGroup:
     def test_source_group_relationship(self):
         """RoleScopeSourceGroup can reference a SourceGroup."""
         sg = SourceGroup(
-            source_provider_id=1,
             external_id="ext",
             name="MyGroup",
         )

@@ -34,7 +34,6 @@ async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
     await db.flush()
 
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id="testorg",
         name="Test Org",
         full_path="testorg",
@@ -43,6 +42,7 @@ async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
     await db.flush()
 
     defaults = {
+        "source_provider_id": sp.id,
         "source_group_id": sg.id,
         "external_id": "12345",
         "name": "test-repo",

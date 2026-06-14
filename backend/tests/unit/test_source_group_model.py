@@ -1,12 +1,11 @@
 """
 @file test_source_group_model.py
-@description Unit tests for SourceGroup model — verifies instantiation, provider
-             relationship, and default field values.
-@dependencies backend/app/models/source_group.py, backend/app/models/source_provider.py
+@description Unit tests for SourceGroup model — verifies instantiation,
+             default field values, and representation.
+@dependencies backend/app/models/source_group.py
 """
 
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 
 
 class TestSourceGroupModel:
@@ -15,7 +14,6 @@ class TestSourceGroupModel:
     def test_source_group_creation(self):
         """Create a SourceGroup with required fields."""
         sg = SourceGroup(
-            source_provider_id=1,
             external_id="12345",
             name="my-org",
             full_path="my-org",
@@ -24,7 +22,6 @@ class TestSourceGroupModel:
             total_repos=0,
             mirrored_repos=0,
         )
-        assert sg.source_provider_id == 1
         assert sg.external_id == "12345"
         assert sg.name == "my-org"
         assert sg.full_path == "my-org"
@@ -33,29 +30,12 @@ class TestSourceGroupModel:
         assert sg.total_repos == 0
         assert sg.mirrored_repos == 0
 
-    def test_source_group_with_provider(self):
-        """Verify relationship — SourceGroup can reference a SourceProvider."""
-        sp = SourceProvider(
-            provider_type=ProviderType.github,
-            label="GitHub Provider",
-        )
-        sg = SourceGroup(
-            source_provider_id=1,
-            external_id="54321",
-            name="another-org",
-        )
-        sg.source_provider = sp
-        assert sg.source_provider is sp
-        assert sg.source_provider.label == "GitHub Provider"
-
     def test_source_group_defaults(self):
         """Verify DB-level defaults are defined on the model."""
         sg = SourceGroup(
-            source_provider_id=1,
             external_id="ext-id",
             name="Test",
         )
-        # DB-level Column defaults are applied at INSERT time.
         assert sg.external_id == "ext-id"
         assert sg.name == "Test"
 
@@ -63,7 +43,6 @@ class TestSourceGroupModel:
         """Verify __repr__ output."""
         sg = SourceGroup(
             id=1,
-            source_provider_id=1,
             external_id="ext-1",
             name="MyGroup",
         )

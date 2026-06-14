@@ -344,20 +344,6 @@ app/models/
 - Retry механизм
 - Task scheduling
 
-### Audit Logging
-
-**Статус**: Планируется
-
-**Требования**:
-- Кто, когда, что изменил
-- Immutable log
-- Retention policy
-
-**Варианты**:
-- Отдельная таблица `audit_log`
-- Event sourcing pattern
-- External audit service
-
 ## Полезные ссылки
 
 - [`/docs/architecture/README.md`](../../docs/architecture/README.md) — подробная архитектура

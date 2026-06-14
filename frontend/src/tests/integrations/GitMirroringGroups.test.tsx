@@ -102,7 +102,6 @@ const mockGroup: SourceGroup = {
   name: 'Test Org',
   full_name: 'Test Org',
   description: 'A test organization',
-  source_provider_id: 1,
   repositories_total: 5,
   repositories_mirrored: 2,
   created_at: '2026-01-01T00:00:00Z',

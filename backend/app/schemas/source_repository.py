@@ -15,6 +15,7 @@ from app.models.source_provider import ProviderType
 if TYPE_CHECKING:
     from app.schemas.mirror import MirrorListOut
     from app.schemas.source_group import SourceGroupListOut
+    from app.schemas.source_provider import SourceProviderOut
 
 
 # ──── SourceRepository List Out ────────────────────────────────────────────
@@ -24,6 +25,7 @@ class SourceRepositoryListOut(BaseModel):
     """Flat representation for list endpoints."""
 
     id: int
+    source_provider_id: int | None = None
     source_group_id: int | None
     name: str
     full_name: str
@@ -46,6 +48,7 @@ class SourceRepositoryDetailOut(BaseModel):
     """Full representation with all fields and nested relations."""
 
     id: int
+    source_provider_id: int | None = None
     source_group_id: int | None
     name: str
     full_name: str
@@ -73,6 +76,7 @@ class SourceRepositoryDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    source_provider: SourceProviderOut | None = None
     source_group: SourceGroupListOut | None = None
     mirrors: list[MirrorListOut] = []
 
@@ -91,6 +95,7 @@ class SourceRepositoryCreate(BaseModel):
 
     provider_type: ProviderType
     clone_url: str = Field(..., description="HTTPS or SSH clone URL")
+    source_provider_id: int | None = Field(None, description="Provider ID (null for generic git)")
     source_group_id: int | None = Field(None, description="Group ID (null for generic git)")
     description: str | None = Field(None, description="Optional description")
 

@@ -22,7 +22,7 @@ class TestRoleModelScopes:
     def test_role_source_group_scopes(self):
         """Role can have RoleScopeSourceGroup entries."""
         role = Role(name="scoped-role", description="Can see specific groups")
-        sg = SourceGroup(source_provider_id=1, external_id="ext1", name="GroupA")
+        sg = SourceGroup(external_id="ext1", name="GroupA")
         scope = RoleScopeSourceGroup(role_id=1, source_group_id=1)
         scope.source_group = sg
         role.source_group_scopes.append(scope)

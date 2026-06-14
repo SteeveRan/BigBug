@@ -2,8 +2,8 @@
 @file source_repository.py
 @description SourceRepository model — represents a single repository discovered within
              a source group (GitHub repo, GitLab project).
-@dependencies app.database.Base, ./source_group.py
-@relatedFiles ./source_group.py, ./mirror.py, ./mirror_release_log.py
+@dependencies app.database.Base, ./source_group.py, ./source_provider.py
+@relatedFiles ./source_group.py, ./source_provider.py, ./mirror.py, ./mirror_release_log.py
 """
 
 import enum
@@ -40,6 +40,12 @@ class SourceRepository(Base):
         Integer,
         ForeignKey("source_groups.id", ondelete="CASCADE"),
         nullable=True,
+    )
+    source_provider_id = Column(
+        Integer,
+        ForeignKey("source_providers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     external_id = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
@@ -84,6 +90,7 @@ class SourceRepository(Base):
 
     # Relationships
     source_group = relationship("SourceGroup", back_populates="source_repositories")
+    source_provider = relationship("SourceProvider", back_populates="source_repositories")
     mirrors = relationship(
         "Mirror", back_populates="source_repository", cascade="all, delete-orphan"
     )

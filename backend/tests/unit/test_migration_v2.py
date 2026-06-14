@@ -93,17 +93,18 @@ class TestMigrationV2Tables:
         assert "label" in cols
 
     def test_source_groups_table(self):
-        """source_groups has FK to source_providers."""
+        """source_groups no longer has FK to source_providers."""
         table = Base.metadata.tables["source_groups"]
         cols = {c.name for c in table.columns}
-        assert "source_provider_id" in cols
+        assert "source_provider_id" not in cols
         assert "external_id" in cols
         assert "name" in cols
 
     def test_source_repositories_table(self):
-        """source_repositories has FK to source_groups."""
+        """source_repositories has FK to source_groups and source_providers."""
         table = Base.metadata.tables["source_repositories"]
         cols = {c.name for c in table.columns}
+        assert "source_provider_id" in cols
         assert "source_group_id" in cols
         assert "discovery_status" in cols
 
@@ -197,10 +198,10 @@ class TestMigrationEnumHelpers:
         assert isinstance(enum, sa.Enum)
 
     def test_provider_type_enum_values(self):
-        """provider_type_enum has all 2 values."""
+        """provider_type_enum has all 3 values."""
         enum = self._get_provider_type_enum()
         values = set(enum.enums)
-        assert values == {"github", "gitlab"}
+        assert values == {"github", "gitlab", "generic"}
 
     def test_provider_type_enum_is_enum_instance(self):
         """provider_type_enum returns a sa.Enum instance."""

@@ -801,8 +801,6 @@ export interface SourceGroup {
   full_name: string;
   description?: string;
   avatar_url?: string;
-  source_provider_id: number;
-  source_provider?: SourceProvider;
   repositories_total: number;
   repositories_mirrored: number;
   new_repos_count?: number;
@@ -825,6 +823,8 @@ export interface SourceRepository {
   clone_url: string;
   stars: number;
   forks: number;
+  source_provider_id?: number | null;
+  source_provider?: SourceProvider | null;
   source_group_id: number | null;
   source_group_name?: string;
   license_spdx?: string;

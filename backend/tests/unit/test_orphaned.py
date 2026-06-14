@@ -49,7 +49,6 @@ async def _seed_mirror(db: AsyncSession, target_project_id: str = "42") -> Mirro
     await db.flush()
 
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id="testorg",
         name="Test Org",
         full_path="testorg",

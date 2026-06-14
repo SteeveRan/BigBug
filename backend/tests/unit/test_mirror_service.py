@@ -42,7 +42,6 @@ async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
     await db.flush()
 
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id="testorg",
         name="Test Org",
         full_path="testorg",
@@ -479,7 +478,6 @@ class TestCheckFreshness:
         await db_session.flush()
 
         sg = SourceGroup(
-            source_provider_id=sp.id,
             external_id="testorg",
             name="Test Org",
             full_path="testorg",
@@ -489,6 +487,7 @@ class TestCheckFreshness:
 
         sr = SourceRepository(
             source_group_id=sg.id,
+            source_provider_id=sp.id,
             external_id="12345",
             name="fresh-repo",
             full_name="testorg/fresh-repo",
@@ -568,7 +567,6 @@ class TestImportExistingMirror:
         await db_session.flush()
 
         sg = SourceGroup(
-            source_provider_id=sp.id,
             external_id="testorg",
             name="Test Org",
             full_path="testorg",
@@ -756,7 +754,6 @@ class TestCheckFreshnessExtended:
         await db_session.flush()
 
         sg = SourceGroup(
-            source_provider_id=sp.id,
             external_id="testorg-ext",
             name="Test Org Ext",
             full_path="testorg-ext",
@@ -766,6 +763,7 @@ class TestCheckFreshnessExtended:
 
         sr = SourceRepository(
             source_group_id=sg.id,
+            source_provider_id=sp.id,
             external_id="123456",
             name="fresh-ext-repo",
             full_name="testorg-ext/fresh-ext-repo",

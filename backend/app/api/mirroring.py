@@ -398,77 +398,83 @@ async def restore_source_provider(
 # ===================================================================
 
 
-@router.get("/providers/{provider_id}/groups/", response_model=list[SourceGroupListOut])
+@router.get("/groups/", response_model=list[SourceGroupListOut])
 async def list_source_groups(
-    provider_id: int,
+    source_provider_id: int | None = Query(None, description="Filter groups by source provider"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("source_groups:read")),
 ):
-    """List all source groups for a given provider."""
-    # Verify provider exists
-    prov_result = await db.execute(
-        select(SourceProvider).where(
-            SourceProvider.id == provider_id,
-            ~SourceProvider.is_deleted,
-        )
+    """List all source groups, optionally filtered by provider."""
+    query = (
+        select(SourceGroup)
+        .options(selectinload(SourceGroup.source_repositories))
+        .where(~SourceGroup.is_deleted)
     )
-    if prov_result.scalar_one_or_none() is None:
-        raise HTTPException(
-            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+
+    if source_provider_id is not None:
+        # Filter groups that have at least one repository linked to this provider
+        query = (
+            select(SourceGroup)
+            .distinct()
+            .join(
+                SourceRepository,
+                SourceRepository.source_group_id == SourceGroup.id,
+            )
+            .options(selectinload(SourceGroup.source_repositories))
+            .where(
+                SourceRepository.source_provider_id == source_provider_id,
+                ~SourceGroup.is_deleted,
+            )
         )
 
-    result = await db.execute(
-        select(SourceGroup)
-        .options(
-            selectinload(SourceGroup.source_provider),
-            selectinload(SourceGroup.source_repositories),
-        )
-        .where(
-            SourceGroup.source_provider_id == provider_id,
-            ~SourceGroup.is_deleted,
-        )
-        .order_by(SourceGroup.name.asc())
-    )
+    query = query.order_by(SourceGroup.name.asc())
+    result = await db.execute(query)
     groups = result.unique().scalars().all()
     return [SourceGroupListOut.model_validate(g) for g in groups]
 
 
 @router.post(
-    "/providers/{provider_id}/groups/import",
+    "/groups/import",
     response_model=SourceGroupDetailOut,
     status_code=201,
 )
 async def import_source_group(
-    provider_id: int,
     request: Request,
     group_name: str = Query(..., description="GitHub organization or username"),
+    source_provider_id: int | None = Query(None, description="Provider ID for the group"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("source_groups:write")),
 ):
-    """Import an organization/group from GitHub and its repositories.
+    """Import an organization/group from a source provider and its repositories.
 
     Uses the SourceProvider's credential to fetch group metadata
     and all repositories via the configured SourceProvider.
     """
+    if source_provider_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="source_provider_id query parameter is required",
+        )
+
     # 1. Resolve provider + credential
     prov_result = await db.execute(
         select(SourceProvider)
         .options(selectinload(SourceProvider.credential))
         .where(
-            SourceProvider.id == provider_id,
+            SourceProvider.id == source_provider_id,
             ~SourceProvider.is_deleted,
         )
     )
     provider = prov_result.scalar_one_or_none()
     if provider is None:
         raise HTTPException(
-            status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+            status_code=404, detail=f"SourceProvider with id={source_provider_id} not found"
         )
 
     if provider.credential is None or not provider.credential.encrypted_secret:
         raise HTTPException(
             status_code=400,
-            detail=f"SourceProvider {provider_id} has no credential configured",
+            detail=f"SourceProvider {source_provider_id} has no credential configured",
         )
 
     from app.core.secrets import decrypt_secret
@@ -477,10 +483,10 @@ async def import_source_group(
     credential_secret = decrypt_secret(provider.credential.encrypted_secret)
     gh_provider = await create_source_provider(provider, credential_secret)
 
-    # 2. Find the group on GitHub
-    github_groups = await gh_provider.list_groups()
+    # 2. Find the group on the provider
+    provider_groups = await gh_provider.list_groups()
     target_group = None
-    for g in github_groups:
+    for g in provider_groups:
         if (
             g.get("name", "").lower() == group_name.lower()
             or g.get("login", "").lower() == group_name.lower()
@@ -491,17 +497,16 @@ async def import_source_group(
     if target_group is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Group '{group_name}' not found on GitHub for provider {provider_id}",
+            detail=f"Group '{group_name}' not found for provider {source_provider_id}",
         )
 
     external_id = (
         target_group.get("external_id") or target_group.get("login") or target_group.get("name")
     )
 
-    # 3. Upsert SourceGroup
+    # 3. Upsert SourceGroup (groups are now independent of providers)
     existing_result = await db.execute(
         select(SourceGroup).where(
-            SourceGroup.source_provider_id == provider_id,
             SourceGroup.external_id == external_id,
             ~SourceGroup.is_deleted,
         )
@@ -510,7 +515,6 @@ async def import_source_group(
 
     if source_group is None:
         source_group = SourceGroup(
-            source_provider_id=provider_id,
             external_id=external_id,
             name=target_group.get("name", group_name),
             full_path=target_group.get("full_name") or target_group.get("html_url"),
@@ -545,6 +549,7 @@ async def import_source_group(
 
         repo_obj = SourceRepository(
             source_group_id=source_group.id,
+            source_provider_id=provider.id,
             external_id=repo_ext_id,
             name=repo.get("name", ""),
             full_name=repo.get("full_name", ""),
@@ -569,11 +574,10 @@ async def import_source_group(
 
     await db.commit()
 
-    # 5. Re-fetch with relations
+    # 5. Re-fetch with relations (no more source_provider on group)
     result = await db.execute(
         select(SourceGroup)
         .options(
-            selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
         .where(SourceGroup.id == source_group.id)
@@ -612,7 +616,6 @@ async def get_source_group(
     result = await db.execute(
         select(SourceGroup)
         .options(
-            selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
         .where(SourceGroup.id == group_id, ~SourceGroup.is_deleted)
@@ -634,11 +637,10 @@ async def refresh_source_group(
     ),
 ):
     """Re-fetch repository list for a source group from the upstream provider."""
-    # Get group with provider + credential
+    # Get group and resolve provider via repositories
     result = await db.execute(
         select(SourceGroup)
         .options(
-            selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
         .where(SourceGroup.id == group_id, ~SourceGroup.is_deleted)
@@ -647,10 +649,26 @@ async def refresh_source_group(
     if group is None:
         raise HTTPException(status_code=404, detail=f"SourceGroup with id={group_id} not found")
 
-    if group.source_provider is None:
-        raise HTTPException(status_code=400, detail="SourceGroup has no linked SourceProvider")
+    # Find a provider through the group's repositories
+    repo_with_provider_result = await db.execute(
+        select(SourceRepository)
+        .options(selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential))
+        .where(
+            SourceRepository.source_group_id == group_id,
+            SourceRepository.source_provider_id.isnot(None),
+            ~SourceRepository.is_deleted,
+        )
+        .limit(1)
+    )
+    repo_with_provider = repo_with_provider_result.scalars().first()
 
-    sp = group.source_provider
+    if repo_with_provider is None or repo_with_provider.source_provider is None:
+        raise HTTPException(
+            status_code=400,
+            detail="SourceGroup has no linked SourceProvider — cannot refresh",
+        )
+
+    sp = repo_with_provider.source_provider
     if sp.credential is None or not sp.credential.encrypted_secret:
         raise HTTPException(status_code=400, detail="SourceProvider has no credential configured")
 
@@ -688,6 +706,7 @@ async def refresh_source_group(
 
         sr = SourceRepository(
             source_group_id=group.id,
+            source_provider_id=sp.id,
             external_id=repo_ext_id,
             name=repo.get("name", ""),
             full_name=repo.get("full_name", ""),
@@ -716,7 +735,6 @@ async def refresh_source_group(
     result = await db.execute(
         select(SourceGroup)
         .options(
-            selectinload(SourceGroup.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceGroup.source_repositories),
         )
         .where(SourceGroup.id == group.id)
@@ -933,9 +951,7 @@ async def create_source_repository(
     rbac = RBACService(db)
     if data.source_group_id is not None:
         grp_result = await db.execute(
-            select(SourceGroup)
-            .options(selectinload(SourceGroup.source_provider))
-            .where(
+            select(SourceGroup).where(
                 SourceGroup.id == data.source_group_id,
                 ~SourceGroup.is_deleted,
             )
@@ -946,20 +962,35 @@ async def create_source_repository(
                 status_code=404,
                 detail=f"SourceGroup with id={data.source_group_id} not found",
             )
-        # Consistency check: group's provider_type must match the request
-        if group.source_provider.provider_type != data.provider_type:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"Provider type mismatch: group belongs to "
-                    f"'{group.source_provider.provider_type}' but request specified "
-                    f"'{data.provider_type}'"
-                ),
-            )
 
         if not await rbac.check_scope_access(current_user.id, "source_group", data.source_group_id):
             raise HTTPException(
                 status_code=403, detail="Access denied: resource not in your role scope"
+            )
+
+    # ── 2.5 Validate source_provider_id if provided ─────────────────────
+    if data.source_provider_id is not None:
+        sp_result = await db.execute(
+            select(SourceProvider).where(
+                SourceProvider.id == data.source_provider_id,
+                ~SourceProvider.is_deleted,
+            )
+        )
+        provider = sp_result.scalar_one_or_none()
+        if provider is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"SourceProvider with id={data.source_provider_id} not found",
+            )
+        # Consistency check: provider_type must match the request
+        if provider.provider_type != data.provider_type:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Provider type mismatch: provider {data.source_provider_id} is "
+                    f"'{provider.provider_type}' but request specified "
+                    f"'{data.provider_type}'"
+                ),
             )
 
     # ── 3. Auto-detect default branch via git ls-remote ─────────────────
@@ -985,6 +1016,7 @@ async def create_source_repository(
     now = datetime.now(UTC)
     repo = SourceRepository(
         source_group_id=data.source_group_id,
+        source_provider_id=data.source_provider_id,
         external_id=str(uuid.uuid4()),
         name=name,
         full_name=full_name,
@@ -1030,7 +1062,8 @@ async def get_source_repository(
     result = await db.execute(
         select(SourceRepository)
         .options(
-            selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.source_provider),
             selectinload(SourceRepository.mirrors),
         )
         .where(SourceRepository.id == repository_id, ~SourceRepository.is_deleted)
@@ -1183,7 +1216,8 @@ async def restore_source_repository(
     result = await db.execute(
         select(SourceRepository)
         .options(
-            selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.source_provider),
             selectinload(SourceRepository.mirrors),
         )
         .where(SourceRepository.id == repository_id)

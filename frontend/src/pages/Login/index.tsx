@@ -4,7 +4,7 @@ import { Card, Input, Button, Typography, Divider, Flex, App } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAppDispatch } from '../../store';
 import { setCredentials } from '../../store/authSlice';
-import { useLoginMutation } from '../../store/api';
+import { useLoginMutation, api } from '../../store/api';
 import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
 
 const { Title, Text } = Typography;
@@ -44,6 +44,9 @@ export function LoginPage() {
           user: me,
         })
       );
+      // Reset RTK Query cache so ProtectedRoute's useGetMeQuery fetches fresh
+      // instead of returning a cached error from a previous failed attempt.
+      dispatch(api.util.resetApiState());
       navigate('/');
     } catch {
       message.error('Invalid username or password');

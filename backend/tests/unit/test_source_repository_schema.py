@@ -20,6 +20,7 @@ class TestSourceRepositoryListOut:
         fields = set(SourceRepositoryListOut.model_fields.keys())
         expected = {
             "id",
+            "source_provider_id",
             "source_group_id",
             "name",
             "full_name",
@@ -46,8 +47,9 @@ class TestSourceRepositoryDetailOut:
     """Validation of SourceRepositoryDetailOut schema."""
 
     def test_detail_out_has_nested_relations(self):
-        """Detail has source_group and mirrors nested."""
+        """Detail has source_provider, source_group and mirrors nested."""
         fields = set(SourceRepositoryDetailOut.model_fields.keys())
+        assert "source_provider" in fields
         assert "source_group" in fields
         assert "mirrors" in fields
         assert "description" in fields

@@ -932,15 +932,18 @@ export const api = createApi({
     }),
 
     // Source Groups
-    getSourceGroups: builder.query<SourceGroup[], number>({
-      query: (providerId) => `/mirroring/providers/${providerId}/groups`,
+    getSourceGroups: builder.query<SourceGroup[], number | undefined>({
+      query: (providerId) =>
+        `/mirroring/groups${providerId ? `?source_provider_id=${providerId}` : ''}`,
       providesTags: ['SourceGroup'],
     }),
-    importSourceGroup: builder.mutation<SourceGroup, { provider_id: number; group_name: string }>({
-      query: ({ provider_id, group_name }) => ({
-        url: `/mirroring/providers/${provider_id}/groups/import`,
+    importSourceGroup: builder.mutation<
+      SourceGroup,
+      { providerId?: number; groupName: string }
+    >({
+      query: ({ providerId, groupName }) => ({
+        url: `/mirroring/groups/import?group_name=${encodeURIComponent(groupName)}${providerId ? `&source_provider_id=${providerId}` : ''}`,
         method: 'POST',
-        params: { group_name },
       }),
       invalidatesTags: ['SourceGroup'],
     }),

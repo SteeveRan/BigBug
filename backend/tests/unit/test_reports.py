@@ -76,7 +76,6 @@ async def _seed_mirror_chain(
     await db.flush()
 
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id=f"testorg-{_seed_counter}",
         name=f"Test Org {_seed_counter}",
         full_path=f"testorg-{_seed_counter}",

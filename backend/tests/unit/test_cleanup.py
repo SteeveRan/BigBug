@@ -43,7 +43,6 @@ async def _seed_source_group(
     db_session: AsyncSession, sp_id: int, external_id: str = "test-org"
 ) -> SourceGroup:
     sg = SourceGroup(
-        source_provider_id=sp_id,
         external_id=external_id,
         name=external_id,
         full_path=external_id,

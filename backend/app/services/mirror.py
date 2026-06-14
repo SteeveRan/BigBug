@@ -78,8 +78,9 @@ async def _get_mirror_or_404(db: AsyncSession, mirror_id: int) -> Mirror:
         select(Mirror)
         .options(
             selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_group)
-            .selectinload(SourceGroup.source_provider)
+            .selectinload(SourceRepository.source_group),
+            selectinload(Mirror.source_repository)
+            .selectinload(SourceRepository.source_provider)
             .selectinload(SourceProvider.credential),
             selectinload(Mirror.sync_group)
             .selectinload(SyncGroup.pipeline)
@@ -99,7 +100,8 @@ async def _get_source_repo_or_404(db: AsyncSession, sr_id: int) -> SourceReposit
     result = await db.execute(
         select(SourceRepository)
         .options(
-            selectinload(SourceRepository.source_group).selectinload(SourceGroup.source_provider),
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential),
         )
         .where(SourceRepository.id == sr_id, ~SourceRepository.is_deleted)
     )
@@ -628,25 +630,17 @@ class MirrorService:
 
         if source_repo is None:
             # Auto-create a minimal SourceRepository
-            # Need a source_group — find one from the provider
+            # SourceGroup no longer has source_provider_id, find any non-deleted group
             sg_result = await db.execute(
                 select(SourceGroup)
-                .where(
-                    SourceGroup.source_provider_id == used_provider.id,
-                    ~SourceGroup.is_deleted,
-                )
+                .where(~SourceGroup.is_deleted)
                 .limit(1)
             )
             source_group = sg_result.scalar_one_or_none()
 
-            if source_group is None:
-                raise DomainError(
-                    "No source group found for the provider. Run discovery first.",
-                    status_code=400,
-                )
-
             source_repo = SourceRepository(
-                source_group_id=source_group.id,
+                source_group_id=source_group.id if source_group else None,
+                source_provider_id=used_provider.id,
                 external_id=repo_external_id or source_url,
                 name=repo_external_id.split("/")[-1] if repo_external_id else source_url,
                 full_name=repo_external_id or source_url,
@@ -1343,16 +1337,10 @@ class MirrorService:
             )
 
         sr = mirror.source_repository
-        sg = sr.source_group
-        if sg is None:
-            raise DomainError(
-                f"SourceRepository {sr.id} has no linked SourceGroup",
-                status_code=400,
-            )
-        sp = sg.source_provider
+        sp = sr.source_provider
         if sp is None:
             raise DomainError(
-                f"SourceGroup {sg.id} has no linked SourceProvider",
+                f"SourceRepository {sr.id} has no linked SourceProvider",
                 status_code=400,
             )
 
@@ -1651,16 +1639,10 @@ class MirrorService:
                 status_code=400,
             )
         sr = mirror.source_repository
-        sg_group = sr.source_group
-        if sg_group is None:
-            raise DomainError(
-                f"SourceRepository {sr.id} has no linked SourceGroup",
-                status_code=400,
-            )
-        sp = sg_group.source_provider
+        sp = sr.source_provider
         if sp is None:
             raise DomainError(
-                f"SourceGroup {sg_group.id} has no linked SourceProvider",
+                f"SourceRepository {sr.id} has no linked SourceProvider",
                 status_code=400,
             )
 

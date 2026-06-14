@@ -66,7 +66,6 @@ async def _seed_source_provider_and_group(
     await db.flush()
 
     sg = SourceGroup(
-        source_provider_id=sp.id,
         external_id=external_id,
         name=group_name,
         full_path=external_id,
