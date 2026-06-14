@@ -1,10 +1,10 @@
 /**
  * @file Repositories/Detail.tsx
- * @description Страница детализации Source Repository с табами (Group F)
+ * @description Страница детализации Source Repository с табами: Info (блоки), Releases, README
  * @dependencies antd, react-router, RTK Query
  */
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Card,
@@ -23,9 +23,17 @@ import {
   Breadcrumb,
   Tooltip,
   message,
+  Row,
+  Col,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LinkOutlined, GithubOutlined, StarOutlined, ForkOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+  LinkOutlined,
+  GithubOutlined,
+  StarOutlined,
+  ForkOutlined,
+  ReloadOutlined,
+} from '@ant-design/icons';
 import {
   useGetSourceRepositoryQuery,
   useGetRepositoryReleasesQuery,
@@ -54,11 +62,17 @@ const RepositoryDetailPage = () => {
   const [refreshRepository, { isLoading: refreshLoading }] =
     useRefreshSourceRepositoryMutation();
 
-  // Fetch releases (only when releases tab is active)
+  // Fetch releases (when releases or info tab is active — info tab needs pre-release data)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
-    { repository_id: repositoryId, include_prereleases: includePrereleases },
-    { skip: activeTab !== 'releases' || isNaN(repositoryId) }
+    { repository_id: repositoryId, include_prereleases: true },
+    { skip: (activeTab !== 'releases' && activeTab !== 'info') || isNaN(repositoryId) }
   );
+
+  // Latest pre-release for Activity block
+  const latestPrerelease = useMemo(() => {
+    if (activeTab !== 'info') return null;
+    return releases.filter((r: SourceRepositoryRelease) => r.is_prerelease)[0] ?? null;
+  }, [releases, activeTab]);
 
   // Fetch README (only when readme tab is active)
   const {
@@ -69,14 +83,14 @@ const RepositoryDetailPage = () => {
     skip: activeTab !== 'readme' || isNaN(repositoryId) || !repo?.readme_html,
   });
 
-  // Fetch mirrors for this repo
+  // Fetch mirrors (now loaded for Info tab)
   const mirrorsParams: MirrorFilters = { limit: 100 };
   const { data: mirrors = [], isLoading: mirrorsLoading } = useGetMirrorsQuery(mirrorsParams, {
-    skip: activeTab !== 'mirrors',
+    skip: activeTab !== 'info',
   });
 
   // Filter mirrors for this specific source repository
-  const repoMirrors = mirrors.filter((m) => m.source_repository_id === repositoryId);
+  const repoMirrors = mirrors.filter((m: Mirror) => m.source_repository_id === repositoryId);
 
   if (repoLoading) {
     return (
@@ -175,76 +189,122 @@ const RepositoryDetailPage = () => {
       key: 'info',
       label: 'Info',
       children: (
-        <Card>
-          <Descriptions bordered column={{ xs: 1, sm: 2 }}>
-            <Descriptions.Item label="Name">{repo.name}</Descriptions.Item>
-            <Descriptions.Item label="Full Name">{repo.full_name}</Descriptions.Item>
-            <Descriptions.Item label="Description" span={{ xs: 1, sm: 2 }}>
-              {repo.description ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Language">
-              {repo.language ? <Tag>{repo.language}</Tag> : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Default Branch">
-              <Typography.Text code>{repo.default_branch}</Typography.Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Stars">
-              <Space>
-                <StarOutlined />
-                {repo.stars_count}
-              </Space>
-            </Descriptions.Item>
-            <Descriptions.Item label="Forks">
-              <Space>
-                <ForkOutlined />
-                {repo.forks_count}
-              </Space>
-            </Descriptions.Item>
-            <Descriptions.Item label="Archived">
-              {repo.is_archived ? <Tag color="warning">Yes</Tag> : 'No'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Fork">
-              {repo.is_fork ? <Tag color="processing">Yes</Tag> : 'No'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Private">
-              {repo.is_private ? <Tag>Yes</Tag> : 'No'}
-            </Descriptions.Item>
-            <Descriptions.Item label="License">
-              {repo.license_spdx ? <Tag>{repo.license_spdx}</Tag> : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Web URL" span={{ xs: 1, sm: 2 }}>
-              {repo.web_url ? (
-                <Button
-                  type="link"
-                  icon={<GithubOutlined />}
-                  href={repo.web_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {repo.web_url}
-                </Button>
-              ) : (
-                '—'
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Latest Release">
-              {repo.latest_release_tag ? (
-                <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
-              ) : (
-                '—'
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Latest Release Date">
-              {repo.latest_release_date
-                ? new Date(repo.latest_release_date).toLocaleString()
-                : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Has README">
-              {repo.readme_html ? <Tag color="green">Yes</Tag> : <Tag color="default">No</Tag>}
-            </Descriptions.Item>
-            <Descriptions.Item label="Mirrors Count">{repo.mirrors?.length ?? '—'}</Descriptions.Item>
-          </Descriptions>
-        </Card>
+        <Flex vertical gap={16}>
+          {/* ── Block 1: Two-column repository info ──────────────────────────── */}
+          <Row gutter={16}>
+            <Col xs={24} md={12}>
+              <Card title="Repository Info" style={{ height: '100%' }}>
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="Full Name">
+                    <Typography.Text strong>{repo.full_name}</Typography.Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Description">
+                    {repo.description ?? '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Web URL">
+                    {repo.web_url ? (
+                      <Button
+                        type="link"
+                        icon={<GithubOutlined />}
+                        href={repo.web_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ padding: 0 }}
+                      >
+                        {repo.web_url}
+                      </Button>
+                    ) : (
+                      '—'
+                    )}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            </Col>
+            <Col xs={24} md={12}>
+              <Card title="Details" style={{ height: '100%' }}>
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="Stars">
+                    <Space>
+                      <StarOutlined />
+                      {repo.stars_count}
+                    </Space>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="License">
+                    {repo.license_spdx ? <Tag>{repo.license_spdx}</Tag> : '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Archived">
+                    {repo.is_archived ? <Tag color="warning">Yes</Tag> : 'No'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Fork">
+                    {repo.is_fork ? <Tag color="processing">Yes</Tag> : 'No'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Language">
+                    {repo.language ? <Tag>{repo.language}</Tag> : '—'}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            </Col>
+          </Row>
+
+          {/* ── Block 2: Activity ──────────────────────────────────────────────── */}
+          <Card title="Activity">
+            <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
+              <Descriptions.Item label="Last Commit">
+                {repo.source_pushed_at
+                  ? new Date(repo.source_pushed_at).toLocaleString()
+                  : '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Last Commit Date">
+                {repo.source_pushed_at
+                  ? new Date(repo.source_pushed_at).toLocaleDateString()
+                  : '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Latest Release">
+                {repo.latest_release_tag ? (
+                  <Space>
+                    <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
+                    {repo.latest_release_name && (
+                      <Typography.Text type="secondary">
+                        ({repo.latest_release_name})
+                      </Typography.Text>
+                    )}
+                  </Space>
+                ) : (
+                  '—'
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Latest Release Date">
+                {repo.latest_release_date
+                  ? new Date(repo.latest_release_date).toLocaleString()
+                  : '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Latest Pre-release">
+                {latestPrerelease?.release_tag ? (
+                  <Typography.Text code>{latestPrerelease.release_tag}</Typography.Text>
+                ) : (
+                  '—'
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="Latest Pre-release Date">
+                {latestPrerelease?.published_at
+                  ? new Date(latestPrerelease.published_at).toLocaleString()
+                  : '—'}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          {/* ── Block 3: Mirrors table ──────────────────────────────────────────── */}
+          <Card title={`Mirrors (${repoMirrors.length})`}>
+            <Table
+              columns={mirrorColumns}
+              dataSource={repoMirrors as Mirror[]}
+              rowKey="id"
+              loading={mirrorsLoading}
+              pagination={false}
+              locale={{ emptyText: <Empty description="No mirrors for this repository" /> }}
+            />
+          </Card>
+        </Flex>
       ),
     },
     {
@@ -298,22 +358,6 @@ const RepositoryDetailPage = () => {
               style={{ maxWidth: '100%', overflow: 'auto' }}
             />
           )}
-        </Card>
-      ),
-    },
-    {
-      key: 'mirrors',
-      label: `Mirrors (${repoMirrors.length})`,
-      children: (
-        <Card>
-          <Table
-            columns={mirrorColumns}
-            dataSource={repoMirrors as Mirror[]}
-            rowKey="id"
-            loading={mirrorsLoading}
-            pagination={false}
-            locale={{ emptyText: <Empty description="No mirrors for this repository" /> }}
-          />
         </Card>
       ),
     },

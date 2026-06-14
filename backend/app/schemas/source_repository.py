@@ -71,7 +71,9 @@ class SourceRepositoryDetailOut(BaseModel):
     readme_html: str | None = None
     readme_fetched_at: datetime | None = None
     latest_release_tag: str | None = None
+    latest_release_name: str | None = None
     latest_release_date: datetime | None = None
+    latest_release_url: str | None = None
     is_archived: bool
     is_fork: bool
     is_disabled: bool

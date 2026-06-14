@@ -828,7 +828,9 @@ export interface SourceRepository {
   readme_html: string | null;
   readme_fetched_at: string | null;
   latest_release_tag: string | null;
+  latest_release_name: string | null;
   latest_release_date: string | null;
+  latest_release_url: string | null;
   is_archived: boolean;
   is_fork: boolean;
   is_disabled: boolean;

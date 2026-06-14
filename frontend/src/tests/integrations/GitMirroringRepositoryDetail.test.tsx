@@ -53,32 +53,43 @@ import type { SourceRepository } from '../../types';
 
 const mockRepo: SourceRepository = {
   id: 10,
-  external_id: '12345',
+  source_provider_id: 1,
+  source_group_id: 1,
   name: 'test-repo',
   full_name: 'owner/test-repo',
+  web_url: 'https://github.com/owner/test-repo',
+  clone_url_https: 'https://github.com/owner/test-repo.git',
+  clone_url_ssh: 'git@github.com:owner/test-repo.git',
   description: 'A test repository',
-  private: false,
-  fork: false,
-  archived: false,
+  language: 'TypeScript',
+  stars_count: 5,
+  forks_count: 2,
+  is_private: false,
   default_branch: 'main',
-  html_url: 'https://github.com/owner/test-repo',
-  clone_url: 'https://github.com/owner/test-repo.git',
-  stars: 5,
-  forks: 2,
-  source_group_id: 1,
-  source_group_name: 'Test Org',
   license_spdx: 'MIT',
   license_name: 'MIT License',
+  readme_html: '<h1>README</h1>',
+  readme_fetched_at: '2026-01-01T00:00:00Z',
   latest_release_tag: 'v1.0.0',
   latest_release_name: 'Release v1.0.0',
-  latest_release_published_at: '2026-06-01T00:00:00Z',
-  discovery_status: 0,
-  discovery_status_text: 'OK',
-  has_readme: true,
-  is_mirrored: true,
-  mirrors_count: 2,
+  latest_release_date: '2026-06-01T00:00:00Z',
+  latest_release_url: 'https://github.com/owner/test-repo/releases/tag/v1.0.0',
+  is_archived: false,
+  is_fork: false,
+  is_disabled: false,
+  discovery_status: 'existing',
+  discovered_at: '2026-01-01T00:00:00Z',
+  last_seen_at: '2026-06-01T00:00:00Z',
+  source_created_at: '2025-01-01T00:00:00Z',
+  source_updated_at: '2026-06-01T00:00:00Z',
+  source_pushed_at: '2026-06-01T12:00:00Z',
+  is_deleted: false,
+  deleted_at: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+  source_provider: null,
+  source_group: null,
+  mirrors: [],
 };
 
 function createTestStore(): Store {
@@ -164,40 +175,68 @@ describe('RepositoryDetailPage', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 2: Tabs are rendered
+  // Test 2: Tabs are rendered (3 tabs: Info, Releases, README)
   // -----------------------------------------------------------------------
-  it('renders tabs: Info, Releases, README, Mirrors', () => {
+  it('renders tabs: Info, Releases, README (no separate Mirrors tab)', () => {
     renderDetailPage();
     expect(screen.getByText('Info')).toBeInTheDocument();
     expect(screen.getByText('Releases')).toBeInTheDocument();
     expect(screen.getByText('README')).toBeInTheDocument();
-    // Mirrors tab label is dynamic: "Mirrors (N)" where N is mirrors count (0 when empty)
-    expect(screen.getByText('Mirrors (0)')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
-  // Test 3: License and stars display
+  // Test 3: Two-column info blocks
   // -----------------------------------------------------------------------
-  it('displays license, stars, and forks info', () => {
+  it('displays Full Name, Description, Web URL in first column', () => {
     renderDetailPage();
-    // License renders license_spdx ("MIT") inside a Tag, not license_name ("MIT License")
-    expect(screen.getByText('MIT')).toBeInTheDocument();
-    // Stars is unique on the Info tab
-    expect(screen.getByText('5')).toBeInTheDocument();
-    // "2" appears twice (Forks AND Mirrors Count); use getAllByText
-    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1);
+    // Web URL link
+    expect(screen.getByText('https://github.com/owner/test-repo')).toBeInTheDocument();
+    // Description
+    expect(screen.getByText('A test repository')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
-  // Test 4: Latest release tag
+  // Test 4: License, stars, language, archived, fork in second column
   // -----------------------------------------------------------------------
-  it('displays latest release tag', () => {
+  it('displays license, stars, language, archived and fork info', () => {
+    renderDetailPage();
+    expect(screen.getByText('MIT')).toBeInTheDocument();
+    expect(screen.getByText('TypeScript')).toBeInTheDocument();
+    // Stars count
+    expect(screen.getByText('5')).toBeInTheDocument();
+    // Archived/Fork render as "No"
+    const noElements = screen.getAllByText('No');
+    expect(noElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 5: Activity block — latest release tag
+  // -----------------------------------------------------------------------
+  it('displays latest release tag in Activity block', () => {
     renderDetailPage();
     expect(screen.getByText('v1.0.0')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
-  // Test 5: Loading spinner
+  // Test 6: Activity block — last commit date (source_pushed_at)
+  // -----------------------------------------------------------------------
+  it('displays last commit date in Activity block', () => {
+    renderDetailPage();
+    // source_pushed_at is shown as both "Last Commit" and "Last Commit Date"
+    expect(screen.getByText('Last Commit')).toBeInTheDocument();
+    expect(screen.getByText('Last Commit Date')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 7: Mirrors table inside Info tab ("Mirrors (N)")
+  // -----------------------------------------------------------------------
+  it('displays mirrors section inside Info tab', () => {
+    renderDetailPage();
+    expect(screen.getByText('Mirrors (0)')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 8: Loading spinner
   // -----------------------------------------------------------------------
   it('shows loading spinner when repository data is loading', () => {
     (useGetSourceRepositoryQuery as ReturnType<typeof vi.fn>).mockReturnValue({
