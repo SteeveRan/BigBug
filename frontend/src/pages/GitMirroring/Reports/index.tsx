@@ -24,7 +24,7 @@ import {
   Progress,
   Tag,
   Radio,
-  message,
+  App,
   Divider,
 } from 'antd';
 import {
@@ -287,6 +287,7 @@ function DuplicatesTab() {
 // ─── Tab 2: Storage ───────────────────────────────────────────────────────
 
 function StorageTab() {
+  const { message } = App.useApp();
   const { data, isLoading } = useGetStorageReportQuery();
   const [refreshStorage, { isLoading: isRefreshing }] = useRefreshStorageReportMutation();
 
@@ -840,6 +841,7 @@ function SyncsTab() {
 // ─── Tab 5: Bulk Operations ───────────────────────────────────────────────
 
 function BulkOperationsTab() {
+  const { message } = App.useApp();
   const [selectedMirrorIds, setSelectedMirrorIds] = useState<number[]>([]);
   const [operationType, setOperationType] = useState<string>('reassign-sync-group');
   const [targetSyncGroupId, setTargetSyncGroupId] = useState<number | null>(null);

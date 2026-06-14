@@ -93,7 +93,7 @@ const SyncGroupDetailPage = () => {
   if (isNaN(groupId)) {
     return (
       <Flex vertical gap={16}>
-        <Alert message="Invalid Sync Group ID" type="error" showIcon />
+        <Alert title="Invalid Sync Group ID" type="error" showIcon />
         <Button onClick={() => navigate('/git-mirroring/sync-groups')}>Back to Sync Groups</Button>
       </Flex>
     );

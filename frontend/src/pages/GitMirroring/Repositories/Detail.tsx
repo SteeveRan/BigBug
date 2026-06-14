@@ -22,7 +22,7 @@ import {
   Switch,
   Breadcrumb,
   Tooltip,
-  message,
+  App,
   Row,
   Col,
 } from 'antd';
@@ -45,6 +45,7 @@ import type { SourceRepositoryRelease, Mirror, MirrorFilters } from '../../../ty
 import { StatusChip } from '../../../components/StatusChip';
 
 const RepositoryDetailPage = () => {
+  const { message } = App.useApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const repositoryId = Number(id);

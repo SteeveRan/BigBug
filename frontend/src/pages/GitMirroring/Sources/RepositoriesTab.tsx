@@ -20,7 +20,7 @@ import {
   Tag,
   Tooltip,
   Button,
-  message,
+  App,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, PlusOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -45,6 +45,7 @@ const DISCOVERY_STATUS_OPTIONS = [
 ];
 
 export function RepositoriesTab() {
+  const { message } = App.useApp();
   const navigate = useNavigate();
 
   // Provider → Group selection
