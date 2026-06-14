@@ -937,6 +937,12 @@ async def create_source_repository(
 
     Parses clone_url to derive name and full_name. Optionally runs
     ``git ls-remote`` to auto-detect the default branch.
+
+    **source_group_id** is resolved automatically:
+    - For **github/gitlab** the first path segment of the clone URL
+      (e.g. ``org`` from ``org/repo``) is used to find or auto-create a
+      SourceGroup.
+    - For **generic** it is always ``None``.
     """
     import uuid
 
@@ -947,28 +953,55 @@ async def create_source_repository(
         clone_url, data.provider_type
     )
 
-    # ── 2. Resolve source_group_id (validate if provided) ───────────────
+    # ── 2. Resolve source_group_id automatically ────────────────────────
     rbac = RBACService(db)
-    if data.source_group_id is not None:
+    source_group_id: int | None = None
+    if data.provider_type in (ProviderType.github, ProviderType.gitlab):
+        # Extract first path segment as the group name
+        # e.g. "org/repo"  → group_name = "org"
+        #      "g/sg/repo" → group_name = "g"
+        group_name = full_name.split("/")[0]
+
+        # Derive group web_url from repo web_url
+        group_web_url: str | None = None
+        if web_url:
+            group_web_url = web_url.rsplit("/", 1)[0]
+
+        # Find existing non-deleted SourceGroup by name
         grp_result = await db.execute(
             select(SourceGroup).where(
-                SourceGroup.id == data.source_group_id,
+                SourceGroup.name == group_name,
                 ~SourceGroup.is_deleted,
             )
         )
         group = grp_result.scalar_one_or_none()
+
         if group is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"SourceGroup with id={data.source_group_id} not found",
+            # Auto-create the SourceGroup
+            group = SourceGroup(
+                external_id=group_name,
+                name=group_name,
+                full_path=group_name,
+                web_url=group_web_url,
+            )
+            db.add(group)
+            await db.flush()
+            logger.info(
+                "Auto-created SourceGroup id=%d name='%s'",
+                group.id,
+                group.name,
             )
 
-        if not await rbac.check_scope_access(current_user.id, "source_group", data.source_group_id):
+        source_group_id = group.id
+
+        # RBAC scope check
+        if not await rbac.check_scope_access(current_user.id, "source_group", source_group_id):
             raise HTTPException(
                 status_code=403, detail="Access denied: resource not in your role scope"
             )
+    # else: generic — source_group_id stays None
 
-    # ── 2.5 Validate source_provider_id if provided ─────────────────────
+    # ── 3. Validate source_provider_id if provided ──────────────────────
     if data.source_provider_id is not None:
         sp_result = await db.execute(
             select(SourceProvider).where(
@@ -993,36 +1026,36 @@ async def create_source_repository(
                 ),
             )
 
-    # ── 3. Auto-detect default branch via git ls-remote ─────────────────
+    # ── 4. Auto-detect default branch via git ls-remote ─────────────────
     default_branch = await _detect_default_branch(clone_url)
 
-    # ── 4. Check for duplicates ─────────────────────────────────────────
+    # ── 5. Check for duplicates ─────────────────────────────────────────
     dup_query = select(SourceRepository).where(
         SourceRepository.full_name == full_name,
         ~SourceRepository.is_deleted,
     )
-    if data.source_group_id is not None:
-        dup_query = dup_query.where(SourceRepository.source_group_id == data.source_group_id)
+    if source_group_id is not None:
+        dup_query = dup_query.where(SourceRepository.source_group_id == source_group_id)
     else:
         dup_query = dup_query.where(SourceRepository.source_group_id.is_(None))
+
     dup_result = await db.execute(dup_query)
     if dup_result.scalar_one_or_none() is not None:
         detail = f"Repository '{full_name}' already exists" + (
-            f" in source group {data.source_group_id}" if data.source_group_id else ""
+            f" in source group {source_group_id}" if source_group_id else ""
         )
         raise HTTPException(status_code=409, detail=detail)
 
-    # ── 5. Persist ──────────────────────────────────────────────────────
+    # ── 6. Persist ──────────────────────────────────────────────────────
     now = datetime.now(UTC)
     repo = SourceRepository(
-        source_group_id=data.source_group_id,
+        source_group_id=source_group_id,
         source_provider_id=data.source_provider_id,
         external_id=str(uuid.uuid4()),
         name=name,
         full_name=full_name,
         clone_url_https=clone_url_https,
         clone_url_ssh=clone_url_ssh,
-        description=data.description,
         default_branch=default_branch,
         web_url=web_url,
         discovery_status=DiscoveryStatus.new,

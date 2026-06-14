@@ -52,10 +52,12 @@ SourceGroupDetailOut.model_rebuild(
 # ── Helpers ─────────────────────────────────────────────────────────
 
 
-async def _seed_credential(db: AsyncSession) -> Credential:
+async def _seed_credential(
+    db: AsyncSession, name: str = "test-token"
+) -> Credential:
     """Create a non-deleted test credential with a valid Fernet-encrypted secret."""
     cred = Credential(
-        name="test-token",
+        name=name,
         credential_type=CredentialType.github_token,
         provider="github",
         username="testuser",
@@ -69,9 +71,11 @@ async def _seed_credential(db: AsyncSession) -> Credential:
     return cred
 
 
-async def _seed_source_provider(db: AsyncSession) -> SourceProvider:
+async def _seed_source_provider(
+    db: AsyncSession, credential_name: str = "test-token"
+) -> SourceProvider:
     """Create a test source provider with credential."""
-    cred = await _seed_credential(db)
+    cred = await _seed_credential(db, name=credential_name)
     sp = SourceProvider(
         credential_id=cred.id,
         provider_type="github",
@@ -83,8 +87,14 @@ async def _seed_source_provider(db: AsyncSession) -> SourceProvider:
     return sp
 
 
-async def _seed_source_group(db: AsyncSession) -> SourceGroup:
-    """Create a test source group."""
+async def _seed_source_group(
+    db: AsyncSession, with_repository: bool = False
+) -> SourceGroup:
+    """Create a test source group.
+
+    When *with_repository* is True a SourceRepository linking the provider
+    and group is also created (required by the refresh endpoint).
+    """
     sp = await _seed_source_provider(db)
     sg = SourceGroup(
         external_id="test-org",
@@ -94,13 +104,30 @@ async def _seed_source_group(db: AsyncSession) -> SourceGroup:
     db.add(sg)
     await db.commit()
     await db.refresh(sg)
+
+    if with_repository:
+        sr = SourceRepository(
+            source_provider_id=sp.id,
+            source_group_id=sg.id,
+            external_id="test/repo",
+            name="repo",
+            full_name="test/repo",
+            clone_url_https="https://github.com/test/repo.git",
+        )
+        db.add(sr)
+        await db.commit()
+
     return sg
 
 
 async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
-    """Create a test source repository (with eager-loaded source_provider)."""
+    """Create a test source repository (with eager-loaded source_provider).
+
+    Uses distinct credential names (when multiple calls happen in the same test)
+    to avoid UNIQUE constraint violations on credentials.name.
+    """
     sg = await _seed_source_group(db)
-    sp = await _seed_source_provider(db)
+    sp = await _seed_source_provider(db, credential_name="test-token-repo")
     sr = SourceRepository(
         source_provider_id=sp.id,
         source_group_id=sg.id,
@@ -315,7 +342,7 @@ async def test_source_group_refreshed_audit(
     db_session: AsyncSession, client: AsyncClient, login_headers: dict
 ):
     """POST /api/mirroring/groups/{id}/refresh should log source_group.refreshed audit event."""
-    sg = await _seed_source_group(db_session)
+    sg = await _seed_source_group(db_session, with_repository=True)
 
     with (
         patch("app.api.mirroring.AuditService.log_event", new_callable=AsyncMock) as mock_audit,

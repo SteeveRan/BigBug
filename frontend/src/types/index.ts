@@ -844,8 +844,7 @@ export interface SourceRepository {
 export interface SourceRepositoryCreate {
   provider_type: 'github' | 'gitlab' | 'generic';
   clone_url: string;
-  source_group_id?: number;
-  description?: string;
+  source_provider_id?: number;
 }
 
 export interface SourceRepositoryReadme {

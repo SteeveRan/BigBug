@@ -87,17 +87,18 @@ class SourceRepositoryDetailOut(BaseModel):
 
 
 class SourceRepositoryCreate(BaseModel):
-    """Schema for creating a source repository (simplified V2).
+    """Schema for creating a source repository manually.
 
-    For GitHub/GitLab the caller can optionally specify a source_group_id;
-    for Generic Git it is always None.
+    ``source_group_id`` is resolved automatically:
+    - For **github** / **gitlab** the first segment of the clone URL path
+      (e.g. ``org`` from ``org/repo``) is used to find or auto-create a
+      SourceGroup.
+    - For **generic** it is always ``None``.
     """
 
     provider_type: ProviderType
     clone_url: str = Field(..., description="HTTPS or SSH clone URL")
     source_provider_id: int | None = Field(None, description="Provider ID (null for generic git)")
-    source_group_id: int | None = Field(None, description="Group ID (null for generic git)")
-    description: str | None = Field(None, description="Optional description")
 
 
 # ──── SourceRepository Readme / Release ────────────────────────────────────

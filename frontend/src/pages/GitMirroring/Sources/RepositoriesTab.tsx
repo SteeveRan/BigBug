@@ -277,7 +277,6 @@ export function RepositoriesTab() {
       <AddRepositoryModal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
-        preselectedGroupId={effectiveGroupId}
         preselectedProviderId={effectiveProviderId}
       />
       <BulkCreateMirrorsModal
