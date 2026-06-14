@@ -5,10 +5,8 @@
 @relatedFiles ../models/source_provider.py, ./credential.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +41,6 @@ class SourceProviderOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    credential: CredentialOut | None = None
+    credential: Optional["CredentialOut"] = None
 
     model_config = {"from_attributes": True}

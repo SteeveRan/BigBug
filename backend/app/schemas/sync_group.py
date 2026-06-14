@@ -5,10 +5,8 @@
 @relatedFiles ../models/sync_group.py, ./pipeline.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -68,12 +66,11 @@ class SyncGroupOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    pipeline: PipelineOut | None = None
+    pipeline: Optional["PipelineOut"] = None
 
     @computed_field
     def mirrors_count(self) -> int:
         """Computed count of mirrors in this sync group."""
-        # The model may have mirrors loaded; use len if available, else 0
         if hasattr(self, "_mirrors"):
             return len(self._mirrors)
         return 0

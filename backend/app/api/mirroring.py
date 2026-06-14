@@ -988,9 +988,9 @@ async def list_mirrors(
     if search:
         filters["search"] = search
 
-    items, _total = await MirrorService.list_mirrors(
+    items, _total = await MirrorService.get_mirrors(
         db,
-        filters=filters if filters else None,
+        filters=filters,
         user=current_user,
         limit=limit,
         offset=offset,

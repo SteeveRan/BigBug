@@ -200,7 +200,7 @@ export const api = createApi({
 
     // Mirrors
     listMirrors: builder.query<unknown[], void>({
-      query: () => '/mirrors',
+      query: () => '/mirroring/mirrors/',
       providesTags: ['Mirror'],
     }),
     getMirror: builder.query<unknown, number>({

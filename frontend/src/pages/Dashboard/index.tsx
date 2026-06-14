@@ -7,7 +7,7 @@ import {
   useListAppImagesQuery,
 } from '../../store/api';
 import { StatusChip } from '../../components/StatusChip';
-import { GitlabMirror, STATUS_FLAG } from '../../types';
+import { Mirror, STATUS_FLAG } from '../../types';
 
 const { Title, Text } = Typography;
 
@@ -43,10 +43,10 @@ export function DashboardPage() {
   const { data: goldImages = [], isLoading: loadingGold } = useListGoldImagesQuery();
   const { data: appImages = [], isLoading: loadingApp } = useListAppImagesQuery();
 
-  const staleMirrors = (mirrors as GitlabMirror[]).filter(
+  const staleMirrors = (mirrors as Mirror[]).filter(
     (m) => m.status_flag === STATUS_FLAG.WARNING
   );
-  const failedMirrors = (mirrors as GitlabMirror[]).filter(
+  const failedMirrors = (mirrors as Mirror[]).filter(
     (m) => m.status_flag === STATUS_FLAG.FAILED
   );
 
@@ -117,9 +117,9 @@ export function DashboardPage() {
           <Spin />
         ) : (
           <Flex vertical gap="small">
-            {(mirrors as GitlabMirror[]).slice(0, 5).map((mirror) => (
+            {(mirrors as Mirror[]).slice(0, 5).map((mirror) => (
               <Flex key={mirror.id} align="center" justify="space-between">
-                <Text>{mirror.gitlab_name ?? mirror.gitlab_url}</Text>
+                <Text>{mirror.target_gitlab_name ?? mirror.target_path}</Text>
                 <StatusChip statusFlag={mirror.status_flag} statusText={mirror.status_text} />
               </Flex>
             ))}

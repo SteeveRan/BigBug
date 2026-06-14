@@ -14,7 +14,7 @@ import { App } from 'antd';
 import { api } from '../../store/api';
 import authReducer from '../../store/authSlice';
 import { STATUS_FLAG } from '../../types';
-import type { GitlabMirror } from '../../types';
+import type { Mirror } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -44,19 +44,21 @@ import { DashboardPage } from '../../pages/Overview';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const mockMirrors: GitlabMirror[] = [
+const mockMirrors: Mirror[] = [
   {
     id: 1,
-    project_id: 42,
-    gitlab_project_id: '12345',
-    gitlab_namespace: 'my-group/my-project',
-    gitlab_url: 'https://gitlab.example.com/group/project',
-    gitlab_name: 'My Project',
-    mirrored_branch: 'main',
-    last_synced_release_tag: 'v1.0.0',
-    last_sync_at: '2026-06-08T00:00:00Z',
+    source_repository_id: 42,
+    target_namespace: 'my-group/my-project',
+    target_project_name: 'my-project',
+    target_path: 'https://gitlab.example.com/group/project',
+    sync_group_id: 1,
+    target_gitlab_name: 'My Project',
     status_flag: STATUS_FLAG.OK,
     status_text: 'OK',
+    discovery_status: 0,
+    discovery_status_text: 'Discovered',
+    last_sync_at: '2026-06-08T00:00:00Z',
+    is_active: true,
     is_imported: true,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-06-08T00:00:00Z',
@@ -199,7 +201,7 @@ describe('OverviewPage (Dashboard)', () => {
           status_flag: STATUS_FLAG.FAILED,
           status_text: 'Failed',
         },
-      ] as GitlabMirror[],
+      ] as Mirror[],
       isLoading: false,
       isError: false,
     });
@@ -218,7 +220,7 @@ describe('OverviewPage (Dashboard)', () => {
           status_flag: STATUS_FLAG.WARNING,
           status_text: 'Stale',
         },
-      ] as GitlabMirror[],
+      ] as Mirror[],
       isLoading: false,
       isError: false,
     });

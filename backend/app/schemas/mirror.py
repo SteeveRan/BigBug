@@ -6,10 +6,8 @@
 @relatedFiles ../models/mirror.py, ./source_repository.py, ./sync_group.py, ./mirror_log.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
 
@@ -70,7 +68,7 @@ class MirrorListOut(BaseModel):
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime
-    source_repository: SourceRepositoryListOut | None = None
+    source_repository: Optional["SourceRepositoryListOut"] = None
 
     model_config = {"from_attributes": True}
 
@@ -100,9 +98,9 @@ class MirrorDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_repository: SourceRepositoryDetailOut | None = None
-    sync_group: SyncGroupOut | None = None
-    mirror_logs: list[MirrorLogOut] = []
+    source_repository: Optional["SourceRepositoryDetailOut"] = None
+    sync_group: Optional["SyncGroupOut"] = None
+    mirror_logs: list["MirrorLogOut"] = []
 
     model_config = {"from_attributes": True}
 

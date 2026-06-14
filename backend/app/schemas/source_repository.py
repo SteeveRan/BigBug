@@ -5,10 +5,8 @@
 @relatedFiles ../models/source_repository.py, ./source_group.py, ./mirror.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel
 
@@ -73,8 +71,8 @@ class SourceRepositoryDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_group: SourceGroupListOut | None = None
-    mirrors: list[MirrorListOut] = []
+    source_group: Optional["SourceGroupListOut"] = None
+    mirrors: list["MirrorListOut"] = []
 
     model_config = {"from_attributes": True}
 

@@ -5,10 +5,8 @@
 @relatedFiles ../models/source_group.py, ./source_provider.py, ./source_repository.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, Field
 
@@ -76,7 +74,7 @@ class SourceGroupDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_provider: SourceProviderOut | None = None
-    source_repositories: list[SourceRepositoryListOut] = []
+    source_provider: Optional["SourceProviderOut"] = None
+    source_repositories: list["SourceRepositoryListOut"] = []
 
     model_config = {"from_attributes": True}

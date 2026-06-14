@@ -5,10 +5,8 @@
 @relatedFiles ../models/mirror_log.py, ./mirror.py, ./pipeline.py
 """
 
-from __future__ import annotations
-
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -58,7 +56,7 @@ class MirrorLogOut(BaseModel):
     triggered_by: str | None = None
     details: dict[str, Any] | None = None
     created_at: datetime
-    mirror: MirrorListOut | None = None
-    pipeline_run: PipelineRunOut | None = None
+    mirror: Optional["MirrorListOut"] = None
+    pipeline_run: Optional["PipelineRunOut"] = None
 
     model_config = {"from_attributes": True}
