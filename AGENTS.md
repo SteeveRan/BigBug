@@ -377,10 +377,8 @@ cd frontend && yarn dev
 # Frontend
 ./frontend/scripts/format.sh
 ./frontend/scripts/lint.sh
+./frontend/scripts/type-check.sh
 ./frontend/scripts/test.sh
-
-# Type check frontend
-export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd frontend && npx tsc --noEmit
 ```
 
 ### Adding New API Endpoint
