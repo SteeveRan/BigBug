@@ -55,6 +55,7 @@ import type {
   SourceProviderUpdate,
   SourceGroup,
   SourceRepository,
+  SourceRepositoryCreate,
   SourceRepositoryReadme,
   SourceRepositoryRelease,
   Mirror,
@@ -1099,7 +1100,7 @@ export const api = createApi({
         method: 'POST',
         body: { pipeline_id },
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'SyncGroup', id }, 'SyncGroup'],
     }),
 
     // ──── Orphaned Mirrors ──────────────────────────────────────────────────
