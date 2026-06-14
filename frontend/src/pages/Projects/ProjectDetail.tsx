@@ -170,13 +170,15 @@ export function ProjectDetailPage() {
           <Descriptions.Item label="GitHub Updated">
             {p.github_updated_at ? new Date(p.github_updated_at).toLocaleString() : '—'}
           </Descriptions.Item>
-          {p.homepage_url && (
-            <Descriptions.Item label="Homepage">
+          <Descriptions.Item label="Homepage">
+            {p.homepage_url ? (
               <Typography.Link href={p.homepage_url} target="_blank" rel="noopener noreferrer">
                 {p.homepage_url}
               </Typography.Link>
-            </Descriptions.Item>
-          )}
+            ) : (
+              '—'
+            )}
+          </Descriptions.Item>
         </Descriptions>
       </Card>
 
