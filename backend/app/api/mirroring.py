@@ -970,7 +970,7 @@ async def list_mirrors(
     sync_group_id: int | None = Query(None),
     status_flag: int | None = Query(None, ge=0, le=4),
     search: str | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("created_at", pattern="^(source_url|created_at|updated_at|last_sync_at)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),

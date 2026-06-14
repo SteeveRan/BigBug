@@ -69,7 +69,7 @@ ADMIN_PERMISSIONS = [
     # Sync Groups
     "sync_groups:read", "sync_groups:write", "sync_groups:delete",
     # Credentials
-    "credentials:use",
+    "credentials:read", "credentials:use",
     # Reports
     "reports:read",
 ]

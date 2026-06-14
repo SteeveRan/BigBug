@@ -21,10 +21,18 @@ from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import DomainError
 from app.models.mirror import Mirror
+from app.models.pipeline import Pipeline
 from app.models.role import Role
 from app.models.role_scope import RoleScopeSyncGroup
 from app.models.sync_group import SyncGroup
 from app.models.user import User
+
+# Eager-load chain for SyncGroup.pipeline to avoid MissingGreenlet errors
+# when Pydantic validates PipelineOut (which requires .components + .gitlab_instance).
+_PIPELINE_EAGERLOAD = (
+    selectinload(SyncGroup.pipeline).selectinload(Pipeline.components),
+    selectinload(SyncGroup.pipeline).selectinload(Pipeline.gitlab_instance),
+)
 from app.schemas.pipeline import PipelineCreate
 from app.schemas.sync_group import SyncGroupCreate, SyncGroupUpdate
 from app.services.audit import AuditService
@@ -65,7 +73,7 @@ class SyncGroupService:
         """
         result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(SyncGroup.is_default, ~SyncGroup.is_deleted)
         )
         default_group = result.scalar_one_or_none()
@@ -102,7 +110,7 @@ class SyncGroupService:
         # Re-fetch with eager-loaded pipeline
         result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(SyncGroup.id == default_group.id)
         )
         default_group = result.scalar_one()
@@ -226,10 +234,7 @@ class SyncGroupService:
         # Build base query
         base_query = (
             select(SyncGroup)
-            .options(
-                selectinload(SyncGroup.pipeline),
-                selectinload(SyncGroup.mirrors),
-            )
+            .options(*_PIPELINE_EAGERLOAD, selectinload(SyncGroup.mirrors))
             .where(~SyncGroup.is_deleted)
         )
 
@@ -275,10 +280,7 @@ class SyncGroupService:
         """
         result = await db.execute(
             select(SyncGroup)
-            .options(
-                selectinload(SyncGroup.pipeline),
-                selectinload(SyncGroup.mirrors),
-            )
+            .options(*_PIPELINE_EAGERLOAD, selectinload(SyncGroup.mirrors))
             .where(SyncGroup.id == group_id, ~SyncGroup.is_deleted)
         )
         group = result.scalar_one_or_none()
@@ -320,7 +322,7 @@ class SyncGroupService:
         # ── Fetch existing ─────────────────────────────────────────────
         result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(SyncGroup.id == group_id, ~SyncGroup.is_deleted)
         )
         group = result.scalar_one_or_none()
@@ -484,10 +486,7 @@ class SyncGroupService:
         """
         result = await db.execute(
             select(SyncGroup)
-            .options(
-                selectinload(SyncGroup.pipeline),
-                selectinload(SyncGroup.mirrors),
-            )
+            .options(*_PIPELINE_EAGERLOAD, selectinload(SyncGroup.mirrors))
             .where(SyncGroup.id == group_id)
         )
         group = result.scalar_one_or_none()
@@ -652,7 +651,7 @@ class SyncGroupService:
         # ── Validate group exists ───────────────────────────────────────
         group_result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(
                 SyncGroup.id == sync_group_id,
                 ~SyncGroup.is_deleted,
@@ -756,7 +755,7 @@ class SyncGroupService:
         # ── Fetch existing group ───────────────────────────────────────
         result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(
                 SyncGroup.id == sync_group_id,
                 ~SyncGroup.is_deleted,
@@ -822,7 +821,7 @@ class SyncGroupService:
         """
         result = await db.execute(
             select(SyncGroup)
-            .options(selectinload(SyncGroup.pipeline))
+            .options(*_PIPELINE_EAGERLOAD)
             .where(
                 ~SyncGroup.is_deleted,
                 (SyncGroup.sync_enabled) | (SyncGroup.freshness_enabled),

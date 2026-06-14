@@ -232,7 +232,7 @@ function DuplicatesTab() {
           type="success"
           showIcon
           icon={<CheckCircleOutlined />}
-          message="Дубликаты не обнаружены"
+          title="Дубликаты не обнаружены"
           description="Все зеркала уникальны — каждому source URL соответствует только одно зеркало."
         />
       </Flex>
@@ -244,7 +244,7 @@ function DuplicatesTab() {
       <Alert
         type="warning"
         showIcon
-        message={data.warning}
+        title={data.warning}
       />
       <Space>
         <Button

@@ -7,7 +7,7 @@
  * @relatedFiles ./index.tsx, ./RoleModal.tsx, ../../../store/api.ts, ../../../types/index.ts
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Card,
   Typography,
@@ -281,9 +281,11 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
           targetKeys={currentIds.map(String)}
           onChange={handleTransferChange}
           render={(item) => item.title}
-          listStyle={{
-            width: 300,
-            height: 300,
+          styles={{
+            section: {
+              width: 300,
+              height: 300,
+            },
           }}
           titles={['Available', 'Assigned']}
           showSearch
