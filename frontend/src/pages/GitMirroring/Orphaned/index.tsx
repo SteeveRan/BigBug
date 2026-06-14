@@ -5,7 +5,9 @@
  */
 
 import { useState } from 'react';
+import { Link } from 'react-router';
 import {
+  Breadcrumb,
   Card,
   Typography,
   Button,
@@ -246,18 +248,25 @@ const OrphanedPage = () => {
   }
 
   return (
-    <Card>
-      <Flex vertical gap={16}>
-        {/* Header */}
-        <Flex justify="space-between" align="center" wrap gap={8}>
-          <Flex vertical>
-            <Typography.Title level={4} style={{ margin: 0 }}>
-              Orphaned Mirrors
-            </Typography.Title>
-            <Typography.Text type="secondary">
-              Mirrors that have lost connection to their source or target
-            </Typography.Text>
-          </Flex>
+    <Flex vertical gap={16}>
+      <Breadcrumb
+        items={[
+          { title: <Link to="/git-mirroring/dashboard">Git Mirroring</Link> },
+          { title: 'Orphaned Mirrors' },
+        ]}
+      />
+      <Card>
+        <Flex vertical gap={16}>
+          {/* Header */}
+          <Flex justify="space-between" align="center" wrap gap={8}>
+            <Flex vertical>
+              <Typography.Title level={4} style={{ margin: 0 }}>
+                Orphaned Mirrors
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                Mirrors that have lost connection to their source or target
+              </Typography.Text>
+            </Flex>
         </Flex>
 
         {/* Toolbar */}
@@ -353,6 +362,7 @@ const OrphanedPage = () => {
         )}
       </Modal>
     </Card>
+  </Flex>
   );
 };
 

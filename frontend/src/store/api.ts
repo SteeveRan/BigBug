@@ -991,6 +991,17 @@ export const api = createApi({
     getRepositoryReadme: builder.query<SourceRepositoryReadme, number>({
       query: (id) => `/mirroring/repositories/${id}/readme`,
     }),
+    createSourceRepository: builder.mutation<
+      SourceRepository,
+      SourceRepositoryCreate
+    >({
+      query: (data) => ({
+        url: '/mirroring/repositories',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['SourceRepository'],
+    }),
 
     // Mirrors
     getMirrors: builder.query<Mirror[], MirrorFilters>({
@@ -1354,6 +1365,7 @@ export const {
   useGetSourceRepositoryQuery,
   useGetRepositoryReleasesQuery,
   useGetRepositoryReadmeQuery,
+  useCreateSourceRepositoryMutation,
   useGetMirrorsQuery,
   useGetMirrorDetailQuery,
   useCreateMirrorV2Mutation,

@@ -1,14 +1,14 @@
 /**
  * @file GitMirroringGroups.test.tsx
- * @description Integration tests for the Git Mirroring Groups page
+ * @description Integration tests for the Git Mirroring Groups tab (via Sources page)
  * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router
- * @relatedFiles ../../../pages/GitMirroring/Groups/index.tsx, ../../../store/api.ts
+ * @relatedFiles ../../pages/GitMirroring/Sources/index.tsx, ../../pages/GitMirroring/Sources/GroupsTab.tsx, ../../store/api.ts
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import type { Store } from '@reduxjs/toolkit';
 import { App } from 'antd';
@@ -23,9 +23,13 @@ vi.mock('../../store/api', async () => {
     ...(actual as object),
     useGetSourceProvidersQuery: vi.fn(),
     useGetSourceGroupsQuery: vi.fn(),
+    useGetSourceRepositoriesQuery: vi.fn(),
     useRefreshSourceGroupMutation: vi.fn(),
     useDeleteSourceGroupMutation: vi.fn(),
     useImportSourceGroupMutation: vi.fn(),
+    useCreateSourceRepositoryMutation: vi.fn(),
+    useBulkCreateMirrorsMutation: vi.fn(),
+    useGetSyncGroupsQuery: vi.fn(),
   };
 });
 
@@ -41,12 +45,16 @@ import { api } from '../../store/api';
 import {
   useGetSourceProvidersQuery,
   useGetSourceGroupsQuery,
+  useGetSourceRepositoriesQuery,
   useRefreshSourceGroupMutation,
   useDeleteSourceGroupMutation,
   useImportSourceGroupMutation,
+  useCreateSourceRepositoryMutation,
+  useBulkCreateMirrorsMutation,
+  useGetSyncGroupsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
-import GroupsPage from '../../pages/GitMirroring/Groups';
+import SourcesPage from '../../pages/GitMirroring/Sources';
 import type { SourceGroup, SourceProvider } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -110,17 +118,17 @@ function createTestStore(): Store {
   });
 }
 
-function renderGroupsPage() {
+function renderSourcesPage(tab = 'groups') {
   const store = createTestStore();
   return {
     store,
     ...render(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter initialEntries={[`/git-mirroring/sources?tab=${tab}`]}>
           <App>
-            <GroupsPage />
+            <SourcesPage />
           </App>
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>
     ),
   };
@@ -130,7 +138,7 @@ function renderGroupsPage() {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('GroupsPage', () => {
+describe('SourcesPage — Groups tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -156,6 +164,13 @@ describe('GroupsPage', () => {
       error: null,
     });
 
+    (useGetSourceRepositoriesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
     (useRefreshSourceGroupMutation as ReturnType<typeof vi.fn>).mockReturnValue([
       vi.fn(),
       { isLoading: false },
@@ -168,21 +183,35 @@ describe('GroupsPage', () => {
       vi.fn(),
       { isLoading: false },
     ]);
+    (useCreateSourceRepositoryMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ]);
+    (useBulkCreateMirrorsMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn(),
+      { isLoading: false },
+    ]);
+    (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
   });
 
   // -----------------------------------------------------------------------
   // Test 1: Page heading
   // -----------------------------------------------------------------------
-  it('renders "Source Groups" heading', () => {
-    renderGroupsPage();
-    expect(screen.getByText('Source Groups')).toBeInTheDocument();
+  it('renders "Sources" heading', () => {
+    renderSourcesPage();
+    expect(screen.getAllByText('Sources').length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------
   // Test 2: Provider selector
   // -----------------------------------------------------------------------
   it('renders provider selector', () => {
-    renderGroupsPage();
+    renderSourcesPage();
     // The Select component should be in the DOM (antd renders options in a dropdown)
     const selectElement = document.querySelector('.ant-select');
     expect(selectElement).toBeInTheDocument();
@@ -192,7 +221,7 @@ describe('GroupsPage', () => {
   // Test 3: Import button
   // -----------------------------------------------------------------------
   it('renders "Import Group" button', () => {
-    renderGroupsPage();
+    renderSourcesPage();
     expect(screen.getByText('Import Group')).toBeInTheDocument();
   });
 
@@ -207,7 +236,7 @@ describe('GroupsPage', () => {
       error: null,
     });
 
-    renderGroupsPage();
+    renderSourcesPage();
 
     // "Test Org" appears in both name and full_name columns
     expect(screen.getAllByText('Test Org').length).toBeGreaterThanOrEqual(1);
@@ -220,7 +249,7 @@ describe('GroupsPage', () => {
   // Test 5: Empty state
   // -----------------------------------------------------------------------
   it('shows empty state when no groups exist', () => {
-    renderGroupsPage();
+    renderSourcesPage();
     expect(screen.getByText('No groups found')).toBeInTheDocument();
   });
 
@@ -235,7 +264,7 @@ describe('GroupsPage', () => {
       error: null,
     });
 
-    renderGroupsPage();
+    renderSourcesPage();
 
     // Provider selector should exist
     const selectElement = document.querySelector('.ant-select');
@@ -253,7 +282,7 @@ describe('GroupsPage', () => {
       error: null,
     });
 
-    renderGroupsPage();
+    renderSourcesPage();
 
     // Click the Import Group button
     const importButton = screen.getByText('Import Group');

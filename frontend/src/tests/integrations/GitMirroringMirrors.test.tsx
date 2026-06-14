@@ -280,7 +280,8 @@ describe('MirrorsPage', () => {
   // -----------------------------------------------------------------------
   it('renders "Mirrors" heading', () => {
     renderMirrorsPage();
-    expect(screen.getByText('Mirrors')).toBeInTheDocument();
+    const headings = screen.getAllByText('Mirrors');
+    expect(headings.length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------

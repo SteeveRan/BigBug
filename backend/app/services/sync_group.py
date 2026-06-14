@@ -26,13 +26,6 @@ from app.models.role import Role
 from app.models.role_scope import RoleScopeSyncGroup
 from app.models.sync_group import SyncGroup
 from app.models.user import User
-
-# Eager-load chain for SyncGroup.pipeline to avoid MissingGreenlet errors
-# when Pydantic validates PipelineOut (which requires .components + .gitlab_instance).
-_PIPELINE_EAGERLOAD = (
-    selectinload(SyncGroup.pipeline).selectinload(Pipeline.components),
-    selectinload(SyncGroup.pipeline).selectinload(Pipeline.gitlab_instance),
-)
 from app.schemas.pipeline import PipelineCreate
 from app.schemas.sync_group import SyncGroupCreate, SyncGroupUpdate
 from app.services.audit import AuditService
@@ -40,6 +33,13 @@ from app.services.pipeline import (
     create_pipeline,
     get_default_pipeline,
     get_pipeline_config,
+)
+
+# Eager-load chain for SyncGroup.pipeline to avoid MissingGreenlet errors
+# when Pydantic validates PipelineOut (which requires .components + .gitlab_instance).
+_PIPELINE_EAGERLOAD = (
+    selectinload(SyncGroup.pipeline).selectinload(Pipeline.components),
+    selectinload(SyncGroup.pipeline).selectinload(Pipeline.gitlab_instance),
 )
 
 logger = logging.getLogger(__name__)
@@ -109,9 +109,7 @@ class SyncGroupService:
 
         # Re-fetch with eager-loaded pipeline
         result = await db.execute(
-            select(SyncGroup)
-            .options(*_PIPELINE_EAGERLOAD)
-            .where(SyncGroup.id == default_group.id)
+            select(SyncGroup).options(*_PIPELINE_EAGERLOAD).where(SyncGroup.id == default_group.id)
         )
         default_group = result.scalar_one()
 

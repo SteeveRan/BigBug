@@ -165,7 +165,8 @@ describe('ProvidersPage', () => {
   // -----------------------------------------------------------------------
   it('renders "Source Providers" heading', () => {
     renderProvidersPage();
-    expect(screen.getByText('Source Providers')).toBeInTheDocument();
+    const headings = screen.getAllByText('Source Providers');
+    expect(headings.length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------

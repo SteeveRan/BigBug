@@ -6,7 +6,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 
@@ -56,7 +56,7 @@ class MirrorLogOut(BaseModel):
     triggered_by: str | None = None
     details: dict[str, Any] | None = None
     created_at: datetime
-    mirror: Optional["MirrorListOut"] = None
-    pipeline_run: Optional["PipelineRunOut"] = None
+    mirror: MirrorListOut | None = None
+    pipeline_run: PipelineRunOut | None = None
 
     model_config = {"from_attributes": True}

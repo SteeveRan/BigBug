@@ -14,8 +14,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
 from datetime import UTC, datetime
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
@@ -29,8 +32,8 @@ from app.database import get_db
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLogType
 from app.models.source_group import SourceGroup
-from app.models.source_provider import SourceProvider
-from app.models.source_repository import SourceRepository
+from app.models.source_provider import ProviderType, SourceProvider
+from app.models.source_repository import DiscoveryStatus, SourceRepository
 from app.models.user import User
 from app.schemas.mirror import (
     IntegrityCheckResult,
@@ -44,6 +47,7 @@ from app.schemas.mirror_log import MirrorLogOut
 from app.schemas.source_group import SourceGroupDetailOut, SourceGroupListOut
 from app.schemas.source_provider import SourceProviderCreate, SourceProviderOut
 from app.schemas.source_repository import (
+    SourceRepositoryCreate,
     SourceRepositoryDetailOut,
     SourceRepositoryListOut,
     SourceRepositoryReadmeOut,
@@ -63,6 +67,107 @@ from app.services.sync_group import SyncGroupService
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ===================================================================
+# Helper functions
+# ===================================================================
+
+
+def _parse_clone_url(
+    clone_url: str, provider_type: ProviderType
+) -> tuple[str, str, str | None, str | None, str | None]:
+    """Parse a clone URL into (name, full_name, web_url, clone_url_https, clone_url_ssh).
+
+    Supports:
+    - HTTPS: ``https://github.com/org/repo.git`` or ``https://github.com/org/repo``
+    - SSH:   ``git@github.com:org/repo.git`` or ``git@github.com:org/repo``
+
+    Returns:
+        (name, full_name, web_url, clone_url_https, clone_url_ssh)
+    """
+    stripped = clone_url.rstrip("/")
+
+    # Extract name (last path segment, strip .git suffix)
+    name = stripped.rstrip("/").split("/")[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+
+    # Determine clone_url_https / clone_url_ssh
+    if clone_url.startswith("git@"):
+        clone_url_ssh = clone_url
+        clone_url_https = None
+        # Convert SSH to HTTPS for parsing: git@github.com:org/repo → https://github.com/org/repo
+        if ":" in clone_url:
+            host_part, path_part = clone_url.split(":", 1)
+            host = host_part.replace("git@", "")
+            cls = path_part.rstrip("/")
+            if cls.endswith(".git"):
+                cls = cls[:-4]
+            parsed_for_web = f"https://{host}/{cls}"
+        else:
+            parsed_for_web = clone_url
+    else:
+        clone_url_https = clone_url
+        clone_url_ssh = None
+        parsed_for_web = clone_url
+        if parsed_for_web.endswith(".git"):
+            parsed_for_web = parsed_for_web[:-4]
+
+    # Full name: org/repo for github/gitlab, just name for generic
+    if provider_type in (ProviderType.github, ProviderType.gitlab):
+        # Try to extract org/repo from the HTTPS form
+        try:
+            parsed = urlparse(parsed_for_web)
+            path = parsed.path.strip("/")
+            full_name = path if "/" in path else name
+        except Exception:
+            full_name = name
+    else:
+        full_name = name
+
+    # Web URL
+    if provider_type in (ProviderType.github, ProviderType.gitlab):
+        web_url = parsed_for_web
+    else:
+        web_url = None
+
+    return name, full_name, web_url, clone_url_https, clone_url_ssh
+
+
+async def _detect_default_branch(clone_url: str) -> str | None:
+    """Run ``git ls-remote --symref <clone_url> HEAD`` to detect the default branch.
+
+    Returns the branch name (e.g. ``main``) or ``None`` if detection failed.
+    Does **not** raise — failures are logged and swallowed.
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "ls-remote",
+            "--symref",
+            clone_url,
+            "HEAD",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+        if proc.returncode != 0:
+            logger.warning(
+                "git ls-remote failed for %s: %s",
+                clone_url,
+                stderr.decode(errors="replace").strip(),
+            )
+            return None
+
+        output = stdout.decode(errors="replace")
+        match = re.search(r"ref:\s+refs/heads/(\S+)\s+HEAD", output)
+        if match:
+            return match.group(1)
+        return None
+    except Exception:
+        logger.warning("git ls-remote exception for %s", clone_url, exc_info=True)
+        return None
 
 
 # ===================================================================
@@ -725,27 +830,68 @@ async def list_source_repositories(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _: bool = Depends(require_scope_permission("source_groups:read", "source_group", "group_id")),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:read")),
 ):
-    """List repositories in a source group with optional filtering."""
-    # Verify group exists
-    grp_result = await db.execute(
-        select(SourceGroup).where(
-            SourceGroup.id == group_id,
-            ~SourceGroup.is_deleted,
-        )
-    )
-    if grp_result.scalar_one_or_none() is None:
-        raise HTTPException(status_code=404, detail=f"SourceGroup with id={group_id} not found")
+    """List repositories in a source group with optional filtering.
 
-    query = (
-        select(SourceRepository)
-        .options(selectinload(SourceRepository.source_group))
-        .where(
-            SourceRepository.source_group_id == group_id,
-            ~SourceRepository.is_deleted,
+    Use ``group_id=0`` to list repositories across **all** non-deleted groups
+    the current user has scope access to.
+    """
+    rbac = RBACService(db)
+
+    if group_id == 0:
+        # "All groups" — collect repositories from all accessible, non-deleted groups
+        # AND orphan repositories (source_group_id IS NULL — Generic Git)
+        grp_result = await db.execute(select(SourceGroup).where(~SourceGroup.is_deleted))
+        all_groups = grp_result.scalars().all()
+        allowed_group_ids = [
+            g.id
+            for g in all_groups
+            if await rbac.check_scope_access(current_user.id, "source_group", g.id)
+        ]
+
+        from sqlalchemy import or_
+
+        conditions = [SourceRepository.is_deleted.is_(False)]
+        group_scoped = []
+        if allowed_group_ids:
+            group_scoped.append(SourceRepository.source_group_id.in_(allowed_group_ids))
+        # Always include orphan repos (generic git)
+        group_scoped.append(SourceRepository.source_group_id.is_(None))
+        if group_scoped:
+            conditions.append(or_(*group_scoped))
+
+        query = (
+            select(SourceRepository)
+            .options(selectinload(SourceRepository.source_group))
+            .where(*conditions)
         )
-    )
+    else:
+        # Verify group exists
+        grp_result = await db.execute(
+            select(SourceGroup).where(
+                SourceGroup.id == group_id,
+                ~SourceGroup.is_deleted,
+            )
+        )
+        group = grp_result.scalar_one_or_none()
+        if group is None:
+            raise HTTPException(status_code=404, detail=f"SourceGroup with id={group_id} not found")
+
+        if not await rbac.check_scope_access(current_user.id, "source_group", group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
+
+        query = (
+            select(SourceRepository)
+            .options(selectinload(SourceRepository.source_group))
+            .where(
+                SourceRepository.source_group_id == group_id,
+                ~SourceRepository.is_deleted,
+            )
+        )
 
     if discovery_status is not None:
         query = query.where(SourceRepository.discovery_status == discovery_status)
@@ -760,6 +906,116 @@ async def list_source_repositories(
     result = await db.execute(query)
     repos = result.scalars().all()
     return [SourceRepositoryListOut.model_validate(r) for r in repos]
+
+
+@router.post("/repositories/", response_model=SourceRepositoryDetailOut, status_code=201)
+async def create_source_repository(
+    data: SourceRepositoryCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:write")),
+):
+    """Create a source repository manually (for Generic Git or any provider).
+
+    Parses clone_url to derive name and full_name. Optionally runs
+    ``git ls-remote`` to auto-detect the default branch.
+    """
+    import uuid
+
+    clone_url = data.clone_url.strip()
+
+    # ── 1. Parse clone_url ──────────────────────────────────────────────
+    name, full_name, web_url, clone_url_https, clone_url_ssh = _parse_clone_url(
+        clone_url, data.provider_type
+    )
+
+    # ── 2. Resolve source_group_id (validate if provided) ───────────────
+    rbac = RBACService(db)
+    if data.source_group_id is not None:
+        grp_result = await db.execute(
+            select(SourceGroup)
+            .options(selectinload(SourceGroup.source_provider))
+            .where(
+                SourceGroup.id == data.source_group_id,
+                ~SourceGroup.is_deleted,
+            )
+        )
+        group = grp_result.scalar_one_or_none()
+        if group is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"SourceGroup with id={data.source_group_id} not found",
+            )
+        # Consistency check: group's provider_type must match the request
+        if group.source_provider.provider_type != data.provider_type:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Provider type mismatch: group belongs to "
+                    f"'{group.source_provider.provider_type}' but request specified "
+                    f"'{data.provider_type}'"
+                ),
+            )
+
+        if not await rbac.check_scope_access(current_user.id, "source_group", data.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
+
+    # ── 3. Auto-detect default branch via git ls-remote ─────────────────
+    default_branch = await _detect_default_branch(clone_url)
+
+    # ── 4. Check for duplicates ─────────────────────────────────────────
+    dup_query = select(SourceRepository).where(
+        SourceRepository.full_name == full_name,
+        ~SourceRepository.is_deleted,
+    )
+    if data.source_group_id is not None:
+        dup_query = dup_query.where(SourceRepository.source_group_id == data.source_group_id)
+    else:
+        dup_query = dup_query.where(SourceRepository.source_group_id.is_(None))
+    dup_result = await db.execute(dup_query)
+    if dup_result.scalar_one_or_none() is not None:
+        detail = f"Repository '{full_name}' already exists" + (
+            f" in source group {data.source_group_id}" if data.source_group_id else ""
+        )
+        raise HTTPException(status_code=409, detail=detail)
+
+    # ── 5. Persist ──────────────────────────────────────────────────────
+    now = datetime.now(UTC)
+    repo = SourceRepository(
+        source_group_id=data.source_group_id,
+        external_id=str(uuid.uuid4()),
+        name=name,
+        full_name=full_name,
+        clone_url_https=clone_url_https,
+        clone_url_ssh=clone_url_ssh,
+        description=data.description,
+        default_branch=default_branch,
+        web_url=web_url,
+        discovery_status=DiscoveryStatus.new,
+        discovered_at=now,
+        last_seen_at=now,
+        is_archived=False,
+        is_fork=False,
+        is_disabled=False,
+    )
+    db.add(repo)
+    await db.flush()
+
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_repository.created",
+        resource_type="source_repository",
+        resource_id=repo.id,
+        resource_name=repo.full_name,
+    )
+
+    await db.commit()
+    await db.refresh(repo)
+    return SourceRepositoryDetailOut.model_validate(repo)
 
 
 @router.get("/repositories/{repository_id}", response_model=SourceRepositoryDetailOut)
@@ -784,12 +1040,13 @@ async def get_source_repository(
         raise HTTPException(
             status_code=404, detail=f"SourceRepository with id={repository_id} not found"
         )
-    # Scope check via parent SourceGroup
-    rbac = RBACService(db)
-    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
-        raise HTTPException(
-            status_code=403, detail="Access denied: resource not in your role scope"
-        )
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
     return SourceRepositoryDetailOut.model_validate(repo)
 
 
@@ -816,11 +1073,13 @@ async def get_repository_releases(
         raise HTTPException(
             status_code=404, detail=f"SourceRepository with id={repository_id} not found"
         )
-    rbac = RBACService(db)
-    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
-        raise HTTPException(
-            status_code=403, detail="Access denied: resource not in your role scope"
-        )
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
 
     releases = await ReleaseService.get_releases(
         db,
@@ -849,12 +1108,13 @@ async def get_repository_readme(
         raise HTTPException(
             status_code=404, detail=f"SourceRepository with id={repository_id} not found"
         )
-    # Scope check via parent SourceGroup
-    rbac = RBACService(db)
-    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
-        raise HTTPException(
-            status_code=403, detail="Access denied: resource not in your role scope"
-        )
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
     return SourceRepositoryReadmeOut(
         readme_html=repo.readme_html,
         readme_fetched_at=repo.readme_fetched_at,
@@ -879,12 +1139,13 @@ async def delete_source_repository(
         raise HTTPException(
             status_code=404, detail=f"SourceRepository with id={repository_id} not found"
         )
-    # Scope check via parent SourceGroup
-    rbac = RBACService(db)
-    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
-        raise HTTPException(
-            status_code=403, detail="Access denied: resource not in your role scope"
-        )
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
 
     # Check for active mirrors referencing this repository
     active_mirrors = [m for m in repo.mirrors if not m.is_deleted]
@@ -934,12 +1195,13 @@ async def restore_source_repository(
         )
     if not repo.is_deleted:
         raise HTTPException(status_code=400, detail="Source repository is not deleted")
-    # Scope check via parent SourceGroup
-    rbac = RBACService(db)
-    if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
-        raise HTTPException(
-            status_code=403, detail="Access denied: resource not in your role scope"
-        )
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
+            raise HTTPException(
+                status_code=403, detail="Access denied: resource not in your role scope"
+            )
 
     repo.is_deleted = False
     repo.deleted_at = None

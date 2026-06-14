@@ -34,7 +34,7 @@ def _get_credential_type_enum() -> sa.Enum:
 
 def _get_provider_type_enum() -> sa.Enum:
     return sa.Enum(
-        "github", "gitlab", "bitbucket",
+        "github", "gitlab",
         name="provider_type_enum",
         create_type=False,
     )
@@ -540,7 +540,7 @@ def upgrade() -> None:
             "credential_type_enum",
             "'github_token', 'gitlab_token', 'https_basic', 'ssh_key'",
         ),
-        ("provider_type_enum", "'github', 'gitlab', 'bitbucket'"),
+        ("provider_type_enum", "'github', 'gitlab'"),
         ("discovery_status_enum", "'new', 'existing', 'removed'"),
         ("mirror_log_type_enum", "'sync', 'freshness', 'import', 'integrity'"),
     ]:

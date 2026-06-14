@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import {
+  Breadcrumb,
   Card,
   Typography,
   Button,
@@ -28,7 +29,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import {
   useGetSyncGroupsQuery,
   useCreateSyncGroupMutation,
@@ -250,11 +251,25 @@ const SyncGroupsPage = () => {
 
   return (
     <Flex vertical gap={16}>
+      {/* ── Breadcrumb ──────────────────────────────────────────────────────── */}
+      <Breadcrumb
+        items={[
+          { title: <Link to="/git-mirroring/dashboard">Git Mirroring</Link> },
+          { title: 'Sync Groups' },
+        ]}
+      />
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Sync Groups
-        </Typography.Title>
+        <Flex vertical gap={4}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Sync Groups
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Sync Groups define schedules and pipelines for mirror synchronization.
+            Group mirrors by sync frequency, pipeline configuration, or team ownership.
+          </Typography.Text>
+        </Flex>
         <PermissionGate permission="sync_groups:write">
           <Button
             type="primary"

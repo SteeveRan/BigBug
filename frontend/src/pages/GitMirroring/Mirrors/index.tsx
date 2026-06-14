@@ -5,8 +5,9 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router';
 import {
+  Breadcrumb,
   Card,
   Typography,
   Button,
@@ -226,11 +227,25 @@ const MirrorsPage = () => {
 
   return (
     <Flex vertical gap={16}>
+      {/* ── Breadcrumb ──────────────────────────────────────────────────────── */}
+      <Breadcrumb
+        items={[
+          { title: <Link to="/git-mirroring/dashboard">Git Mirroring</Link> },
+          { title: 'Mirrors' },
+        ]}
+      />
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Mirrors
-        </Typography.Title>
+        <Flex vertical gap={4}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Mirrors
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Manage mirrors — each mirror links a source repository to a target GitLab instance.
+            Trigger sync or freshness checks and monitor mirror status.
+          </Typography.Text>
+        </Flex>
         <Space wrap>
           <PermissionGate permission="mirrors:write">
             <Button icon={<ImportOutlined />} onClick={() => setImportModalOpen(true)}>

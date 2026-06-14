@@ -1,7 +1,7 @@
 """
 @file source_provider.py
 @description SourceProvider model — represents a configured source hosting platform
-             (GitHub, GitLab, Bitbucket) optionally authenticated via a Credential.
+             (GitHub, GitLab) optionally authenticated via a Credential.
 @dependencies app.database.Base, ./credential.py
 @relatedFiles ./credential.py, ./source_group.py, ./role_scope.py
 """
@@ -19,7 +19,6 @@ from app.database import Base
 class ProviderType(enum.StrEnum):
     github = "github"
     gitlab = "gitlab"
-    bitbucket = "bitbucket"
     generic = "generic"
 
 

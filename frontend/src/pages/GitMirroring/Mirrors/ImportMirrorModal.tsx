@@ -63,7 +63,7 @@ export function ImportMirrorModal({ open, onClose, groupId }: ImportMirrorModalP
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Alert
-          title="Система проверит связь через сравнение commit history. Поддерживаются GitHub, GitLab, Bitbucket и Generic Git репозитории."
+          title="Система проверит связь через сравнение commit history. Поддерживаются GitHub, GitLab и Generic Git репозитории."
           type="info"
           showIcon
           style={{ marginBottom: 16 }}

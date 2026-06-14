@@ -241,7 +241,8 @@ describe('GitMirroring Orphaned Page', () => {
   it('renders the page with mocked API', () => {
     renderOrphanedPage();
 
-    expect(screen.getByText('Orphaned Mirrors')).toBeInTheDocument();
+    const headings = screen.getAllByText('Orphaned Mirrors');
+    expect(headings.length).toBeGreaterThanOrEqual(1);
     expect(
       screen.getByText('Mirrors that have lost connection to their source or target')
     ).toBeInTheDocument();

@@ -121,9 +121,9 @@ class TestGetProviderClass:
         assert klass is GenericGitSourceProvider
 
     def test_unknown(self):
-        """'bitbucket' raises ValueError — not implemented yet."""
+        """'unknown_provider' raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported provider type"):
-            get_provider_class("bitbucket")
+            get_provider_class("unknown_provider")
 
     def test_empty(self):
         """Empty string raises ValueError."""
@@ -172,13 +172,8 @@ class TestCreateSourceProvider:
     @pytest.mark.asyncio
     async def test_create_provider_unknown_type(self):
         """create_source_provider with unsupported type raises ValueError."""
-        sp = SourceProvider(
-            id=99,
-            label="Unknown",
-            provider_type=ProviderType.bitbucket,
-            credential_id=None,
-            is_deleted=False,
-        )
+        sp = MagicMock(spec=SourceProvider)
+        sp.provider_type = "unsupported_type"
         with pytest.raises(ValueError, match="Unsupported provider type"):
             await create_source_provider(sp, "test-token")
 

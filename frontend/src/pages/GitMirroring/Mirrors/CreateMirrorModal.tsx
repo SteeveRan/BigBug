@@ -182,7 +182,7 @@ export function CreateMirrorModal({ open, onClose, mirror, groupId }: CreateMirr
         <Typography.Text type="secondary">
           {isEdit
             ? 'Update mirror target or sync group assignment.'
-            : 'Create a new mirror from the selected source repository to GitLab. Supports GitHub, GitLab, Bitbucket, and Generic Git.'}
+            : 'Create a new mirror from the selected source repository to GitLab. Supports GitHub, GitLab, and Generic Git.'}
         </Typography.Text>
       </Form>
     </Modal>

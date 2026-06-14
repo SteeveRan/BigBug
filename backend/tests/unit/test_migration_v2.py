@@ -197,10 +197,10 @@ class TestMigrationEnumHelpers:
         assert isinstance(enum, sa.Enum)
 
     def test_provider_type_enum_values(self):
-        """provider_type_enum has all 3 values."""
+        """provider_type_enum has all 2 values."""
         enum = self._get_provider_type_enum()
         values = set(enum.enums)
-        assert values == {"github", "gitlab", "bitbucket"}
+        assert values == {"github", "gitlab"}
 
     def test_provider_type_enum_is_enum_instance(self):
         """provider_type_enum returns a sa.Enum instance."""

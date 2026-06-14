@@ -5,7 +5,9 @@
  */
 
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router';
 import {
+  Breadcrumb,
   Card,
   Typography,
   Button,
@@ -32,14 +34,12 @@ const PROVIDER_TYPE_OPTIONS = [
   { label: 'All', value: '' },
   { label: 'GitHub', value: 'github' },
   { label: 'GitLab', value: 'gitlab' },
-  { label: 'Bitbucket', value: 'bitbucket' },
   { label: 'Generic Git', value: 'generic' },
 ];
 
 const PROVIDER_TYPE_COLORS: Record<string, string> = {
   github: '#24292f',
   gitlab: '#fc6d26',
-  bitbucket: '#0052cc',
   generic: '#8c8c8c',
 };
 
@@ -173,11 +173,25 @@ const ProvidersPage = () => {
 
   return (
     <Flex vertical gap={16}>
+      {/* ── Breadcrumb ──────────────────────────────────────────────────────── */}
+      <Breadcrumb
+        items={[
+          { title: <Link to="/git-mirroring/dashboard">Git Mirroring</Link> },
+          { title: 'Source Providers' },
+        ]}
+      />
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          Source Providers
-        </Typography.Title>
+        <Flex vertical gap={4}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            Source Providers
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            Manage connections to source platforms (GitHub, GitLab, Generic Git).
+            Providers define authentication credentials for discovering repositories.
+          </Typography.Text>
+        </Flex>
         <Space>
           <Select
             style={{ width: 150 }}

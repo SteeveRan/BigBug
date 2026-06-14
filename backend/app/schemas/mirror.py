@@ -7,7 +7,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -68,7 +68,7 @@ class MirrorListOut(BaseModel):
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime
-    source_repository: Optional["SourceRepositoryListOut"] = None
+    source_repository: SourceRepositoryListOut | None = None
 
     model_config = {"from_attributes": True}
 
@@ -98,9 +98,9 @@ class MirrorDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_repository: Optional["SourceRepositoryDetailOut"] = None
-    sync_group: Optional["SyncGroupOut"] = None
-    mirror_logs: list["MirrorLogOut"] = []
+    source_repository: SourceRepositoryDetailOut | None = None
+    sync_group: SyncGroupOut | None = None
+    mirror_logs: list[MirrorLogOut] = []
 
     model_config = {"from_attributes": True}
 

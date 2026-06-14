@@ -134,14 +134,11 @@ describe('Layout sidebar', () => {
       expect(screen.getByText('Docker Images')).toBeInTheDocument();
     });
 
-    it('does NOT show Repositories under Artifacts', () => {
+    it('does NOT show Sources under Artifacts', () => {
       renderLayout();
-      // "Repositories" appears ONLY in Git Mirroring group, not in Artifacts
-      // But the label text is the same, so we check the menu structure
-      // The Artifacts group's children should NOT contain Repositories
-      const menuItems = screen.getAllByText('Repositories');
-      // Expect at most one "Repositories" (the one in Git Mirroring group)
+      // "Sources" appears ONLY in Git Mirroring group, not in Artifacts
       // Artifacts has only Helm Charts + Docker Images
+      const menuItems = screen.queryAllByText('Sources');
       expect(menuItems.length).toBeLessThanOrEqual(1);
     });
   });
@@ -159,19 +156,14 @@ describe('Layout sidebar', () => {
       expect(screen.getByText('Mirrors')).toBeInTheDocument();
     });
 
-    it('shows Repositories in Git Mirroring', () => {
+    it('shows Sources in Git Mirroring', () => {
       renderLayout();
-      expect(screen.getByText('Repositories')).toBeInTheDocument();
+      expect(screen.getByText('Sources')).toBeInTheDocument();
     });
 
     it('shows Source Providers in Git Mirroring', () => {
       renderLayout();
       expect(screen.getByText('Source Providers')).toBeInTheDocument();
-    });
-
-    it('shows Source Groups in Git Mirroring', () => {
-      renderLayout();
-      expect(screen.getByText('Source Groups')).toBeInTheDocument();
     });
 
     it('shows Sync Groups in Git Mirroring', () => {

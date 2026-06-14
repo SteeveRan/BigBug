@@ -6,7 +6,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
@@ -23,7 +23,7 @@ class SourceProviderCreate(BaseModel):
     """Payload to create a source provider."""
 
     credential_id: int | None = Field(None, description="Optional FK to Credential for auth")
-    provider_type: ProviderType = Field(..., description="github, gitlab, bitbucket")
+    provider_type: ProviderType = Field(..., description="github, gitlab, generic")
     label: str = Field(..., max_length=255, description="e.g. 'github.com (org-token)'")
 
 
@@ -41,6 +41,6 @@ class SourceProviderOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    credential: Optional["CredentialOut"] = None
+    credential: CredentialOut | None = None
 
     model_config = {"from_attributes": True}

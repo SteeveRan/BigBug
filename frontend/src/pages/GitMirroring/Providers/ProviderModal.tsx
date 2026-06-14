@@ -32,7 +32,6 @@ interface FormValues {
 const PROVIDER_TYPES = [
   { label: 'GitHub', value: 'github' },
   { label: 'GitLab', value: 'gitlab' },
-  { label: 'Bitbucket', value: 'bitbucket' },
   { label: 'Generic Git', value: 'generic' },
 ];
 
@@ -128,7 +127,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
         <Typography.Text type="secondary">
           {isEdit
             ? 'Update provider label or credential.'
-            : 'Create a new source provider to connect to GitHub, GitLab, Bitbucket, or any Git server via Generic Git.'}
+            : 'Create a new source provider to connect to GitHub, GitLab, or any Git server via Generic Git.'}
         </Typography.Text>
       </Form>
     </Modal>

@@ -6,7 +6,7 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -66,7 +66,7 @@ class SyncGroupOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    pipeline: Optional["PipelineOut"] = None
+    pipeline: PipelineOut | None = None
 
     @computed_field
     def mirrors_count(self) -> int:

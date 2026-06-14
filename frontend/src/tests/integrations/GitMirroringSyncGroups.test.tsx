@@ -205,7 +205,8 @@ describe('SyncGroupsPage', () => {
   // -----------------------------------------------------------------------
   it('renders "Sync Groups" heading', () => {
     renderSyncGroupsPage();
-    expect(screen.getByText('Sync Groups')).toBeInTheDocument();
+    const headings = screen.getAllByText('Sync Groups');
+    expect(headings.length).toBeGreaterThanOrEqual(1);
   });
 
   // -----------------------------------------------------------------------

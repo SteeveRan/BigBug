@@ -1,7 +1,7 @@
 """
 @file source_group.py
 @description SourceGroup model — represents a group/organization within a source
-             provider (e.g., GitHub org, GitLab group, Bitbucket workspace).
+             provider (e.g., GitHub org, GitLab group).
 @dependencies app.database.Base, ./source_provider.py
 @relatedFiles ./source_provider.py, ./source_repository.py, ./role_scope.py
 """

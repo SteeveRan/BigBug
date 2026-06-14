@@ -86,9 +86,7 @@ class RBACService:
     # Role queries
     # ------------------------------------------------------------------
 
-    async def _get_roles_with_users_count(
-        self, role_query: select
-    ) -> list[Role]:
+    async def _get_roles_with_users_count(self, role_query: select) -> list[Role]:
         """Execute a role query and annotate each result with users_count."""
         result = await self.db.execute(role_query)
         roles = list(result.scalars().all())
@@ -113,20 +111,12 @@ class RBACService:
 
     async def get_all_roles(self) -> list[Role]:
         """Get all roles with their permissions pre-loaded and users_count."""
-        query = (
-            select(Role)
-            .options(selectinload(Role.permissions))
-            .order_by(Role.name)
-        )
+        query = select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
         return await self._get_roles_with_users_count(query)
 
     async def get_role_by_id(self, role_id: int) -> Role | None:
         """Get a single role with permissions and users_count, or None."""
-        query = (
-            select(Role)
-            .options(selectinload(Role.permissions))
-            .where(Role.id == role_id)
-        )
+        query = select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
         roles = await self._get_roles_with_users_count(query)
         return roles[0] if roles else None
 

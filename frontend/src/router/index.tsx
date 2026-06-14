@@ -26,10 +26,9 @@ import { AuditLogPage } from '../pages/Admin/AuditLog';
 // Git Mirroring V2 lazy imports
 const GitMirroringMirrors = lazy(() => import('@/pages/GitMirroring/Mirrors'));
 const GitMirroringMirrorProcess = lazy(() => import('@/pages/GitMirroring/Mirrors/Process'));
-const GitMirroringRepositories = lazy(() => import('@/pages/GitMirroring/Repositories'));
+const GitMirroringSources = lazy(() => import('@/pages/GitMirroring/Sources'));
 const GitMirroringRepositoryDetail = lazy(() => import('@/pages/GitMirroring/Repositories/Detail'));
 const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'));
-const GitMirroringGroups = lazy(() => import('@/pages/GitMirroring/Groups'));
 const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
 const GitMirroringSyncGroupDetail = lazy(() => import('@/pages/GitMirroring/SyncGroups/Detail'));
 const GitMirroringDashboard = lazy(() => import('@/pages/GitMirroring/Dashboard'));
@@ -186,10 +185,10 @@ export function AppRouter() {
           }
         />
         <Route
-          path="git-mirroring/repositories"
+          path="git-mirroring/sources"
           element={
             <PermissionGate permission="source_groups:read">
-              <GitMirroringRepositories />
+              <GitMirroringSources />
             </PermissionGate>
           }
         />
@@ -201,19 +200,14 @@ export function AppRouter() {
             </PermissionGate>
           }
         />
+        {/* Redirect old routes to new Sources page */}
+        <Route path="git-mirroring/repositories" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
+        <Route path="git-mirroring/groups" element={<Navigate to="/git-mirroring/sources?tab=groups" replace />} />
         <Route
           path="git-mirroring/providers"
           element={
             <PermissionGate permission="source_groups:read">
               <GitMirroringProviders />
-            </PermissionGate>
-          }
-        />
-        <Route
-          path="git-mirroring/groups"
-          element={
-            <PermissionGate permission="source_groups:read">
-              <GitMirroringGroups />
             </PermissionGate>
           }
         />

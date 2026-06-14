@@ -33,20 +33,20 @@ class TestSourceProviderModel:
         assert sp.label == "GitLab (self-hosted)"
         assert sp.credential_id == 5
 
-    def test_source_provider_creation_bitbucket(self):
-        """Create a SourceProvider with bitbucket type."""
+    def test_source_provider_creation_generic(self):
+        """Create a SourceProvider with generic type."""
         sp = SourceProvider(
-            provider_type=ProviderType.bitbucket,
-            label="Bitbucket Cloud",
+            provider_type=ProviderType.generic,
+            label="Generic Git Server",
         )
-        assert sp.provider_type == ProviderType.bitbucket
-        assert sp.label == "Bitbucket Cloud"
+        assert sp.provider_type == ProviderType.generic
+        assert sp.label == "Generic Git Server"
 
     def test_provider_type_enum_values(self):
         """Verify all provider type enum values."""
         assert ProviderType.github.value == "github"
         assert ProviderType.gitlab.value == "gitlab"
-        assert ProviderType.bitbucket.value == "bitbucket"
+        assert ProviderType.generic.value == "generic"
 
     def test_source_provider_with_credential(self):
         """Verify relationship — SourceProvider can reference a Credential."""

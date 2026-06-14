@@ -755,7 +755,7 @@ export interface AnalyzeImageResponse {
 // Git Mirroring V2 Types
 // ============================================================
 
-export type ProviderType = 'github' | 'gitlab' | 'bitbucket' | 'generic';
+export type ProviderType = 'github' | 'gitlab' | 'generic';
 
 export interface Credential {
   id: number;
@@ -825,7 +825,7 @@ export interface SourceRepository {
   clone_url: string;
   stars: number;
   forks: number;
-  source_group_id: number;
+  source_group_id: number | null;
   source_group_name?: string;
   license_spdx?: string;
   license_name?: string;
@@ -839,6 +839,13 @@ export interface SourceRepository {
   mirrors_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface SourceRepositoryCreate {
+  provider_type: 'github' | 'gitlab' | 'generic';
+  clone_url: string;
+  source_group_id?: number;
+  description?: string;
 }
 
 export interface SourceRepositoryReadme {

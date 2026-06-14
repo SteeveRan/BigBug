@@ -36,9 +36,7 @@ class MirrorLog(Base):
     __tablename__ = "mirror_logs"
 
     # Mapper configuration to disable confirm_deleted_rows warning
-    __mapper_args__ = {
-        "confirm_deleted_rows": False
-    }
+    __mapper_args__ = {"confirm_deleted_rows": False}
 
     id = Column(Integer, primary_key=True, index=True)
     mirror_id = Column(

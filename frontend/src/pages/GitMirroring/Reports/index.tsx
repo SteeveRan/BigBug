@@ -7,7 +7,9 @@
  */
 
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router';
 import {
+  Breadcrumb,
   Tabs,
   Table,
   Button,
@@ -1074,9 +1076,19 @@ const TAB_ITEMS = [
 export default function ReportsPage() {
   return (
     <Flex vertical gap={16}>
+      <Breadcrumb
+        items={[
+          { title: <Link to="/git-mirroring/dashboard">Git Mirroring</Link> },
+          { title: 'Reports' },
+        ]}
+      />
       <Typography.Title level={4} style={{ margin: 0 }}>
         Git Mirroring Reports
       </Typography.Title>
+      <Typography.Text type="secondary">
+        Administrative reports for duplicates detection, storage usage, mirror status breakdowns,
+        sync activity history, and bulk operations across all mirrored repositories.
+      </Typography.Text>
       <Card>
         <Tabs defaultActiveKey="duplicates" items={TAB_ITEMS} />
       </Card>

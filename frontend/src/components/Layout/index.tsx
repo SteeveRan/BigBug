@@ -143,11 +143,10 @@ export function Layout() {
       type: 'group',
       children: [
         { key: '/git-mirroring/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
-        { key: '/git-mirroring/mirrors', icon: <SyncOutlined />, label: 'Mirrors' },
-        { key: '/git-mirroring/repositories', icon: <GithubOutlined />, label: 'Repositories' },
         { key: '/git-mirroring/providers', icon: <ApiOutlined />, label: 'Source Providers' },
-        { key: '/git-mirroring/groups', icon: <AppstoreOutlined />, label: 'Source Groups' },
+        { key: '/git-mirroring/sources', icon: <GithubOutlined />, label: 'Sources' },
         { key: '/git-mirroring/sync-groups', icon: <BlockOutlined />, label: 'Sync Groups' },
+        { key: '/git-mirroring/mirrors', icon: <SyncOutlined />, label: 'Mirrors' },
         { key: '/git-mirroring/orphaned', icon: <DisconnectOutlined />, label: 'Orphaned Mirrors' },
         { key: '/git-mirroring/reports', icon: <BarChartOutlined />, label: 'Reports' },
       ],

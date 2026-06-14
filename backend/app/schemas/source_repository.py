@@ -6,9 +6,11 @@
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from app.models.source_provider import ProviderType
 
 if TYPE_CHECKING:
     from app.schemas.mirror import MirrorListOut
@@ -22,7 +24,7 @@ class SourceRepositoryListOut(BaseModel):
     """Flat representation for list endpoints."""
 
     id: int
-    source_group_id: int
+    source_group_id: int | None
     name: str
     full_name: str
     web_url: str | None = None
@@ -44,7 +46,7 @@ class SourceRepositoryDetailOut(BaseModel):
     """Full representation with all fields and nested relations."""
 
     id: int
-    source_group_id: int
+    source_group_id: int | None
     name: str
     full_name: str
     web_url: str | None = None
@@ -71,13 +73,38 @@ class SourceRepositoryDetailOut(BaseModel):
     deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-    source_group: Optional["SourceGroupListOut"] = None
-    mirrors: list["MirrorListOut"] = []
+    source_group: SourceGroupListOut | None = None
+    mirrors: list[MirrorListOut] = []
 
     model_config = {"from_attributes": True}
 
 
+# ──── SourceRepository Create ──────────────────────────────────────────────
+
+
+class SourceRepositoryCreate(BaseModel):
+    """Schema for creating a source repository (simplified V2).
+
+    For GitHub/GitLab the caller can optionally specify a source_group_id;
+    for Generic Git it is always None.
+    """
+
+    provider_type: ProviderType
+    clone_url: str = Field(..., description="HTTPS or SSH clone URL")
+    source_group_id: int | None = Field(None, description="Group ID (null for generic git)")
+    description: str | None = Field(None, description="Optional description")
+
+
 # ──── SourceRepository Readme / Release ────────────────────────────────────
+
+
+class SourceRepositoryReadmeOut(BaseModel):
+    """Cached README content for a source repository."""
+
+    readme_html: str | None = None
+    readme_fetched_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
 
 
 class SourceRepositoryReleaseOut(BaseModel):
@@ -90,14 +117,5 @@ class SourceRepositoryReleaseOut(BaseModel):
     published_at: datetime | None = None
     is_prerelease: bool = False
     detected_at: datetime | None = None
-
-    model_config = {"from_attributes": True}
-
-
-class SourceRepositoryReadmeOut(BaseModel):
-    """README content for a source repository."""
-
-    readme_html: str | None = None
-    readme_fetched_at: datetime | None = None
 
     model_config = {"from_attributes": True}

@@ -1,6 +1,6 @@
 """
 @file source_provider.py
-@description Abstract base class for source providers (GitHub, GitLab, BitBucket, etc.).
+@description Abstract base class for source providers (GitHub, GitLab, Generic, etc.).
              Defines the interface that all source provider implementations must satisfy.
 @dependencies abc, app.models.source_provider.SourceProvider
 @relatedFiles ./source_providers/github.py, ../models/source_provider.py
@@ -19,7 +19,7 @@ class BaseSourceProvider(ABC):
     """
     Abstract base class for source providers.
 
-    Each concrete implementation (GitHub, GitLab, BitBucket, etc.) provides
+    Each concrete implementation (GitHub, GitLab, Generic, etc.) provides
     discovery and metadata retrieval for groups (organizations/users) and
     repositories within those groups.
 

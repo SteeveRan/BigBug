@@ -1,7 +1,7 @@
 """
 @file source_repository.py
 @description SourceRepository model — represents a single repository discovered within
-             a source group (GitHub repo, GitLab project, Bitbucket repo).
+             a source group (GitHub repo, GitLab project).
 @dependencies app.database.Base, ./source_group.py
 @relatedFiles ./source_group.py, ./mirror.py, ./mirror_release_log.py
 """
@@ -39,7 +39,7 @@ class SourceRepository(Base):
     source_group_id = Column(
         Integer,
         ForeignKey("source_groups.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     external_id = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)

@@ -30,7 +30,7 @@ def get_provider_class(provider_type: str) -> type[BaseSourceProvider]:
 
     Args:
         provider_type: One of the values defined in :class:`ProviderType`
-                       (``"github"``, ``"gitlab"``, ``"bitbucket"``, ``"generic"``).
+                       (``"github"``, ``"gitlab"``, ``"generic"``).
 
     Returns:
         The provider class (e.g. :class:`GitHubSourceProvider`).
@@ -56,7 +56,6 @@ def get_provider_class(provider_type: str) -> type[BaseSourceProvider]:
 
         return GenericGitSourceProvider
 
-    # Future: add ProviderType.bitbucket when implemented.
     raise ValueError(f"Unsupported provider type: {provider_type!r}")
 
 

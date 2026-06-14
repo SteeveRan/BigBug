@@ -6,7 +6,7 @@
  * @relatedFiles ./Roles/RoleModal.tsx (shared PERMISSION_GROUPS), ../../../store/api.ts
  */
 
-import { Card, Typography, Flex, Spin, Checkbox } from 'antd';
+import { Card, Typography, Flex, Spin } from 'antd';
 
 import type { Permission } from '../../../types';
 import { useGetAllPermissionsQuery } from '../../../store/api';
@@ -89,15 +89,6 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: ['reports:read'],
   },
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Derive a human-readable label from a permission string like "mirrors:read" */
-function permissionLabel(perm: string): string {
-  const [resource, action] = perm.split(':');
-  if (!action) return perm;
-  return `${action} → ${resource}`;
-}
 
 // ── Group permissions by resource ─────────────────────────────────────────────
 

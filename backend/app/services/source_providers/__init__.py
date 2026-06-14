@@ -1,7 +1,7 @@
 """
 @file source_providers/__init__.py
 @description Package for concrete source provider implementations
-             (GitHub, GitLab, Bitbucket, etc.) plus the provider
+             (GitHub, GitLab, Generic) plus the provider
              dispatcher factory.
 @dependencies .github.GitHubSourceProvider, .gitlab.GitLabSourceProvider,
              .dispatcher.create_source_provider, .dispatcher.get_provider_class
