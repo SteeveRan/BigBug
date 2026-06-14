@@ -228,7 +228,7 @@ export function RoleModal({ open, role, onClose }: RoleModalProps) {
           {isEdit ? 'Save' : 'Create'}
         </Button>,
       ]}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         {/* Name */}

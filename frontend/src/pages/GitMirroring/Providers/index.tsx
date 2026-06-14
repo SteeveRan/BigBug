@@ -209,7 +209,7 @@ const ProvidersPage = () => {
 
       {isError && (
         <Alert
-          message="Failed to load providers"
+          title="Failed to load providers"
           description="Please try again later."
           type="error"
           showIcon

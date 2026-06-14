@@ -100,7 +100,7 @@ export function CreateMirrorModal({ open, onClose, mirror, groupId }: CreateMirr
       confirmLoading={isLoading}
       okText={isEdit ? 'Update' : 'Create'}
       cancelText="Cancel"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}

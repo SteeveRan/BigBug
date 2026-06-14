@@ -343,7 +343,7 @@ const SyncGroupsPage = () => {
         confirmLoading={isCreating || isUpdating}
         okText={isEdit ? 'Update' : 'Create'}
         cancelText="Cancel"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}
@@ -457,7 +457,7 @@ const SyncGroupsPage = () => {
         okText="Apply"
         cancelText="Cancel"
         okButtonProps={{ disabled: !selectedPipelineId }}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form.Item label="Pipeline Configuration">
           <Select

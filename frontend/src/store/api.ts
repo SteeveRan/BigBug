@@ -899,11 +899,11 @@ export const api = createApi({
 
     // Source Providers
     getSourceProviders: builder.query<SourceProvider[], void>({
-      query: () => '/mirroring/source-providers',
+      query: () => '/mirroring/providers',
       providesTags: ['SourceProvider'],
     }),
     createSourceProvider: builder.mutation<SourceProvider, SourceProviderCreate>({
-      query: (body) => ({ url: '/mirroring/source-providers', method: 'POST', body }),
+      query: (body) => ({ url: '/mirroring/providers', method: 'POST', body }),
       invalidatesTags: ['SourceProvider'],
     }),
     updateSourceProvider: builder.mutation<
@@ -911,7 +911,7 @@ export const api = createApi({
       { id: number; data: SourceProviderUpdate }
     >({
       query: ({ id, data }) => ({
-        url: `/mirroring/source-providers/${id}`,
+        url: `/mirroring/providers/${id}`,
         method: 'PATCH',
         body: data,
       }),
@@ -921,33 +921,33 @@ export const api = createApi({
       ],
     }),
     deleteSourceProvider: builder.mutation<void, number>({
-      query: (id) => ({ url: `/mirroring/source-providers/${id}`, method: 'DELETE' }),
+      query: (id) => ({ url: `/mirroring/providers/${id}`, method: 'DELETE' }),
       invalidatesTags: ['SourceProvider'],
     }),
 
     // Source Groups
     getSourceGroups: builder.query<SourceGroup[], number>({
-      query: (providerId) => `/mirroring/source-providers/${providerId}/groups`,
+      query: (providerId) => `/mirroring/providers/${providerId}/groups`,
       providesTags: ['SourceGroup'],
     }),
     importSourceGroup: builder.mutation<SourceGroup, { provider_id: number; group_name: string }>({
       query: ({ provider_id, group_name }) => ({
-        url: `/mirroring/source-providers/${provider_id}/groups`,
+        url: `/mirroring/providers/${provider_id}/groups/import`,
         method: 'POST',
-        body: { group_name },
+        params: { group_name },
       }),
       invalidatesTags: ['SourceGroup'],
     }),
     getSourceGroup: builder.query<SourceGroup, number>({
-      query: (id) => `/mirroring/source-groups/${id}`,
+      query: (id) => `/mirroring/groups/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'SourceGroup', id }],
     }),
     refreshSourceGroup: builder.mutation<SourceGroup, number>({
-      query: (id) => ({ url: `/mirroring/source-groups/${id}/refresh`, method: 'POST' }),
+      query: (id) => ({ url: `/mirroring/groups/${id}/refresh`, method: 'POST' }),
       invalidatesTags: (_result, _error, id) => [{ type: 'SourceGroup', id }],
     }),
     deleteSourceGroup: builder.mutation<void, number>({
-      query: (id) => ({ url: `/mirroring/source-groups/${id}`, method: 'DELETE' }),
+      query: (id) => ({ url: `/mirroring/groups/${id}`, method: 'DELETE' }),
       invalidatesTags: ['SourceGroup'],
     }),
 
@@ -964,26 +964,26 @@ export const api = createApi({
       }
     >({
       query: ({ group_id, ...params }) => ({
-        url: `/mirroring/source-groups/${group_id}/repositories`,
+        url: `/mirroring/groups/${group_id}/repositories`,
         params,
       }),
       providesTags: ['SourceRepository'],
     }),
     getSourceRepository: builder.query<SourceRepository, number>({
-      query: (id) => `/mirroring/source-repositories/${id}`,
+      query: (id) => `/mirroring/repositories/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'SourceRepository', id }],
     }),
     getRepositoryReleases: builder.query<
       SourceRepositoryRelease[],
       { repository_id: number; include_prereleases?: boolean }
     >({
-      query: ({ repository_id }) => `/mirroring/source-repositories/${repository_id}/releases`,
+      query: ({ repository_id }) => `/mirroring/repositories/${repository_id}/releases`,
       providesTags: (_result, _error, { repository_id }) => [
         { type: 'SourceRepository', id: repository_id },
       ],
     }),
     getRepositoryReadme: builder.query<SourceRepositoryReadme, number>({
-      query: (id) => `/mirroring/source-repositories/${id}/readme`,
+      query: (id) => `/mirroring/repositories/${id}/readme`,
     }),
 
     // Mirrors

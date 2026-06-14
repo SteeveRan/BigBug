@@ -65,9 +65,9 @@ ADMIN_PERMISSIONS = [
     # Audit
     "audit:read",
     # Source Groups
-    "source_groups:write", "source_groups:refresh",
+    "source_groups:read", "source_groups:write", "source_groups:refresh",
     # Sync Groups
-    "sync_groups:write", "sync_groups:delete",
+    "sync_groups:read", "sync_groups:write", "sync_groups:delete",
     # Credentials
     "credentials:use",
     # Reports
@@ -84,6 +84,10 @@ OPERATOR_PERMISSIONS = [
     "app_images:read", "app_images:write", "app_images:build",
     "pipelines:read", "pipelines:write",
     "audit:read",
+    # Source Groups
+    "source_groups:read",
+    # Sync Groups
+    "sync_groups:read",
 ]
 
 # Viewer: read-only across all resources
@@ -100,6 +104,10 @@ VIEWER_PERMISSIONS = [
     "integrations:read",
     "oidc:read",
     "audit:read",
+    # Source Groups
+    "source_groups:read",
+    # Sync Groups
+    "sync_groups:read",
 ]
 
 logger = logging.getLogger("seed_admin")

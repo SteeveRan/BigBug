@@ -53,7 +53,7 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
       confirmLoading={isLoading}
       okText="Import"
       cancelText="Cancel"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Form.Item

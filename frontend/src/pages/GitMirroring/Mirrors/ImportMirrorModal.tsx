@@ -59,11 +59,11 @@ export function ImportMirrorModal({ open, onClose, groupId }: ImportMirrorModalP
       confirmLoading={isLoading}
       okText="Import"
       cancelText="Cancel"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Alert
-          message="Система проверит связь через сравнение commit history. Поддерживаются GitHub, GitLab, Bitbucket и Generic Git репозитории."
+          title="Система проверит связь через сравнение commit history. Поддерживаются GitHub, GitLab, Bitbucket и Generic Git репозитории."
           type="info"
           showIcon
           style={{ marginBottom: 16 }}

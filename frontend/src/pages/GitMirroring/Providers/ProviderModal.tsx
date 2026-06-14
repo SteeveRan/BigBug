@@ -92,7 +92,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
       confirmLoading={isLoading}
       okText={isEdit ? 'Update' : 'Create'}
       cancelText="Cancel"
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Form.Item
