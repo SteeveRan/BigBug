@@ -766,7 +766,7 @@ export interface Credential {
 
 export interface SourceProvider {
   id: number;
-  name: string;
+  label: string;
   provider_type: ProviderType;
   credential_id: number;
   credential?: Credential;
@@ -779,14 +779,14 @@ export interface SourceProvider {
 }
 
 export interface SourceProviderCreate {
-  name: string;
+  label: string;
   provider_type: ProviderType;
   credential_id: number;
   config_json?: Record<string, unknown>;
 }
 
 export interface SourceProviderUpdate {
-  name?: string;
+  label?: string;
   credential_id?: number;
   config_json?: Record<string, unknown>;
   status_flag?: number;

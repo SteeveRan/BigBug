@@ -24,7 +24,7 @@ interface ProviderModalProps {
 }
 
 interface FormValues {
-  name: string;
+  label: string;
   provider_type: ProviderType;
   credential_id: number;
 }
@@ -49,7 +49,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
     if (open) {
       if (provider) {
         form.setFieldsValue({
-          name: provider.name,
+          label: provider.label,
           provider_type: provider.provider_type,
           credential_id: provider.credential_id,
         });
@@ -63,14 +63,14 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
     try {
       if (isEdit && provider) {
         const data: SourceProviderUpdate = {
-          name: values.name,
+          label: values.label,
           credential_id: values.credential_id,
         };
         await updateProvider({ id: provider.id, data }).unwrap();
         message.success('Provider updated successfully');
       } else {
         const data: SourceProviderCreate = {
-          name: values.name,
+          label: values.label,
           provider_type: values.provider_type,
           credential_id: values.credential_id,
         };
@@ -96,7 +96,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Form.Item
-          name="name"
+          name="label"
           label="Label"
           rules={[{ required: true, message: 'Provider label is required' }]}
         >

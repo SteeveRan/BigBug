@@ -175,7 +175,7 @@ const RepositoriesPage = () => {
             }}
             loading={providersLoading}
             options={providers.map((p) => ({
-              label: `${p.name} (${p.provider_type})`,
+              label: `${p.label} (${p.provider_type})`,
               value: p.id,
             }))}
           />

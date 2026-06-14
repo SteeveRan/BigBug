@@ -111,7 +111,7 @@ const GroupsPage = () => {
       key: 'provider',
       render: (_: unknown, record: SourceGroup) => (
         <Typography.Text>
-          {record.source_provider?.name ?? record.source_provider_id}
+          {record.source_provider?.label ?? record.source_provider_id}
         </Typography.Text>
       ),
     },
@@ -216,7 +216,7 @@ const GroupsPage = () => {
               value={effectiveProviderId}
               onChange={(v) => setSelectedProviderId(v)}
               options={providers.map((p) => ({
-                label: `${p.name} (${p.provider_type})`,
+                label: `${p.label} (${p.provider_type})`,
                 value: p.id,
               }))}
             />

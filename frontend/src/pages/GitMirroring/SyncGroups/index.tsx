@@ -1,7 +1,8 @@
 /**
  * @file SyncGroups/index.tsx
- * @description Страница Sync Groups — таблица + модалка create/edit (Group F) с cron, concurrency, pipeline
- * @dependencies antd, @ant-design/icons, RTK Query, PermissionGate
+ * @description Страница списка Sync Groups — таблица (Name, Description, Sync, Freshness, Actions).
+ *              Детали (cron, concurrency, pipeline, mirrors) вынесены на SyncGroupDetail.
+ * @dependencies antd, @ant-design/icons, RTK Query, react-router, PermissionGate
  */
 
 import { useState } from 'react';
@@ -27,6 +28,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router';
 import {
   useGetSyncGroupsQuery,
   useCreateSyncGroupMutation,
@@ -56,6 +58,7 @@ const CRON_PATTERN =
 const SyncGroupsPage = () => {
   const { message } = App.useApp();
   const [form] = Form.useForm<SyncGroupFormValues>();
+  const navigate = useNavigate();
 
   const { data: groups = [], isLoading, isError } = useGetSyncGroupsQuery();
   const { data: pipelines = [] } = useGetPipelineConfigsQuery();
@@ -107,7 +110,6 @@ const SyncGroupsPage = () => {
 
   const handleSubmitModal = async (values: SyncGroupFormValues) => {
     try {
-      // Provide defaults when conditional fields are not rendered
       const sync_cron = values.sync_enabled ? values.sync_cron || null : null;
       const sync_concurrency = values.sync_enabled ? values.sync_concurrency || 1 : 1;
       const freshness_cron = values.freshness_enabled ? values.freshness_cron || null : null;
@@ -149,9 +151,12 @@ const SyncGroupsPage = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
+      ellipsis: true,
       render: (name: string, record: SyncGroup) => (
         <Space>
-          <Typography.Text strong>{name}</Typography.Text>
+          <Typography.Link onClick={() => navigate(`/git-mirroring/sync-groups/${record.id}`)}>
+            {name}
+          </Typography.Link>
           {record.is_default && <Tag color="blue">Default</Tag>}
         </Space>
       ),
@@ -160,11 +165,10 @@ const SyncGroupsPage = () => {
       title: 'Description',
       dataIndex: 'description',
       key: 'description',
+      ellipsis: true,
       render: (desc: string | undefined) =>
         desc ? (
-          <Typography.Text type="secondary" ellipsis style={{ maxWidth: 300 }}>
-            {desc}
-          </Typography.Text>
+          <Typography.Text type="secondary">{desc}</Typography.Text>
         ) : (
           '—'
         ),
@@ -173,51 +177,15 @@ const SyncGroupsPage = () => {
       title: 'Sync',
       dataIndex: 'sync_enabled',
       key: 'sync_enabled',
+      width: 80,
       render: (enabled: boolean) => <Switch checked={enabled} disabled size="small" />,
-    },
-    {
-      title: 'Sync Cron',
-      dataIndex: 'sync_cron',
-      key: 'sync_cron',
-      render: (cron: string | null) => <Typography.Text>{cron || '—'}</Typography.Text>,
-    },
-    {
-      title: 'Sync Concurrency',
-      dataIndex: 'sync_concurrency',
-      key: 'sync_concurrency',
     },
     {
       title: 'Freshness',
       dataIndex: 'freshness_enabled',
       key: 'freshness_enabled',
+      width: 100,
       render: (enabled: boolean) => <Switch checked={enabled} disabled size="small" />,
-    },
-    {
-      title: 'Freshness Cron',
-      dataIndex: 'freshness_cron',
-      key: 'freshness_cron',
-      render: (cron: string | null) => <Typography.Text>{cron || '—'}</Typography.Text>,
-    },
-    {
-      title: 'Freshness Concurrency',
-      dataIndex: 'freshness_concurrency',
-      key: 'freshness_concurrency',
-    },
-    {
-      title: 'Pipeline',
-      key: 'pipeline',
-      render: (_: unknown, record: SyncGroup) => (
-        <Typography.Text>
-          {record.pipeline?.name || (record.pipeline_id ? `ID: ${record.pipeline_id}` : '—')}
-        </Typography.Text>
-      ),
-    },
-    {
-      title: 'Mirrors Count',
-      key: 'mirrors_count',
-      render: (_: unknown, record: SyncGroup) => (
-        <Typography.Text>{record.mirrors_count ?? '—'}</Typography.Text>
-      ),
     },
     {
       title: 'Actions',

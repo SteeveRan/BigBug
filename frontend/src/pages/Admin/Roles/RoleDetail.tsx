@@ -349,7 +349,7 @@ const RoleDetailPage = () => {
     return typedProviders.map((p) => ({
       key: String(p.credential_id),
       title: p.credential?.name ?? `Credential #${p.credential_id}`,
-      description: p.name,
+      description: p.label,
     }));
   }, [typedProviders]);
 

@@ -30,6 +30,7 @@ const GitMirroringRepositoryDetail = lazy(() => import('@/pages/GitMirroring/Rep
 const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'));
 const GitMirroringGroups = lazy(() => import('@/pages/GitMirroring/Groups'));
 const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
+const GitMirroringSyncGroupDetail = lazy(() => import('@/pages/GitMirroring/SyncGroups/Detail'));
 const GitMirroringDashboard = lazy(() => import('@/pages/GitMirroring/Dashboard'));
 const GitMirroringOrphaned = lazy(() => import('@/pages/GitMirroring/Orphaned'));
 const GitMirroringReports = lazy(() => import('@/pages/GitMirroring/Reports'));
@@ -219,6 +220,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="pipelines:read">
               <GitMirroringSyncGroups />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="git-mirroring/sync-groups/:id"
+          element={
+            <PermissionGate permission="pipelines:read">
+              <GitMirroringSyncGroupDetail />
             </PermissionGate>
           }
         />

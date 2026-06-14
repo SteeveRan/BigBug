@@ -246,12 +246,13 @@ describe('SyncGroupsPage', () => {
 
     renderSyncGroupsPage();
 
-    // "Default" appears both as group name (<strong>) and as Tag badge
+    // "Default" appears both as group name (link) and as Tag badge
     const defaultMatches = screen.getAllByText('Default');
     expect(defaultMatches.length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Hourly Group')).toBeInTheDocument();
-    // Mirrors count
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // Description text
+    expect(screen.getByText('Default sync group')).toBeInTheDocument();
+    expect(screen.getByText('Aggressive sync')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -393,33 +394,11 @@ describe('SyncGroupsPage', () => {
   });
 
   // =======================================================================
-  // Group C tests — cron, concurrency, pipeline display
+  // Group C tests — create/edit modal: cron, concurrency, pipeline
   // =======================================================================
 
   // -----------------------------------------------------------------------
-  // Test C1: Displays cron and concurrency in table
-  // -----------------------------------------------------------------------
-  it('displays cron and concurrency fields in table rows', () => {
-    (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [mockGroup],
-      isLoading: false,
-      isError: false,
-      error: null,
-    });
-
-    renderSyncGroupsPage();
-
-    // sync_cron should be visible
-    expect(screen.getByText('0 */6 * * *')).toBeInTheDocument();
-    // freshness_cron should be visible (even if disabled)
-    expect(screen.getByText('0 0 * * *')).toBeInTheDocument();
-    // concurrency numbers
-    expect(screen.getByText('2')).toBeInTheDocument(); // sync_concurrency = 2
-    expect(screen.getByText('1')).toBeInTheDocument(); // freshness_concurrency = 1
-  });
-
-  // -----------------------------------------------------------------------
-  // Test C2: Create form shows cron fields when sync enabled
+  // Test C1: Create form shows cron fields when sync enabled
   // -----------------------------------------------------------------------
   it('shows cron fields when sync/freshness switches are toggled', async () => {
     renderSyncGroupsPage();
@@ -463,7 +442,7 @@ describe('SyncGroupsPage', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test C3: Validates cron format
+  // Test C2: Validates cron format
   // -----------------------------------------------------------------------
   it('validates cron format on submit', async () => {
     renderSyncGroupsPage();
@@ -500,7 +479,7 @@ describe('SyncGroupsPage', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test C4: Submits create with cron settings
+  // Test C3: Submits create with cron settings
   // -----------------------------------------------------------------------
   it('submits create with cron and concurrency settings', async () => {
     const createMock = vi.fn().mockResolvedValue({});
@@ -561,68 +540,4 @@ describe('SyncGroupsPage', () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Test C5: Displays pipeline name in table
-  // -----------------------------------------------------------------------
-  it('displays pipeline name in the Pipeline column', () => {
-    (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [mockGroup],
-      isLoading: false,
-      isError: false,
-      error: null,
-    });
-
-    renderSyncGroupsPage();
-
-    // Pipeline name "Default Sync Pipeline" should appear in the table
-    // (from mockGroup.pipeline.name)
-    expect(screen.getByText('Default Sync Pipeline')).toBeInTheDocument();
-  });
-
-  // -----------------------------------------------------------------------
-  // Test C6: Shows "—" for null pipeline
-  // -----------------------------------------------------------------------
-  it('shows "—" when pipeline is not assigned', () => {
-    const groupNoPipeline: SyncGroup = {
-      ...mockGroup2,
-      pipeline_id: null,
-      pipeline: null,
-    };
-    (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [groupNoPipeline],
-      isLoading: false,
-      isError: false,
-      error: null,
-    });
-
-    renderSyncGroupsPage();
-
-    // The Pipeline column should show "—"
-    const dashes = screen.getAllByText('—');
-    // One of them should be the pipeline column
-    expect(dashes.length).toBeGreaterThanOrEqual(1);
-  });
-
-  // -----------------------------------------------------------------------
-  // Test C7: Shows "—" for null cron in table
-  // -----------------------------------------------------------------------
-  it('shows "—" for null cron values in table', () => {
-    (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [mockGroup2],
-      isLoading: false,
-      isError: false,
-      error: null,
-    });
-
-    renderSyncGroupsPage();
-
-    // mockGroup2 has null cron values — look for dashes
-    const dashes = screen.getAllByText('—');
-    // Should have dash for description and dash for pipeline column
-    // (Hourly Group has empty mirrors_count = 0, not dash)
-    // Pipeline column for Hourly Group shows pipeline name, so no dash there
-    // Description column has "Aggressive sync" so no dash there
-    // Cron columns should show "—"
-    expect(dashes.length).toBeGreaterThanOrEqual(2);
-  });
 });

@@ -59,8 +59,8 @@ const ProvidersPage = () => {
     return providers.filter((p) => p.provider_type === typeFilter);
   }, [providers, typeFilter]);
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!window.confirm(`Delete provider "${name}"?`)) return;
+  const handleDelete = async (id: number, label: string) => {
+    if (!window.confirm(`Delete provider "${label}"?`)) return;
     try {
       await deleteProvider(id).unwrap();
       message.success('Provider deleted');
@@ -81,11 +81,11 @@ const ProvidersPage = () => {
   const columns: ColumnsType<SourceProvider> = [
     {
       title: 'Label',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string, record: SourceProvider) => (
+      dataIndex: 'label',
+      key: 'label',
+      render: (label: string, record: SourceProvider) => (
         <Flex vertical>
-          <Typography.Text strong>{name}</Typography.Text>
+          <Typography.Text strong>{label}</Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             ID: {record.id}
           </Typography.Text>
@@ -162,7 +162,7 @@ const ProvidersPage = () => {
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                onClick={() => handleDelete(record.id, record.name)}
+                onClick={() => handleDelete(record.id, record.label)}
               />
             </Tooltip>
           </PermissionGate>

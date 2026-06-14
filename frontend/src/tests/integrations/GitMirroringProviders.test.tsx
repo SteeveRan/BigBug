@@ -46,7 +46,7 @@ import type { SourceProvider } from '../../types';
 
 const mockGenericProvider: SourceProvider = {
   id: 3,
-  name: 'Generic Git Server',
+  label: 'Generic Git Server',
   provider_type: 'generic',
   credential_id: 30,
   credential: {
@@ -67,7 +67,7 @@ const mockGenericProvider: SourceProvider = {
 
 const mockGithubProvider: SourceProvider = {
   id: 1,
-  name: 'GitHub',
+  label: 'GitHub',
   provider_type: 'github',
   credential_id: 10,
   credential: {
@@ -87,7 +87,7 @@ const mockGithubProvider: SourceProvider = {
 
 const mockGitlabProvider: SourceProvider = {
   id: 2,
-  name: 'GitLab',
+  label: 'GitLab',
   provider_type: 'gitlab',
   credential_id: 20,
   credential: {
