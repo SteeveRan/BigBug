@@ -810,35 +810,41 @@ export interface SourceGroup {
 
 export interface SourceRepository {
   id: number;
-  external_id: string;
+  source_provider_id: number | null;
+  source_group_id: number | null;
   name: string;
   full_name: string;
-  description?: string;
-  private: boolean;
-  fork: boolean;
-  archived: boolean;
-  language?: string;
-  default_branch: string;
-  html_url: string;
-  clone_url: string;
-  stars: number;
-  forks: number;
-  source_provider_id?: number | null;
-  source_provider?: SourceProvider | null;
-  source_group_id: number | null;
-  source_group_name?: string;
-  license_spdx?: string;
-  license_name?: string;
-  latest_release_tag?: string;
-  latest_release_name?: string;
-  latest_release_published_at?: string;
-  discovery_status: number;
-  discovery_status_text: string;
-  has_readme: boolean;
-  is_mirrored?: boolean;
-  mirrors_count?: number;
+  web_url: string | null;
+  clone_url_https: string | null;
+  clone_url_ssh: string | null;
+  description: string | null;
+  language: string | null;
+  stars_count: number;
+  forks_count: number;
+  is_private: boolean;
+  default_branch: string | null;
+  license_spdx: string | null;
+  license_name: string | null;
+  readme_html: string | null;
+  readme_fetched_at: string | null;
+  latest_release_tag: string | null;
+  latest_release_date: string | null;
+  is_archived: boolean;
+  is_fork: boolean;
+  is_disabled: boolean;
+  discovery_status: string;
+  discovered_at: string | null;
+  last_seen_at: string | null;
+  source_created_at: string | null;
+  source_updated_at: string | null;
+  source_pushed_at: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  source_provider?: SourceProvider | null;
+  source_group?: SourceGroup | null;
+  mirrors?: Mirror[] | null;
 }
 
 export interface SourceRepositoryCreate {

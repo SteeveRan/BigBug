@@ -20,13 +20,15 @@ import {
   Tag,
   Tooltip,
   Button,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EyeOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { EyeOutlined, PlusOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   useGetSourceProvidersQuery,
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
+  useDeleteSourceRepositoryMutation,
 } from '../../../store/api';
 import type { SourceRepository } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
@@ -88,69 +90,85 @@ export function RepositoriesTab() {
     },
   );
 
+  const [deleteRepo] = useDeleteSourceRepositoryMutation();
+
+  const handleDelete = async (id: number, fullName: string) => {
+    if (!window.confirm(`Delete repository "${fullName}"?`)) return;
+    try {
+      await deleteRepo(id).unwrap();
+      message.success('Repository deleted');
+    } catch {
+      message.error('Failed to delete repository');
+    }
+  };
+
   const columns: ColumnsType<SourceRepository> = [
     {
       title: 'Repository',
       key: 'name',
       render: (_: unknown, record: SourceRepository) => (
         <Flex vertical>
-          <Typography.Text strong>{record.name}</Typography.Text>
+          <Typography.Text strong>{record.full_name}</Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {record.full_name}
+            {record.name}
           </Typography.Text>
         </Flex>
       ),
     },
     {
-      title: 'Language',
-      dataIndex: 'language',
-      key: 'language',
-      render: (lang: string | undefined) => (lang ? <Tag>{lang}</Tag> : '—'),
-    },
-    {
-      title: 'Default Branch',
-      dataIndex: 'default_branch',
-      key: 'default_branch',
-      render: (branch: string) => <Typography.Text code>{branch}</Typography.Text>,
-    },
-    {
-      title: 'Stars',
-      dataIndex: 'stars',
-      key: 'stars',
-      width: 80,
+      title: 'Description',
+      key: 'description',
+      render: (_: unknown, record: SourceRepository) => (
+        <Typography.Text type="secondary" ellipsis={{ tooltip: true }} style={{ maxWidth: 300 }}>
+          {record.description || '—'}
+        </Typography.Text>
+      ),
     },
     {
       title: 'Status',
       key: 'status',
       render: (_: unknown, record: SourceRepository) => (
         <Space size={4}>
-          {record.archived && <Tag color="warning">Archived</Tag>}
-          {record.fork && <Tag color="processing">Fork</Tag>}
-          {record.private && <Tag>Private</Tag>}
-          {record.is_mirrored && <Tag color="green">Mirrored</Tag>}
+          {record.is_archived && <Tag color="warning">Archived</Tag>}
+          {record.is_fork && <Tag color="processing">Fork</Tag>}
+          {record.is_private && <Tag>Private</Tag>}
+          {record.is_disabled && <Tag color="red">Disabled</Tag>}
         </Space>
       ),
     },
     {
-      title: 'Mirrors',
-      key: 'mirrors',
-      width: 80,
+      title: 'Language',
+      key: 'language',
+      width: 100,
       render: (_: unknown, record: SourceRepository) => (
-        <Typography.Text>{record.mirrors_count ?? 0}</Typography.Text>
+        <Typography.Text>{record.language || '—'}</Typography.Text>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
       align: 'right',
-      width: 80,
+      width: 120,
       render: (_: unknown, record: SourceRepository) => (
-        <Tooltip title="View Details">
-          <EyeOutlined
-            style={{ cursor: 'pointer', fontSize: 16, color: '#1677ff' }}
-            onClick={() => navigate(`/git-mirroring/repositories/${record.id}`)}
-          />
-        </Tooltip>
+        <Space size={4}>
+          <Tooltip title="View Details">
+            <EyeOutlined
+              style={{ cursor: 'pointer', fontSize: 16, color: '#1677ff' }}
+              onClick={() => navigate(`/git-mirroring/repositories/${record.id}`)}
+            />
+          </Tooltip>
+          <PermissionGate permission="source_groups:write">
+            <Tooltip title="Delete">
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleDelete(record.id, record.full_name)}
+              />
+            </Tooltip>
+          </PermissionGate>
+        </Space>
       ),
     },
   ];
@@ -263,6 +281,10 @@ export function RepositoriesTab() {
             columns={columns}
             dataSource={repositories as SourceRepository[]}
             rowKey="id"
+            onRow={(record) => ({
+              onClick: () => navigate(`/git-mirroring/repositories/${record.id}`),
+              style: { cursor: 'pointer' },
+            })}
             pagination={{
               pageSize: 20,
               showSizeChanger: true,

@@ -54,7 +54,7 @@ const SyncGroupDetailPage = () => {
       ellipsis: true,
       render: (_: unknown, record: Mirror) => (
         <Typography.Text>
-          {record.source_repository?.html_url || record.target_path}
+          {record.source_repository?.web_url || record.target_path}
         </Typography.Text>
       ),
     },

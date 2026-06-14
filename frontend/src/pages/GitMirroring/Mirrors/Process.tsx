@@ -268,7 +268,7 @@ const MirrorProcessPage = () => {
                     type="link"
                     size="small"
                     icon={<GithubOutlined />}
-                    href={sourceRepo.html_url}
+                    href={sourceRepo.web_url ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ padding: 0 }}
@@ -400,24 +400,24 @@ const MirrorProcessPage = () => {
         <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
           <Descriptions.Item label="Full Name">{sourceRepo?.full_name ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Web URL">
-            {sourceRepo?.html_url ? (
+            {sourceRepo?.web_url ? (
               <Button
                 type="link"
                 size="small"
                 icon={<LinkOutlined />}
-                href={sourceRepo.html_url}
+                href={sourceRepo.web_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ padding: 0 }}
               >
-                {sourceRepo.html_url}
+                {sourceRepo.web_url}
               </Button>
             ) : (
               '—'
             )}
           </Descriptions.Item>
           <Descriptions.Item label="Archived">
-            {sourceRepo?.archived ? <Tag color="warning">Yes — repository is archived</Tag> : 'No'}
+            {sourceRepo?.is_archived ? <Tag color="warning">Yes — repository is archived</Tag> : 'No'}
           </Descriptions.Item>
           <Descriptions.Item label="Default Branch">
             <Typography.Text code>{sourceRepo?.default_branch ?? '—'}</Typography.Text>

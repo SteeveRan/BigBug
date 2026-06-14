@@ -239,6 +239,8 @@ export {
   useGetRepositoryReleasesQuery,
   useGetRepositoryReadmeQuery,
   useCreateSourceRepositoryMutation,
+  useDeleteSourceRepositoryMutation,
+  useRefreshSourceRepositoryMutation,
 } from './api/git-mirroring/repositories';
 
 // Git Mirroring V2 — Mirrors

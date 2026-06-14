@@ -52,11 +52,24 @@ export const sourceRepositoriesApi = api.injectEndpoints({
       SourceRepositoryCreate
     >({
       query: (data) => ({
-        url: '/mirroring/repositories',
+        url: '/mirroring/repositories/',
         method: 'POST',
         body: data,
       }),
       invalidatesTags: ['SourceRepository'],
+    }),
+    deleteSourceRepository: builder.mutation<void, number>({
+      query: (id) => ({ url: `/mirroring/repositories/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['SourceRepository'],
+    }),
+    refreshSourceRepository: builder.mutation<SourceRepository, number>({
+      query: (id) => ({
+        url: `/mirroring/repositories/${id}/refresh`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'SourceRepository', id },
+      ],
     }),
   }),
 });
@@ -67,4 +80,6 @@ export const {
   useGetRepositoryReleasesQuery,
   useGetRepositoryReadmeQuery,
   useCreateSourceRepositoryMutation,
+  useDeleteSourceRepositoryMutation,
+  useRefreshSourceRepositoryMutation,
 } = sourceRepositoriesApi;

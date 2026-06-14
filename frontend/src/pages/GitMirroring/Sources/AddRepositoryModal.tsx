@@ -58,9 +58,14 @@ export function AddRepositoryModal({ open, onClose, preselectedProviderId }: Add
       };
       await createRepo(data).unwrap();
       message.success(`Repository added successfully`);
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === 'object' && 'data' in err
+          ? (err as { data?: { detail?: string } }).data?.detail
+          : undefined;
+      message.error(detail || 'Failed to add repository');
+    } finally {
       onClose();
-    } catch {
-      // error handled by RTK Query
     }
   };
 

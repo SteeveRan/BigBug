@@ -30,6 +30,11 @@ class SourceRepositoryListOut(BaseModel):
     name: str
     full_name: str
     web_url: str | None = None
+    description: str | None = None
+    language: str | None = None
+    stars_count: int = 0
+    forks_count: int = 0
+    is_private: bool = False
     default_branch: str | None = None
     is_archived: bool
     is_fork: bool
@@ -56,6 +61,10 @@ class SourceRepositoryDetailOut(BaseModel):
     clone_url_https: str | None = None
     clone_url_ssh: str | None = None
     description: str | None = None
+    language: str | None = None
+    stars_count: int = 0
+    forks_count: int = 0
+    is_private: bool = False
     default_branch: str | None = None
     license_spdx: str | None = None
     license_name: str | None = None

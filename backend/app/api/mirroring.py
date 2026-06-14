@@ -557,6 +557,10 @@ async def import_source_group(
             clone_url_https=repo.get("clone_url"),
             clone_url_ssh=repo.get("ssh_url"),
             description=repo.get("description"),
+            language=repo.get("language"),
+            stars_count=repo.get("stars", 0),
+            forks_count=repo.get("forks", 0),
+            is_private=repo.get("private", False),
             default_branch=repo.get("default_branch"),
             license_spdx=repo.get("license_spdx"),
             license_name=repo.get("license_name"),
@@ -1079,7 +1083,19 @@ async def create_source_repository(
     )
 
     await db.commit()
-    await db.refresh(repo)
+
+    # Reload with eager-loaded relationships to avoid MissingGreenlet
+    # during Pydantic validation (lazy loads require an active greenlet).
+    result = await db.execute(
+        select(SourceRepository)
+        .options(
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.source_provider),
+            selectinload(SourceRepository.mirrors),
+        )
+        .where(SourceRepository.id == repo.id)
+    )
+    repo = result.unique().scalar_one()
     return SourceRepositoryDetailOut.model_validate(repo)
 
 
@@ -1285,6 +1301,129 @@ async def restore_source_repository(
 
     await db.commit()
     await db.refresh(repo)
+    return SourceRepositoryDetailOut.model_validate(repo)
+
+
+@router.post("/repositories/{repository_id}/refresh", response_model=SourceRepositoryDetailOut)
+async def refresh_source_repository(
+    repository_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_permission("source_groups:refresh")),
+):
+    """Re-fetch repository metadata from the upstream provider (GitHub / GitLab / Generic Git).
+
+    Looks up the linked :class:`SourceProvider`, creates the appropriate
+    :class:`~app.services.source_provider.BaseSourceProvider` implementation,
+    calls ``get_repository()`` to retrieve fresh metadata, and persists
+    ``description``, ``language``, ``stars_count``, ``forks_count``,
+    ``is_private``, ``is_archived``, ``is_fork``, ``default_branch``,
+    URLs, and source timestamps.
+    """
+    # ── 1. Look up repository with provider + credential ──────────────────
+    result = await db.execute(
+        select(SourceRepository)
+        .options(
+            selectinload(SourceRepository.source_provider).selectinload(
+                SourceProvider.credential
+            ),
+            selectinload(SourceRepository.source_group),
+            selectinload(SourceRepository.mirrors),
+        )
+        .where(SourceRepository.id == repository_id, ~SourceRepository.is_deleted)
+    )
+    repo = result.unique().scalar_one_or_none()
+    if repo is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"SourceRepository with id={repository_id} not found",
+        )
+
+    # Scope check via parent SourceGroup (skip for orphan repos)
+    if repo.source_group_id is not None:
+        rbac = RBACService(db)
+        if not await rbac.check_scope_access(
+            current_user.id, "source_group", repo.source_group_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Access denied: resource not in your role scope",
+            )
+
+    # ── 2. Validate provider + credential ──────────────────────────────────
+    if repo.source_provider is None:
+        raise HTTPException(
+            status_code=400,
+            detail="SourceRepository has no linked SourceProvider — cannot refresh",
+        )
+
+    sp = repo.source_provider
+    if sp.credential is None or not sp.credential.encrypted_secret:
+        raise HTTPException(
+            status_code=400,
+            detail="SourceProvider has no credential configured",
+        )
+
+    from app.core.secrets import decrypt_secret
+    from app.services.source_providers import create_source_provider
+
+    credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+    provider = await create_source_provider(sp, credential_secret)
+
+    # ── 3. Fetch fresh metadata from upstream ──────────────────────────────
+    external_id = repo.external_id or repo.full_name
+    try:
+        fresh_data = await provider.get_repository(external_id)
+    except DomainError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=f"Failed to refresh repository metadata: {exc.message}",
+        ) from exc
+
+    # ── 4. Update mutable fields ───────────────────────────────────────────
+    repo.description = fresh_data.get("description")
+    repo.language = fresh_data.get("language")
+    repo.stars_count = fresh_data.get("stars", 0)
+    repo.forks_count = fresh_data.get("forks", 0)
+    repo.is_private = fresh_data.get("private", False)
+    repo.is_archived = fresh_data.get("archived", False)
+    repo.is_fork = fresh_data.get("fork", False)
+    repo.is_disabled = fresh_data.get("disabled", False)
+    if fresh_data.get("default_branch"):
+        repo.default_branch = fresh_data["default_branch"]
+    if fresh_data.get("html_url"):
+        repo.web_url = fresh_data["html_url"]
+    if fresh_data.get("clone_url"):
+        repo.clone_url_https = fresh_data["clone_url"]
+    if fresh_data.get("ssh_url"):
+        repo.clone_url_ssh = fresh_data["ssh_url"]
+    repo.source_created_at = fresh_data.get("created_at")
+    repo.source_updated_at = fresh_data.get("updated_at")
+    repo.source_pushed_at = fresh_data.get("pushed_at")
+    repo.last_seen_at = datetime.now(UTC)
+
+    # ── 5. Audit + persist ─────────────────────────────────────────────────
+    await AuditService.log_event(
+        db,
+        user_id=current_user.id,
+        username=current_user.username,
+        action="source_repository.refreshed",
+        resource_type="source_repository",
+        resource_id=repo.id,
+        resource_name=repo.full_name,
+        ip_address=request.client.host if request.client else None,
+    )
+
+    await db.commit()
+    await db.refresh(repo)
+
+    logger.info(
+        "Refresh completed: repository_id=%d, full_name='%s'",
+        repo.id,
+        repo.full_name,
+    )
+
     return SourceRepositoryDetailOut.model_validate(repo)
 
 

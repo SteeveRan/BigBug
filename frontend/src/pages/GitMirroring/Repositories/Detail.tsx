@@ -22,14 +22,16 @@ import {
   Switch,
   Breadcrumb,
   Tooltip,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LinkOutlined, GithubOutlined, StarOutlined, ForkOutlined } from '@ant-design/icons';
+import { LinkOutlined, GithubOutlined, StarOutlined, ForkOutlined, ReloadOutlined } from '@ant-design/icons';
 import {
   useGetSourceRepositoryQuery,
   useGetRepositoryReleasesQuery,
   useGetRepositoryReadmeQuery,
   useGetMirrorsQuery,
+  useRefreshSourceRepositoryMutation,
 } from '../../../store/api';
 import type { SourceRepositoryRelease, Mirror, MirrorFilters } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
@@ -49,6 +51,9 @@ const RepositoryDetailPage = () => {
     isError: repoError,
   } = useGetSourceRepositoryQuery(repositoryId, { skip: isNaN(repositoryId) });
 
+  const [refreshRepository, { isLoading: refreshLoading }] =
+    useRefreshSourceRepositoryMutation();
+
   // Fetch releases (only when releases tab is active)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
     { repository_id: repositoryId, include_prereleases: includePrereleases },
@@ -61,7 +66,7 @@ const RepositoryDetailPage = () => {
     isLoading: readmeLoading,
     isError: readmeError,
   } = useGetRepositoryReadmeQuery(repositoryId, {
-    skip: activeTab !== 'readme' || isNaN(repositoryId) || !repo?.has_readme,
+    skip: activeTab !== 'readme' || isNaN(repositoryId) || !repo?.readme_html,
   });
 
   // Fetch mirrors for this repo
@@ -174,7 +179,7 @@ const RepositoryDetailPage = () => {
           <Descriptions bordered column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Name">{repo.name}</Descriptions.Item>
             <Descriptions.Item label="Full Name">{repo.full_name}</Descriptions.Item>
-            <Descriptions.Item label="Description" span={2}>
+            <Descriptions.Item label="Description" span={{ xs: 1, sm: 2 }}>
               {repo.description ?? '—'}
             </Descriptions.Item>
             <Descriptions.Item label="Language">
@@ -186,59 +191,58 @@ const RepositoryDetailPage = () => {
             <Descriptions.Item label="Stars">
               <Space>
                 <StarOutlined />
-                {repo.stars}
+                {repo.stars_count}
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="Forks">
               <Space>
                 <ForkOutlined />
-                {repo.forks}
+                {repo.forks_count}
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="Archived">
-              {repo.archived ? <Tag color="warning">Yes</Tag> : 'No'}
+              {repo.is_archived ? <Tag color="warning">Yes</Tag> : 'No'}
             </Descriptions.Item>
             <Descriptions.Item label="Fork">
-              {repo.fork ? <Tag color="processing">Yes</Tag> : 'No'}
+              {repo.is_fork ? <Tag color="processing">Yes</Tag> : 'No'}
             </Descriptions.Item>
             <Descriptions.Item label="Private">
-              {repo.private ? <Tag>Yes</Tag> : 'No'}
+              {repo.is_private ? <Tag>Yes</Tag> : 'No'}
             </Descriptions.Item>
             <Descriptions.Item label="License">
               {repo.license_spdx ? <Tag>{repo.license_spdx}</Tag> : '—'}
             </Descriptions.Item>
-            <Descriptions.Item label="HTML URL" span={2}>
-              <Button
-                type="link"
-                icon={<GithubOutlined />}
-                href={repo.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {repo.html_url}
-              </Button>
+            <Descriptions.Item label="Web URL" span={{ xs: 1, sm: 2 }}>
+              {repo.web_url ? (
+                <Button
+                  type="link"
+                  icon={<GithubOutlined />}
+                  href={repo.web_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {repo.web_url}
+                </Button>
+              ) : (
+                '—'
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Latest Release">
               {repo.latest_release_tag ? (
-                <Space>
-                  <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
-                  {repo.latest_release_name && (
-                    <Typography.Text type="secondary">({repo.latest_release_name})</Typography.Text>
-                  )}
-                </Space>
+                <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
               ) : (
                 '—'
               )}
             </Descriptions.Item>
             <Descriptions.Item label="Latest Release Date">
-              {repo.latest_release_published_at
-                ? new Date(repo.latest_release_published_at).toLocaleString()
+              {repo.latest_release_date
+                ? new Date(repo.latest_release_date).toLocaleString()
                 : '—'}
             </Descriptions.Item>
             <Descriptions.Item label="Has README">
-              {repo.has_readme ? <Tag color="green">Yes</Tag> : <Tag color="default">No</Tag>}
+              {repo.readme_html ? <Tag color="green">Yes</Tag> : <Tag color="default">No</Tag>}
             </Descriptions.Item>
-            <Descriptions.Item label="Mirrors Count">{repo.mirrors_count ?? '—'}</Descriptions.Item>
+            <Descriptions.Item label="Mirrors Count">{repo.mirrors?.length ?? '—'}</Descriptions.Item>
           </Descriptions>
         </Card>
       ),
@@ -333,13 +337,33 @@ const RepositoryDetailPage = () => {
         </Typography.Title>
         <Space>
           <Button
-            icon={<GithubOutlined />}
-            href={repo.html_url}
-            target="_blank"
-            rel="noopener noreferrer"
+            icon={<ReloadOutlined />}
+            loading={refreshLoading}
+            onClick={async () => {
+              try {
+                await refreshRepository(repositoryId).unwrap();
+                message.success('Metadata refreshed successfully');
+              } catch (err: unknown) {
+                const msg =
+                  err && typeof err === 'object' && 'data' in err
+                    ? (err as { data?: { detail?: string } }).data?.detail
+                    : undefined;
+                message.error(msg ?? 'Failed to refresh metadata');
+              }
+            }}
           >
-            Open on GitHub
+            Refresh Metadata
           </Button>
+          {repo.web_url && (
+            <Button
+              icon={<GithubOutlined />}
+              href={repo.web_url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open on GitHub
+            </Button>
+          )}
         </Space>
       </Flex>
 
