@@ -345,12 +345,15 @@ const RoleDetailPage = () => {
   }, [syncGroupsList]);
 
   // Build transfer items for Credentials (from integration instances)
+  // Exclude providers without a linked credential (credential_id can be null)
   const credentialItems: TransferItem[] = useMemo(() => {
-    return typedProviders.map((p) => ({
-      key: String(p.credential_id),
-      title: p.credential?.name ?? `Credential #${p.credential_id}`,
-      description: p.label,
-    }));
+    return typedProviders
+      .filter((p) => p.credential_id != null)
+      .map((p) => ({
+        key: String(p.credential_id!),
+        title: p.credential?.name ?? `Credential #${p.credential_id!}`,
+        description: p.label,
+      }));
   }, [typedProviders]);
 
   if (isRoleLoading) {

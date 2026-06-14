@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.rbac import require_operator, require_viewer
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("", response_model=list[GithubProjectListOut])
 async def list_projects(
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("projects:read")),
 ):
     from sqlalchemy import func, select
 
@@ -44,7 +44,7 @@ async def list_projects(
 async def get_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("projects:read")),
 ):
     # Get project with org and count releases
     project_query = select(GithubProject).options(selectinload(GithubProject.org))
@@ -66,7 +66,7 @@ async def get_project(
 async def get_project_releases(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("projects:read")),
 ):
     result = await db.execute(
         select(GithubRelease)
@@ -80,7 +80,7 @@ async def get_project_releases(
 async def create_project(
     data: CreateProjectRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("projects:write")),
 ):
     from app.services.github import github_service
 
@@ -109,7 +109,7 @@ async def create_project(
 async def import_project(
     data: ImportProjectRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("projects:write")),
 ):
     from app.services.github import github_service
 
@@ -132,7 +132,7 @@ async def update_project(
     project_id: int,
     data: UpdateProjectRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("projects:write")),
 ):
     result = await db.execute(
         select(GithubProject)
@@ -169,7 +169,7 @@ async def update_project(
 async def refresh_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("projects:write")),
 ):
     """Re-fetch metadata from GitHub API."""
     result = await db.execute(
@@ -206,7 +206,7 @@ async def refresh_project(
 async def delete_project(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("projects:delete")),
 ):
     result = await db.execute(select(GithubProject).where(GithubProject.id == project_id))
     project = result.scalar_one_or_none()

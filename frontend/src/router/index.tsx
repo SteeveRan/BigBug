@@ -162,7 +162,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/mirrors"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="mirrors:read">
               <GitMirroringMirrors />
             </PermissionGate>
           }
@@ -170,7 +170,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/mirrors/:id"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="mirrors:read">
               <GitMirroringMirrorProcess />
             </PermissionGate>
           }
@@ -178,7 +178,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/mirrors/:id/process"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="mirrors:read">
               <GitMirroringMirrorProcess />
             </PermissionGate>
           }
@@ -186,7 +186,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/repositories"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="source_groups:read">
               <GitMirroringRepositories />
             </PermissionGate>
           }
@@ -194,7 +194,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/repositories/:id"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="source_groups:read">
               <GitMirroringRepositoryDetail />
             </PermissionGate>
           }
@@ -202,7 +202,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/providers"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="source_groups:read">
               <GitMirroringProviders />
             </PermissionGate>
           }
@@ -210,7 +210,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/groups"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="source_groups:read">
               <GitMirroringGroups />
             </PermissionGate>
           }
@@ -218,7 +218,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/sync-groups"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="sync_groups:read">
               <GitMirroringSyncGroups />
             </PermissionGate>
           }
@@ -226,7 +226,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/sync-groups/:id"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="sync_groups:read">
               <GitMirroringSyncGroupDetail />
             </PermissionGate>
           }
@@ -236,7 +236,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/dashboard"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="mirrors:read">
               <GitMirroringDashboard />
             </PermissionGate>
           }
@@ -246,7 +246,7 @@ export function AppRouter() {
         <Route
           path="git-mirroring/orphaned"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="mirrors:manage_orphaned">
               <GitMirroringOrphaned />
             </PermissionGate>
           }

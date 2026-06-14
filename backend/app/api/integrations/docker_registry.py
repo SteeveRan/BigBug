@@ -22,13 +22,14 @@ from app.services.audit import AuditService
 from app.services.integrations import DockerRegistryInstanceService
 
 router = APIRouter()
-_manage = Depends(require_permission("docker_registry:manage"))
+_read = Depends(require_permission("integrations:read"))
+_write = Depends(require_permission("integrations:write"))
 
 
 @router.get("/docker-registry", response_model=list[DockerRegistryInstanceOut])
 async def list_docker_registry_instances(
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """List all configured Docker Registry instances."""
     service = DockerRegistryInstanceService(db)
@@ -44,7 +45,7 @@ async def create_docker_registry_instance(
     data: DockerRegistryInstanceCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Register a new Docker Registry instance."""
     service = DockerRegistryInstanceService(db)
@@ -82,7 +83,7 @@ async def create_docker_registry_instance(
 async def get_docker_registry_instance(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """Get a single Docker Registry instance by ID."""
     service = DockerRegistryInstanceService(db)
@@ -98,7 +99,7 @@ async def update_docker_registry_instance(
     data: DockerRegistryInstanceUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Update an existing Docker Registry instance (partial)."""
     service = DockerRegistryInstanceService(db)
@@ -138,7 +139,7 @@ async def delete_docker_registry_instance(
     instance_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Delete a Docker Registry instance."""
     service = DockerRegistryInstanceService(db)
@@ -169,7 +170,7 @@ async def delete_docker_registry_instance(
 async def test_docker_registry_connection(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _write,
 ):
     """Test connectivity to a Docker Registry and update its status."""
     service = DockerRegistryInstanceService(db)

@@ -22,13 +22,14 @@ from app.services.audit import AuditService
 from app.services.integrations import GitlabInstanceService
 
 router = APIRouter()
-_manage = Depends(require_permission("integrations:manage"))
+_read = Depends(require_permission("integrations:read"))
+_write = Depends(require_permission("integrations:write"))
 
 
 @router.get("/gitlab", response_model=list[GitlabInstanceOut])
 async def list_gitlab_instances(
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """List all configured GitLab instances."""
     service = GitlabInstanceService(db)
@@ -40,7 +41,7 @@ async def create_gitlab_instance(
     data: GitlabInstanceCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Register a new GitLab instance."""
     service = GitlabInstanceService(db)
@@ -75,7 +76,7 @@ async def create_gitlab_instance(
 async def get_gitlab_instance(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """Get a single GitLab instance by ID."""
     service = GitlabInstanceService(db)
@@ -91,7 +92,7 @@ async def update_gitlab_instance(
     data: GitlabInstanceUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Update an existing GitLab instance (partial)."""
     service = GitlabInstanceService(db)
@@ -128,7 +129,7 @@ async def delete_gitlab_instance(
     instance_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Delete a GitLab instance."""
     service = GitlabInstanceService(db)
@@ -159,7 +160,7 @@ async def delete_gitlab_instance(
 async def test_gitlab_connection(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _write,
 ):
     """Test connectivity to a GitLab instance and update its status."""
     service = GitlabInstanceService(db)

@@ -74,9 +74,9 @@ ADMIN_PERMISSIONS = [
     "reports:read",
 ]
 
-# Operator: read + actions, no delete, no user/role/oidc/integrations management
+# Operator: read + write actions (no delete), no user/role/oidc/integrations management
 OPERATOR_PERMISSIONS = [
-    "mirrors:read", "mirrors:write", "mirrors:sync",
+    "mirrors:read", "mirrors:write", "mirrors:sync", "mirrors:import", "mirrors:integrity_check",
     "projects:read", "projects:write",
     "helm:read", "helm:write", "helm:sync", "helm:index",
     "docker:read", "docker:write", "docker:sync", "docker:index",
@@ -85,9 +85,11 @@ OPERATOR_PERMISSIONS = [
     "pipelines:read", "pipelines:write",
     "audit:read",
     # Source Groups
-    "source_groups:read",
+    "source_groups:read", "source_groups:write", "source_groups:refresh",
     # Sync Groups
-    "sync_groups:read",
+    "sync_groups:read", "sync_groups:write",
+    # Credentials
+    "credentials:use",
 ]
 
 # Viewer: read-only across all resources

@@ -22,13 +22,14 @@ from app.services.audit import AuditService
 from app.services.integrations import HelmRepositoryInstanceService
 
 router = APIRouter()
-_manage = Depends(require_permission("helm_repository:manage"))
+_read = Depends(require_permission("integrations:read"))
+_write = Depends(require_permission("integrations:write"))
 
 
 @router.get("/helm-repository", response_model=list[HelmRepositoryInstanceOut])
 async def list_helm_repository_instances(
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """List all configured Helm Repository instances."""
     service = HelmRepositoryInstanceService(db)
@@ -44,7 +45,7 @@ async def create_helm_repository_instance(
     data: HelmRepositoryInstanceCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Register a new Helm Repository instance."""
     service = HelmRepositoryInstanceService(db)
@@ -79,7 +80,7 @@ async def create_helm_repository_instance(
 async def get_helm_repository_instance(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """Get a single Helm Repository instance by ID."""
     service = HelmRepositoryInstanceService(db)
@@ -95,7 +96,7 @@ async def update_helm_repository_instance(
     data: HelmRepositoryInstanceUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Update an existing Helm Repository instance (partial)."""
     service = HelmRepositoryInstanceService(db)
@@ -132,7 +133,7 @@ async def delete_helm_repository_instance(
     instance_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Delete a Helm Repository instance."""
     service = HelmRepositoryInstanceService(db)
@@ -163,7 +164,7 @@ async def delete_helm_repository_instance(
 async def test_helm_repository_connection(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _write,
 ):
     """Test connectivity to a Helm Repository and update its status."""
     service = HelmRepositoryInstanceService(db)

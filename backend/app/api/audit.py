@@ -24,7 +24,7 @@ async def get_audit_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("users:read")),
+    current_user: User = Depends(require_permission("audit:read")),
 ):
     items, total = await AuditService.get_logs(
         db,

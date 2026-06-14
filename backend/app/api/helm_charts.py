@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.rbac import require_operator, require_viewer
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
@@ -26,7 +26,7 @@ router = APIRouter()
 @router.get("", response_model=list[HelmChartSourceOut])
 async def list_sources(
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("helm:read")),
 ):
     result = await db.execute(select(HelmChartSource))
     return result.scalars().all()
@@ -36,7 +36,7 @@ async def list_sources(
 async def get_source(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("helm:read")),
 ):
     result = await db.execute(
         select(HelmChartSource)
@@ -55,7 +55,7 @@ async def get_source(
 async def create_source(
     data: CreateHelmChartSourceRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("helm:write")),
 ):
     from app.services.helm import helm_service
 
@@ -68,7 +68,7 @@ async def update_source(
     source_id: int,
     data: UpdateHelmChartSourceRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("helm:write")),
 ):
     result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
     source = result.scalar_one_or_none()
@@ -93,7 +93,7 @@ async def update_source(
 async def delete_source(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("helm:delete")),
 ):
     result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
     source = result.scalar_one_or_none()
@@ -112,7 +112,7 @@ async def delete_source(
 async def index_source(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("helm:index")),
 ):
     """Re-index a Helm chart source (fetch index.yaml and update versions)."""
     result = await db.execute(select(HelmChartSource).where(HelmChartSource.id == source_id))
@@ -138,7 +138,7 @@ async def list_versions(
     source_id: int,
     chart_name: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("helm:read")),
 ):
     """List chart versions for a source. Optionally filter by chart_name."""
     stmt = (
@@ -164,7 +164,7 @@ async def get_sync_logs(
     source_id: int,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("helm:read")),
 ):
     result = await db.execute(
         select(HelmSyncLog)

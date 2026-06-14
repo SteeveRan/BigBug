@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.rbac import require_operator, require_viewer
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
@@ -35,7 +35,7 @@ router = APIRouter()
 @router.get("", response_model=list[DockerImageSourceOut])
 async def list_sources(
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("docker:read")),
 ):
     result = await db.execute(
         select(DockerImageSource).options(selectinload(DockerImageSource.registry_instance))
@@ -47,7 +47,7 @@ async def list_sources(
 async def get_source(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("docker:read")),
 ):
     result = await db.execute(
         select(DockerImageSource)
@@ -67,7 +67,7 @@ async def get_source(
 async def create_source(
     data: CreateDockerImageSourceRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:write")),
 ):
     from app.services.docker import docker_service
 
@@ -88,7 +88,7 @@ async def update_source(
     source_id: int,
     data: UpdateDockerImageSourceRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:write")),
 ):
     result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
     source = result.scalar_one_or_none()
@@ -120,7 +120,7 @@ async def update_source(
 async def delete_source(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:delete")),
 ):
     result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
     source = result.scalar_one_or_none()
@@ -141,7 +141,7 @@ async def compare_docker_sources(
     source_id: int,
     other_source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:read")),
 ) -> dict:
     """
     Compare tags between two Docker image sources.
@@ -230,7 +230,7 @@ async def index_source(
     source_id: int,
     image_name: str,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:index")),
 ):
     """Re-index tags for a Docker image source (fetch from registry and update tags)."""
     result = await db.execute(select(DockerImageSource).where(DockerImageSource.id == source_id))
@@ -258,7 +258,7 @@ async def mirror_image(
     image_name: str = Query(..., description="Image name to mirror"),
     tag: str = Query("latest", description="Image tag to mirror"),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(require_operator()),
+    current_user=Depends(require_permission("docker:sync")),
 ) -> DockerSyncLog:
     """Mirror a Docker image from the external source to the target registry."""
     source = await db.get(DockerImageSource, source_id)
@@ -294,7 +294,7 @@ async def list_tags(
     source_id: int,
     image_name: str | None = None,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("docker:read")),
 ):
     """List image tags for a source. Optionally filter by image_name."""
     stmt = (
@@ -320,7 +320,7 @@ async def get_sync_logs(
     source_id: int,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("docker:read")),
 ):
     result = await db.execute(
         select(DockerSyncLog)
@@ -339,7 +339,7 @@ async def batch_delete_tags(
     source_id: int,
     data: BatchDeleteTagsRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:delete")),
 ) -> None:
     """
     Delete multiple Docker image tags for a source.
@@ -381,7 +381,7 @@ async def batch_delete_tags(
 async def get_docker_sync_schedules(
     source_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:read")),
 ):
     """Get all sync schedules for a Docker image source."""
     source = await db.get(DockerImageSource, source_id)
@@ -409,7 +409,7 @@ async def create_docker_sync_schedule(
     source_id: int,
     data: CreateDockerSyncScheduleRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:write")),
 ):
     """Create a sync schedule for a Docker image source."""
     source = await db.get(DockerImageSource, source_id)
@@ -438,7 +438,7 @@ async def update_docker_sync_schedule(
     schedule_id: int,
     data: UpdateDockerSyncScheduleRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:write")),
 ):
     """Update a sync schedule."""
     result = await db.execute(
@@ -469,7 +469,7 @@ async def delete_docker_sync_schedule(
     source_id: int,
     schedule_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:delete")),
 ):
     """Delete a sync schedule."""
     result = await db.execute(
@@ -518,7 +518,7 @@ class AnalyzeImageResponse(BaseModel):
 async def analyze_image(
     data: AnalyzeImageRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("docker:read")),
 ):
     """
     Analyze an image reference and suggest matching registry instances.

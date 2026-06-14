@@ -12,7 +12,7 @@ from app.core.exceptions import (
     OIDCProvisioningError,
 )
 from app.core.rate_limit import rate_limit
-from app.core.rbac import get_current_user, require_admin
+from app.core.rbac import get_current_user, require_permission
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -243,7 +243,7 @@ async def oidc_exchange(
 @router.get(
     "/admin/oidc-config",
     response_model=OIDCConfigOut,
-    dependencies=[Depends(require_admin())],
+    dependencies=[Depends(require_permission("oidc:read"))],
 )
 async def get_oidc_config(db: AsyncSession = Depends(get_db)):
     """
@@ -276,7 +276,7 @@ async def get_oidc_config(db: AsyncSession = Depends(get_db)):
 @router.patch(
     "/admin/oidc-config",
     response_model=OIDCConfigOut,
-    dependencies=[Depends(require_admin())],
+    dependencies=[Depends(require_permission("oidc:write"))],
 )
 async def update_oidc_config(
     data: OIDCConfigUpdate,
@@ -305,7 +305,7 @@ async def update_oidc_config(
 @router.get(
     "/admin/oidc-config/public",
     response_model=OIDCConfigPublic,
-    dependencies=[Depends(require_admin())],
+    dependencies=[Depends(require_permission("oidc:read"))],
 )
 async def get_oidc_config_public(db: AsyncSession = Depends(get_db)):
     """Return the OIDC config subset for admin UI previews (no secret)."""

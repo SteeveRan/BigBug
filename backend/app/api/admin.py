@@ -10,7 +10,7 @@ from app.core.exceptions import (
     RoleHasUsersError,
     RoleNotFoundError,
 )
-from app.core.rbac import require_admin, require_permission
+from app.core.rbac import require_permission
 from app.core.security import get_password_hash
 from app.database import get_db
 from app.models.role import Role, UserRole
@@ -35,7 +35,7 @@ router = APIRouter()
 @router.get("/users", response_model=list[UserOut])
 async def list_users(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("users:read")),
 ):
     result = await db.execute(select(User))
     users = result.scalars().all()
@@ -56,7 +56,7 @@ async def create_user(
     data: UserCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("users:write")),
 ):
     # Check uniqueness
     existing = await db.execute(
@@ -113,7 +113,7 @@ async def update_user(
     data: UserUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("users:write")),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -163,7 +163,7 @@ async def delete_user(
     user_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("users:delete")),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -351,7 +351,7 @@ async def delete_role(
 async def get_role_scope_source_groups(
     role_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:read")),
 ):
     """Get source groups scope for a role."""
     service = RBACService(db)
@@ -373,7 +373,7 @@ async def add_role_scope_source_group(
     role_id: int,
     body: dict,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Add a single source group to role scope."""
     source_group_id = body.get("source_group_id")
@@ -402,7 +402,7 @@ async def set_role_scope_source_groups(
     role_id: int,
     data: RoleScopeUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Replace all source groups scope for a role (atomic)."""
     service = RBACService(db)
@@ -424,7 +424,7 @@ async def remove_role_scope_source_group(
     role_id: int,
     source_group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Remove a single source group from role scope."""
     service = RBACService(db)
@@ -454,7 +454,7 @@ async def remove_role_scope_source_group(
 async def get_role_scope_credentials(
     role_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:read")),
 ):
     """Get credentials scope for a role."""
     service = RBACService(db)
@@ -476,7 +476,7 @@ async def add_role_scope_credential(
     role_id: int,
     body: dict,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Add a single credential to role scope."""
     credential_id = body.get("credential_id")
@@ -505,7 +505,7 @@ async def set_role_scope_credentials(
     role_id: int,
     data: RoleScopeUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Replace all credentials scope for a role (atomic)."""
     service = RBACService(db)
@@ -527,7 +527,7 @@ async def remove_role_scope_credential(
     role_id: int,
     credential_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Remove a single credential from role scope."""
     service = RBACService(db)
@@ -552,7 +552,7 @@ async def remove_role_scope_credential(
 @router.post("/cleanup", tags=["admin"], status_code=status.HTTP_200_OK)
 async def manual_cleanup(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("system:config")),
 ) -> dict:
     """Manually trigger physical deletion of soft-deleted Mirroring entities.
 
@@ -582,7 +582,7 @@ async def manual_cleanup(
 async def get_role_scope_sync_groups(
     role_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:read")),
 ):
     """Get sync groups scope for a role."""
     service = RBACService(db)
@@ -604,7 +604,7 @@ async def add_role_scope_sync_group(
     role_id: int,
     body: dict,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Add a single sync group to role scope."""
     sync_group_id = body.get("sync_group_id")
@@ -633,7 +633,7 @@ async def set_role_scope_sync_groups(
     role_id: int,
     data: RoleScopeUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Replace all sync groups scope for a role (atomic)."""
     service = RBACService(db)
@@ -655,7 +655,7 @@ async def remove_role_scope_sync_group(
     role_id: int,
     sync_group_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin()),
+    _: User = Depends(require_permission("roles:write")),
 ):
     """Remove a single sync group from role scope."""
     service = RBACService(db)

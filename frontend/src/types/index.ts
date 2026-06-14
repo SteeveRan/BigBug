@@ -768,7 +768,7 @@ export interface SourceProvider {
   id: number;
   label: string;
   provider_type: ProviderType;
-  credential_id: number;
+  credential_id: number | null;
   credential?: Credential;
   config_json?: Record<string, unknown>;
   status_flag: number;

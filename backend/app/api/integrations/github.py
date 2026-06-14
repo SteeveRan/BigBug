@@ -22,13 +22,14 @@ from app.services.audit import AuditService
 from app.services.integrations import GithubInstanceService
 
 router = APIRouter()
-_manage = Depends(require_permission("integrations:manage"))
+_read = Depends(require_permission("integrations:read"))
+_write = Depends(require_permission("integrations:write"))
 
 
 @router.get("/github", response_model=list[GithubInstanceOut])
 async def list_github_instances(
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """List all configured GitHub instances."""
     service = GithubInstanceService(db)
@@ -40,7 +41,7 @@ async def create_github_instance(
     data: GithubInstanceCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Register a new GitHub instance (token)."""
     service = GithubInstanceService(db)
@@ -72,7 +73,7 @@ async def create_github_instance(
 async def get_github_instance(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """Get a single GitHub instance by ID."""
     service = GithubInstanceService(db)
@@ -88,7 +89,7 @@ async def update_github_instance(
     data: GithubInstanceUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Update an existing GitHub instance (partial)."""
     service = GithubInstanceService(db)
@@ -122,7 +123,7 @@ async def delete_github_instance(
     instance_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Delete a GitHub instance."""
     service = GithubInstanceService(db)
@@ -153,7 +154,7 @@ async def delete_github_instance(
 async def test_github_connection(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _write,
 ):
     """Test connectivity to the GitHub API and update the instance status."""
     service = GithubInstanceService(db)

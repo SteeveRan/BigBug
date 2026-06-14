@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rbac import require_operator, require_permission, require_viewer
+from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.build_schedule import BuildSchedule
 from app.models.gold_image import GoldImage
@@ -27,7 +27,7 @@ router = APIRouter()
 @router.get("", response_model=list[GoldImageOut])
 async def list_gold_images(
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("gold_images:read")),
 ):
     result = await db.execute(select(GoldImage))
     return result.scalars().all()
@@ -37,7 +37,7 @@ async def list_gold_images(
 async def get_gold_image(
     image_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("gold_images:read")),
 ):
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
@@ -50,7 +50,7 @@ async def get_gold_image(
 async def create_gold_image(
     data: CreateGoldImageRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("gold_images:write")),
 ):
     image = GoldImage(**data.model_dump())
     db.add(image)
@@ -75,7 +75,7 @@ async def update_gold_image(
     image_id: int,
     data: UpdateGoldImageRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("gold_images:write")),
 ):
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
@@ -94,7 +94,7 @@ async def update_gold_image(
 async def delete_gold_image(
     image_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("gold_images:delete")),
 ):
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
@@ -108,7 +108,7 @@ async def delete_gold_image(
 async def list_versions(
     image_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("gold_images:read")),
 ):
     result = await db.execute(
         select(ImageVersion)
@@ -127,7 +127,7 @@ async def trigger_build(
     image_id: int,
     data: CreateImageVersionRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("gold_images:build")),
 ):
     result = await db.execute(select(GoldImage).where(GoldImage.id == image_id))
     image = result.scalar_one_or_none()
@@ -144,7 +144,7 @@ async def trigger_build(
 async def get_build_schedule(
     image_id: int,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_viewer()),
+    _=Depends(require_permission("gold_images:read")),
 ):
     result = await db.execute(
         select(BuildSchedule).where(
@@ -163,7 +163,7 @@ async def update_build_schedule(
     image_id: int,
     data: UpdateBuildScheduleRequest,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_operator()),
+    _=Depends(require_permission("gold_images:write")),
 ):
     result = await db.execute(
         select(BuildSchedule).where(

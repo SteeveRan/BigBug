@@ -12,7 +12,7 @@ import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rbac import require_permission
+from app.core.rbac import require_admin, require_permission
 from app.database import get_db
 from app.models.user import User
 from app.schemas.health_check import HealthCheckReportOut
@@ -26,7 +26,7 @@ router = APIRouter()
 @router.get("/system", response_model=HealthCheckReportOut)
 async def health_check_system(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("admin")),
+    _: User = Depends(require_admin()),
 ):
     """Run a system-wide health check (admin only).
 

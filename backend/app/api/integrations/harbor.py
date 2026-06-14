@@ -22,13 +22,14 @@ from app.services.audit import AuditService
 from app.services.integrations import HarborInstanceService
 
 router = APIRouter()
-_manage = Depends(require_permission("integrations:manage"))
+_read = Depends(require_permission("integrations:read"))
+_write = Depends(require_permission("integrations:write"))
 
 
 @router.get("/harbor", response_model=list[HarborInstanceOut])
 async def list_harbor_instances(
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """List all configured Harbor instances."""
     service = HarborInstanceService(db)
@@ -40,7 +41,7 @@ async def create_harbor_instance(
     data: HarborInstanceCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Register a new Harbor instance."""
     service = HarborInstanceService(db)
@@ -76,7 +77,7 @@ async def create_harbor_instance(
 async def get_harbor_instance(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _read,
 ):
     """Get a single Harbor instance by ID."""
     service = HarborInstanceService(db)
@@ -92,7 +93,7 @@ async def update_harbor_instance(
     data: HarborInstanceUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Update an existing Harbor instance (partial)."""
     service = HarborInstanceService(db)
@@ -130,7 +131,7 @@ async def delete_harbor_instance(
     instance_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = _manage,
+    current_user: User = _write,
 ):
     """Delete a Harbor instance."""
     service = HarborInstanceService(db)
@@ -161,7 +162,7 @@ async def delete_harbor_instance(
 async def test_harbor_connection(
     instance_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = _manage,
+    _: User = _write,
 ):
     """Test connectivity to a Harbor instance and update its status."""
     service = HarborInstanceService(db)

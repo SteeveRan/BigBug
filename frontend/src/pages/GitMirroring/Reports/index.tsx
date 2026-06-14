@@ -549,7 +549,9 @@ function StatusTab() {
       width: 120,
       align: 'center',
       render: (_: unknown, record: StatusCountItem) =>
-        data ? `${((record.count / data.total_mirrors) * 100).toFixed(1)}%` : '—',
+        data && data.total_mirrors > 0
+          ? `${((record.count / data.total_mirrors) * 100).toFixed(1)}%`
+          : '—',
     },
   ];
 
