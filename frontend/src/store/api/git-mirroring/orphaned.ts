@@ -4,7 +4,7 @@
  * @dependencies api/base.ts
  */
 
-import type { OrphanedMirrorListResponse, IntegrityCheckResult } from '../../../types';
+import type { OrphanedMirrorListResponse } from '../../../types';
 import { api } from '../base';
 
 export const orphanedApi = api.injectEndpoints({
