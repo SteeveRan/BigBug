@@ -239,7 +239,7 @@ const MirrorProcessPage = () => {
   if (mirrorError || !mirror) {
     return (
       <Alert
-        message="Failed to load mirror"
+        title="Failed to load mirror"
         description="Please check the mirror ID and try again."
         type="error"
         showIcon
@@ -555,7 +555,7 @@ const MirrorProcessPage = () => {
         )}
         {logsError && (
           <Alert
-            message="Failed to load logs"
+            title="Failed to load logs"
             description="Please try again later."
             type="error"
             showIcon

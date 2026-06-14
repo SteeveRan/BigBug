@@ -290,7 +290,7 @@ const SyncGroupsPage = () => {
 
       {isError && (
         <Alert
-          message="Failed to load sync groups"
+          title="Failed to load sync groups"
           description="Please try again later."
           type="error"
           showIcon

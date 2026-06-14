@@ -383,7 +383,7 @@ export function DockerImagesPage() {
               <Alert
                 type="warning"
                 showIcon
-                message="No matching registry found"
+                title="No matching registry found"
                 description="You may need to add one in Settings → Integrations → External Registries"
               />
             )}

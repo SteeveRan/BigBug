@@ -205,3 +205,83 @@ class TestCreateSourceProvider:
             await create_source_provider(github_provider_db, "my-secret-token")
 
         mock_gh_class.assert_called_once_with(github_provider_db, "my-secret-token")
+
+    @pytest.mark.asyncio
+    async def test_create_anon_provider_passes_none_credential(self):
+        """create_source_provider with is_anon=True passes credential_secret=None."""
+        sp = SourceProvider(
+            id=10,
+            label="Test Anon GitHub",
+            provider_type=ProviderType.github,
+            is_anon=True,
+            is_deleted=False,
+        )
+
+        with patch(
+            "app.services.source_providers.github.GitHubSourceProvider",
+        ) as mock_gh_class:
+            mock_gh_class.__name__ = "GitHubSourceProvider"
+            mock_instance = MagicMock(spec=BaseSourceProvider)
+            mock_gh_class.return_value = mock_instance
+
+            await create_source_provider(sp, "this-should-be-ignored")
+
+        mock_gh_class.assert_called_once_with(sp, None)
+
+    @pytest.mark.asyncio
+    async def test_create_anon_provider_raises_without_credential_when_not_anon(self):
+        """create_source_provider raises ValueError when not is_anon and no credential_secret."""
+        sp = SourceProvider(
+            id=11,
+            label="Test Auth GitHub",
+            provider_type=ProviderType.github,
+            is_anon=False,
+            is_deleted=False,
+        )
+
+        with pytest.raises(ValueError, match="no credential_secret provided"):
+            await create_source_provider(sp, None)
+
+    @pytest.mark.asyncio
+    async def test_create_anon_gitlab_provider(self):
+        """create_source_provider with is_anon GitLab passes None credential."""
+        sp = SourceProvider(
+            id=12,
+            label="Test Anon GitLab",
+            provider_type=ProviderType.gitlab,
+            is_anon=True,
+            is_deleted=False,
+        )
+
+        with patch(
+            "app.services.source_providers.gitlab.GitLabSourceProvider",
+        ) as mock_gl_class:
+            mock_gl_class.__name__ = "GitLabSourceProvider"
+            mock_instance = MagicMock(spec=BaseSourceProvider)
+            mock_gl_class.return_value = mock_instance
+
+            await create_source_provider(sp, "ignored")
+
+        mock_gl_class.assert_called_once_with(sp, None)
+
+    @pytest.mark.asyncio
+    async def test_create_anon_generic_provider(self):
+        """create_source_provider with is_anon Generic passes None credential."""
+        sp = SourceProvider(
+            id=13,
+            label="Test Anon Generic",
+            provider_type=ProviderType.generic,
+            is_anon=True,
+            is_deleted=False,
+        )
+
+        with patch(
+            "app.services.source_providers.generic_git.GenericGitSourceProvider",
+        ) as mock_gen_class:
+            mock_gen_class.__name__ = "GenericGitSourceProvider"
+            mock_instance = MagicMock(spec=BaseSourceProvider)
+            mock_gen_class.return_value = mock_instance
+
+            await create_source_provider(sp, "ignored")
+
+        mock_gen_class.assert_called_once_with(sp, None)

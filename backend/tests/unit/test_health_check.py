@@ -120,6 +120,85 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
     return mirror
 
 
+async def _seed_anon_health_mirror(db: AsyncSession) -> Mirror:
+    """Create a full mirror chain with an anonymous (no-credential) SourceProvider."""
+    # SourceProvider (anonymous, no credential)
+    sp = SourceProvider(
+        credential_id=None,
+        provider_type=ProviderType.github,
+        label="anon-provider",
+        is_anon=True,
+        is_builtin=True,
+    )
+    db.add(sp)
+    await db.flush()
+
+    # SourceGroup
+    sg = SourceGroup(
+        external_id="anonorg",
+        name="Anon Org",
+        full_path="anonorg",
+    )
+    db.add(sg)
+    await db.flush()
+
+    # SourceRepository
+    sr = SourceRepository(
+        source_group_id=sg.id,
+        source_provider_id=sp.id,
+        external_id="99999",
+        name="anon-repo",
+        full_name="anonorg/anon-repo",
+        clone_url_https="https://github.com/anonorg/anon-repo.git",
+    )
+    db.add(sr)
+    await db.flush()
+
+    # GitlabInstance
+    instance = GitlabInstance(
+        url="https://gitlab.example.com",
+        token="gAAAAAB...",
+        verify_ssl=True,
+        name="anon-instance",
+    )
+    db.add(instance)
+    await db.flush()
+
+    # Pipeline
+    pipeline = Pipeline(
+        name="anon-pipeline",
+        gitlab_instance_id=instance.id,
+        ref="main",
+    )
+    db.add(pipeline)
+    await db.flush()
+
+    # SyncGroup
+    sync_group = SyncGroup(
+        name="anon-sync-group",
+        description="Anon test group",
+        is_default=False,
+        pipeline_id=pipeline.id,
+    )
+    db.add(sync_group)
+    await db.flush()
+
+    # Mirror
+    mirror = Mirror(
+        source_repository_id=sr.id,
+        sync_group_id=sync_group.id,
+        target_namespace="anonns",
+        target_project_name="anon-repo",
+        target_project_id="99",
+        status_flag=0,
+        status_text="OK",
+    )
+    db.add(mirror)
+    await db.commit()
+    await db.refresh(mirror)
+    return mirror
+
+
 # ---------------------------------------------------------------------------
 # Tests: HealthCheckReport
 # ---------------------------------------------------------------------------
@@ -293,3 +372,158 @@ class TestCheckMirror:
         assert report.mirror_id == mirror.id
         assert isinstance(report.items, list)
         assert len(report.items) > 0
+
+
+# ---------------------------------------------------------------------------
+# Tests: HealthCheckService — anonymous source providers
+# ---------------------------------------------------------------------------
+
+
+class TestCheckSystemAnonymous:
+    """Tests for HealthCheckService.check_system() with anonymous providers."""
+
+    @pytest.mark.asyncio
+    async def test_check_system_anon_provider_passes_none_credential(
+        self, db_session: AsyncSession
+    ):
+        """check_system creates anonymous provider with credential_secret=None."""
+        sp = SourceProvider(
+            label="anon-gh",
+            provider_type=ProviderType.github,
+            is_anon=True,
+            is_builtin=True,
+        )
+        db_session.add(sp)
+        await db_session.commit()
+
+        with patch(
+            "app.services.health_check.create_source_provider",
+            new_callable=AsyncMock,
+        ) as mock_create:
+            mock_provider = AsyncMock()
+            mock_provider.check_access.return_value = True
+            mock_create.return_value = mock_provider
+
+            report = await HealthCheckService.check_system(db_session)
+
+        # The anonymous source provider should have been created with None secret
+        create_calls = [
+            c for c in mock_create.call_args_list
+            if c.args[0].id == sp.id
+        ]
+        assert len(create_calls) == 1
+        call_args, _ = create_calls[0]
+        assert call_args[1] is None  # credential_secret=None
+
+        # Should report OK, not WARNING about missing credential
+        sp_items = [
+            item for item in report.items
+            if f"source_provider:{sp.id}" in item.component
+        ]
+        assert len(sp_items) == 1
+        assert sp_items[0].severity == HealthCheckSeverity.OK
+        assert "(anonymous)" in sp_items[0].message
+
+    @pytest.mark.asyncio
+    async def test_check_system_anon_provider_failure(
+        self, db_session: AsyncSession
+    ):
+        """check_system reports ERROR when anonymous provider access fails."""
+        sp = SourceProvider(
+            label="anon-bad",
+            provider_type=ProviderType.github,
+            is_anon=True,
+            is_builtin=True,
+        )
+        db_session.add(sp)
+        await db_session.commit()
+
+        with patch(
+            "app.services.health_check.create_source_provider",
+            new_callable=AsyncMock,
+        ) as mock_create:
+            mock_provider = AsyncMock()
+            mock_provider.check_access.side_effect = Exception("Connection refused")
+            mock_create.return_value = mock_provider
+
+            report = await HealthCheckService.check_system(db_session)
+
+        sp_items = [
+            item for item in report.items
+            if f"source_provider:{sp.id}" in item.component
+        ]
+        assert len(sp_items) == 1
+        assert sp_items[0].severity == HealthCheckSeverity.ERROR
+        assert "Connection refused" in sp_items[0].message
+
+
+class TestCheckMirrorAnonymous:
+    """Tests for HealthCheckService.check_mirror() with anonymous providers."""
+
+    @pytest.mark.asyncio
+    async def test_check_mirror_anon_source_accessible(
+        self, db_session: AsyncSession
+    ):
+        """check_mirror creates anonymous provider and checks source accessibility."""
+        mirror = await _seed_anon_health_mirror(db_session)
+
+        with (
+            patch(
+                "app.services.health_check.create_source_provider",
+                new_callable=AsyncMock,
+            ) as mock_create,
+            patch(
+                "app.services.health_check._gitlab_module.Gitlab",
+                autospec=True,
+            ) as mock_gl_class,
+        ):
+            mock_provider = AsyncMock()
+            mock_provider.check_access.return_value = True
+            mock_provider.get_repository.return_value = {
+                "full_name": "anonorg/anon-repo",
+                "default_branch": "main",
+            }
+            mock_provider.get_commit_info.return_value = {
+                "sha": "abc123def456",
+                "date": datetime.now(UTC),
+                "author": "anon",
+            }
+            mock_create.return_value = mock_provider
+
+            mock_gl = MagicMock()
+            mock_project = MagicMock()
+            mock_project.id = 99
+            mock_project.path_with_namespace = "anonns/anon-repo"
+            mock_gl.projects.get.return_value = mock_project
+            mock_gl_class.return_value = mock_gl
+
+            report = await HealthCheckService.check_mirror(db_session, mirror.id)
+
+        assert report.mirror_id == mirror.id
+        assert isinstance(report.items, list)
+        assert len(report.items) > 0
+
+        # Should have "Source repo ... is accessible" item
+        source_items = [
+            item for item in report.items
+            if "is accessible" in item.message and "Source repo" in item.message
+        ]
+        assert len(source_items) == 1
+        assert source_items[0].severity == HealthCheckSeverity.OK
+
+        # Should NOT have "has no credential" warning
+        no_cred_items = [
+            item for item in report.items
+            if "has no credential" in item.message
+        ]
+        assert len(no_cred_items) == 0
+
+        # create_source_provider should have been called with None secret
+        create_calls_for_sp = [
+            c for c in mock_create.call_args_list
+            if c.args[0].is_anon
+        ]
+        assert len(create_calls_for_sp) >= 1
+        call_args, _ = create_calls_for_sp[0]
+        assert call_args[1] is None
+

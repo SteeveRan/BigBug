@@ -184,7 +184,7 @@ export const RelinkModal = ({ mirror, open, onClose }: RelinkModalProps) => {
         <Flex vertical gap={16}>
           <Alert
             type="warning"
-            message="This will soft-delete the mirror. It can be restored within 30 days."
+            title="This will soft-delete the mirror. It can be restored within 30 days."
             showIcon
           />
           <Button

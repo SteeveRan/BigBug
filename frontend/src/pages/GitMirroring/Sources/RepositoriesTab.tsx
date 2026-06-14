@@ -165,7 +165,10 @@ export function RepositoriesTab() {
           <Tooltip title="View Details">
             <EyeOutlined
               style={{ cursor: 'pointer', fontSize: 16, color: '#1677ff' }}
-              onClick={() => navigate(`/git-mirroring/repositories/${record.id}`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/git-mirroring/repositories/${record.id}`);
+              }}
             />
           </Tooltip>
           <PermissionGate permission="source_groups:write">
@@ -175,7 +178,10 @@ export function RepositoriesTab() {
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                onClick={() => handleDelete(record.id, record.full_name)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(record.id, record.full_name);
+                }}
               />
             </Tooltip>
           </PermissionGate>
@@ -230,7 +236,7 @@ export function RepositoriesTab() {
               onChange={(v) => setSelectedProviderId(v)}
               loading={providersLoading}
               options={providers.map((p) => ({
-                label: `${p.label} (${p.provider_type})`,
+                label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
                 value: p.id,
               }))}
             />
@@ -276,7 +282,7 @@ export function RepositoriesTab() {
 
       {reposError && (
         <Alert
-          message="Failed to load repositories"
+          title="Failed to load repositories"
           description="Please select a valid group or try again later."
           type="error"
           showIcon

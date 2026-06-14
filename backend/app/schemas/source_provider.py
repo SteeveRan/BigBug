@@ -23,6 +23,10 @@ class SourceProviderCreate(BaseModel):
     """Payload to create a source provider."""
 
     credential_id: int | None = Field(None, description="Optional FK to Credential for auth")
+    is_anon: bool = Field(
+        default=False,
+        description="When True, no credential is required — the provider works anonymously",
+    )
     provider_type: ProviderType = Field(..., description="github, gitlab, generic")
     label: str = Field(..., max_length=255, description="e.g. 'github.com (org-token)'")
 
@@ -37,6 +41,8 @@ class SourceProviderOut(BaseModel):
     credential_id: int | None = None
     provider_type: ProviderType
     label: str
+    is_anon: bool = False
+    is_builtin: bool = False
     is_deleted: bool
     deleted_at: datetime | None = None
     created_at: datetime

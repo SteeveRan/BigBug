@@ -158,31 +158,54 @@ class GitHubSourceProvider(BaseSourceProvider):
     metadata.  Supports both ``organization`` and ``user`` provider types,
     automatically treating the authenticated user's account as a group.
 
+    When ``credential_secret`` is ``None`` (anonymous mode), the client is
+    created without authentication.  This gives access to public resources
+    only, with a lower rate limit (60 requests/hour).
+
     Args:
         provider: :class:`SourceProvider` ORM model.
-        credential_secret: Decrypted GitHub personal access token.
+        credential_secret: Decrypted GitHub personal access token,
+                           or ``None`` for anonymous access.
     """
 
     # -- client factory -----------------------------------------------------
 
     def _get_client(self) -> Github:
         """Build a PyGithub client using the decrypted credential secret."""
-        return Github(self.credential_secret)
+        if self.credential_secret is not None:
+            return Github(self.credential_secret)
+        # Anonymous client — no authentication, public resources only
+        return Github()
 
     # -- BaseSourceProvider interface ---------------------------------------
 
     async def check_access(self) -> bool:
         """
-        Verify the credential by fetching the authenticated user's login.
+        Verify access to GitHub.
+
+        With a token: verifies by fetching the authenticated user's login.
+        Without a token: verifies public API reachability via rate-limit endpoint.
 
         Returns:
             ``True`` on success.
+
+        Raises:
+            DomainError: If the API is unreachable or authentication is invalid.
         """
         try:
             gh = self._get_client()
-            user = gh.get_user()
-            login = user.login
-            logger.info("GitHub check_access OK for user '%s'", login)
+            if self.credential_secret is not None:
+                user = gh.get_user()
+                login = user.login
+                logger.info("GitHub check_access OK for user '%s'", login)
+            else:
+                # Anonymous mode — check rate limit as connectivity test
+                rate_limit = gh.get_rate_limit()
+                logger.info(
+                    "GitHub check_access OK (anonymous): core rate limit %d/%d",
+                    rate_limit.core.remaining,
+                    rate_limit.core.limit,
+                )
             return True
         except GithubException as exc:
             raise _map_github_exception(exc, "check_access") from exc

@@ -1010,3 +1010,86 @@ class TestResolveLicenseSpdx:
         spdx, name = _resolve_license_spdx({"key": "bsl-1.0", "name": "Boost Software License 1.0"})
         assert spdx == "BSL-1.0"
         assert name == "Boost Software License 1.0"
+
+
+class TestAnonymousMode:
+    """Tests for GitLabSourceProvider in anonymous (no-credential) mode."""
+
+    @pytest.mark.asyncio
+    async def test_init_anonymous_no_private_token(self):
+        """Anonymous init creates Gitlab without private_token."""
+        mock_gitlab_cls = MagicMock()
+
+        with patch(
+            "app.services.source_providers.gitlab.gitlab.Gitlab",
+            mock_gitlab_cls,
+        ):
+            sp = SourceProvider(
+                id=1,
+                credential_id=None,
+                provider_type=ProviderType.gitlab,
+                label="GitLab Anon",
+                is_deleted=False,
+                is_anon=True,
+            )
+            GitLabSourceProvider(sp, credential_secret=None)
+
+        mock_gitlab_cls.assert_called_once_with(
+            url="https://gitlab.com",
+            private_token=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_uses_version(self):
+        """Anonymous check_access uses gl.version() for connectivity test."""
+        mock_gitlab_cls = MagicMock()
+        mock_gl = MagicMock()
+        mock_gl.version.return_value = {"version": "16.0"}
+        mock_gitlab_cls.return_value = mock_gl
+
+        with patch(
+            "app.services.source_providers.gitlab.gitlab.Gitlab",
+            mock_gitlab_cls,
+        ):
+            provider = _make_provider(credential_id=None, is_anon=True)
+            gl_provider = GitLabSourceProvider(provider, credential_secret=None)
+
+            result = await gl_provider.check_access()
+
+        assert result is True
+        mock_gl.version.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_version_error(self):
+        """Anonymous check_access maps version error to DomainError."""
+        from gitlab.exceptions import GitlabError
+
+        mock_gitlab_cls = MagicMock()
+        mock_gl = MagicMock()
+        mock_gl.version.side_effect = GitlabError("Connection refused")
+        mock_gitlab_cls.return_value = mock_gl
+
+        with (
+            patch(
+                "app.services.source_providers.gitlab.gitlab.Gitlab",
+                mock_gitlab_cls,
+            ),
+            pytest.raises(DomainError),
+        ):
+            provider = _make_provider(credential_id=None, is_anon=True)
+            gl_provider = GitLabSourceProvider(provider, credential_secret=None)
+            await gl_provider.check_access()
+
+    def test_repr_anonymous(self):
+        """repr() for anonymous provider shows None credential."""
+        mock_gitlab_cls = MagicMock()
+
+        with patch(
+            "app.services.source_providers.gitlab.gitlab.Gitlab",
+            mock_gitlab_cls,
+        ):
+            provider = _make_provider(credential_id=None, is_anon=True)
+            gl_provider = GitLabSourceProvider(provider, credential_secret=None)
+
+        r = repr(gl_provider)
+        assert "None" in r

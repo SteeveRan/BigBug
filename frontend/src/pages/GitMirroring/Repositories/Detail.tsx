@@ -102,7 +102,7 @@ const RepositoryDetailPage = () => {
   if (repoError || !repo) {
     return (
       <Alert
-        message="Failed to load repository"
+        title="Failed to load repository"
         description="Please check the repository ID and try again."
         type="error"
         showIcon
@@ -338,7 +338,7 @@ const RepositoryDetailPage = () => {
           )}
           {readmeError && (
             <Alert
-              message="Failed to load README"
+              title="Failed to load README"
               description="Please try again later."
               type="error"
               showIcon

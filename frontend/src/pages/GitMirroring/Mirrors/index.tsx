@@ -177,7 +177,10 @@ const MirrorsPage = () => {
                 size="small"
                 type="text"
                 icon={<SyncOutlined />}
-                onClick={() => handleSync(record.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSync(record.id);
+                }}
               />
             </Tooltip>
           </PermissionGate>
@@ -187,7 +190,10 @@ const MirrorsPage = () => {
                 size="small"
                 type="text"
                 icon={<CheckCircleOutlined />}
-                onClick={() => handleFreshness(record.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFreshness(record.id);
+                }}
               />
             </Tooltip>
           </PermissionGate>
@@ -197,7 +203,8 @@ const MirrorsPage = () => {
                 size="small"
                 type="text"
                 icon={<EditOutlined />}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setEditMirror(record);
                   setCreateModalOpen(true);
                 }}
@@ -211,12 +218,13 @@ const MirrorsPage = () => {
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                onClick={() =>
+                onClick={(e) => {
+                  e.stopPropagation();
                   handleDelete(
                     record.id,
                     record.source_repository?.full_name ?? String(record.source_repository_id)
-                  )
-                }
+                  );
+                }}
               />
             </Tooltip>
           </PermissionGate>
@@ -302,7 +310,7 @@ const MirrorsPage = () => {
 
       {isError && (
         <Alert
-          message="Failed to load mirrors"
+          title="Failed to load mirrors"
           description="Please try again later."
           type="error"
           showIcon

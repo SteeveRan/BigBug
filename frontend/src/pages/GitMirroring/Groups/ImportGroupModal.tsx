@@ -65,7 +65,7 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
             placeholder="Select provider"
             loading={providersLoading}
             options={providers.map((p) => ({
-              label: `${p.label} (${p.provider_type})`,
+              label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
               value: p.id,
             }))}
           />

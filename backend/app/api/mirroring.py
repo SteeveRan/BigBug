@@ -237,11 +237,15 @@ async def create_source_provider(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("source_groups:write")),
 ):
-    """Create a new source provider (e.g. GitHub token connection)."""
+    """Create a new source provider (e.g. GitHub token connection).
+
+    Set ``is_anon=True`` to create a provider that works without authentication.
+    """
     provider = SourceProvider(
         credential_id=data.credential_id,
         provider_type=data.provider_type,
         label=data.label,
+        is_anon=data.is_anon,
     )
     db.add(provider)
     await db.commit()
@@ -297,7 +301,10 @@ async def update_source_provider(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("source_groups:write")),
 ):
-    """Partially update a source provider (label and/or credential)."""
+    """Partially update a source provider (label and/or credential).
+
+    Built-in providers (``is_builtin=True``) cannot be modified.
+    """
     result = await db.execute(
         select(SourceProvider)
         .options(selectinload(SourceProvider.credential))
@@ -307,6 +314,12 @@ async def update_source_provider(
     if provider is None:
         raise HTTPException(
             status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
+
+    if provider.is_builtin:
+        raise HTTPException(
+            status_code=403,
+            detail=f"SourceProvider '{provider.label}' is built-in and cannot be modified",
         )
 
     changed = False
@@ -330,7 +343,10 @@ async def delete_source_provider(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("source_groups:write")),
 ):
-    """Soft-delete a source provider."""
+    """Soft-delete a source provider.
+
+    Built-in providers (``is_builtin=True``) cannot be deleted.
+    """
     result = await db.execute(
         select(SourceProvider).where(
             SourceProvider.id == provider_id,
@@ -341,6 +357,12 @@ async def delete_source_provider(
     if provider is None:
         raise HTTPException(
             status_code=404, detail=f"SourceProvider with id={provider_id} not found"
+        )
+
+    if provider.is_builtin:
+        raise HTTPException(
+            status_code=403,
+            detail=f"SourceProvider '{provider.label}' is built-in and cannot be deleted",
         )
 
     provider.is_deleted = True
@@ -449,6 +471,8 @@ async def import_source_group(
 
     Uses the SourceProvider's credential to fetch group metadata
     and all repositories via the configured SourceProvider.
+
+    For anonymous providers (``is_anon=True``), no credential is required.
     """
     if source_provider_id is None:
         raise HTTPException(
@@ -471,16 +495,20 @@ async def import_source_group(
             status_code=404, detail=f"SourceProvider with id={source_provider_id} not found"
         )
 
-    if provider.credential is None or not provider.credential.encrypted_secret:
-        raise HTTPException(
-            status_code=400,
-            detail=f"SourceProvider {source_provider_id} has no credential configured",
-        )
+    # Anonymous providers don't need a credential
+    if not provider.is_anon:
+        if provider.credential is None or not provider.credential.encrypted_secret:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SourceProvider {source_provider_id} has no credential configured",
+            )
 
     from app.core.secrets import decrypt_secret
     from app.services.source_providers import create_source_provider
 
-    credential_secret = decrypt_secret(provider.credential.encrypted_secret)
+    credential_secret: str | None = None
+    if provider.credential and provider.credential.encrypted_secret:
+        credential_secret = decrypt_secret(provider.credential.encrypted_secret)
     gh_provider = await create_source_provider(provider, credential_secret)
 
     # 2. Find the group on the provider
@@ -640,7 +668,10 @@ async def refresh_source_group(
         require_scope_permission("source_groups:refresh", "source_group", "group_id")
     ),
 ):
-    """Re-fetch repository list for a source group from the upstream provider."""
+    """Re-fetch repository list for a source group from the upstream provider.
+
+    For anonymous providers (``is_anon=True``), no credential is required.
+    """
     # Get group and resolve provider via repositories
     result = await db.execute(
         select(SourceGroup)
@@ -673,13 +704,18 @@ async def refresh_source_group(
         )
 
     sp = repo_with_provider.source_provider
-    if sp.credential is None or not sp.credential.encrypted_secret:
-        raise HTTPException(status_code=400, detail="SourceProvider has no credential configured")
+
+    # Anonymous providers don't need a credential
+    if not sp.is_anon:
+        if sp.credential is None or not sp.credential.encrypted_secret:
+            raise HTTPException(status_code=400, detail="SourceProvider has no credential configured")
 
     from app.core.secrets import decrypt_secret
     from app.services.source_providers import create_source_provider
 
-    credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+    credential_secret: str | None = None
+    if sp.credential and sp.credential.encrypted_secret:
+        credential_secret = decrypt_secret(sp.credential.encrypted_secret)
     gh_provider = await create_source_provider(sp, credential_secret)
 
     external_id = group.external_id or group.name
@@ -947,6 +983,10 @@ async def create_source_repository(
       (e.g. ``org`` from ``org/repo``) is used to find or auto-create a
       SourceGroup.
     - For **generic** it is always ``None``.
+
+    **source_provider_id** is resolved automatically when omitted:
+    - Finds the built-in anonymous provider matching ``provider_type``
+      (e.g. ``GitHub (Anonymous)`` for ``github`` type).
     """
     import uuid
 
@@ -1005,11 +1045,13 @@ async def create_source_repository(
             )
     # else: generic — source_group_id stays None
 
-    # ── 3. Validate source_provider_id if provided ──────────────────────
-    if data.source_provider_id is not None:
+    # ── 3. Resolve source_provider_id (explicit or built-in anonymous) ──
+    source_provider_id: int | None = data.source_provider_id
+
+    if source_provider_id is not None:
         sp_result = await db.execute(
             select(SourceProvider).where(
-                SourceProvider.id == data.source_provider_id,
+                SourceProvider.id == source_provider_id,
                 ~SourceProvider.is_deleted,
             )
         )
@@ -1029,6 +1071,32 @@ async def create_source_repository(
                     f"'{data.provider_type}'"
                 ),
             )
+    else:
+        # Auto-assign the built-in anonymous provider for this provider_type
+        anon_result = await db.execute(
+            select(SourceProvider).where(
+                SourceProvider.provider_type == data.provider_type,
+                SourceProvider.is_anon == True,
+                SourceProvider.is_builtin == True,
+                ~SourceProvider.is_deleted,
+            )
+        )
+        anon_provider = anon_result.scalar_one_or_none()
+        if anon_provider is None:
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"No built-in anonymous provider found for "
+                    f"'{data.provider_type}'. Ensure the migration creating "
+                    f"built-in providers has been run."
+                ),
+            )
+        source_provider_id = anon_provider.id
+        logger.info(
+            "Auto-assigned anonymous provider id=%d for provider_type='%s'",
+            anon_provider.id,
+            data.provider_type,
+        )
 
     # ── 4. Auto-detect default branch via git ls-remote ─────────────────
     default_branch = await _detect_default_branch(clone_url)
@@ -1054,7 +1122,7 @@ async def create_source_repository(
     now = datetime.now(UTC)
     repo = SourceRepository(
         source_group_id=source_group_id,
-        source_provider_id=data.source_provider_id,
+        source_provider_id=source_provider_id,
         external_id=str(uuid.uuid4()),
         name=name,
         full_name=full_name,
@@ -1320,6 +1388,8 @@ async def refresh_source_repository(
     ``description``, ``language``, ``stars_count``, ``forks_count``,
     ``is_private``, ``is_archived``, ``is_fork``, ``default_branch``,
     URLs, and source timestamps.
+
+    For anonymous providers (``is_anon=True``), no credential is required.
     """
     # ── 1. Look up repository with provider + credential ──────────────────
     result = await db.execute(
@@ -1359,16 +1429,21 @@ async def refresh_source_repository(
         )
 
     sp = repo.source_provider
-    if sp.credential is None or not sp.credential.encrypted_secret:
-        raise HTTPException(
-            status_code=400,
-            detail="SourceProvider has no credential configured",
-        )
+
+    # Anonymous providers don't need a credential
+    if not sp.is_anon:
+        if sp.credential is None or not sp.credential.encrypted_secret:
+            raise HTTPException(
+                status_code=400,
+                detail="SourceProvider has no credential configured",
+            )
 
     from app.core.secrets import decrypt_secret
     from app.services.source_providers import create_source_provider
 
-    credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+    credential_secret: str | None = None
+    if sp.credential and sp.credential.encrypted_secret:
+        credential_secret = decrypt_secret(sp.credential.encrypted_secret)
     provider = await create_source_provider(sp, credential_secret)
 
     # ── 3. Fetch fresh metadata from upstream ──────────────────────────────

@@ -240,7 +240,7 @@ const OrphanedPage = () => {
       <Card>
         <Alert
           type="error"
-          message="Failed to load orphaned mirrors"
+          title="Failed to load orphaned mirrors"
           description="Could not retrieve the list of orphaned mirrors. Please try again."
           showIcon
         />

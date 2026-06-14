@@ -104,7 +104,7 @@ const SyncGroupDetailPage = () => {
     return (
       <Flex vertical gap={16}>
         <Alert
-          message="Failed to load Sync Group"
+          title="Failed to load Sync Group"
           description="The sync group may have been deleted or you may not have permission to view it."
           type="error"
           showIcon

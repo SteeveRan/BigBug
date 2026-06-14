@@ -2,6 +2,8 @@
 @file source_provider.py
 @description SourceProvider model — represents a configured source hosting platform
              (GitHub, GitLab) optionally authenticated via a Credential.
+             Supports anonymous providers (is_anon=True, no credential required)
+             and built-in providers (is_builtin=True, protected from deletion/editing).
 @dependencies app.database.Base, ./credential.py
 @relatedFiles ./credential.py, ./source_repository.py, ./role_scope.py
 """
@@ -36,6 +38,10 @@ class SourceProvider(Base):
         nullable=False,
     )
     label = Column(String(255), nullable=False)
+
+    # Anonymous / Built-in flags
+    is_anon = Column(Boolean, default=False, nullable=False)
+    is_builtin = Column(Boolean, default=False, nullable=False)
 
     # Soft delete
     is_deleted = Column(Boolean, default=False, nullable=False)

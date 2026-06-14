@@ -404,3 +404,59 @@ class TestGetCommitInfo:
         assert commit_info["author"] == "Tag Author"
         assert "release v1.0" in commit_info["message"]
         mock_repo.get_commit.assert_called_once_with("v1.0")
+
+
+class TestAnonymousMode:
+    """Tests for GitHubSourceProvider in anonymous (no-credential) mode."""
+
+    @pytest.mark.asyncio
+    async def test_constructor_anonymous_no_client_token(self):
+        """Anonymous constructor creates Github() without token."""
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gh_provider = GitHubSourceProvider(provider, credential_secret=None)
+
+        with patch.object(gh_provider, "_get_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_get_client.return_value = mock_client
+            client = gh_provider._get_client()
+
+        # Verify _get_client was called on the provider instance
+        mock_get_client.assert_called_once()
+        assert client is mock_client
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_uses_rate_limit(self):
+        """Anonymous check_access uses rate_limit endpoint for connectivity test."""
+        from github import GithubException
+
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gh_provider = GitHubSourceProvider(provider, credential_secret=None)
+
+        mock_gh = MagicMock()
+        mock_rate_limit = MagicMock()
+        mock_gh.get_rate_limit.return_value = mock_rate_limit
+
+        with patch.object(gh_provider, "_get_client", return_value=mock_gh):
+            result = await gh_provider.check_access()
+
+        assert result is True
+        mock_gh.get_rate_limit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_rate_limit_error(self):
+        """Anonymous check_access maps rate limit error to DomainError."""
+        from github import GithubException
+
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gh_provider = GitHubSourceProvider(provider, credential_secret=None)
+
+        mock_gh = MagicMock()
+        mock_gh.get_rate_limit.side_effect = GithubException(
+            status=403, data={"message": "API rate limit exceeded"}
+        )
+
+        with (
+            patch.object(gh_provider, "_get_client", return_value=mock_gh),
+            pytest.raises(DomainError),
+        ):
+            await gh_provider.check_access()

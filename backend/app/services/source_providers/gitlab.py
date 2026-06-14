@@ -240,12 +240,18 @@ class GitLabSourceProvider(BaseSourceProvider):
     commit metadata.  Supports both gitlab.com (cloud) and self-hosted
     GitLab instances.
 
+    **Anonymous mode** — when ``credential_secret`` is ``None``, the provider
+    works without authentication.  Only public projects and groups are
+    accessible.  ``check_access`` performs a connectivity test via the
+    ``/version`` endpoint instead of authenticating.
+
     Args:
         provider: SourceProvider ORM model instance.
-        credential_secret: Decrypted GitLab personal access token.
+        credential_secret: Decrypted GitLab personal access token, or
+                           ``None`` for anonymous (public) access.
     """
 
-    def __init__(self, provider, credential_secret: str) -> None:
+    def __init__(self, provider, credential_secret: str | None) -> None:
         super().__init__(provider, credential_secret)
         # Determine the GitLab instance URL from the credential base_url
         # or fall back to gitlab.com for cloud.
@@ -256,13 +262,18 @@ class GitLabSourceProvider(BaseSourceProvider):
             base_url = self.provider.credential.base_url.rstrip("/")
 
         self._base_url = base_url
-        self._client = gitlab.Gitlab(url=base_url, private_token=self.credential_secret)
+        # Anonymous client — no private_token, public resources only
+        self._client = gitlab.Gitlab(
+            url=base_url,
+            private_token=self.credential_secret,
+        )
 
     def __repr__(self) -> str:
+        token_repr = "'***'" if self.credential_secret is not None else "None"
         return (
             f"<GitLabSourceProvider(provider_id={self.provider.id}, "
             f"base_url='{self._base_url}', "
-            f"token='***')>"
+            f"token={token_repr})>"
         )
 
     # -- client factory -----------------------------------------------------
@@ -277,6 +288,9 @@ class GitLabSourceProvider(BaseSourceProvider):
         """
         Verify the credential by fetching the authenticated user.
 
+        In anonymous mode, performs a light-weight connectivity test
+        via the ``/version`` endpoint instead of authenticating.
+
         Returns:
             True on success.
 
@@ -286,11 +300,30 @@ class GitLabSourceProvider(BaseSourceProvider):
         try:
             gl = self._get_client()
 
-            def _check():
-                gl.auth()
-                return True
+            if self.credential_secret is not None:
+                # Authenticated mode — validate the token
+                def _check():
+                    gl.auth()
+                    return True
 
-            return await asyncio.to_thread(_check)
+                result = await asyncio.to_thread(_check)
+                logger.info(
+                    "GitLab check_access OK for provider %d (authenticated)",
+                    self.provider.id,
+                )
+                return result
+            else:
+                # Anonymous mode — light connectivity test
+                def _check_anon():
+                    gl.version()
+                    return True
+
+                result = await asyncio.to_thread(_check_anon)
+                logger.info(
+                    "GitLab check_access OK for provider %d (anonymous)",
+                    self.provider.id,
+                )
+                return result
         except GitlabError as exc:
             raise _map_gitlab_exception(exc, "check_access") from exc
 

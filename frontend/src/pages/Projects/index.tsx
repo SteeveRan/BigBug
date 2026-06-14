@@ -82,7 +82,12 @@ export function ProjectsPage() {
       render: (name: string, record: GithubProject) => (
         <Flex vertical>
           <Space>
-            <Typography.Link onClick={() => navigate(`/projects/${record.id}`)}>
+            <Typography.Link
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/projects/${record.id}`);
+              }}
+            >
               {name}
             </Typography.Link>
             {record.is_stale && (
@@ -140,7 +145,10 @@ export function ProjectsPage() {
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              onClick={() => refreshProject(record.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                refreshProject(record.id);
+              }}
             />
           </Tooltip>
           <Tooltip title="Open on GitHub">
@@ -150,6 +158,7 @@ export function ProjectsPage() {
               href={record.github_url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
             />
           </Tooltip>
         </Space>

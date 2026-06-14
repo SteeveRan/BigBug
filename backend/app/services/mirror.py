@@ -579,10 +579,13 @@ class MirrorService:
         used_provider: SourceProvider | None = None
 
         for sp in source_providers:
-            if sp.credential is None or not sp.credential.encrypted_secret:
+            # Skip non-anonymous providers without credentials
+            if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
                 continue
             try:
-                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+                credential_secret: str | None = None
+                if sp.credential and sp.credential.encrypted_secret:
+                    credential_secret = decrypt_secret(sp.credential.encrypted_secret)
                 gh_provider = await create_source_provider(sp, credential_secret)
 
                 # Extract owner/repo from source_url
@@ -1346,7 +1349,8 @@ class MirrorService:
 
         # Accept any provider type that supports commit info
 
-        if sp.credential is None or not sp.credential.encrypted_secret:
+        # Anonymous providers don't need a credential
+        if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
             raise DomainError(
                 f"SourceProvider {sp.id} has no credential configured",
                 status_code=400,
@@ -1359,7 +1363,9 @@ class MirrorService:
         error_message: str | None = None
 
         try:
-            credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+            credential_secret: str | None = None
+            if sp.credential and sp.credential.encrypted_secret:
+                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
             gh_provider = await create_source_provider(sp, credential_secret)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await gh_provider.get_commit_info(repo_external_id)
@@ -1650,12 +1656,15 @@ class MirrorService:
         source_sha: str | None = None
 
         try:
-            if sp.credential is None or not sp.credential.encrypted_secret:
+            # Anonymous providers don't need a credential
+            if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
                 raise DomainError(
                     f"SourceProvider {sp.id} has no credential configured",
                     status_code=400,
                 )
-            credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+            credential_secret: str | None = None
+            if sp.credential and sp.credential.encrypted_secret:
+                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
             provider = await create_source_provider(sp, credential_secret)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await provider.get_commit_info(repo_external_id)

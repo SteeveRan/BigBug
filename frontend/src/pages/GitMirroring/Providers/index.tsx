@@ -85,7 +85,11 @@ const ProvidersPage = () => {
       key: 'label',
       render: (label: string, record: SourceProvider) => (
         <Flex vertical>
-          <Typography.Text strong>{label}</Typography.Text>
+          <Space size={4}>
+            <Typography.Text strong>{label}</Typography.Text>
+            {record.is_anon && <Tag color="blue">Anon</Tag>}
+            {record.is_builtin && <Tag color="gold">Builtin</Tag>}
+          </Space>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             ID: {record.id}
           </Typography.Text>
@@ -106,7 +110,9 @@ const ProvidersPage = () => {
       key: 'credential',
       render: (_: unknown, record: SourceProvider) => (
         <Typography.Text>
-          {record.credential?.name ?? `ID: ${record.credential_id}`}
+          {record.is_anon
+            ? <Tag color="blue">Anonymous</Tag>
+            : record.credential?.name ?? `ID: ${record.credential_id}`}
         </Typography.Text>
       ),
     },

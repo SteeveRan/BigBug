@@ -61,7 +61,7 @@ def get_provider_class(provider_type: str) -> type[BaseSourceProvider]:
 
 async def create_source_provider(
     provider: SourceProvider,
-    credential_secret: str,
+    credential_secret: str | None,
 ) -> BaseSourceProvider:
     """
     Create and return a concrete :class:`BaseSourceProvider` instance for the
@@ -69,12 +69,13 @@ async def create_source_provider(
 
     The caller is responsible for decrypting the credential secret (e.g. via
     :func:`app.core.secrets.decrypt_secret`) before passing it in.
+    Pass ``None`` for anonymous providers (``is_anon=True``).
 
     Args:
         provider: The :class:`~app.models.source_provider.SourceProvider` ORM
                   model with provider configuration (type, credential ref, etc.).
         credential_secret: The *decrypted* secret string (GitHub/GitLab personal
-                            access token).
+                            access token), or ``None`` for anonymous providers.
 
     Returns:
         An instance of :class:`GitHubSourceProvider`,
@@ -84,17 +85,29 @@ async def create_source_provider(
     Raises:
         ValueError: If ``provider.provider_type`` is not a supported member
                     of :class:`~app.models.source_provider.ProviderType`.
+        ValueError: If ``is_anon=False`` and ``credential_secret`` is ``None``.
     """
     from app.models.source_provider import ProviderType
 
     # Resolve the class via get_provider_class (validates the type).
     klass = get_provider_class(provider.provider_type)
 
+    # For anonymous providers, ignore any passed credential
+    if provider.is_anon:
+        credential_secret = None
+
+    # Non-anonymous providers MUST have a credential
+    if not provider.is_anon and credential_secret is None:
+        raise ValueError(
+            f"SourceProvider id={provider.id} is not anonymous but no credential_secret provided"
+        )
+
     logger.info(
-        "Creating %s for provider_id=%d label='%s'",
+        "Creating %s for provider_id=%d label='%s' anon=%s",
         klass.__name__,
         provider.id,
         provider.label,
+        provider.is_anon,
     )
 
     if provider.provider_type == ProviderType.github:

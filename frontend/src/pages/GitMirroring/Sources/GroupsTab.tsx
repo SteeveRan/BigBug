@@ -218,7 +218,7 @@ export function GroupsTab() {
                 options={[
                   { label: 'All Providers', value: 0 },
                   ...providers.map((p) => ({
-                    label: `${p.label} (${p.provider_type})`,
+                    label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
                     value: p.id,
                   })),
                 ]}
@@ -231,7 +231,7 @@ export function GroupsTab() {
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       {providersError && (
         <Alert
-          message="Failed to load providers"
+          title="Failed to load providers"
           description="Please try again later."
           type="error"
           showIcon
@@ -246,7 +246,7 @@ export function GroupsTab() {
 
       {groupsError && (
         <Alert
-          message="Failed to load groups"
+          title="Failed to load groups"
           description="Please try again later."
           type="error"
           showIcon

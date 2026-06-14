@@ -29,10 +29,11 @@ class BaseSourceProvider(ABC):
         credential_secret: The *decrypted* secret string (e.g. a GitHub
                            personal access token). The caller is responsible
                            for decrypting the value read from the database
-                           before passing it here.
+                           before passing it here.  Pass ``None`` for
+                           anonymous providers.
     """
 
-    def __init__(self, provider: SourceProvider, credential_secret: str) -> None:
+    def __init__(self, provider: SourceProvider, credential_secret: str | None) -> None:
         self.provider = provider
         self.credential_secret = credential_secret
 

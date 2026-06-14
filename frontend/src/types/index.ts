@@ -773,6 +773,8 @@ export interface SourceProvider {
   credential_id: number | null;
   credential?: Credential;
   config_json?: Record<string, unknown>;
+  is_anon: boolean;
+  is_builtin: boolean;
   status_flag: number;
   status_text: string;
   groups_count?: number;
@@ -783,7 +785,8 @@ export interface SourceProvider {
 export interface SourceProviderCreate {
   label: string;
   provider_type: ProviderType;
-  credential_id: number;
+  credential_id?: number;
+  is_anon?: boolean;
   config_json?: Record<string, unknown>;
 }
 

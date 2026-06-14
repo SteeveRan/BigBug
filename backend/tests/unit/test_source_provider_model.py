@@ -70,4 +70,48 @@ class TestSourceProviderModel:
             label="test",
         )
         assert sp.credential_id is None
-        # DB-level defaults (is_deleted=False) are applied at INSERT time.
+        # DB-level defaults (is_anon=False, is_builtin=False, is_deleted=False)
+        # are applied at INSERT time, so they are None on the Python object.
+        assert sp.is_anon is None
+        assert sp.is_builtin is None
+
+    def test_source_provider_anon_true(self):
+        """Create an anonymous SourceProvider (no credential needed)."""
+        sp = SourceProvider(
+            provider_type=ProviderType.generic,
+            label="Generic (Anonymous)",
+            is_anon=True,
+            is_builtin=False,
+        )
+        assert sp.is_anon is True
+        assert sp.is_builtin is False
+        assert sp.credential_id is None
+
+    def test_source_provider_builtin(self):
+        """Create a builtin SourceProvider (protected from deletion/editing)."""
+        sp = SourceProvider(
+            provider_type=ProviderType.github,
+            label="GitHub (Anonymous)",
+            is_anon=True,
+            is_builtin=True,
+        )
+        assert sp.is_anon is True
+        assert sp.is_builtin is True
+        assert sp.credential_id is None
+
+    def test_source_provider_anon_with_credential(self):
+        """Anonymous provider can still reference a credential if provided."""
+        cred = Credential(
+            name="gh-token",
+            credential_type=CredentialType.github_token,
+            provider="github",
+        )
+        sp = SourceProvider(
+            provider_type=ProviderType.github,
+            label="GitHub with token but anon",
+            is_anon=True,
+            is_builtin=False,
+        )
+        sp.credential = cred
+        assert sp.is_anon is True
+        assert sp.credential is cred

@@ -450,7 +450,7 @@ const RoleDetailPage = () => {
           </Button>
         </Flex>
         <Alert
-          message="Role Not Found"
+          title="Role Not Found"
           description={`Role with ID ${roleId} was not found.`}
           type="error"
           showIcon

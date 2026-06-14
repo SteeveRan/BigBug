@@ -932,3 +932,58 @@ class TestConstructor:
         gsp = GenericGitSourceProvider(provider, credential_secret="test-token")
         assert gsp.provider is provider
         assert gsp.credential_secret == "test-token"
+
+    def test_constructor_anonymous(self):
+        """Constructor stores None credential_secret for anonymous provider."""
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gsp = GenericGitSourceProvider(provider, credential_secret=None)
+        assert gsp.provider is provider
+        assert gsp.credential_secret is None
+
+
+class TestAnonymousMode:
+    """Tests for GenericGitSourceProvider in anonymous (no-credential) mode."""
+
+    @pytest.mark.asyncio
+    async def test_build_auth_url_anonymous_returns_unchanged(self):
+        """_build_auth_url returns original URL when credential_secret is None."""
+        url = "https://example.com/repo.git"
+        result = _build_auth_url(url, None)
+        assert result == url
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_unauth(self):
+        """Anonymous check_access uses unauthenticated git ls-remote."""
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gsp = GenericGitSourceProvider(provider, credential_secret=None)
+
+        with patch(
+            "app.services.source_providers.generic_git._run_git",
+            new_callable=AsyncMock,
+        ) as mock_run:
+            mock_run.return_value = (0, "refs/heads/main\n", "")
+            result = await gsp.check_access()
+
+        assert result is True
+        mock_run.assert_called_once()
+        # Ensure the URL passed is the default and unauthenticated
+        args = mock_run.call_args[0]
+        assert len(args) >= 2
+        assert "https://" in str(args)
+
+    @pytest.mark.asyncio
+    async def test_check_access_anonymous_timeout(self):
+        """Anonymous check_access raises DomainError on git timeout."""
+        provider = _make_provider(credential_id=None, is_anon=True)
+        gsp = GenericGitSourceProvider(provider, credential_secret=None)
+
+        with (
+            patch(
+                "app.services.source_providers.generic_git._run_git",
+                new_callable=AsyncMock,
+            ) as mock_run,
+            pytest.raises(DomainError),
+        ):
+            # Simulate timeout: returncode=128 with host resolution error
+            mock_run.return_value = (128, "", "fatal: unable to access")
+            await gsp.check_access()

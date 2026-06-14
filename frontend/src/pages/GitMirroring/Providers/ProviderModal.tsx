@@ -5,7 +5,7 @@
  */
 
 import { useEffect } from 'react';
-import { Modal, Form, Select, Input, App, Typography } from 'antd';
+import { Modal, Form, Select, Input, App, Typography, Switch } from 'antd';
 import {
   useCreateSourceProviderMutation,
   useUpdateSourceProviderMutation,
@@ -26,7 +26,8 @@ interface ProviderModalProps {
 interface FormValues {
   label: string;
   provider_type: ProviderType;
-  credential_id: number;
+  credential_id?: number;
+  is_anon: boolean;
 }
 
 const PROVIDER_TYPES = [
@@ -39,6 +40,7 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<FormValues>();
   const isEdit = !!provider;
+  const isAnon = Form.useWatch('is_anon', form);
 
   const [createProvider, { isLoading: isCreating }] = useCreateSourceProviderMutation();
   const [updateProvider, { isLoading: isUpdating }] = useUpdateSourceProviderMutation();
@@ -50,10 +52,12 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
         form.setFieldsValue({
           label: provider.label,
           provider_type: provider.provider_type,
-          credential_id: provider.credential_id,
+          credential_id: provider.credential_id ?? undefined,
+          is_anon: provider.is_anon,
         });
       } else {
         form.resetFields();
+        form.setFieldsValue({ is_anon: false });
       }
     }
   }, [open, provider, form]);
@@ -71,8 +75,11 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
         const data: SourceProviderCreate = {
           label: values.label,
           provider_type: values.provider_type,
-          credential_id: values.credential_id,
+          is_anon: values.is_anon,
         };
+        if (!values.is_anon) {
+          data.credential_id = values.credential_id;
+        }
         await createProvider(data).unwrap();
         message.success('Provider created successfully');
       }
@@ -111,23 +118,35 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
         </Form.Item>
 
         <Form.Item
-          name="credential_id"
-          label="Credential"
-          rules={[{ required: true, message: 'Credential is required' }]}
+          name="is_anon"
+          label="Anonymous Access"
+          valuePropName="checked"
         >
-          <Select
-            placeholder="Select credential"
-            options={[
-              { label: 'Default GitHub Token', value: 1 },
-              { label: 'Default GitLab Token', value: 2 },
-            ]}
-          />
+          <Switch />
         </Form.Item>
+
+        {!isAnon && (
+          <Form.Item
+            name="credential_id"
+            label="Credential"
+            rules={[{ required: true, message: 'Credential is required' }]}
+          >
+            <Select
+              placeholder="Select credential"
+              options={[
+                { label: 'Default GitHub Token', value: 1 },
+                { label: 'Default GitLab Token', value: 2 },
+              ]}
+            />
+          </Form.Item>
+        )}
 
         <Typography.Text type="secondary">
           {isEdit
             ? 'Update provider label or credential.'
-            : 'Create a new source provider to connect to GitHub, GitLab, or any Git server via Generic Git.'}
+            : isAnon
+              ? 'Anonymous provider connects to public repositories without authentication.'
+              : 'Create a new source provider to connect to GitHub, GitLab, or any Git server via Generic Git.'}
         </Typography.Text>
       </Form>
     </Modal>

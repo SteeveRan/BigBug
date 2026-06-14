@@ -201,17 +201,24 @@ def _extract_repo_info_from_url(url: str) -> dict[str, str | None]:
     return result
 
 
-def _build_auth_url(url: str, credential_secret: str) -> str:
+def _build_auth_url(url: str, credential_secret: str | None) -> str:
     """
     Embed credentials into an HTTPS URL for git operations.
 
+    When ``credential_secret`` is ``None``, returns the original URL unchanged
+    (anonymous access).
+
     Args:
         url: The original HTTPS URL.
-        credential_secret: The token or password to embed.
+        credential_secret: The token or password to embed, or ``None`` for
+                           anonymous access.
 
     Returns:
-        URL with embedded credentials: ``https://user:token@host/path``.
+        URL with embedded credentials: ``https://user:token@host/path``,
+        or the original URL if anonymous.
     """
+    if credential_secret is None:
+        return url
     if not url.startswith("https://"):
         return url  # SSH URLs are not modified
 
@@ -296,10 +303,15 @@ class GenericGitSourceProvider(BaseSourceProvider):
     repository metadata.  No platform-specific API is required — any Git
     repository accessible via HTTPS or SSH can be inspected.
 
+    **Anonymous mode** — when ``credential_secret`` is ``None``, the provider
+    works without authentication.  Only public repositories are accessible.
+    ``check_access`` runs ``git ls-remote`` without embedded credentials.
+
     Args:
         provider: :class:`SourceProvider` ORM model.
         credential_secret: Decrypted secret (token/password for HTTPS,
-                           SSH private key for SSH).
+                           SSH private key for SSH), or ``None`` for
+                           anonymous (public) access.
     """
 
     # -- BaseSourceProvider interface ---------------------------------------
@@ -307,6 +319,9 @@ class GenericGitSourceProvider(BaseSourceProvider):
     async def check_access(self) -> bool:
         """
         Verify that the repository is accessible with the given credential.
+
+        When anonymous (``credential_secret`` is ``None``), attempts a
+        connection test without authentication.
 
         Uses ``git ls-remote`` against the provider's base URL (or first
         configured repository URL if available).
@@ -355,7 +370,8 @@ class GenericGitSourceProvider(BaseSourceProvider):
             )
 
         logger.info(
-            "GenericGit check_access OK — ls-remote returned %d lines",
+            "GenericGit check_access OK%s — ls-remote returned %d lines",
+            " (anonymous)" if self.credential_secret is None else "",
             len(stdout.strip().split("\n")) if stdout.strip() else 0,
         )
         return True

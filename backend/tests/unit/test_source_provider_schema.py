@@ -42,6 +42,24 @@ class TestSourceProviderCreate:
                 label="test",
             )
 
+    def test_create_with_is_anon(self):
+        """Create an anonymous provider — credential_id is not required."""
+        data = SourceProviderCreate(
+            provider_type=ProviderType.github,
+            label="github.com (anonymous)",
+            is_anon=True,
+        )
+        assert data.is_anon is True
+        assert data.credential_id is None
+
+    def test_create_is_anon_default_false(self):
+        """is_anon defaults to False when not provided."""
+        data = SourceProviderCreate(
+            provider_type=ProviderType.github,
+            label="github.com (primary)",
+        )
+        assert data.is_anon is False
+
 
 class TestSourceProviderOut:
     """Validation of SourceProviderOut schema."""
@@ -54,6 +72,8 @@ class TestSourceProviderOut:
             "credential_id",
             "provider_type",
             "label",
+            "is_anon",
+            "is_builtin",
             "is_deleted",
             "deleted_at",
             "created_at",

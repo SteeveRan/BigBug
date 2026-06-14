@@ -124,6 +124,24 @@ async def _check_source_provider(
 ) -> HealthCheckItem:
     """Verify a source provider is accessible."""
     component = f"source_provider:{sp.id}"
+
+    # Anonymous providers don't need a credential
+    if sp.is_anon:
+        try:
+            provider = await create_source_provider(sp, None)
+            await provider.check_access()
+            return HealthCheckItem(
+                component=component,
+                severity=HealthCheckSeverity.OK,
+                message=f"SourceProvider '{sp.label}' (anonymous) is accessible",
+            )
+        except Exception as exc:
+            return HealthCheckItem(
+                component=component,
+                severity=HealthCheckSeverity.ERROR,
+                message=f"SourceProvider '{sp.label}' access failed: {exc}",
+            )
+
     if sp.credential is None or not sp.credential.encrypted_secret:
         return HealthCheckItem(
             component=component,
@@ -194,9 +212,23 @@ async def _check_single_mirror(
 
     # 2. Source accessibility
     try:
-        if sp.credential and sp.credential.encrypted_secret:
+        if sp.is_anon:
+            provider = await create_source_provider(sp, None)
+        elif sp.credential and sp.credential.encrypted_secret:
             secret = decrypt_secret(sp.credential.encrypted_secret)
             provider = await create_source_provider(sp, secret)
+        else:
+            items.append(
+                HealthCheckItem(
+                    component=component,
+                    severity=HealthCheckSeverity.WARNING,
+                    message=f"SourceProvider '{sp.label}' has no credential",
+                )
+            )
+            # Skip source accessibility + commit checks
+            provider = None
+
+        if provider is not None:
             repo_external_id = sr.full_name or sr.external_id
             await provider.get_repository(repo_external_id)
             items.append(
@@ -227,14 +259,6 @@ async def _check_single_mirror(
                         message="Source has no commits",
                     )
                 )
-        else:
-            items.append(
-                HealthCheckItem(
-                    component=component,
-                    severity=HealthCheckSeverity.WARNING,
-                    message=f"SourceProvider '{sp.label}' has no credential",
-                )
-            )
     except Exception as exc:
         items.append(
             HealthCheckItem(
