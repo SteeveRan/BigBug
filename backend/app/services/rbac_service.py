@@ -86,19 +86,59 @@ class RBACService:
     # Role queries
     # ------------------------------------------------------------------
 
+    async def _get_roles_with_users_count(
+        self, role_query: select
+    ) -> list[Role]:
+        """Execute a role query and annotate each result with users_count."""
+        result = await self.db.execute(role_query)
+        roles = list(result.scalars().all())
+
+        # Batch-fetch users_count for all roles in one query
+        role_ids = [r.id for r in roles]
+        if role_ids:
+            count_stmt = (
+                select(UserRole.role_id, func.count().label("cnt"))
+                .where(UserRole.role_id.in_(role_ids))
+                .group_by(UserRole.role_id)
+            )
+            count_result = await self.db.execute(count_stmt)
+            counts: dict[int, int] = {row.role_id: row.cnt for row in count_result}
+        else:
+            counts = {}
+
+        for role in roles:
+            role.users_count = counts.get(role.id, 0)
+
+        return roles
+
     async def get_all_roles(self) -> list[Role]:
-        """Get all roles with their permissions pre-loaded."""
-        result = await self.db.execute(
-            select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
+        """Get all roles with their permissions pre-loaded and users_count."""
+        query = (
+            select(Role)
+            .options(selectinload(Role.permissions))
+            .order_by(Role.name)
         )
-        return list(result.scalars().all())
+        return await self._get_roles_with_users_count(query)
 
     async def get_role_by_id(self, role_id: int) -> Role | None:
-        """Get a single role with permissions, or None."""
-        result = await self.db.execute(
-            select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
+        """Get a single role with permissions and users_count, or None."""
+        query = (
+            select(Role)
+            .options(selectinload(Role.permissions))
+            .where(Role.id == role_id)
         )
-        return result.scalar_one_or_none()
+        roles = await self._get_roles_with_users_count(query)
+        return roles[0] if roles else None
+
+    async def get_role_users(self, role_id: int) -> list[User]:
+        """Get all users assigned to a specific role."""
+        result = await self.db.execute(
+            select(User)
+            .join(UserRole, UserRole.user_id == User.id)
+            .where(UserRole.role_id == role_id)
+            .order_by(User.username)
+        )
+        return list(result.scalars().all())
 
     # ------------------------------------------------------------------
     # Role CRUD

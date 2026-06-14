@@ -294,6 +294,8 @@ export interface Role {
   is_custom: boolean;
   created_by_user_id: number | null;
   permissions: Permission[];
+  /** Number of users assigned to this role */
+  users_count?: number;
   /** Scope: IDs of source groups this role can access */
   source_group_ids?: number[];
   /** Scope: IDs of credentials this role can access */

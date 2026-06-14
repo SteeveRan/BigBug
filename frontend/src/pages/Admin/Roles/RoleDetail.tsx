@@ -1,7 +1,7 @@
 /**
  * @file Admin/Roles/RoleDetail.tsx
- * @description Role detail page with tabs: Permissions (read-only), Source Groups scope,
- *              Credentials scope, and Sync Groups scope management.
+ * @description Role detail page with tabs: Permissions (read-only), Users (assigned users list),
+ *              Source Groups scope, Credentials scope, and Sync Groups scope management.
  *              Uses Transfer component for Sync Groups (atomic setRoleScope on save).
  * @dependencies antd, @ant-design/icons, react-router, RTK Query
  * @relatedFiles ./index.tsx, ./RoleModal.tsx, ../../../store/api.ts, ../../../types/index.ts
@@ -12,6 +12,7 @@ import {
   Card,
   Typography,
   Button,
+  Table,
   Flex,
   Spin,
   Tabs,
@@ -22,14 +23,16 @@ import {
   App,
   Alert,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router';
 
 import type { TabsProps } from 'antd';
-import type { Role, Permission, SyncGroup, SourceGroup, SourceProvider } from '../../../types';
+import type { Role, Permission, SyncGroup, SourceGroup, SourceProvider, User } from '../../../types';
 import {
   useGetAllRolesQuery,
   useGetAllPermissionsQuery,
+  useGetRoleUsersQuery,
   useGetRoleScopeQuery,
   useRemoveRoleScopeItemMutation,
   useSetRoleScopeMutation,
@@ -45,6 +48,12 @@ function permissionLabel(perm: string): string {
   const [resource, action] = perm.split(':');
   if (!action) return perm;
   return `${action} → ${resource}`;
+}
+
+function roleTagColor(role: string): string {
+  if (role === 'admin') return 'red';
+  if (role === 'operator') return 'orange';
+  return 'default';
 }
 
 // ── Permissions Tab ───────────────────────────────────────────────────────────
@@ -70,6 +79,67 @@ function PermissionsTab({ role }: { role: Role }) {
           value={[...assignedNames]}
         />
       </Card>
+    </Flex>
+  );
+}
+
+// ── Users Tab ─────────────────────────────────────────────────────────────────
+
+function UsersTab({ roleId }: { roleId: number }) {
+  const { data: users = [], isLoading } = useGetRoleUsersQuery(roleId);
+
+  const columns: ColumnsType<User> = [
+    {
+      title: 'Username',
+      key: 'username',
+      render: (_: unknown, record: User) => (
+        <Typography.Text strong>{record.username}</Typography.Text>
+      ),
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: 'Roles',
+      key: 'roles',
+      render: (_: unknown, record: User) => (
+        <Flex gap={4} wrap="wrap">
+          {record.roles.map((r) => (
+            <Tag key={r} color={roleTagColor(r)}>
+              {r}
+            </Tag>
+          ))}
+        </Flex>
+      ),
+    },
+    {
+      title: 'Active',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 80,
+      align: 'center',
+      render: (is_active: boolean) => (
+        <Tag color={is_active ? 'green' : 'default'}>{is_active ? 'Yes' : 'No'}</Tag>
+      ),
+    },
+  ];
+
+  return (
+    <Flex vertical gap={12}>
+      <Typography.Text type="secondary">
+        Users directly assigned to this role ({users.length} total).
+      </Typography.Text>
+      <Table
+        columns={columns}
+        dataSource={users as User[]}
+        rowKey="id"
+        loading={isLoading}
+        pagination={false}
+        size="small"
+        locale={{ emptyText: 'No users assigned to this role' }}
+      />
     </Flex>
   );
 }
@@ -387,6 +457,11 @@ const RoleDetailPage = () => {
       key: 'permissions',
       label: 'Permissions',
       children: <PermissionsTab role={role} />,
+    },
+    {
+      key: 'users',
+      label: 'Users',
+      children: <UsersTab roleId={numericId} />,
     },
     {
       key: 'source-groups',

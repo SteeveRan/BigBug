@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router';
 import { useAppSelector } from '../store';
 import { Layout } from '../components/Layout';
+import { AdminLayout } from '../components/AdminLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PermissionGate } from '../components/PermissionGate';
 import { LoginPage } from '../pages/Login';
@@ -37,6 +38,7 @@ const GitMirroringReports = lazy(() => import('@/pages/GitMirroring/Reports'));
 const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'));
 const RolesPage = lazy(() => import('@/pages/Admin/Roles'));
 const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
+const PermissionsPage = lazy(() => import('@/pages/Admin/Permissions'));
 
 /**
  * @file router/index.tsx
@@ -312,64 +314,6 @@ export function AppRouter() {
           }
         />
 
-        {/* ── Administration / Users & Roles ────────────── */}
-        <Route
-          path="admin/users"
-          element={
-            <PermissionGate permission="users:read">
-              <AdminPage />
-            </PermissionGate>
-          }
-        />
-
-        {/* ── Administration / Integrations ─────────────── */}
-        <Route
-          path="admin/integrations"
-          element={
-            <PermissionGate permission="integrations:read">
-              <SettingsIntegrations />
-            </PermissionGate>
-          }
-        />
-
-        {/* ── Administration / Authentication ───────────── */}
-        <Route
-          path="admin/authentication"
-          element={
-            <PermissionGate permission="oidc:read">
-              <AuthenticationSettings />
-            </PermissionGate>
-          }
-        />
-
-        {/* ── Administration / Audit Log ────────────────── */}
-        <Route
-          path="admin/audit"
-          element={
-            <PermissionGate permission="audit:read">
-              <AuditLogPage />
-            </PermissionGate>
-          }
-        />
-
-        {/* ── Administration / Roles ────────────────────── */}
-        <Route
-          path="admin/roles"
-          element={
-            <PermissionGate permission="roles:read">
-              <RolesPage />
-            </PermissionGate>
-          }
-        />
-        <Route
-          path="admin/roles/:roleId"
-          element={
-            <PermissionGate permission="roles:read">
-              <RoleDetailPage />
-            </PermissionGate>
-          }
-        />
-
         {/* ════════════════════════════════════════════════════
             LEGACY REDIRECTS (старые URL → новые URL)
             Сохраняем обратную совместимость для закладок и прямых ссылок.
@@ -408,9 +352,6 @@ export function AppRouter() {
         {/* Old Pipelines → Pipelines / Runs */}
         <Route path="pipelines" element={<Navigate to="/pipelines/runs" replace />} />
 
-        {/* Old Admin → Administration / Users */}
-        <Route path="admin" element={<Navigate to="/admin/users" replace />} />
-
         {/* Old Settings → Administration */}
         <Route
           path="settings/integrations"
@@ -426,6 +367,76 @@ export function AppRouter() {
           element={<Navigate to="/pipelines/components" replace />}
         />
         <Route path="settings" element={<Navigate to="/admin/integrations" replace />} />
+      </Route>
+
+      {/* ── Admin Panel (separate layout) ──────────────────────── */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <PermissionGate permission="admin:panel:access">
+              <AdminLayout />
+            </PermissionGate>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/admin/users" replace />} />
+        <Route
+          path="users"
+          element={
+            <PermissionGate permission="users:read">
+              <AdminPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="roles"
+          element={
+            <PermissionGate permission="roles:read">
+              <RolesPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="roles/:roleId"
+          element={
+            <PermissionGate permission="roles:read">
+              <RoleDetailPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="permissions"
+          element={
+            <PermissionGate permission="roles:read">
+              <PermissionsPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="integrations"
+          element={
+            <PermissionGate permission="integrations:read">
+              <SettingsIntegrations />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="authentication"
+          element={
+            <PermissionGate permission="oidc:read">
+              <AuthenticationSettings />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="audit"
+          element={
+            <PermissionGate permission="audit:read">
+              <AuditLogPage />
+            </PermissionGate>
+          }
+        />
       </Route>
 
       {/* ── Catch-all → Overview ──────────────────────────── */}

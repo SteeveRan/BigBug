@@ -1,15 +1,16 @@
 /**
  * @file Admin/Roles/index.tsx
  * @description Roles list page with table, create/edit modal, and delete.
- *              Uses RTK Query for CRUD and PermissionGate for access control.
+ *              Shows builtin indicator (LockOutlined), Type column (Builtin/Custom),
+ *              users_count, and blocks edit/delete for built-in roles.
  * @dependencies antd, @ant-design/icons, ../../../store/api, ../../../components/PermissionGate
  * @relatedFiles ./RoleModal.tsx, ../../../store/api.ts, ../../../types/index.ts
  */
 
 import { useState, useCallback } from 'react';
-import { Card, Typography, Button, Table, Flex, Spin, App, Tooltip } from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, App, Tooltip, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
 
 import type { Role } from '../../../types';
@@ -68,7 +69,21 @@ const RolesPage = () => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      render: (name: string) => <Typography.Text strong>{name}</Typography.Text>,
+      render: (name: string, record: Role) => (
+        <Flex align="center" gap={8}>
+          {!record.is_custom && <LockOutlined style={{ color: '#1677ff' }} />}
+          <Typography.Text strong>{name}</Typography.Text>
+        </Flex>
+      ),
+    },
+    {
+      title: 'Type',
+      dataIndex: 'is_custom',
+      key: 'type',
+      width: 100,
+      render: (is_custom: boolean) => (
+        <Tag color={is_custom ? 'blue' : 'gold'}>{is_custom ? 'Custom' : 'Builtin'}</Tag>
+      ),
     },
     {
       title: 'Description',
@@ -94,11 +109,12 @@ const RolesPage = () => {
       render: (_: unknown, record: Role) => (
         <Flex gap={4} justify="flex-end">
           <PermissionGate permission="roles:write">
-            <Tooltip title="Edit role">
+            <Tooltip title={record.is_custom ? 'Edit role' : 'Built-in roles cannot be edited'}>
               <Button
                 size="small"
                 type="text"
                 icon={<EditOutlined />}
+                disabled={!record.is_custom}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleOpenEdit(record);
@@ -107,13 +123,13 @@ const RolesPage = () => {
             </Tooltip>
           </PermissionGate>
           <PermissionGate permission="roles:delete">
-            <Tooltip title="Delete role">
+            <Tooltip title={record.is_custom ? 'Delete role' : 'Built-in roles cannot be deleted'}>
               <Button
                 size="small"
                 type="text"
                 danger
                 icon={<DeleteOutlined />}
-                disabled={isDeleting}
+                disabled={!record.is_custom || isDeleting}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(record);

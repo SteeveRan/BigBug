@@ -16,21 +16,18 @@ import {
   SettingOutlined,
   BlockOutlined,
   SafetyOutlined,
-  TeamOutlined,
   ApiOutlined,
-  LockOutlined,
-  AuditOutlined,
   LogoutOutlined,
   UserOutlined,
   SunOutlined,
   MoonOutlined,
-  IdcardOutlined,
   DisconnectOutlined,
   BarChartOutlined,
 } from '@ant-design/icons';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { logout } from '../../store/authSlice';
 import { useThemeMode } from '../../hooks/useThemeMode';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const { Header, Content, Sider } = AntLayout;
 
@@ -74,6 +71,7 @@ export function Layout() {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
   const { mode, toggleTheme } = useThemeMode();
+  const { hasPermission } = usePermissions();
 
   const isDark = mode === 'dark';
 
@@ -132,23 +130,6 @@ export function Layout() {
         { key: '/pipelines/runs', icon: <PlayCircleOutlined />, label: 'Pipeline Runs' },
         { key: '/pipelines/configurations', icon: <SettingOutlined />, label: 'Configurations' },
         { key: '/pipelines/components', icon: <BlockOutlined />, label: 'GitLab Components' },
-      ],
-    },
-    {
-      key: 'group-administration',
-      label: (
-        <span>
-          <SafetyOutlined style={{ marginRight: 8 }} />
-          Administration
-        </span>
-      ),
-      type: 'group',
-      children: [
-        { key: '/admin/users', icon: <TeamOutlined />, label: 'Users & Roles' },
-        { key: '/admin/roles', icon: <IdcardOutlined />, label: 'Roles' },
-        { key: '/admin/integrations', icon: <ApiOutlined />, label: 'Integrations' },
-        { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
-        { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
       ],
     },
     {
@@ -244,6 +225,14 @@ export function Layout() {
             </Typography.Title>
           </Space>
           <Space size="middle">
+            {hasPermission('admin:panel:access') && (
+              <Button
+                icon={<SafetyOutlined />}
+                onClick={() => navigate('/admin')}
+              >
+                Admin Panel
+              </Button>
+            )}
             <Button
               type="text"
               icon={isDark ? <SunOutlined /> : <MoonOutlined />}

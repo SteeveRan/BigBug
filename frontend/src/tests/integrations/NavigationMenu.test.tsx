@@ -89,7 +89,7 @@ vi.mock('../../store/api', async () => {
     useScanAppImageVersionMutation: vi.fn(),
     useSignAppImageVersionMutation: vi.fn(),
     useVerifyAppImageVersionMutation: vi.fn(),
-    // Admin / Users & Roles
+    // Admin / Users
     useListUsersQuery: vi.fn(),
     useCreateUserMutation: vi.fn(),
     useUpdateUserMutation: vi.fn(),
@@ -98,6 +98,7 @@ vi.mock('../../store/api', async () => {
     useGetAllPermissionsQuery: vi.fn(),
     useGetAllRolesQuery: vi.fn(),
     useGetRoleByIdQuery: vi.fn(),
+    useGetRoleUsersQuery: vi.fn(),
     useCreateRoleMutation: vi.fn(),
     useUpdateRoleMutation: vi.fn(),
     useDeleteRoleMutation: vi.fn(),
@@ -174,18 +175,8 @@ import {
   useListDockerImagesQuery,
   useGetPipelineRunsQuery,
   useGetComponentsQuery,
-  useListUsersQuery,
-  useGetGitlabInstancesQuery,
-  useGetOidcConfigQuery,
-  useGetAuditLogsQuery,
   useGetHarborInstancesQuery,
-  useGetGithubInstancesQuery,
-  useGetDockerRegistryInstancesQuery,
-  useGetHelmRepositoryInstancesQuery,
-  useGetUserPermissionsQuery,
-  useGetAllPermissionsQuery,
-  useGetAllRolesQuery,
-  useGetRoleByIdQuery,
+  useGetGitlabInstancesQuery,
   useGetGoldImageScanResultsMutation,
   useCreateProjectMutation,
   useImportProjectMutation,
@@ -208,33 +199,6 @@ import {
   useTriggerAppBuildMutation,
   useScanAppImageVersionMutation,
   useSignAppImageVersionMutation,
-  useCreateUserMutation,
-  useDeleteUserMutation,
-  useUpdateUserMutation,
-  useCreateRoleMutation,
-  useUpdateRoleMutation,
-  useDeleteRoleMutation,
-  useCreateGitlabInstanceMutation,
-  useUpdateGitlabInstanceMutation,
-  useDeleteGitlabInstanceMutation,
-  useTestGitlabConnectionMutation,
-  useCreateHarborInstanceMutation,
-  useUpdateHarborInstanceMutation,
-  useDeleteHarborInstanceMutation,
-  useTestHarborConnectionMutation,
-  useCreateGithubInstanceMutation,
-  useUpdateGithubInstanceMutation,
-  useDeleteGithubInstanceMutation,
-  useTestGithubConnectionMutation,
-  useCreateDockerRegistryInstanceMutation,
-  useUpdateDockerRegistryInstanceMutation,
-  useDeleteDockerRegistryInstanceMutation,
-  useTestDockerRegistryConnectionMutation,
-  useCreateHelmRepositoryInstanceMutation,
-  useUpdateHelmRepositoryInstanceMutation,
-  useDeleteHelmRepositoryInstanceMutation,
-  useTestHelmRepositoryConnectionMutation,
-  useUpdateOidcConfigMutation,
   useTriggerPipelineMutation,
   useCancelPipelineMutation,
   useRetryPipelineMutation,
@@ -253,10 +217,6 @@ import { GoldImagesPage } from '../../pages/GoldImages';
 import { AppImagesPage } from '../../pages/AppImages';
 import { PipelinesPage } from '../../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../../pages/Pipelines/Components';
-import { AdminPage } from '../../pages/Admin/Users';
-import { SettingsIntegrations } from '../../pages/Admin/Integrations';
-import { AuthenticationSettings } from '../../pages/Admin/Authentication';
-import { AuditLogPage } from '../../pages/Admin/AuditLog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -350,30 +310,6 @@ const MENU_PAGES: MenuPageConfig[] = [
     permission: 'pipelines:manage',
     contentMarker: 'GitLab Components',
   },
-  {
-    label: 'Administration / Users & Roles',
-    page: <AdminPage />,
-    permission: 'users:read',
-    contentMarker: 'Admin',
-  },
-  {
-    label: 'Administration / Integrations',
-    page: <SettingsIntegrations />,
-    permission: 'system:integrations',
-    contentMarker: 'Settings',
-  },
-  {
-    label: 'Administration / Authentication',
-    page: <AuthenticationSettings />,
-    permission: 'system:oidc_config',
-    contentMarker: 'Authentication Settings',
-  },
-  {
-    label: 'Administration / Audit Log',
-    page: <AuditLogPage />,
-    permission: 'system:audit',
-    contentMarker: 'Audit Log',
-  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -409,34 +345,9 @@ function setupDefaultApiMocks() {
   (useListDockerImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetPipelineRunsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetComponentsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useListUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetHarborInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetGithubInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetDockerRegistryInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetHelmRepositoryInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetUserPermissionsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetAllPermissionsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetRoleByIdQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetGoldImageScanResultsMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockMutation());
-  (useGetOidcConfigQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-    data: {
-      enabled: false,
-      provider_name: '',
-      client_id: '',
-      well_known_url: '',
-      provider_url: '',
-      client_secret_set: false,
-    },
-    isLoading: false,
-    isError: false,
-  });
-  (useGetAuditLogsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-    data: { items: [], total: 0, page: 1, page_size: 20 },
-    isLoading: false,
-    isError: false,
-  });
 
   // Mutations → [fn, { isLoading: false }]
   const mMock = mockMutation();
@@ -462,33 +373,6 @@ function setupDefaultApiMocks() {
     useTriggerAppBuildMutation,
     useScanAppImageVersionMutation,
     useSignAppImageVersionMutation,
-    useCreateUserMutation,
-    useDeleteUserMutation,
-    useUpdateUserMutation,
-    useCreateRoleMutation,
-    useUpdateRoleMutation,
-    useDeleteRoleMutation,
-    useCreateGitlabInstanceMutation,
-    useUpdateGitlabInstanceMutation,
-    useDeleteGitlabInstanceMutation,
-    useTestGitlabConnectionMutation,
-    useCreateHarborInstanceMutation,
-    useUpdateHarborInstanceMutation,
-    useDeleteHarborInstanceMutation,
-    useTestHarborConnectionMutation,
-    useCreateGithubInstanceMutation,
-    useUpdateGithubInstanceMutation,
-    useDeleteGithubInstanceMutation,
-    useTestGithubConnectionMutation,
-    useCreateDockerRegistryInstanceMutation,
-    useUpdateDockerRegistryInstanceMutation,
-    useDeleteDockerRegistryInstanceMutation,
-    useTestDockerRegistryConnectionMutation,
-    useCreateHelmRepositoryInstanceMutation,
-    useUpdateHelmRepositoryInstanceMutation,
-    useDeleteHelmRepositoryInstanceMutation,
-    useTestHelmRepositoryConnectionMutation,
-    useUpdateOidcConfigMutation,
     useTriggerPipelineMutation,
     useCancelPipelineMutation,
     useRetryPipelineMutation,
@@ -527,11 +411,7 @@ describe('NavigationMenu — все пункты меню', () => {
           'gold_images:read',
           'app_images:read',
           'pipelines:manage',
-          'users:read',
-          'system:integrations',
-          'system:oidc_config',
-          'system:audit',
-          'system:settings',
+          'admin:panel:access',
         ]);
 
         const pageElement = cfg.permission ? (
@@ -573,10 +453,7 @@ describe('NavigationMenu — все пункты меню', () => {
           'gold_images:read',
           'app_images:read',
           'pipelines:manage',
-          'users:read',
-          'system:integrations',
-          'system:oidc_config',
-          'system:audit',
+          'admin:panel:access',
         ].filter((p) => p !== cfg.permission);
 
         setPermissions(otherPermissions);
@@ -601,7 +478,7 @@ describe('NavigationMenu — все пункты меню', () => {
 
   describe('Соответствие permission-строк router/index.tsx и PERMISSION_GROUPS', () => {
     it('все permission-строки из роутера присутствуют в PERMISSION_GROUPS', () => {
-      // PERMISSION_GROUPS (Admin/index.tsx) — эталонный список
+      // PERMISSION_GROUPS (Admin/Roles/RoleModal.tsx) — эталонный список
       const allCanonicalPermissions: string[] = [
         'mirrors:read',
         'mirrors:write',
@@ -637,12 +514,16 @@ describe('NavigationMenu — все пункты меню', () => {
         'system:integrations',
         'system:oidc_config',
         'pipelines:manage',
+        'admin:panel:access',
       ];
 
       // Все permission-строки из роутера (MENU_PAGES)
       const routerPermissions = MENU_PAGES.filter((c) => c.permission !== null).map(
         (c) => c.permission!
       );
+
+      // Добавляем admin:panel:access (используется в Layout, но не в MENU_PAGES)
+      routerPermissions.push('admin:panel:access');
 
       for (const perm of routerPermissions) {
         expect(

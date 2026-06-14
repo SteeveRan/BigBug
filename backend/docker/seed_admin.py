@@ -72,6 +72,8 @@ ADMIN_PERMISSIONS = [
     "credentials:read", "credentials:use",
     # Reports
     "reports:read",
+    # Admin Panel
+    "admin:panel:access",
 ]
 
 # Operator: read + write actions (no delete), no user/role/oidc/integrations management

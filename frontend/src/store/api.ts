@@ -6,6 +6,7 @@ import type {
   RoleScope,
   RoleScopeUpdate,
   ScopeItemRequest,
+  User,
   UserPermissions,
   RoleCreate,
   RoleUpdate,
@@ -110,6 +111,7 @@ export const api = createApi({
     'DockerSyncSchedule',
     'Permissions',
     'Roles',
+    'RoleUsers',
     'RoleScope',
     'Integration',
     'OIDCConfig',
@@ -542,6 +544,10 @@ export const api = createApi({
     getRoleById: builder.query<Role, number>({
       query: (id) => `/admin/roles/${id}`,
       providesTags: (_result, _error, id) => [{ type: 'Roles', id }],
+    }),
+    getRoleUsers: builder.query<User[], number>({
+      query: (roleId) => `/admin/roles/${roleId}/users`,
+      providesTags: (_result, _error, roleId) => [{ type: 'RoleUsers', id: roleId }],
     }),
     createRole: builder.mutation<Role, RoleCreate>({
       query: (body) => ({
@@ -1259,6 +1265,7 @@ export const {
   useGetAllPermissionsQuery,
   useGetAllRolesQuery,
   useGetRoleByIdQuery,
+  useGetRoleUsersQuery,
   useCreateRoleMutation,
   useUpdateRoleMutation,
   useDeleteRoleMutation,

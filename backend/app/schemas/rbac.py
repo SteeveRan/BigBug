@@ -34,13 +34,14 @@ class RoleOut(BaseModel):
 
 
 class RoleDetailOut(BaseModel):
-    """Role with its full list of assigned permissions."""
+    """Role with its full list of assigned permissions and user count."""
 
     id: int
     name: str
     description: str | None
     is_custom: bool
     created_by_user_id: int | None
+    users_count: int = 0
     permissions: list[PermissionOut]
 
     model_config = ConfigDict(from_attributes=True)

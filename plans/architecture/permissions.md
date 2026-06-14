@@ -60,7 +60,7 @@
 | 50 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
 | 51 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
 | 52 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
-
+| 53 | `admin:panel:access` | Доступ к Admin Panel (отдельный интерфейс) | A | Header кнопка «Admin Panel» → `AdminLayout` | ✅ |
 **Обозначения:** A = Admin, O = Operator, V = Viewer. `—` = не используется (нет `PermissionGate` в роутере). `✅` = есть и в seed, и в роутере. `⚠️` = см. примечание.
 
 ## Распределение по ролям
@@ -119,7 +119,7 @@
 | `oidc:read` | ✅ | | ✅ |
 | `oidc:write` | ✅ | | |
 | `audit:read` | ✅ | ✅ | ✅ |
-
+| `admin:panel:access` | ✅ | | |
 Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS`.
 
 ## Легаси-права (существуют в БД, но не используются в API)

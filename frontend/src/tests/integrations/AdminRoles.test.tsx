@@ -1,6 +1,6 @@
 /**
  * @file AdminRoles.test.tsx
- * @description Integration tests for Admin Roles pages (list, create/edit modal, detail with scope)
+ * @description Integration tests for Admin Roles pages (list, create/edit modal, detail with scope, Users tab)
  * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router, antd
  * @relatedFiles ../../pages/Admin/Roles/index.tsx, ../../pages/Admin/Roles/RoleModal.tsx, ../../pages/Admin/Roles/RoleDetail.tsx, ../../store/api.ts
  */
@@ -29,6 +29,8 @@ vi.mock('../../store/api', async () => {
     useDeleteRoleMutation: vi.fn(),
     // Permissions
     useGetAllPermissionsQuery: vi.fn(),
+    // Role Users
+    useGetRoleUsersQuery: vi.fn(),
     // Role Scope
     useGetRoleScopeQuery: vi.fn(),
     useAddRoleScopeItemMutation: vi.fn(),
@@ -64,6 +66,7 @@ import {
   useUpdateRoleMutation,
   useDeleteRoleMutation,
   useGetAllPermissionsQuery,
+  useGetRoleUsersQuery,
   useGetRoleScopeQuery,
   useAddRoleScopeItemMutation,
   useSetRoleScopeMutation,
@@ -93,23 +96,11 @@ const mockPermissionWrite: { id: number; name: string; description: string | nul
   description: null,
 };
 
-const mockPermissionDelete: { id: number; name: string; description: string | null } = {
-  id: 3,
-  name: 'mirrors:delete',
-  description: null,
-};
-
-const mockPermissionSync: { id: number; name: string; description: string | null } = {
-  id: 4,
-  name: 'mirrors:sync',
-  description: null,
-};
-
 const allPermissionsMock = [
   mockPermissionRead,
   mockPermissionWrite,
-  mockPermissionDelete,
-  mockPermissionSync,
+  { id: 3, name: 'mirrors:delete', description: null },
+  { id: 4, name: 'mirrors:sync', description: null },
   { id: 5, name: 'projects:read', description: null },
   { id: 6, name: 'projects:write', description: null },
   { id: 7, name: 'projects:delete', description: null },
@@ -172,6 +163,22 @@ const mockRoleCustom = {
   created_by_user_id: 1,
   permissions: [mockPermissionRead, mockPermissionWrite],
   users_count: 5,
+};
+
+const mockUser1 = {
+  id: 1,
+  username: 'admin',
+  email: 'admin@bigbug.dev',
+  is_active: true,
+  roles: ['admin'],
+};
+
+const mockUser2 = {
+  id: 2,
+  username: 'operator',
+  email: 'operator@bigbug.dev',
+  is_active: true,
+  roles: ['admin', 'operator'],
 };
 
 // ---------------------------------------------------------------------------
@@ -268,6 +275,14 @@ function setupDefaultMocks() {
     error: null,
   });
 
+  // Default: empty role users
+  (useGetRoleUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    error: null,
+  });
+
   // Default: empty role scope
   (useGetRoleScopeQuery as ReturnType<typeof vi.fn>).mockReturnValue({
     data: null,
@@ -331,21 +346,22 @@ describe('Admin Roles List', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 2: Renders table columns
+  // Test 2: Renders table columns (including Type column)
   // -----------------------------------------------------------------------
   it('renders table with column headers', () => {
     renderRolesPage();
 
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Description')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByText('Users')).toBeInTheDocument();
     expect(screen.getByText('Actions')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
-  // Test 3: Renders table with role data
+  // Test 3: Renders table with role data including Type tags
   // -----------------------------------------------------------------------
-  it('displays roles in the table', () => {
+  it('displays roles with Builtin/Custom Type tags', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockRoleBuiltin, mockRoleCustom],
       isLoading: false,
@@ -359,13 +375,93 @@ describe('Admin Roles List', () => {
     expect(screen.getByText('dev_lead')).toBeInTheDocument();
     expect(screen.getByText('Built-in admin role')).toBeInTheDocument();
     expect(screen.getByText('Custom role for dev leads')).toBeInTheDocument();
+    // Type tags
+    expect(screen.getByText('Builtin')).toBeInTheDocument();
+    expect(screen.getByText('Custom')).toBeInTheDocument();
     // Users count
     expect(screen.getByText('2')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
-  // Test 4: Shows loading spinner when fetching
+  // Test 4: Builtin roles have LockOutlined icon
+  // -----------------------------------------------------------------------
+  it('shows lock icon for builtin roles', () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleBuiltin],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { container } = renderRolesPage();
+
+    // LockOutlined renders as an icon with class anticon-lock
+    const lockIcon = container.querySelector('.anticon-lock');
+    expect(lockIcon).toBeTruthy();
+    // No edit/delete icons (they should be disabled/hidden for builtin)
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 5: Custom roles do NOT have LockOutlined icon
+  // -----------------------------------------------------------------------
+  it('does not show lock icon for custom roles', () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleCustom],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    const { container } = renderRolesPage();
+
+    const lockIcon = container.querySelector('.anticon-lock');
+    expect(lockIcon).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 6: Edit and Delete buttons disabled for builtin roles
+  // -----------------------------------------------------------------------
+  it('disables Edit and Delete for builtin roles', () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleBuiltin],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderRolesPage();
+
+    // All tooltip-wrapped buttons in the builtin table row should be disabled
+    const rows = document.querySelectorAll('.ant-table-row');
+    expect(rows.length).toBe(1);
+    const buttons = rows[0].querySelectorAll('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    buttons.forEach((btn) => expect(btn).toBeDisabled());
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 7: Edit and Delete buttons enabled for custom roles
+  // -----------------------------------------------------------------------
+  it('enables Edit and Delete for custom roles', () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleCustom],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderRolesPage();
+
+    const rows = document.querySelectorAll('.ant-table-row');
+    expect(rows.length).toBe(1);
+    const buttons = rows[0].querySelectorAll('button');
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    buttons.forEach((btn) => expect(btn).not.toBeDisabled());
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 8: Shows loading spinner when fetching
   // -----------------------------------------------------------------------
   it('shows loading spinner while fetching', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -380,7 +476,7 @@ describe('Admin Roles List', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 5: Shows error message on API failure
+  // Test 9: Shows error message on API failure
   // -----------------------------------------------------------------------
   it('shows error message on API failure', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -395,7 +491,7 @@ describe('Admin Roles List', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 6: Shows empty state when no roles
+  // Test 10: Shows empty state when no roles
   // -----------------------------------------------------------------------
   it('shows "No roles found" when list is empty', () => {
     renderRolesPage();
@@ -403,7 +499,7 @@ describe('Admin Roles List', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 7: Smoke test
+  // Test 11: Smoke test
   // -----------------------------------------------------------------------
   it('renders without crashing', () => {
     const { container } = renderRolesPage();
@@ -421,7 +517,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 8: Opens create modal when Create Role is clicked
+  // Test 12: Opens create modal with empty fields
   // -----------------------------------------------------------------------
   it('opens create modal with empty fields', async () => {
     renderRolesPage();
@@ -448,7 +544,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 9: Opens edit modal with pre-filled data
+  // Test 13: Opens edit modal with pre-filled data
   // -----------------------------------------------------------------------
   it('opens edit modal with pre-filled data', async () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -486,7 +582,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 10: Shows validation error for empty name
+  // Test 14: Shows validation error for empty name
   // -----------------------------------------------------------------------
   it('shows validation error for empty name on submit', async () => {
     renderRolesPage();
@@ -506,7 +602,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 11: Submits create successfully
+  // Test 15: Submits create successfully
   // -----------------------------------------------------------------------
   it('submits create role successfully', async () => {
     const createFn = vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() });
@@ -540,7 +636,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 12: Submits update successfully
+  // Test 16: Submits update successfully
   // -----------------------------------------------------------------------
   it('submits update role successfully', async () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -589,7 +685,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 13: Shows permissions grouped by category
+  // Test 17: Shows permissions grouped by category
   // -----------------------------------------------------------------------
   it('shows permissions checkboxes grouped by category', async () => {
     renderRolesPage();
@@ -614,7 +710,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 14: Select All / Deselect All per group
+  // Test 18: Select All / Deselect All per group
   // -----------------------------------------------------------------------
   it('Select All selects all permissions in a group', async () => {
     renderRolesPage();
@@ -644,7 +740,7 @@ describe('Admin Role Modal', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 15: Cancel button closes the modal
+  // Test 19: Cancel button closes the modal
   // -----------------------------------------------------------------------
   it('closes modal on Cancel click', async () => {
     renderRolesPage();
@@ -674,7 +770,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 16: Renders role name and description for a valid role
+  // Test 20: Renders role name and description for a valid role
   // -----------------------------------------------------------------------
   it('renders role name and description', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -691,7 +787,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 17: Shows Back button
+  // Test 21: Shows Back button
   // -----------------------------------------------------------------------
   it('has Back to Roles button', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -707,7 +803,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 18: Shows error when role not found
+  // Test 22: Shows error when role not found
   // -----------------------------------------------------------------------
   it('shows error Alert when role is not found', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -724,7 +820,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 19: Shows loading spinner while fetching role
+  // Test 23: Shows loading spinner while fetching role
   // -----------------------------------------------------------------------
   it('shows loading spinner while fetching', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -739,7 +835,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 20: Shows Permissions tab with disabled checkboxes
+  // Test 24: Shows Permissions tab with disabled checkboxes
   // -----------------------------------------------------------------------
   it('shows Permissions tab with assigned permissions', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -766,7 +862,99 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 21: Shows Source Groups tab
+  // Test 25: Shows Users tab with assigned users
+  // -----------------------------------------------------------------------
+  it('shows Users tab with assigned users', async () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleCustom],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useGetRoleUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockUser1, mockUser2],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderRoleDetailPage('10');
+
+    // Users tab should be visible (default active tab is Permissions)
+    const usersTab = screen.getByRole('tab', { name: 'Users' });
+    expect(usersTab).toBeInTheDocument();
+
+    // Click the Users tab to render its content
+    await userEvent.click(usersTab);
+
+    // Content should show user data (rendered in the tab content area)
+    expect(screen.getByText(/Users directly assigned to this role/)).toBeInTheDocument();
+
+    // Users table — use getAllByText because 'admin' and 'operator' appear
+    // both as username <strong> and as role <Tag>
+    expect(screen.getAllByText('admin').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('admin@bigbug.dev')).toBeInTheDocument();
+    expect(screen.getAllByText('operator').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('operator@bigbug.dev')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 26: Users tab shows count in description
+  // -----------------------------------------------------------------------
+  it('Users tab shows total count of assigned users', async () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleCustom],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useGetRoleUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockUser1, mockUser2],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderRoleDetailPage('10');
+
+    // Default active tab is Permissions — click Users tab first
+    const usersTab = screen.getByRole('tab', { name: 'Users' });
+    await userEvent.click(usersTab);
+
+    expect(screen.getByText(/\(2 total\)/)).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 27: Users tab shows empty state when no users assigned
+  // -----------------------------------------------------------------------
+  it('Users tab shows empty state for role with no users', async () => {
+    (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRoleCustom],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useGetRoleUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderRoleDetailPage('10');
+
+    // Default active tab is Permissions — click Users tab to render its content
+    const usersTab = screen.getByRole('tab', { name: 'Users' });
+    await userEvent.click(usersTab);
+
+    expect(screen.getByText('No users assigned to this role')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Test 28: Shows Source Groups tab
   // -----------------------------------------------------------------------
   it('shows Source Groups tab', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -783,7 +971,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 22: Shows Credentials tab
+  // Test 29: Shows Credentials tab
   // -----------------------------------------------------------------------
   it('shows Credentials tab', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -800,7 +988,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 23: Shows Sync Groups tab
+  // Test 30: Shows Sync Groups tab
   // -----------------------------------------------------------------------
   it('shows Sync Groups tab', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -817,7 +1005,7 @@ describe('Admin Role Detail', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 24: Smoke test — renders without crashing
+  // Test 31: Smoke test — renders without crashing
   // -----------------------------------------------------------------------
   it('renders without crashing', () => {
     (useGetAllRolesQuery as ReturnType<typeof vi.fn>).mockReturnValue({

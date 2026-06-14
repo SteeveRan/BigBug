@@ -207,6 +207,35 @@ async def list_permissions(
 # ------------------------------------------------------------------
 
 
+@router.get(
+    "/roles/{role_id}/users",
+    response_model=list[UserOut],
+    tags=["admin"],
+)
+async def list_role_users(
+    role_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("roles:read")),
+):
+    """List all users assigned to a specific role."""
+    service = RBACService(db)
+    role = await service.get_role_by_id(role_id)
+    if role is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+
+    users = await service.get_role_users(role_id)
+    return [
+        UserOut(
+            id=u.id,
+            username=u.username,
+            email=u.email,
+            is_active=u.is_active,
+            roles=[r.name for r in u.roles],
+        )
+        for u in users
+    ]
+
+
 @router.get("/roles", response_model=list[RoleDetailOut])
 async def list_roles(
     db: AsyncSession = Depends(get_db),
