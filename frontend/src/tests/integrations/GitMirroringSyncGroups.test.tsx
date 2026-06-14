@@ -540,5 +540,4 @@ describe('SyncGroupsPage', () => {
       );
     });
   });
-
 });

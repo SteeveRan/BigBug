@@ -104,7 +104,10 @@ export function AppRouter() {
         <Route path="dashboard" element={<Navigate to="/overview" replace />} />
 
         {/* ── Mirroring / Repositories → Git Mirroring V2 ─ */}
-        <Route path="mirroring/repositories" element={<Navigate to="/git-mirroring/repositories" replace />} />
+        <Route
+          path="mirroring/repositories"
+          element={<Navigate to="/git-mirroring/repositories" replace />}
+        />
         <Route path="mirroring/repositories/:id" element={<RedirectMirroringRepositoryId />} />
 
         {/* ── Mirroring / Helm Charts ───────────────────── */}
@@ -154,7 +157,10 @@ export function AppRouter() {
         />
 
         {/* ── Mirroring / Git Mirroring → Git Mirroring V2 ─ */}
-        <Route path="mirroring/git-mirroring" element={<Navigate to="/git-mirroring/dashboard" replace />} />
+        <Route
+          path="mirroring/git-mirroring"
+          element={<Navigate to="/git-mirroring/dashboard" replace />}
+        />
 
         {/* ── /mirroring → /git-mirroring ───────────────── */}
         <Route path="mirroring" element={<Navigate to="/git-mirroring/dashboard" replace />} />
@@ -201,8 +207,14 @@ export function AppRouter() {
           }
         />
         {/* Redirect old routes to new Sources page */}
-        <Route path="git-mirroring/repositories" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
-        <Route path="git-mirroring/groups" element={<Navigate to="/git-mirroring/sources?tab=groups" replace />} />
+        <Route
+          path="git-mirroring/repositories"
+          element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />}
+        />
+        <Route
+          path="git-mirroring/groups"
+          element={<Navigate to="/git-mirroring/sources?tab=groups" replace />}
+        />
         <Route
           path="git-mirroring/providers"
           element={

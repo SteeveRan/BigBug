@@ -99,7 +99,7 @@ interface PermissionsByGroup {
 
 function groupPermissionsByResource(
   allPerms: Permission[],
-  groups: PermissionGroup[],
+  groups: PermissionGroup[]
 ): PermissionsByGroup[] {
   // Build a lookup map of group by permission name
   const groupMap: Record<string, string> = {};
@@ -144,10 +144,7 @@ function groupPermissionsByResource(
 const PermissionsPage = () => {
   const { data: allPermissions = [], isLoading, isError } = useGetAllPermissionsQuery();
 
-  const grouped = groupPermissionsByResource(
-    allPermissions as Permission[],
-    PERMISSION_GROUPS,
-  );
+  const grouped = groupPermissionsByResource(allPermissions as Permission[], PERMISSION_GROUPS);
 
   if (isLoading) {
     return (

@@ -417,7 +417,11 @@ const MirrorProcessPage = () => {
             )}
           </Descriptions.Item>
           <Descriptions.Item label="Archived">
-            {sourceRepo?.is_archived ? <Tag color="warning">Yes — repository is archived</Tag> : 'No'}
+            {sourceRepo?.is_archived ? (
+              <Tag color="warning">Yes — repository is archived</Tag>
+            ) : (
+              'No'
+            )}
           </Descriptions.Item>
           <Descriptions.Item label="Default Branch">
             <Typography.Text code>{sourceRepo?.default_branch ?? '—'}</Typography.Text>

@@ -4,11 +4,7 @@
  * @dependencies api/base.ts
  */
 
-import type {
-  PipelineConfig,
-  PipelineConfigCreate,
-  PipelineConfigUpdate,
-} from '../../types';
+import type { PipelineConfig, PipelineConfigCreate, PipelineConfigUpdate } from '../../types';
 import { api } from './base';
 
 export const pipelineConfigsApi = api.injectEndpoints({

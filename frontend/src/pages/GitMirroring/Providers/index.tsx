@@ -188,8 +188,8 @@ const ProvidersPage = () => {
             Source Providers
           </Typography.Title>
           <Typography.Text type="secondary">
-            Manage connections to source platforms (GitHub, GitLab, Generic Git).
-            Providers define authentication credentials for discovering repositories.
+            Manage connections to source platforms (GitHub, GitLab, Generic Git). Providers define
+            authentication credentials for discovering repositories.
           </Typography.Text>
         </Flex>
         <Space>

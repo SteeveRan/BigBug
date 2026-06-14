@@ -16,10 +16,7 @@ export const orphanedApi = api.injectEndpoints({
       query: (params) => ({ url: '/mirroring/orphaned-mirrors', params }),
       providesTags: ['OrphanedMirrors'],
     }),
-    reassignOrphanedMirror: builder.mutation<
-      void,
-      { mirrorId: number; syncGroupId: number }
-    >({
+    reassignOrphanedMirror: builder.mutation<void, { mirrorId: number; syncGroupId: number }>({
       query: ({ mirrorId, syncGroupId }) => ({
         url: `/mirroring/orphaned/${mirrorId}/reassign`,
         method: 'POST',
@@ -27,10 +24,7 @@ export const orphanedApi = api.injectEndpoints({
       }),
       invalidatesTags: ['OrphanedMirrors', 'Mirror'],
     }),
-    moveOrphanedTarget: builder.mutation<
-      void,
-      { mirrorId: number; targetPath: string }
-    >({
+    moveOrphanedTarget: builder.mutation<void, { mirrorId: number; targetPath: string }>({
       query: ({ mirrorId, targetPath }) => ({
         url: `/mirroring/orphaned/${mirrorId}/move-target`,
         method: 'POST',

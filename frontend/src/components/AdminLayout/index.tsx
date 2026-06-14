@@ -100,10 +100,7 @@ export function AdminLayout() {
             background: headerBg,
           }}
         >
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/overview')}
-          >
+          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/overview')}>
             Back to App
           </Button>
           <Space size="middle">

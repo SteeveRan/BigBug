@@ -428,9 +428,7 @@ describe('ReportsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Дубликаты не обнаружены')).toBeInTheDocument();
-      expect(
-        screen.getByText(/Все зеркала уникальны/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Все зеркала уникальны/)).toBeInTheDocument();
     });
   });
 

@@ -14,8 +14,8 @@ const DashboardPage = () => (
         Git Mirroring Dashboard
       </Typography.Title>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        Overview of mirroring health, sync activity, and system status across all providers,
-        sync groups, and target instances.
+        Overview of mirroring health, sync activity, and system status across all providers, sync
+        groups, and target instances.
       </Typography.Text>
       <Empty description="Detailed dashboard widgets will be available in a future stage." />
     </Card>

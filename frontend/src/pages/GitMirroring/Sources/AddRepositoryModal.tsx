@@ -6,10 +6,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { Modal, Form, Select, Input, App, Typography } from 'antd';
-import {
-  useCreateSourceRepositoryMutation,
-  useGetSourceProvidersQuery,
-} from '../../../store/api';
+import { useCreateSourceRepositoryMutation, useGetSourceProvidersQuery } from '../../../store/api';
 import type { ProviderType, SourceProvider, SourceRepositoryCreate } from '../../../types';
 
 interface AddRepositoryModalProps {
@@ -24,7 +21,11 @@ interface FormValues {
   clone_url: string;
 }
 
-export function AddRepositoryModal({ open, onClose, preselectedProviderId }: AddRepositoryModalProps) {
+export function AddRepositoryModal({
+  open,
+  onClose,
+  preselectedProviderId,
+}: AddRepositoryModalProps) {
   const { message } = App.useApp();
   const [form] = Form.useForm<FormValues>();
 
@@ -105,10 +106,9 @@ export function AddRepositoryModal({ open, onClose, preselectedProviderId }: Add
         </Form.Item>
 
         <Typography.Text type="secondary">
-          Manually add a repository from any Git provider. The clone URL is parsed
-          automatically to derive name, full name, and source group.
-          For GitHub/GitLab, use the Import Group flow instead — it auto-discovers
-          all repositories.
+          Manually add a repository from any Git provider. The clone URL is parsed automatically to
+          derive name, full name, and source group. For GitHub/GitLab, use the Import Group flow
+          instead — it auto-discovers all repositories.
         </Typography.Text>
       </Form>
     </Modal>

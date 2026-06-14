@@ -14,10 +14,7 @@ export const sourceGroupsApi = api.injectEndpoints({
         `/mirroring/groups${providerId ? `?source_provider_id=${providerId}` : ''}`,
       providesTags: ['SourceGroup'],
     }),
-    importSourceGroup: builder.mutation<
-      SourceGroup,
-      { providerId?: number; groupName: string }
-    >({
+    importSourceGroup: builder.mutation<SourceGroup, { providerId?: number; groupName: string }>({
       query: ({ providerId, groupName }) => ({
         url: `/mirroring/groups/import?group_name=${encodeURIComponent(groupName)}${providerId ? `&source_provider_id=${providerId}` : ''}`,
         method: 'POST',

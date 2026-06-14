@@ -43,12 +43,8 @@ export function DashboardPage() {
   const { data: goldImages = [], isLoading: loadingGold } = useListGoldImagesQuery();
   const { data: appImages = [], isLoading: loadingApp } = useListAppImagesQuery();
 
-  const staleMirrors = (mirrors as Mirror[]).filter(
-    (m) => m.status_flag === STATUS_FLAG.WARNING
-  );
-  const failedMirrors = (mirrors as Mirror[]).filter(
-    (m) => m.status_flag === STATUS_FLAG.FAILED
-  );
+  const staleMirrors = (mirrors as Mirror[]).filter((m) => m.status_flag === STATUS_FLAG.WARNING);
+  const failedMirrors = (mirrors as Mirror[]).filter((m) => m.status_flag === STATUS_FLAG.FAILED);
 
   return (
     <Flex vertical>

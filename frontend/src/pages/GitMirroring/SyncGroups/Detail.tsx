@@ -22,10 +22,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import {
-  useGetSyncGroupQuery,
-  useGetMirrorsQuery,
-} from '../../../store/api';
+import { useGetSyncGroupQuery, useGetMirrorsQuery } from '../../../store/api';
 import type { Mirror } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
 import { PermissionGate } from '../../../components/PermissionGate';
@@ -41,10 +38,10 @@ const SyncGroupDetailPage = () => {
     isError: groupError,
   } = useGetSyncGroupQuery(groupId, { skip: isNaN(groupId) });
 
-  const {
-    data: mirrors = [],
-    isLoading: mirrorsLoading,
-  } = useGetMirrorsQuery({ sync_group_id: groupId }, { skip: isNaN(groupId) });
+  const { data: mirrors = [], isLoading: mirrorsLoading } = useGetMirrorsQuery(
+    { sync_group_id: groupId },
+    { skip: isNaN(groupId) }
+  );
 
   const mirrorColumns: ColumnsType<Mirror> = [
     {
@@ -53,9 +50,7 @@ const SyncGroupDetailPage = () => {
       key: 'source_url',
       ellipsis: true,
       render: (_: unknown, record: Mirror) => (
-        <Typography.Text>
-          {record.source_repository?.web_url || record.target_path}
-        </Typography.Text>
+        <Typography.Text>{record.source_repository?.web_url || record.target_path}</Typography.Text>
       ),
     },
     {
@@ -63,9 +58,7 @@ const SyncGroupDetailPage = () => {
       dataIndex: 'target_path',
       key: 'target_path',
       ellipsis: true,
-      render: (path: string) => (
-        <Typography.Text code>{path}</Typography.Text>
-      ),
+      render: (path: string) => <Typography.Text code>{path}</Typography.Text>,
     },
     {
       title: 'Status',
@@ -126,7 +119,13 @@ const SyncGroupDetailPage = () => {
       {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
       <Breadcrumb
         items={[
-          { title: <Typography.Link onClick={() => navigate('/git-mirroring/sync-groups')}>Sync Groups</Typography.Link> },
+          {
+            title: (
+              <Typography.Link onClick={() => navigate('/git-mirroring/sync-groups')}>
+                Sync Groups
+              </Typography.Link>
+            ),
+          },
           { title: syncGroup.name },
         ]}
       />
@@ -142,13 +141,19 @@ const SyncGroupDetailPage = () => {
           </Button>
           <Typography.Title level={4} style={{ margin: 0 }}>
             {syncGroup.name}
-            {syncGroup.is_default && <Tag color="blue" style={{ marginLeft: 8 }}>Default</Tag>}
+            {syncGroup.is_default && (
+              <Tag color="blue" style={{ marginLeft: 8 }}>
+                Default
+              </Tag>
+            )}
           </Typography.Title>
         </Space>
         <PermissionGate permission="sync_groups:write">
           <Button
             type="primary"
-            onClick={() => navigate('/git-mirroring/sync-groups', { state: { editId: syncGroup.id } })}
+            onClick={() =>
+              navigate('/git-mirroring/sync-groups', { state: { editId: syncGroup.id } })
+            }
           >
             Edit
           </Button>
@@ -158,11 +163,10 @@ const SyncGroupDetailPage = () => {
       {/* ── Details Card ──────────────────────────────────────────────────── */}
       <Card title="Configuration">
         <Descriptions bordered column={{ xs: 1, sm: 2 }}>
-          <Descriptions.Item label="Description">
-            {syncGroup.description || '—'}
-          </Descriptions.Item>
+          <Descriptions.Item label="Description">{syncGroup.description || '—'}</Descriptions.Item>
           <Descriptions.Item label="Pipeline">
-            {syncGroup.pipeline?.name || (syncGroup.pipeline_id ? `ID: ${syncGroup.pipeline_id}` : '—')}
+            {syncGroup.pipeline?.name ||
+              (syncGroup.pipeline_id ? `ID: ${syncGroup.pipeline_id}` : '—')}
           </Descriptions.Item>
           <Descriptions.Item label="Mirrors Count">
             {syncGroup.mirrors_count ?? (mirrors.length > 0 ? mirrors.length : '—')}

@@ -27,11 +27,7 @@ import {
   App,
   Divider,
 } from 'antd';
-import {
-  DownloadOutlined,
-  ReloadOutlined,
-  CheckCircleOutlined,
-} from '@ant-design/icons';
+import { DownloadOutlined, ReloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { StatusChip } from '../../../components/StatusChip';
@@ -98,7 +94,11 @@ function downloadFile(url: string, filename: string) {
   document.body.removeChild(a);
 }
 
-function exportUrl(reportType: string, format: 'csv' | 'json', params?: Record<string, string>): string {
+function exportUrl(
+  reportType: string,
+  format: 'csv' | 'json',
+  params?: Record<string, string>
+): string {
   const url = new URL(`${BASE_URL}/api/reports/${reportType}/export`);
   url.searchParams.set('format', format);
   if (params) {
@@ -135,14 +135,7 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
   return (
     <Flex vertical align="center" gap={8}>
       <svg width={200} height={200} viewBox="0 0 200 200">
-        <circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke="#f0f0f0"
-          strokeWidth={24}
-        />
+        <circle cx={center} cy={center} r={radius} fill="none" stroke="#f0f0f0" strokeWidth={24} />
         {segments.map((seg) => (
           <circle
             key={seg.status_flag}
@@ -158,7 +151,14 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
             style={{ transition: 'stroke-dasharray 0.3s' }}
           />
         ))}
-        <text x={center} y={center - 8} textAnchor="middle" fontSize={28} fontWeight="bold" fill="#333">
+        <text
+          x={center}
+          y={center - 8}
+          textAnchor="middle"
+          fontSize={28}
+          fontWeight="bold"
+          fill="#333"
+        >
           {total}
         </text>
         <text x={center} y={center + 16} textAnchor="middle" fontSize={12} fill="#888">
@@ -206,7 +206,12 @@ function DuplicatesTab() {
 
   const mirrorColumns: ColumnsType<DuplicateMirrorItem> = [
     { title: 'Mirror ID', dataIndex: 'mirror_id', key: 'mirror_id', width: 100 },
-    { title: 'Target GitLab', dataIndex: 'target_gitlab_instance_name', key: 'target_gitlab_instance_name', ellipsis: true },
+    {
+      title: 'Target GitLab',
+      dataIndex: 'target_gitlab_instance_name',
+      key: 'target_gitlab_instance_name',
+      ellipsis: true,
+    },
     { title: 'Target Path', dataIndex: 'target_path', key: 'target_path', ellipsis: true },
     {
       title: 'Status',
@@ -243,11 +248,7 @@ function DuplicatesTab() {
 
   return (
     <Flex vertical gap={16}>
-      <Alert
-        type="warning"
-        showIcon
-        title={data.warning}
-      />
+      <Alert type="warning" showIcon title={data.warning} />
       <Space>
         <Button
           icon={<DownloadOutlined />}
@@ -326,8 +327,7 @@ function StorageTab() {
       width: 100,
       align: 'right',
       render: (v: number | null, record: MirrorStorageItem) => {
-        if (record.error)
-          return <Tag color="orange">N/A</Tag>;
+        if (record.error) return <Tag color="orange">N/A</Tag>;
         return formatBytes(v);
       },
     },
@@ -338,8 +338,7 @@ function StorageTab() {
       width: 110,
       align: 'right',
       render: (v: number | null, record: MirrorStorageItem) => {
-        if (record.error)
-          return <Tag color="orange">N/A</Tag>;
+        if (record.error) return <Tag color="orange">N/A</Tag>;
         return formatBytes(v);
       },
     },
@@ -350,8 +349,7 @@ function StorageTab() {
       width: 110,
       align: 'right',
       render: (v: number | null, record: MirrorStorageItem) => {
-        if (record.error)
-          return <Tag color="orange">N/A</Tag>;
+        if (record.error) return <Tag color="orange">N/A</Tag>;
         return <Text strong>{formatBytes(v)}</Text>;
       },
     },
@@ -395,13 +393,11 @@ function StorageTab() {
             <Text type="secondary">Данные ещё не собраны</Text>
           )}
           {data?.is_stale && <Tag color="warning">Устарели</Tag>}
-          {data?.collection_status === 'in_progress' && <Tag color="processing">Сбор данных...</Tag>}
+          {data?.collection_status === 'in_progress' && (
+            <Tag color="processing">Сбор данных...</Tag>
+          )}
         </Space>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={handleRefresh}
-          loading={isRefreshing}
-        >
+        <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={isRefreshing}>
           Refresh
         </Button>
       </Flex>
@@ -475,10 +471,17 @@ function StorageTab() {
                   Общий итог
                 </Title>
                 <Space size="large">
-                  <Text>Repo: <Text strong>{formatBytes(data.grand_total.repo_size_bytes)}</Text></Text>
-                  <Text>History: <Text strong>{formatBytes(data.grand_total.history_size_bytes)}</Text></Text>
+                  <Text>
+                    Repo: <Text strong>{formatBytes(data.grand_total.repo_size_bytes)}</Text>
+                  </Text>
+                  <Text>
+                    History: <Text strong>{formatBytes(data.grand_total.history_size_bytes)}</Text>
+                  </Text>
                   <Text style={{ fontSize: 18 }}>
-                    Total: <Text strong style={{ fontSize: 18 }}>{formatBytes(data.grand_total.total_size_bytes)}</Text>
+                    Total:{' '}
+                    <Text strong style={{ fontSize: 18 }}>
+                      {formatBytes(data.grand_total.total_size_bytes)}
+                    </Text>
                   </Text>
                 </Space>
               </Flex>
@@ -487,9 +490,7 @@ function StorageTab() {
         </Flex>
       )}
 
-      {!data?.items?.length && !isLoading && (
-        <Empty description="No storage data available" />
-      )}
+      {!data?.items?.length && !isLoading && <Empty description="No storage data available" />}
     </Flex>
   );
 }
@@ -499,7 +500,7 @@ function StorageTab() {
 function StatusTab() {
   const [trendDays, setTrendDays] = useState<number>(30);
   const { data, isLoading } = useGetStatusReportQuery(
-    trendDays > 0 ? { trend_days: trendDays } : undefined,
+    trendDays > 0 ? { trend_days: trendDays } : undefined
   );
 
   const mirrorColumns: ColumnsType<MirrorStatusItem> = [
@@ -590,7 +591,7 @@ function StatusTab() {
             onClick={() =>
               downloadFile(
                 exportUrl('status', 'csv', trendDays > 0 ? { trend_days: String(trendDays) } : {}),
-                'status_report.csv',
+                'status_report.csv'
               )
             }
           >
@@ -601,7 +602,7 @@ function StatusTab() {
             onClick={() =>
               downloadFile(
                 exportUrl('status', 'json', trendDays > 0 ? { trend_days: String(trendDays) } : {}),
-                'status_report.json',
+                'status_report.json'
               )
             }
           >
@@ -650,14 +651,12 @@ function StatusTab() {
 
 function SyncsTab() {
   const [periodStart, setPeriodStart] = useState<string>(
-    dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+    dayjs().subtract(30, 'day').format('YYYY-MM-DD')
   );
   const [periodEnd, setPeriodEnd] = useState<string>(dayjs().format('YYYY-MM-DD'));
 
   const { data, isLoading } = useGetSyncsReportQuery(
-    periodStart && periodEnd
-      ? { period_start: periodStart, period_end: periodEnd }
-      : undefined,
+    periodStart && periodEnd ? { period_start: periodStart, period_end: periodEnd } : undefined
   );
 
   const dailyColumns: ColumnsType<DailySyncsItem> = [
@@ -758,7 +757,7 @@ function SyncsTab() {
           onClick={() =>
             downloadFile(
               exportUrl('syncs', 'csv', { period_start: periodStart, period_end: periodEnd }),
-              'syncs_report.csv',
+              'syncs_report.csv'
             )
           }
         >
@@ -769,7 +768,7 @@ function SyncsTab() {
           onClick={() =>
             downloadFile(
               exportUrl('syncs', 'json', { period_start: periodStart, period_end: periodEnd }),
-              'syncs_report.json',
+              'syncs_report.json'
             )
           }
         >
@@ -848,9 +847,7 @@ function BulkOperationsTab() {
   const [targetPipelineId, setTargetPipelineId] = useState<number | null>(null);
   const [results, setResults] = useState<BulkOperationResultItem[] | null>(null);
 
-  const { data: mirrors, isLoading: mirrorsLoading } = useGetMirrorsQuery(
-    { limit: 500 },
-  );
+  const { data: mirrors, isLoading: mirrorsLoading } = useGetMirrorsQuery({ limit: 500 });
   const { data: syncGroups, isLoading: syncGroupsLoading } = useGetSyncGroupsQuery();
   const { data: pipelineConfigs, isLoading: pipelinesLoading } = useGetPipelineConfigsQuery();
 
@@ -882,7 +879,9 @@ function BulkOperationsTab() {
 
         case 'change-target-gitlab':
           if (!targetSyncGroupId) {
-            message.warning('Select a SyncGroup (target GitLab is determined by SyncGroup → Pipeline → GitLab Instance)');
+            message.warning(
+              'Select a SyncGroup (target GitLab is determined by SyncGroup → Pipeline → GitLab Instance)'
+            );
             return;
           }
           response = await changeTargetGitlab({
@@ -925,11 +924,7 @@ function BulkOperationsTab() {
       key: 'success',
       width: 100,
       render: (success: boolean) =>
-        success ? (
-          <Tag color="success">Success</Tag>
-        ) : (
-          <Tag color="error">Failed</Tag>
-        ),
+        success ? <Tag color="success">Success</Tag> : <Tag color="error">Failed</Tag>,
     },
     {
       title: 'Message',
@@ -946,7 +941,7 @@ function BulkOperationsTab() {
         label: `#${m.id} — ${m.source_repository?.full_name ?? m.target_path}`,
         value: m.id,
       })),
-    [mirrors],
+    [mirrors]
   );
 
   const syncGroupOptions = useMemo(
@@ -955,7 +950,7 @@ function BulkOperationsTab() {
         label: sg.name,
         value: sg.id,
       })),
-    [syncGroups],
+    [syncGroups]
   );
 
   const pipelineOptions = useMemo(
@@ -964,7 +959,7 @@ function BulkOperationsTab() {
         label: pc.name,
         value: pc.id,
       })),
-    [pipelineConfigs],
+    [pipelineConfigs]
   );
 
   return (
@@ -1006,7 +1001,8 @@ function BulkOperationsTab() {
           </Flex>
 
           {/* Target (depends on operation) */}
-          {(operationType === 'reassign-sync-group' || operationType === 'change-target-gitlab') && (
+          {(operationType === 'reassign-sync-group' ||
+            operationType === 'change-target-gitlab') && (
             <Flex vertical gap={8}>
               <Text strong>
                 {operationType === 'reassign-sync-group'

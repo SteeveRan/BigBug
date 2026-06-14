@@ -139,9 +139,7 @@ describe('AdminPage (Users)', () => {
     renderAdminPage();
 
     expect(screen.getByText('Users')).toBeInTheDocument();
-    expect(
-      screen.getByText('Manage user accounts for the BigBug platform.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Manage user accounts for the BigBug platform.')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

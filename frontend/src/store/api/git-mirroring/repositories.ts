@@ -47,10 +47,7 @@ export const sourceRepositoriesApi = api.injectEndpoints({
     getRepositoryReadme: builder.query<SourceRepositoryReadme, number>({
       query: (id) => `/mirroring/repositories/${id}/readme`,
     }),
-    createSourceRepository: builder.mutation<
-      SourceRepository,
-      SourceRepositoryCreate
-    >({
+    createSourceRepository: builder.mutation<SourceRepository, SourceRepositoryCreate>({
       query: (data) => ({
         url: '/mirroring/repositories/',
         method: 'POST',
@@ -67,9 +64,7 @@ export const sourceRepositoriesApi = api.injectEndpoints({
         url: `/mirroring/repositories/${id}/refresh`,
         method: 'POST',
       }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: 'SourceRepository', id },
-      ],
+      invalidatesTags: (_result, _error, id) => [{ type: 'SourceRepository', id }],
     }),
   }),
 });

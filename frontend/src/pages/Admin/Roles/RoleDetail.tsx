@@ -28,7 +28,14 @@ import { ArrowLeftOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router';
 
 import type { TabsProps } from 'antd';
-import type { Role, Permission, SyncGroup, SourceGroup, SourceProvider, User } from '../../../types';
+import type {
+  Role,
+  Permission,
+  SyncGroup,
+  SourceGroup,
+  SourceProvider,
+  User,
+} from '../../../types';
 import {
   useGetAllRolesQuery,
   useGetAllPermissionsQuery,

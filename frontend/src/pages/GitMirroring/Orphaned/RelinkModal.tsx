@@ -236,12 +236,7 @@ export const RelinkModal = ({ mirror, open, onClose }: RelinkModalProps) => {
         <Divider style={{ margin: '4px 0' }} />
 
         {/* Tabs */}
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          size="small"
-        />
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="small" />
       </Flex>
     </Modal>
   );

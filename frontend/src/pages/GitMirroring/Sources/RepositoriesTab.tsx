@@ -29,8 +29,9 @@ import {
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
   useDeleteSourceRepositoryMutation,
+  useGetMirrorsQuery,
 } from '../../../store/api';
-import type { SourceRepository } from '../../../types';
+import type { SourceRepository, Mirror } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { AddRepositoryModal } from './AddRepositoryModal';
 import { BulkCreateMirrorsModal } from './BulkCreateMirrorsModal';
@@ -77,19 +78,30 @@ export function RepositoriesTab() {
     return 0;
   }, [groups]);
 
+  // Fetch all mirrors для подсчёта количества зеркал по каждому source_repository_id
+  const { data: allMirrors = [] } = useGetMirrorsQuery({ limit: 500 });
+
+  // Build a map: source_repository_id → mirror count
+  const mirrorsByRepo = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const m of allMirrors as Mirror[]) {
+      const current = map.get(m.source_repository_id) ?? 0;
+      map.set(m.source_repository_id, current + 1);
+    }
+    return map;
+  }, [allMirrors]);
+
   // Fetch repositories — always use group_id=0 (All Groups) since there's no group filter.
   const {
     data: repositories = [],
     isLoading: reposLoading,
     isError: reposError,
-  } = useGetSourceRepositoriesQuery(
-    {
-      group_id: 0,
-      discovery_status: discoveryFilter !== -1 ? discoveryFilter : undefined,
-      search: search.trim() || undefined,
-      is_archived: false,
-    },
-  );
+  } = useGetSourceRepositoriesQuery({
+    group_id: 0,
+    discovery_status: discoveryFilter !== -1 ? discoveryFilter : undefined,
+    search: search.trim() || undefined,
+    is_archived: false,
+  });
 
   const [deleteRepo] = useDeleteSourceRepositoryMutation();
 
@@ -138,12 +150,10 @@ export function RepositoriesTab() {
       ),
     },
     {
-      title: 'Language',
-      key: 'language',
-      width: 100,
-      render: (_: unknown, record: SourceRepository) => (
-        <Typography.Text>{record.language || '—'}</Typography.Text>
-      ),
+      title: 'Mirrors',
+      key: 'mirrors',
+      width: 80,
+      render: (_: unknown, record: SourceRepository) => mirrorsByRepo.get(record.id) ?? 0,
     },
     {
       title: 'Actions',
@@ -186,10 +196,7 @@ export function RepositoriesTab() {
         </Typography.Text>
         <Space>
           <PermissionGate permission="source_groups:write">
-            <Button
-              icon={<PlusOutlined />}
-              onClick={() => setAddModalOpen(true)}
-            >
+            <Button icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
               Add Repository
             </Button>
           </PermissionGate>

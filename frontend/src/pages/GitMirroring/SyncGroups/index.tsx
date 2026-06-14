@@ -168,11 +168,7 @@ const SyncGroupsPage = () => {
       key: 'description',
       ellipsis: true,
       render: (desc: string | undefined) =>
-        desc ? (
-          <Typography.Text type="secondary">{desc}</Typography.Text>
-        ) : (
-          '—'
-        ),
+        desc ? <Typography.Text type="secondary">{desc}</Typography.Text> : '—',
     },
     {
       title: 'Sync',
@@ -266,8 +262,8 @@ const SyncGroupsPage = () => {
             Sync Groups
           </Typography.Title>
           <Typography.Text type="secondary">
-            Sync Groups define schedules and pipelines for mirror synchronization.
-            Group mirrors by sync frequency, pipeline configuration, or team ownership.
+            Sync Groups define schedules and pipelines for mirror synchronization. Group mirrors by
+            sync frequency, pipeline configuration, or team ownership.
           </Typography.Text>
         </Flex>
         <PermissionGate permission="sync_groups:write">

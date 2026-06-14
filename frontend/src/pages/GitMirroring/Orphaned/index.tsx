@@ -25,12 +25,7 @@ import {
   Modal,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  DeleteOutlined,
-  LinkOutlined,
-  SwapOutlined,
-  SearchOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, LinkOutlined, SwapOutlined, SearchOutlined } from '@ant-design/icons';
 import {
   useGetOrphanedMirrorsQuery,
   useDeleteOrphanedMirrorMutation,
@@ -96,7 +91,10 @@ const OrphanedPage = () => {
     }
   };
 
-  const handleOpenRelink = (mirror: OrphanedMirror, _tab?: 'reassign' | 'move-target' | 'delete') => {
+  const handleOpenRelink = (
+    mirror: OrphanedMirror,
+    _tab?: 'reassign' | 'move-target' | 'delete'
+  ) => {
     setRelinkMirror(mirror);
     setRelinkModalOpen(true);
     // tab selection is handled inside RelinkModal via initialTab prop if needed
@@ -113,7 +111,11 @@ const OrphanedPage = () => {
       key: 'mirror_name',
       render: (_: unknown, record: OrphanedMirror) => (
         <Flex vertical>
-          <Typography.Text strong style={{ cursor: 'pointer' }} onClick={() => handleOpenRelink(record)}>
+          <Typography.Text
+            strong
+            style={{ cursor: 'pointer' }}
+            onClick={() => handleOpenRelink(record)}
+          >
             {record.mirror_name}
           </Typography.Text>
           <Typography.Text type="secondary" style={{ fontSize: 12 }} ellipsis>
@@ -178,8 +180,7 @@ const OrphanedPage = () => {
     {
       title: 'Detected At',
       key: 'detected_at',
-      render: (_: unknown, record: OrphanedMirror) =>
-        new Date(record.detected_at).toLocaleString(),
+      render: (_: unknown, record: OrphanedMirror) => new Date(record.detected_at).toLocaleString(),
     },
     {
       title: 'Actions',
@@ -267,102 +268,102 @@ const OrphanedPage = () => {
                 Mirrors that have lost connection to their source or target
               </Typography.Text>
             </Flex>
+          </Flex>
+
+          {/* Toolbar */}
+          <Flex gap={12} wrap>
+            <Input.Search
+              placeholder="Search by name or URL…"
+              allowClear
+              style={{ maxWidth: 320 }}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+            <Select
+              placeholder="GitLab Instance"
+              allowClear
+              style={{ minWidth: 200 }}
+              value={gitlabInstanceFilter}
+              onChange={(v) => {
+                setGitlabInstanceFilter(v);
+                setPage(1);
+              }}
+              options={gitlabInstanceOptions}
+            />
+            <Tooltip title="Refresh list">
+              <Button icon={<SearchOutlined />} onClick={() => {}} disabled>
+                Detect Orphaned
+              </Button>
+            </Tooltip>
+          </Flex>
+
+          {/* Table */}
+          {orphanedMirrors.length === 0 ? (
+            <Empty
+              description="No orphaned mirrors found — all mirrors are properly connected"
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          ) : (
+            <Table<OrphanedMirror>
+              rowKey="mirror_id"
+              columns={columns}
+              dataSource={orphanedMirrors}
+              pagination={{
+                current: page,
+                pageSize,
+                total,
+                showSizeChanger: true,
+                pageSizeOptions: PAGE_SIZE_OPTIONS,
+                onChange: (p, ps) => {
+                  setPage(p);
+                  setPageSize(ps);
+                },
+              }}
+              loading={isLoading}
+              size="middle"
+            />
+          )}
         </Flex>
 
-        {/* Toolbar */}
-        <Flex gap={12} wrap>
-          <Input.Search
-            placeholder="Search by name or URL…"
-            allowClear
-            style={{ maxWidth: 320 }}
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
+        {/* Relink Modal */}
+        {relinkMirror && (
+          <RelinkModal
+            mirror={relinkMirror}
+            open={relinkModalOpen}
+            onClose={() => {
+              setRelinkModalOpen(false);
+              setRelinkMirror(undefined);
             }}
-          />
-          <Select
-            placeholder="GitLab Instance"
-            allowClear
-            style={{ minWidth: 200 }}
-            value={gitlabInstanceFilter}
-            onChange={(v) => {
-              setGitlabInstanceFilter(v);
-              setPage(1);
-            }}
-            options={gitlabInstanceOptions}
-          />
-          <Tooltip title="Refresh list">
-            <Button icon={<SearchOutlined />} onClick={() => {}} disabled>
-              Detect Orphaned
-            </Button>
-          </Tooltip>
-        </Flex>
-
-        {/* Table */}
-        {orphanedMirrors.length === 0 ? (
-          <Empty
-            description="No orphaned mirrors found — all mirrors are properly connected"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          />
-        ) : (
-          <Table<OrphanedMirror>
-            rowKey="mirror_id"
-            columns={columns}
-            dataSource={orphanedMirrors}
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              pageSizeOptions: PAGE_SIZE_OPTIONS,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
-            }}
-            loading={isLoading}
-            size="middle"
           />
         )}
-      </Flex>
 
-      {/* Relink Modal */}
-      {relinkMirror && (
-        <RelinkModal
-          mirror={relinkMirror}
-          open={relinkModalOpen}
-          onClose={() => {
-            setRelinkModalOpen(false);
-            setRelinkMirror(undefined);
-          }}
-        />
-      )}
-
-      {/* Delete Confirmation */}
-      <Modal
-        title="Delete Orphaned Mirror"
-        open={!!deleteTarget}
-        onOk={() => deleteTarget && handleDelete(deleteTarget)}
-        onCancel={() => setDeleteTarget(undefined)}
-        okText="Delete"
-        okButtonProps={{ danger: true, loading: isDeleting }}
-        cancelText="Cancel"
-      >
-        <Alert
-          type="warning"
-          title="This will soft-delete the mirror. It can be restored within 30 days."
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-        {deleteTarget && (
-          <Typography.Text>
-            Are you sure you want to delete mirror <strong>"{deleteTarget.mirror_name}"</strong>?
-          </Typography.Text>
-        )}
-      </Modal>
-    </Card>
-  </Flex>
+        {/* Delete Confirmation */}
+        <Modal
+          title="Delete Orphaned Mirror"
+          open={!!deleteTarget}
+          onOk={() => deleteTarget && handleDelete(deleteTarget)}
+          onCancel={() => setDeleteTarget(undefined)}
+          okText="Delete"
+          okButtonProps={{ danger: true, loading: isDeleting }}
+          cancelText="Cancel"
+        >
+          <Alert
+            type="warning"
+            title="This will soft-delete the mirror. It can be restored within 30 days."
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          {deleteTarget && (
+            <Typography.Text>
+              Are you sure you want to delete mirror <strong>"{deleteTarget.mirror_name}"</strong>?
+            </Typography.Text>
+          )}
+        </Modal>
+      </Card>
+    </Flex>
   );
 };
 

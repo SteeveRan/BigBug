@@ -225,10 +225,7 @@ export function Layout() {
           </Space>
           <Space size="middle">
             {hasPermission('admin:panel:access') && (
-              <Button
-                icon={<SafetyOutlined />}
-                onClick={() => navigate('/admin')}
-              >
+              <Button icon={<SafetyOutlined />} onClick={() => navigate('/admin')}>
                 Admin Panel
               </Button>
             )}

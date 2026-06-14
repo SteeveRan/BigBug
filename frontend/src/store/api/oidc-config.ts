@@ -24,7 +24,4 @@ export const oidcConfigApi = api.injectEndpoints({
   }),
 });
 
-export const {
-  useGetOidcConfigQuery,
-  useUpdateOidcConfigMutation,
-} = oidcConfigApi;
+export const { useGetOidcConfigQuery, useUpdateOidcConfigMutation } = oidcConfigApi;

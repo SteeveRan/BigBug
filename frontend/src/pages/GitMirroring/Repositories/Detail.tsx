@@ -31,7 +31,6 @@ import {
   LinkOutlined,
   GithubOutlined,
   StarOutlined,
-  ForkOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
 import {
@@ -60,8 +59,7 @@ const RepositoryDetailPage = () => {
     isError: repoError,
   } = useGetSourceRepositoryQuery(repositoryId, { skip: isNaN(repositoryId) });
 
-  const [refreshRepository, { isLoading: refreshLoading }] =
-    useRefreshSourceRepositoryMutation();
+  const [refreshRepository, { isLoading: refreshLoading }] = useRefreshSourceRepositoryMutation();
 
   // Fetch releases (when releases or info tab is active — info tab needs pre-release data)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
@@ -251,14 +249,10 @@ const RepositoryDetailPage = () => {
           <Card title="Activity">
             <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
               <Descriptions.Item label="Last Commit">
-                {repo.source_pushed_at
-                  ? new Date(repo.source_pushed_at).toLocaleString()
-                  : '—'}
+                {repo.source_pushed_at ? new Date(repo.source_pushed_at).toLocaleString() : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Last Commit Date">
-                {repo.source_pushed_at
-                  ? new Date(repo.source_pushed_at).toLocaleDateString()
-                  : '—'}
+                {repo.source_pushed_at ? new Date(repo.source_pushed_at).toLocaleDateString() : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Latest Release">
                 {repo.latest_release_tag ? (
@@ -373,6 +367,20 @@ const RepositoryDetailPage = () => {
           { title: 'Repositories', onClick: () => navigate('/git-mirroring/repositories') },
           { title: repo.name },
         ]}
+        itemRender={(route, _params, routes) => {
+          const last = routes.indexOf(route) === routes.length - 1;
+          if (last) return <span>{route.title}</span>;
+          return (
+            <a
+              onClick={(e) => {
+                e.preventDefault();
+                (route.onClick as (e: React.MouseEvent) => void)?.(e);
+              }}
+            >
+              {route.title}
+            </a>
+          );
+        }}
       />
 
       {/* ── Title ───────────────────────────────────────────────────────────── */}

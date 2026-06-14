@@ -182,10 +182,7 @@ export {
 } from './api/integrations';
 
 // OIDC Config
-export {
-  useGetOidcConfigQuery,
-  useUpdateOidcConfigMutation,
-} from './api/oidc-config';
+export { useGetOidcConfigQuery, useUpdateOidcConfigMutation } from './api/oidc-config';
 
 // Pipeline Runs
 export {
@@ -291,6 +288,4 @@ export {
 } from './api/reports';
 
 // Audit Logs
-export {
-  useGetAuditLogsQuery,
-} from './api/audit-logs';
+export { useGetAuditLogsQuery } from './api/audit-logs';

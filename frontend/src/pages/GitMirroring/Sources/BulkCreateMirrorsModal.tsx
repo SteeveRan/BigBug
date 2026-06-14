@@ -50,9 +50,7 @@ export function BulkCreateMirrorsModal({ open, onClose, groupId }: BulkCreateMir
     if (!search.trim()) return repositories;
     const term = search.toLowerCase();
     return repositories.filter(
-      (r) =>
-        r.name.toLowerCase().includes(term) ||
-        r.full_name.toLowerCase().includes(term)
+      (r) => r.name.toLowerCase().includes(term) || r.full_name.toLowerCase().includes(term)
     );
   }, [repositories, search]);
 
@@ -189,8 +187,8 @@ export function BulkCreateMirrorsModal({ open, onClose, groupId }: BulkCreateMir
         )}
 
         <Typography.Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
-          Target project names will be auto-generated from repository names.
-          A mirror will be created for each selected repository.
+          Target project names will be auto-generated from repository names. A mirror will be
+          created for each selected repository.
         </Typography.Text>
       </Form>
     </Modal>
