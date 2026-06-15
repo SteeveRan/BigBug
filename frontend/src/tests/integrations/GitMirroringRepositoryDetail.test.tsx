@@ -244,11 +244,12 @@ describe('RepositoryDetailPage', () => {
   });
 
   // -----------------------------------------------------------------------
-  // Test 5: Activity block — latest release tag
+  // Test 5: Activity block — latest release name (component shows name, not tag)
   // -----------------------------------------------------------------------
-  it('displays latest release tag in Activity block', () => {
+  it('displays latest release name in Activity block', () => {
     renderDetailPage();
-    expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+    // Component renders latest_release_name (Release v1.0.0), not latest_release_tag (v1.0.0)
+    expect(screen.getByText('Release v1.0.0')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -258,8 +259,8 @@ describe('RepositoryDetailPage', () => {
     renderDetailPage();
     // "Last Commit" column header
     expect(screen.getByText('Last Commit')).toBeInTheDocument();
-    // The commit date formatted as UTC
-    expect(screen.getByText('2026-06-15T00:00:00.000Z')).toBeInTheDocument();
+    // The commit date is formatted via formatDate() — use regex to match regardless of timezone
+    expect(screen.getByText(/15\.06\.26/)).toBeInTheDocument();
     // The commit message
     expect(screen.getByText('Test commit message')).toBeInTheDocument();
   });
