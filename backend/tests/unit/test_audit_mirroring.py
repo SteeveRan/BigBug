@@ -623,3 +623,140 @@ async def test_mirror_sync_failed_audit(db_session: AsyncSession, client: AsyncC
     assert _find_audit_action(mock_audit, "mirror.sync_failed"), (
         "Expected mirror.sync_failed audit event"
     )
+
+
+# ── refresh_source_repository fixes ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_refresh_source_repository_uses_full_name_not_uuid(
+    db_session: AsyncSession, client: AsyncClient, login_headers: dict
+):
+    """POST /repositories/{id}/refresh uses full_name when external_id is a UUID.
+
+    Regression test: manually-added repositories get external_id=str(uuid.uuid4())
+    but refresh must pass full_name (owner/repo) to provider.get_repository().
+    """
+    import uuid
+
+    sp = await _seed_source_provider(db_session, credential_name="refresh-fullname-prov")
+    sg = SourceGroup(
+        external_id="testorg",
+        name="testorg",
+        full_path="https://github.com/testorg",
+    )
+    db_session.add(sg)
+    await db_session.commit()
+    await db_session.refresh(sg)
+
+    sr = SourceRepository(
+        source_group_id=sg.id,
+        source_provider_id=sp.id,
+        external_id=str(uuid.uuid4()),
+        name="my-repo",
+        full_name="testorg/my-repo",
+        clone_url_https="https://github.com/testorg/my-repo.git",
+    )
+    db_session.add(sr)
+    await db_session.commit()
+    await db_session.refresh(sr)
+
+    mock_repo_data = {
+        "name": "my-repo",
+        "full_name": "testorg/my-repo",
+        "description": "Updated description",
+        "language": "Python",
+        "stars": 42,
+        "forks": 3,
+        "private": False,
+        "archived": False,
+        "fork": False,
+        "disabled": False,
+        "default_branch": "main",
+        "html_url": "https://github.com/testorg/my-repo",
+        "clone_url": "https://github.com/testorg/my-repo.git",
+    }
+
+    with (
+        patch(
+            "app.services.source_providers.create_source_provider",
+            new_callable=AsyncMock,
+        ) as mock_factory,
+    ):
+        mock_provider = AsyncMock()
+        mock_provider.get_repository = AsyncMock(return_value=mock_repo_data)
+        mock_factory.return_value = mock_provider
+
+        response = await client.post(
+            f"/api/mirroring/repositories/{sr.id}/refresh",
+            headers=login_headers,
+        )
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.json().get('detail', response.text)}"
+    )
+
+    # Verify provider.get_repository received full_name, not the UUID
+    mock_provider.get_repository.assert_called_once_with("testorg/my-repo")
+
+
+@pytest.mark.asyncio
+async def test_refresh_source_repository_handles_domain_error_gracefully(
+    db_session: AsyncSession, client: AsyncClient, login_headers: dict
+):
+    """POST /repositories/{id}/refresh returns proper error when provider fails.
+
+    Regression test: exc.message → exc.detail (AttributeError fix).
+    """
+    sp = await _seed_source_provider(db_session, credential_name="refresh-err-prov")
+    sg = SourceGroup(
+        external_id="testorg",
+        name="testorg",
+        full_path="https://github.com/testorg",
+    )
+    db_session.add(sg)
+    await db_session.commit()
+    await db_session.refresh(sg)
+
+    sr = SourceRepository(
+        source_group_id=sg.id,
+        source_provider_id=sp.id,
+        external_id="12345",
+        name="gone-repo",
+        full_name="testorg/gone-repo",
+        clone_url_https="https://github.com/testorg/gone-repo.git",
+    )
+    db_session.add(sr)
+    await db_session.commit()
+    await db_session.refresh(sr)
+
+    from app.core.exceptions import DomainError
+
+    with (
+        patch(
+            "app.services.source_providers.create_source_provider",
+            new_callable=AsyncMock,
+        ) as mock_factory,
+    ):
+        mock_provider = AsyncMock()
+        mock_provider.get_repository = AsyncMock(
+            side_effect=DomainError(
+                "GitHub resource not found during get_repository/testorg/gone-repo: Not Found",
+                status_code=404,
+            )
+        )
+        mock_factory.return_value = mock_provider
+
+        response = await client.post(
+            f"/api/mirroring/repositories/{sr.id}/refresh",
+            headers=login_headers,
+        )
+
+    assert response.status_code == 404, (
+        f"Expected 404, got {response.status_code}: {response.text}"
+    )
+    data = response.json()
+    assert "detail" in data
+    assert "Failed to refresh repository metadata" in data["detail"]
+    # exc.message was the old (broken) attribute; exc.detail is the fix
+    assert "GitHub resource not found" in data["detail"]

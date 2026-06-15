@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import html as _html_module
 import logging
+import re
 from typing import TYPE_CHECKING
 
 import gitlab
@@ -73,6 +74,51 @@ _GITLAB_LICENSE_TO_SPDX: dict[str, str | None] = {
     "eclipse public license 2.0": "EPL-2.0",
     "do what the f*ck you want to public license": "WTFPL",
 }
+
+# ---------------------------------------------------------------------------
+# Semver prerelease detection
+# ---------------------------------------------------------------------------
+# GitLab API does not expose a dedicated ``prerelease`` flag on releases,
+# unlike GitHub.  We detect prereleases heuristically from the tag name
+# using semver 2.0 conventions: a tag is a prerelease if it contains a
+# hyphen followed by alphanumeric/period characters after the version
+# portion (e.g. v1.0.0-alpha.1, 2.0.0-rc.1, v3.0.0-beta).
+# ---------------------------------------------------------------------------
+
+# Matches semver-style prerelease patterns with common keywords
+_PRERELEASE_TAG_RE = re.compile(
+    r"^(?:v?\d+\.\d+\.\d+|v?\d+\.\d+|v?\d+)[.-](?:alpha|beta|rc|pre|dev|snapshot|nightly|canary|test)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_prerelease_tag(tag: str) -> bool:
+    """
+    Heuristically determine whether a tag name represents a prerelease.
+
+    Uses two strategies:
+    1.  Match against common semver prerelease patterns (alpha, beta, rc, etc.).
+    2.  Fall back to the general semver prerelease form: major.minor.patch-identifier.
+
+    Args:
+        tag: The release tag name (e.g. ``"v2.0.0-beta.1"``).
+
+    Returns:
+        True if the tag looks like a prerelease.
+    """
+    if not tag:
+        return False
+
+    # Strategy 1: common prerelease keywords
+    if _PRERELEASE_TAG_RE.search(tag):
+        return True
+
+    # Strategy 2: general semver prerelease — major.minor.patch-DASH...
+    stripped = tag.lstrip("v")
+    if re.match(r"^\d+\.\d+\.\d+-", stripped):
+        return True
+
+    return False
 
 
 def _resolve_license_spdx(license_obj: dict | None) -> tuple[str | None, str | None]:
@@ -407,7 +453,7 @@ class GitLabSourceProvider(BaseSourceProvider):
     async def get_repository(self, repo_external_id: str) -> dict:
         """
         Get detailed information for a single GitLab project, including
-        license, README, and latest release.
+        license, README, latest stable release and latest prerelease.
 
         repo_external_id is the project path_with_namespace
         (equivalent to "owner/repo" on GitHub).
@@ -419,7 +465,9 @@ class GitLabSourceProvider(BaseSourceProvider):
             Dict with repository metadata including license_spdx,
             license_name, readme_html, latest_release_tag,
             latest_release_name, latest_release_published_at,
-            latest_release_author, latest_release_html_url.
+            latest_release_author, latest_release_html_url,
+            latest_prerelease_tag, latest_prerelease_name,
+            latest_prerelease_published_at, latest_prerelease_html_url.
         """
         gl = self._get_client()
 
@@ -453,36 +501,65 @@ class GitLabSourceProvider(BaseSourceProvider):
                     repo_external_id,
                 )
 
-            # Latest release
+            # Releases — fetch the full list (ordered by released_at
+            # descending) and separate the latest stable release from the
+            # latest prerelease.  GitLab API does not expose a dedicated
+            # ``prerelease`` flag, so we use :func:`_is_prerelease_tag` to
+            # inspect the tag name.
             latest_release_tag: str | None = None
             latest_release_name: str | None = None
             latest_release_published_at: str | None = None
             latest_release_author: str | None = None
             latest_release_html_url: str | None = None
 
+            latest_prerelease_tag: str | None = None
+            latest_prerelease_name: str | None = None
+            latest_prerelease_published_at: str | None = None
+            latest_prerelease_html_url: str | None = None
+
             try:
 
                 def _fetch_releases():
-                    return project.releases.list(per_page=1, order_by="released_at", sort="desc")
+                    return project.releases.list(
+                        per_page=100, order_by="released_at", sort="desc"
+                    )
 
                 releases = await asyncio.to_thread(_fetch_releases)
-                if releases:
-                    release = releases[0]
-                    latest_release_tag = getattr(release, "tag_name", None)
-                    latest_release_name = getattr(release, "name", None)
-                    latest_release_published_at = (
+                for release in releases:
+                    tag = getattr(release, "tag_name", None)
+                    if not tag:
+                        continue
+
+                    is_prerelease = _is_prerelease_tag(tag)
+                    title = getattr(release, "name", None) or tag
+                    published_at = (
                         getattr(release, "released_at", None).isoformat()
                         if getattr(release, "released_at", None)
                         else None
                     )
-                    latest_release_author = (
-                        release.author.get("name") if getattr(release, "author", None) else None
-                    )
-                    latest_release_html_url = (
-                        f"{project.web_url}/-/releases/{latest_release_tag}"
-                        if latest_release_tag
+                    html_url = f"{project.web_url}/-/releases/{tag}"
+                    author = (
+                        release.author.get("name")
+                        if getattr(release, "author", None)
                         else None
                     )
+
+                    if is_prerelease and latest_prerelease_tag is None:
+                        latest_prerelease_tag = tag
+                        latest_prerelease_name = title
+                        latest_prerelease_published_at = published_at
+                        latest_prerelease_html_url = html_url
+                    elif not is_prerelease and latest_release_tag is None:
+                        latest_release_tag = tag
+                        latest_release_name = title
+                        latest_release_published_at = published_at
+                        latest_release_author = author
+                        latest_release_html_url = html_url
+
+                    # Stop once both are found
+                    if latest_release_tag is not None and latest_prerelease_tag is not None:
+                        break
+
             except GitlabError:
                 logger.debug(
                     "Failed to fetch releases for project '%s'",
@@ -500,6 +577,10 @@ class GitLabSourceProvider(BaseSourceProvider):
                 "latest_release_published_at": latest_release_published_at,
                 "latest_release_author": latest_release_author,
                 "latest_release_html_url": latest_release_html_url,
+                "latest_prerelease_tag": latest_prerelease_tag,
+                "latest_prerelease_name": latest_prerelease_name,
+                "latest_prerelease_published_at": latest_prerelease_published_at,
+                "latest_prerelease_html_url": latest_prerelease_html_url,
             }
 
         except GitlabError as exc:

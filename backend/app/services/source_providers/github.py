@@ -84,6 +84,53 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
     Returns:
         Dict with repository metadata.
     """
+    # Releases — fetch once and reuse.
+    # GitHub orders releases by creation date descending, but the first page may
+    # contain prereleases.  We need to find the first *stable* release for
+    # ``latest_release_*`` and separately the first prerelease (if any).
+    releases_paginated = repo.get_releases() if hasattr(repo, "get_releases") else None
+    releases_count = releases_paginated.totalCount if releases_paginated else 0
+
+    latest_release_tag: str | None = None
+    latest_release_name: str | None = None
+    latest_release_published_at: str | None = None
+    latest_release_html_url: str | None = None
+
+    latest_prerelease_tag: str | None = None
+    latest_prerelease_name: str | None = None
+    latest_prerelease_published_at: str | None = None
+    latest_prerelease_html_url: str | None = None
+
+    if releases_count > 0 and releases_paginated is not None:
+        try:
+            for release in releases_paginated:
+                is_prerelease = getattr(release, "prerelease", False)
+                tag = release.tag_name
+                title = getattr(release, "title", tag)
+                published_at = (
+                    release.published_at.isoformat() if release.published_at else None
+                )
+                html_url = getattr(release, "html_url", None)
+
+                if is_prerelease and latest_prerelease_tag is None:
+                    latest_prerelease_tag = tag
+                    latest_prerelease_name = title
+                    latest_prerelease_published_at = published_at
+                    latest_prerelease_html_url = html_url
+                elif not is_prerelease and latest_release_tag is None:
+                    latest_release_tag = tag
+                    latest_release_name = title
+                    latest_release_published_at = published_at
+                    latest_release_html_url = html_url
+
+                # Stop once we have both
+                if latest_release_tag is not None and latest_prerelease_tag is not None:
+                    break
+        except Exception:
+            logger.debug(
+                "Failed to fetch releases for '%s'", repo.full_name, exc_info=True
+            )
+
     result: dict = {
         "external_id": repo.id,
         "name": repo.name,
@@ -111,8 +158,16 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
         # License
         "license_spdx": repo.license.spdx_id if repo.license else None,
         "license_name": repo.license.name if repo.license else None,
-        # Releases (use totalCount to avoid loading all releases)
-        "releases_count": (repo.get_releases().totalCount if hasattr(repo, "get_releases") else 0),
+        # Releases
+        "releases_count": releases_count,
+        "latest_release_tag": latest_release_tag,
+        "latest_release_name": latest_release_name,
+        "latest_release_published_at": latest_release_published_at,
+        "latest_release_html_url": latest_release_html_url,
+        "latest_prerelease_tag": latest_prerelease_tag,
+        "latest_prerelease_name": latest_prerelease_name,
+        "latest_prerelease_published_at": latest_prerelease_published_at,
+        "latest_prerelease_html_url": latest_prerelease_html_url,
     }
 
     if include_extra:

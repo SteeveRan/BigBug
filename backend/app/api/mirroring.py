@@ -1447,13 +1447,13 @@ async def refresh_source_repository(
     provider = await create_source_provider(sp, credential_secret)
 
     # ── 3. Fetch fresh metadata from upstream ──────────────────────────────
-    external_id = repo.external_id or repo.full_name
+    external_id = repo.full_name or repo.external_id
     try:
         fresh_data = await provider.get_repository(external_id)
     except DomainError as exc:
         raise HTTPException(
             status_code=exc.status_code,
-            detail=f"Failed to refresh repository metadata: {exc.message}",
+            detail=f"Failed to refresh repository metadata: {exc.detail}",
         ) from exc
 
     # ── 4. Update mutable fields ───────────────────────────────────────────
@@ -1476,6 +1476,31 @@ async def refresh_source_repository(
     repo.source_created_at = fresh_data.get("created_at")
     repo.source_updated_at = fresh_data.get("updated_at")
     repo.source_pushed_at = fresh_data.get("pushed_at")
+    # Latest release (may be None for repos without releases)
+    if fresh_data.get("latest_release_tag"):
+        repo.latest_release_tag = fresh_data["latest_release_tag"]
+        repo.latest_release_name = fresh_data.get("latest_release_name")
+        published_at = fresh_data.get("latest_release_published_at")
+        if published_at is not None:
+            repo.latest_release_date = datetime.fromisoformat(published_at)
+        else:
+            repo.latest_release_date = None
+        repo.latest_release_url = fresh_data.get("latest_release_html_url")
+    # Latest prerelease (may be None if no prereleases exist)
+    if fresh_data.get("latest_prerelease_tag"):
+        repo.latest_prerelease_tag = fresh_data["latest_prerelease_tag"]
+        repo.latest_prerelease_name = fresh_data.get("latest_prerelease_name")
+        prerelease_published_at = fresh_data.get("latest_prerelease_published_at")
+        if prerelease_published_at is not None:
+            repo.latest_prerelease_date = datetime.fromisoformat(prerelease_published_at)
+        else:
+            repo.latest_prerelease_date = None
+        repo.latest_prerelease_url = fresh_data.get("latest_prerelease_html_url")
+    else:
+        repo.latest_prerelease_tag = None
+        repo.latest_prerelease_name = None
+        repo.latest_prerelease_date = None
+        repo.latest_prerelease_url = None
     repo.last_seen_at = datetime.now(UTC)
 
     # ── 5. Audit + persist ─────────────────────────────────────────────────

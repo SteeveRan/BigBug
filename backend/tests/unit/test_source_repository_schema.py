@@ -36,6 +36,8 @@ class TestSourceRepositoryListOut:
             "discovery_status",
             "latest_release_tag",
             "latest_release_date",
+            "latest_prerelease_tag",
+            "latest_prerelease_date",
             "source_pushed_at",
             "last_seen_at",
             "is_deleted",

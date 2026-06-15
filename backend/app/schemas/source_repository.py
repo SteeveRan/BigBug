@@ -41,6 +41,8 @@ class SourceRepositoryListOut(BaseModel):
     discovery_status: str
     latest_release_tag: str | None = None
     latest_release_date: datetime | None = None
+    latest_prerelease_tag: str | None = None
+    latest_prerelease_date: datetime | None = None
     source_pushed_at: datetime | None = None
     last_seen_at: datetime | None = None
     is_deleted: bool
@@ -74,6 +76,10 @@ class SourceRepositoryDetailOut(BaseModel):
     latest_release_name: str | None = None
     latest_release_date: datetime | None = None
     latest_release_url: str | None = None
+    latest_prerelease_tag: str | None = None
+    latest_prerelease_name: str | None = None
+    latest_prerelease_date: datetime | None = None
+    latest_prerelease_url: str | None = None
     is_archived: bool
     is_fork: bool
     is_disabled: bool

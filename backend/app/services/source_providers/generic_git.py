@@ -565,6 +565,10 @@ class GenericGitSourceProvider(BaseSourceProvider):
                 "latest_release_published_at": None,
                 "latest_release_author": None,
                 "latest_release_html_url": None,
+                "latest_prerelease_tag": None,
+                "latest_prerelease_name": None,
+                "latest_prerelease_published_at": None,
+                "latest_prerelease_html_url": None,
             }
             return result
 

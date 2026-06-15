@@ -513,6 +513,10 @@ class TestGetRepository:
         assert repo["latest_release_published_at"] is None
         assert repo["latest_release_author"] is None
         assert repo["latest_release_html_url"] is None
+        assert repo["latest_prerelease_tag"] is None
+        assert repo["latest_prerelease_name"] is None
+        assert repo["latest_prerelease_published_at"] is None
+        assert repo["latest_prerelease_html_url"] is None
 
     @pytest.mark.asyncio
     async def test_get_repository_with_license(self):
@@ -619,6 +623,71 @@ class TestGetRepository:
         assert repo["latest_release_published_at"] == "2025-06-01T12:00:00+00:00"
         assert repo["latest_release_author"] == "Release Bot"
         assert "/-/releases/v2.0.0" in repo["latest_release_html_url"]
+        # No prerelease in this test — v2.0.0 is a stable tag
+        assert repo["latest_prerelease_tag"] is None
+        assert repo["latest_prerelease_name"] is None
+        assert repo["latest_prerelease_published_at"] is None
+        assert repo["latest_prerelease_html_url"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_repository_with_prerelease(self):
+        """get_repository separates the latest stable release from the latest prerelease."""
+        mock_gitlab_cls = MagicMock()
+
+        with patch(
+            "app.services.source_providers.gitlab.gitlab.Gitlab",
+            mock_gitlab_cls,
+        ):
+            provider = _make_provider()
+            gl_provider = GitLabSourceProvider(provider, credential_secret="fake-token")
+
+        mock_project = _make_mock_project(
+            id=12345,
+            name="prerelease-project",
+            path_with_namespace="engineering/prerelease-project",
+            web_url="https://gitlab.example.com/engineering/prerelease-project",
+        )
+        mock_project.license = None
+        mock_project.repository_raw.side_effect = GitlabError(response_code=404)
+
+        # First release in the list is the prerelease (latest by date)
+        mock_prerelease = MagicMock()
+        mock_prerelease.tag_name = "v3.0.0-rc1"
+        mock_prerelease.name = "3.0 RC1"
+        mock_prerelease.released_at = MagicMock()
+        mock_prerelease.released_at.isoformat.return_value = "2025-12-01T10:00:00+00:00"
+        mock_prerelease.author = {"name": "Dev Bot"}
+
+        # Second release is the latest stable
+        mock_stable = MagicMock()
+        mock_stable.tag_name = "v2.5.0"
+        mock_stable.name = "Version 2.5"
+        mock_stable.released_at = MagicMock()
+        mock_stable.released_at.isoformat.return_value = "2025-11-15T08:00:00+00:00"
+        mock_stable.author = {"name": "Release Bot"}
+
+        # GitLab API returns releases sorted by released_at descending,
+        # so the prerelease comes first
+        mock_project.releases.list.return_value = [mock_prerelease, mock_stable]
+
+        mock_gl = MagicMock()
+        mock_gl.projects.get.return_value = mock_project
+
+        with patch.object(gl_provider, "_get_client", return_value=mock_gl):
+            repo = await gl_provider.get_repository("engineering/prerelease-project")
+
+        # Stable release should be v2.5.0 (NOT the prerelease)
+        assert repo["latest_release_tag"] == "v2.5.0"
+        assert repo["latest_release_name"] == "Version 2.5"
+        assert repo["latest_release_published_at"] == "2025-11-15T08:00:00+00:00"
+        assert repo["latest_release_author"] == "Release Bot"
+        assert "/-/releases/v2.5.0" in repo["latest_release_html_url"]
+
+        # Prerelease should be v3.0.0-rc1
+        assert repo["latest_prerelease_tag"] == "v3.0.0-rc1"
+        assert repo["latest_prerelease_name"] == "3.0 RC1"
+        assert repo["latest_prerelease_published_at"] == "2025-12-01T10:00:00+00:00"
+        assert "/-/releases/v3.0.0-rc1" in repo["latest_prerelease_html_url"]
 
     @pytest.mark.asyncio
     async def test_get_repository_api_error(self):

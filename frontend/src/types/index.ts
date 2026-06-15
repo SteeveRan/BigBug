@@ -834,6 +834,10 @@ export interface SourceRepository {
   latest_release_name: string | null;
   latest_release_date: string | null;
   latest_release_url: string | null;
+  latest_prerelease_tag: string | null;
+  latest_prerelease_name: string | null;
+  latest_prerelease_date: string | null;
+  latest_prerelease_url: string | null;
   is_archived: boolean;
   is_fork: boolean;
   is_disabled: boolean;

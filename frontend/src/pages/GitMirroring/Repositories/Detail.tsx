@@ -4,7 +4,7 @@
  * @dependencies antd, react-router, RTK Query
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import {
   Card,
@@ -61,17 +61,11 @@ const RepositoryDetailPage = () => {
 
   const [refreshRepository, { isLoading: refreshLoading }] = useRefreshSourceRepositoryMutation();
 
-  // Fetch releases (when releases or info tab is active — info tab needs pre-release data)
+  // Fetch releases (only when releases tab is active)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
     { repository_id: repositoryId, include_prereleases: true },
-    { skip: (activeTab !== 'releases' && activeTab !== 'info') || isNaN(repositoryId) }
+    { skip: activeTab !== 'releases' || isNaN(repositoryId) }
   );
-
-  // Latest pre-release for Activity block
-  const latestPrerelease = useMemo(() => {
-    if (activeTab !== 'info') return null;
-    return releases.filter((r: SourceRepositoryRelease) => r.is_prerelease)[0] ?? null;
-  }, [releases, activeTab]);
 
   // Fetch README (only when readme tab is active)
   const {
@@ -274,15 +268,22 @@ const RepositoryDetailPage = () => {
                   : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Latest Pre-release">
-                {latestPrerelease?.release_tag ? (
-                  <Typography.Text code>{latestPrerelease.release_tag}</Typography.Text>
+                {repo.latest_prerelease_tag ? (
+                  <Space>
+                    <Typography.Text code>{repo.latest_prerelease_tag}</Typography.Text>
+                    {repo.latest_prerelease_name && (
+                      <Typography.Text type="secondary">
+                        ({repo.latest_prerelease_name})
+                      </Typography.Text>
+                    )}
+                  </Space>
                 ) : (
                   '—'
                 )}
               </Descriptions.Item>
               <Descriptions.Item label="Latest Pre-release Date">
-                {latestPrerelease?.published_at
-                  ? new Date(latestPrerelease.published_at).toLocaleString()
+                {repo.latest_prerelease_date
+                  ? new Date(repo.latest_prerelease_date).toLocaleString()
                   : '—'}
               </Descriptions.Item>
             </Descriptions>
