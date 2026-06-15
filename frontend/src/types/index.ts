@@ -851,6 +851,16 @@ export interface SourceRepository {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  // ---- Metadata fetch status ----
+  status_flag: number;
+  status_text: string | null;
+  // ---- Last commit metadata ----
+  last_commit_sha: string | null;
+  last_commit_date: string | null;
+  last_commit_author: string | null;
+  last_commit_message: string | null;
+  // ---- Provider type (from source_provider) ----
+  provider_type: string;
   source_provider?: SourceProvider | null;
   source_group?: SourceGroup | null;
   mirrors?: Mirror[] | null;
@@ -863,20 +873,18 @@ export interface SourceRepositoryCreate {
 }
 
 export interface SourceRepositoryReadme {
-  repository_id: number;
-  html?: string;
-  markdown?: string;
-  fetched_at?: string;
+  readme_html?: string;
+  readme_fetched_at?: string;
 }
 
 export interface SourceRepositoryRelease {
   id: number;
-  release_tag: string;
-  release_name?: string;
-  release_body?: string;
+  tag: string;
+  name?: string;
+  description?: string;
   is_prerelease: boolean;
   published_at: string;
-  html_url: string;
+  url: string;
 }
 
 export interface Mirror {

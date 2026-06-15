@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from app.schemas.source_provider import SourceProviderOut
     from app.schemas.source_repository import SourceRepositoryListOut
 
 

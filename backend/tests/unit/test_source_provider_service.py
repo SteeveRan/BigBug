@@ -427,7 +427,6 @@ class TestAnonymousMode:
     @pytest.mark.asyncio
     async def test_check_access_anonymous_uses_rate_limit(self):
         """Anonymous check_access uses rate_limit endpoint for connectivity test."""
-        from github import GithubException
 
         provider = _make_provider(credential_id=None, is_anon=True)
         gh_provider = GitHubSourceProvider(provider, credential_secret=None)

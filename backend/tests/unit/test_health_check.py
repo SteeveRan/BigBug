@@ -407,27 +407,19 @@ class TestCheckSystemAnonymous:
             report = await HealthCheckService.check_system(db_session)
 
         # The anonymous source provider should have been created with None secret
-        create_calls = [
-            c for c in mock_create.call_args_list
-            if c.args[0].id == sp.id
-        ]
+        create_calls = [c for c in mock_create.call_args_list if c.args[0].id == sp.id]
         assert len(create_calls) == 1
         call_args, _ = create_calls[0]
         assert call_args[1] is None  # credential_secret=None
 
         # Should report OK, not WARNING about missing credential
-        sp_items = [
-            item for item in report.items
-            if f"source_provider:{sp.id}" in item.component
-        ]
+        sp_items = [item for item in report.items if f"source_provider:{sp.id}" in item.component]
         assert len(sp_items) == 1
         assert sp_items[0].severity == HealthCheckSeverity.OK
         assert "(anonymous)" in sp_items[0].message
 
     @pytest.mark.asyncio
-    async def test_check_system_anon_provider_failure(
-        self, db_session: AsyncSession
-    ):
+    async def test_check_system_anon_provider_failure(self, db_session: AsyncSession):
         """check_system reports ERROR when anonymous provider access fails."""
         sp = SourceProvider(
             label="anon-bad",
@@ -448,10 +440,7 @@ class TestCheckSystemAnonymous:
 
             report = await HealthCheckService.check_system(db_session)
 
-        sp_items = [
-            item for item in report.items
-            if f"source_provider:{sp.id}" in item.component
-        ]
+        sp_items = [item for item in report.items if f"source_provider:{sp.id}" in item.component]
         assert len(sp_items) == 1
         assert sp_items[0].severity == HealthCheckSeverity.ERROR
         assert "Connection refused" in sp_items[0].message
@@ -461,9 +450,7 @@ class TestCheckMirrorAnonymous:
     """Tests for HealthCheckService.check_mirror() with anonymous providers."""
 
     @pytest.mark.asyncio
-    async def test_check_mirror_anon_source_accessible(
-        self, db_session: AsyncSession
-    ):
+    async def test_check_mirror_anon_source_accessible(self, db_session: AsyncSession):
         """check_mirror creates anonymous provider and checks source accessibility."""
         mirror = await _seed_anon_health_mirror(db_session)
 
@@ -505,25 +492,19 @@ class TestCheckMirrorAnonymous:
 
         # Should have "Source repo ... is accessible" item
         source_items = [
-            item for item in report.items
+            item
+            for item in report.items
             if "is accessible" in item.message and "Source repo" in item.message
         ]
         assert len(source_items) == 1
         assert source_items[0].severity == HealthCheckSeverity.OK
 
         # Should NOT have "has no credential" warning
-        no_cred_items = [
-            item for item in report.items
-            if "has no credential" in item.message
-        ]
+        no_cred_items = [item for item in report.items if "has no credential" in item.message]
         assert len(no_cred_items) == 0
 
         # create_source_provider should have been called with None secret
-        create_calls_for_sp = [
-            c for c in mock_create.call_args_list
-            if c.args[0].is_anon
-        ]
+        create_calls_for_sp = [c for c in mock_create.call_args_list if c.args[0].is_anon]
         assert len(create_calls_for_sp) >= 1
         call_args, _ = create_calls_for_sp[0]
         assert call_args[1] is None
-

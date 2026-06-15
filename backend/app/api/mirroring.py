@@ -31,6 +31,7 @@ from app.core.rbac import get_current_user, require_permission, require_scope_pe
 from app.database import get_db
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLogType
+from app.models.mirror_release_log import MirrorReleaseLog
 from app.models.source_group import SourceGroup
 from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import DiscoveryStatus, SourceRepository
@@ -171,6 +172,321 @@ async def _detect_default_branch(clone_url: str) -> str | None:
 
 
 # ===================================================================
+# Background metadata fetch helpers
+# ===================================================================
+
+
+def _set_repo_status(repo: SourceRepository, status_flag: int, status_text: str) -> None:
+    """Set status tracking fields on a SourceRepository instance."""
+    repo.status_flag = status_flag
+    repo.status_text = status_text
+
+
+async def _sync_releases_from_github(
+    db: AsyncSession, source_repository_id: int, full_name: str, provider
+) -> int:
+    """Fetch all releases from a GitHub repository and create MirrorReleaseLog records.
+
+    Returns the number of new records created.
+    """
+    from github import GithubException
+
+    from app.services.source_providers.github import _map_github_exception
+
+    try:
+        gh = provider._get_client()
+        gh_repo = gh.get_repo(full_name)
+        releases = gh_repo.get_releases()
+
+        created = 0
+        for release in releases:
+            tag: str = release.tag_name
+            existing = await db.execute(
+                select(MirrorReleaseLog).where(
+                    MirrorReleaseLog.source_repository_id == source_repository_id,
+                    MirrorReleaseLog.tag == tag,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                continue
+
+            log = MirrorReleaseLog(
+                source_repository_id=source_repository_id,
+                tag=tag,
+                name=getattr(release, "title", None) or tag,
+                description=getattr(release, "body", None),
+                url=getattr(release, "html_url", None),
+                published_at=release.published_at,
+                is_prerelease=getattr(release, "prerelease", False),
+            )
+            db.add(log)
+            created += 1
+
+        if created > 0:
+            await db.flush()
+
+        return created
+    except GithubException as exc:
+        raise _map_github_exception(exc, f"sync_releases/{full_name}") from exc
+
+
+async def _sync_releases_from_gitlab(
+    db: AsyncSession, source_repository_id: int, full_name: str, provider
+) -> int:
+    """Fetch all releases from a GitLab project and create MirrorReleaseLog records.
+
+    Returns the number of new records created.
+    """
+    from gitlab import GitlabError
+
+    from app.services.source_providers.gitlab import _is_prerelease_tag, _map_gitlab_exception
+
+    try:
+        gl = provider._get_client()
+
+        def _fetch():
+            project = gl.projects.get(full_name)
+            releases = project.releases.list(per_page=100, order_by="released_at", sort="desc")
+            return project, releases
+
+        project, releases = await asyncio.to_thread(_fetch)
+
+        created = 0
+        for release in releases:
+            tag: str | None = getattr(release, "tag_name", None)
+            if not tag:
+                continue
+
+            existing = await db.execute(
+                select(MirrorReleaseLog).where(
+                    MirrorReleaseLog.source_repository_id == source_repository_id,
+                    MirrorReleaseLog.tag == tag,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                continue
+
+            is_prerelease = _is_prerelease_tag(tag)
+            log = MirrorReleaseLog(
+                source_repository_id=source_repository_id,
+                tag=tag,
+                name=getattr(release, "name", None) or tag,
+                description=getattr(release, "description", None),
+                url=f"{project.web_url}/-/releases/{tag}",
+                published_at=getattr(release, "released_at", None),
+                is_prerelease=is_prerelease,
+            )
+            db.add(log)
+            created += 1
+
+        if created > 0:
+            await db.flush()
+
+        return created
+    except GitlabError as exc:
+        raise _map_gitlab_exception(exc, f"sync_releases/{full_name}") from exc
+
+
+async def _fetch_generic_commit_info(repo: SourceRepository) -> None:
+    """Fetch HEAD commit info from a generic Git repository using GitPython (bare clone)."""
+    import shutil
+    import tempfile
+
+    clone_url: str | None = repo.clone_url_https or repo.clone_url_ssh
+    if not clone_url:
+        _set_repo_status(repo, 1, "No clone URL available")
+        return
+
+    tmpdir = tempfile.mkdtemp(prefix="bigbug_bg_")
+    try:
+        from git import Repo
+
+        repo_obj = Repo.clone_from(clone_url, tmpdir, bare=True, depth=1)
+
+        try:
+            head_commit = repo_obj.head.commit
+        except ValueError:
+            # No commits in repository
+            _set_repo_status(repo, 0, "OK (empty repository)")
+            return
+
+        repo.last_commit_sha = head_commit.hexsha
+        repo.last_commit_date = head_commit.committed_datetime
+        repo.last_commit_author = head_commit.author.name
+        repo.last_commit_message = head_commit.message[:500] if head_commit.message else None
+
+    except Exception as exc:
+        logger.warning("GitPython clone failed for '%s': %s", clone_url, exc)
+        _set_repo_status(repo, 1, f"Git clone failed: {exc}")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+async def _fill_repo_metadata(repo: SourceRepository, fresh_data: dict) -> None:
+    """Fill SourceRepository metadata fields from provider response dict."""
+    repo.description = fresh_data.get("description")
+    repo.language = fresh_data.get("language")
+    repo.stars_count = fresh_data.get("stars", 0)
+    repo.forks_count = fresh_data.get("forks", 0)
+    repo.is_private = fresh_data.get("private", False)
+    repo.is_archived = fresh_data.get("archived", False)
+    repo.is_fork = fresh_data.get("fork", False)
+    repo.is_disabled = fresh_data.get("disabled", False)
+    if fresh_data.get("default_branch"):
+        repo.default_branch = fresh_data["default_branch"]
+    if fresh_data.get("html_url"):
+        repo.web_url = fresh_data["html_url"]
+    if fresh_data.get("clone_url"):
+        repo.clone_url_https = fresh_data["clone_url"]
+    if fresh_data.get("ssh_url"):
+        repo.clone_url_ssh = fresh_data["ssh_url"]
+    repo.source_created_at = fresh_data.get("created_at")
+    repo.source_updated_at = fresh_data.get("updated_at")
+    repo.source_pushed_at = fresh_data.get("pushed_at")
+
+    # Last commit
+    repo.last_commit_sha = fresh_data.get("last_commit_sha")
+    repo.last_commit_date = fresh_data.get("last_commit_date")
+    repo.last_commit_author = fresh_data.get("last_commit_author")
+    repo.last_commit_message = fresh_data.get("last_commit_message")
+
+    # License
+    if fresh_data.get("license_spdx") or fresh_data.get("license_name"):
+        repo.license_spdx = fresh_data.get("license_spdx")
+        repo.license_name = fresh_data.get("license_name")
+
+    # README
+    if "readme_html" in fresh_data:
+        repo.readme_html = fresh_data["readme_html"]
+        repo.readme_fetched_at = datetime.now(UTC)
+
+    # Latest release
+    if fresh_data.get("latest_release_tag"):
+        repo.latest_release_tag = fresh_data["latest_release_tag"]
+        repo.latest_release_name = fresh_data.get("latest_release_name")
+        published_at = fresh_data.get("latest_release_published_at")
+        repo.latest_release_date = datetime.fromisoformat(published_at) if published_at else None
+        repo.latest_release_url = fresh_data.get("latest_release_html_url")
+
+    # Latest prerelease
+    if fresh_data.get("latest_prerelease_tag"):
+        repo.latest_prerelease_tag = fresh_data["latest_prerelease_tag"]
+        repo.latest_prerelease_name = fresh_data.get("latest_prerelease_name")
+        prerelease_published_at = fresh_data.get("latest_prerelease_published_at")
+        repo.latest_prerelease_date = (
+            datetime.fromisoformat(prerelease_published_at) if prerelease_published_at else None
+        )
+        repo.latest_prerelease_url = fresh_data.get("latest_prerelease_html_url")
+    else:
+        repo.latest_prerelease_tag = None
+        repo.latest_prerelease_name = None
+        repo.latest_prerelease_date = None
+        repo.latest_prerelease_url = None
+
+    repo.last_seen_at = datetime.now(UTC)
+
+
+async def _fetch_metadata_background(repo_id: int) -> None:
+    """Background task: fetch metadata and releases for a newly created source repository.
+
+    Creates an independent database session, fetches repository metadata via
+    the source provider API (GitHub/GitLab) or GitPython (generic Git), saves
+    all fields including ``last_commit_*`` and ``MirrorReleaseLog`` records,
+    and updates ``status_flag`` to 0 (success) or 1 (error).
+    """
+    from app.core.secrets import decrypt_secret
+    from app.database import AsyncSessionLocal
+    from app.services.source_providers import create_source_provider
+
+    logger.info("Background metadata fetch started for repo_id=%d", repo_id)
+
+    try:
+        async with AsyncSessionLocal() as db:
+            # Load repo with provider and credential
+            result = await db.execute(
+                select(SourceRepository)
+                .options(
+                    selectinload(SourceRepository.source_provider).selectinload(
+                        SourceProvider.credential
+                    ),
+                )
+                .where(SourceRepository.id == repo_id)
+            )
+            repo = result.unique().scalar_one_or_none()
+            if repo is None:
+                logger.error("Background fetch: repo id=%d not found", repo_id)
+                return
+
+            sp = repo.source_provider
+            if sp is None:
+                _set_repo_status(repo, 1, "No source provider configured")
+                await db.commit()
+                return
+
+            # Decrypt credential for authenticated providers
+            credential_secret: str | None = None
+            if not sp.is_anon and sp.credential and sp.credential.encrypted_secret:
+                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
+
+            provider = await create_source_provider(sp, credential_secret)
+            external_id: str = repo.full_name or repo.external_id
+
+            if sp.provider_type in (ProviderType.github, ProviderType.gitlab):
+                # Fetch metadata via provider API
+                fresh_data = await provider.get_repository(external_id)
+                await _fill_repo_metadata(repo, fresh_data)
+                _set_repo_status(repo, 0, "OK")
+                await db.commit()
+
+                # Sync releases in a separate transaction to isolate failures
+                releases_created = 0
+                try:
+                    async with AsyncSessionLocal() as db2:
+                        if sp.provider_type == ProviderType.github:
+                            releases_created = await _sync_releases_from_github(
+                                db2, repo_id, external_id, provider
+                            )
+                        else:
+                            releases_created = await _sync_releases_from_gitlab(
+                                db2, repo_id, external_id, provider
+                            )
+                        await db2.commit()
+                except Exception as release_exc:
+                    logger.warning(
+                        "Background release sync failed for repo_id=%d: %s",
+                        repo_id,
+                        release_exc,
+                    )
+
+                logger.info(
+                    "Background fetch OK for repo_id=%d: releases_created=%d",
+                    repo_id,
+                    releases_created,
+                )
+
+            elif sp.provider_type == ProviderType.generic:
+                await _fetch_generic_commit_info(repo)
+                # status_flag is set inside _fetch_generic_commit_info
+                await db.commit()
+                logger.info("Background fetch OK for generic repo_id=%d", repo_id)
+
+    except Exception as exc:
+        logger.error("Background fetch failed for repo_id=%d: %s", repo_id, exc, exc_info=True)
+        # Update status to error in a fresh session
+        try:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(SourceRepository).where(SourceRepository.id == repo_id)
+                )
+                repo = result.scalar_one_or_none()
+                if repo:
+                    _set_repo_status(repo, 1, f"Error: {exc}")
+                    await db.commit()
+        except Exception as inner_exc:
+            logger.error("Failed to update error status for repo_id=%d: %s", repo_id, inner_exc)
+
+
+# ===================================================================
 # Inline request schemas (no need for separate files)
 # ===================================================================
 
@@ -214,7 +530,7 @@ class SourceProviderUpdate(BaseModel):
 # ===================================================================
 
 
-@router.get("/providers/", response_model=list[SourceProviderOut])
+@router.get("/providers", response_model=list[SourceProviderOut])
 async def list_source_providers(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("source_groups:read")),
@@ -230,7 +546,7 @@ async def list_source_providers(
     return [SourceProviderOut.model_validate(p) for p in providers]
 
 
-@router.post("/providers/", response_model=SourceProviderOut, status_code=201)
+@router.post("/providers", response_model=SourceProviderOut, status_code=201)
 async def create_source_provider(
     data: SourceProviderCreate,
     request: Request,
@@ -420,7 +736,7 @@ async def restore_source_provider(
 # ===================================================================
 
 
-@router.get("/groups/", response_model=list[SourceGroupListOut])
+@router.get("/groups", response_model=list[SourceGroupListOut])
 async def list_source_groups(
     source_provider_id: int | None = Query(None, description="Filter groups by source provider"),
     db: AsyncSession = Depends(get_db),
@@ -687,7 +1003,9 @@ async def refresh_source_group(
     # Find a provider through the group's repositories
     repo_with_provider_result = await db.execute(
         select(SourceRepository)
-        .options(selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential))
+        .options(
+            selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential)
+        )
         .where(
             SourceRepository.source_group_id == group_id,
             SourceRepository.source_provider_id.isnot(None),
@@ -708,7 +1026,9 @@ async def refresh_source_group(
     # Anonymous providers don't need a credential
     if not sp.is_anon:
         if sp.credential is None or not sp.credential.encrypted_secret:
-            raise HTTPException(status_code=400, detail="SourceProvider has no credential configured")
+            raise HTTPException(
+                status_code=400, detail="SourceProvider has no credential configured"
+            )
 
     from app.core.secrets import decrypt_secret
     from app.services.source_providers import create_source_provider
@@ -879,7 +1199,7 @@ async def restore_source_group(
 # ===================================================================
 
 
-@router.get("/groups/{group_id}/repositories/", response_model=list[SourceRepositoryListOut])
+@router.get("/groups/{group_id}/repositories", response_model=list[SourceRepositoryListOut])
 async def list_source_repositories(
     group_id: int,
     discovery_status: str | None = Query(None, description="Filter by discovery_status"),
@@ -966,7 +1286,7 @@ async def list_source_repositories(
     return [SourceRepositoryListOut.model_validate(r) for r in repos]
 
 
-@router.post("/repositories/", response_model=SourceRepositoryDetailOut, status_code=201)
+@router.post("/repositories", response_model=SourceRepositoryDetailOut, status_code=201)
 async def create_source_repository(
     data: SourceRepositoryCreate,
     db: AsyncSession = Depends(get_db),
@@ -1137,6 +1457,9 @@ async def create_source_repository(
         is_fork=False,
         is_disabled=False,
     )
+    # ── 7. Set status_flag=3 (in progress) and launch background fetch ───
+    repo.status_flag = 3
+    repo.status_text = "Fetching metadata..."
     db.add(repo)
     await db.flush()
 
@@ -1164,6 +1487,11 @@ async def create_source_repository(
         .where(SourceRepository.id == repo.id)
     )
     repo = result.unique().scalar_one()
+
+    # Launch background metadata fetch (runs in its own session)
+    repo_id = repo.id
+    asyncio.create_task(_fetch_metadata_background(repo_id))
+
     return SourceRepositoryDetailOut.model_validate(repo)
 
 
@@ -1201,7 +1529,7 @@ async def get_source_repository(
 
 
 @router.get(
-    "/repositories/{repository_id}/releases/", response_model=list[SourceRepositoryReleaseOut]
+    "/repositories/{repository_id}/releases", response_model=list[SourceRepositoryReleaseOut]
 )
 async def get_repository_releases(
     repository_id: int,
@@ -1384,10 +1712,8 @@ async def refresh_source_repository(
 
     Looks up the linked :class:`SourceProvider`, creates the appropriate
     :class:`~app.services.source_provider.BaseSourceProvider` implementation,
-    calls ``get_repository()`` to retrieve fresh metadata, and persists
-    ``description``, ``language``, ``stars_count``, ``forks_count``,
-    ``is_private``, ``is_archived``, ``is_fork``, ``default_branch``,
-    URLs, and source timestamps.
+    calls ``get_repository()`` to retrieve fresh metadata including
+    ``last_commit_*``, persists all fields, and syncs release logs.
 
     For anonymous providers (``is_anon=True``), no credential is required.
     """
@@ -1395,9 +1721,7 @@ async def refresh_source_repository(
     result = await db.execute(
         select(SourceRepository)
         .options(
-            selectinload(SourceRepository.source_provider).selectinload(
-                SourceProvider.credential
-            ),
+            selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential),
             selectinload(SourceRepository.source_group),
             selectinload(SourceRepository.mirrors),
         )
@@ -1413,9 +1737,7 @@ async def refresh_source_repository(
     # Scope check via parent SourceGroup (skip for orphan repos)
     if repo.source_group_id is not None:
         rbac = RBACService(db)
-        if not await rbac.check_scope_access(
-            current_user.id, "source_group", repo.source_group_id
-        ):
+        if not await rbac.check_scope_access(current_user.id, "source_group", repo.source_group_id):
             raise HTTPException(
                 status_code=403,
                 detail="Access denied: resource not in your role scope",
@@ -1446,64 +1768,44 @@ async def refresh_source_repository(
         credential_secret = decrypt_secret(sp.credential.encrypted_secret)
     provider = await create_source_provider(sp, credential_secret)
 
-    # ── 3. Fetch fresh metadata from upstream ──────────────────────────────
+    # ── 3. Set status to "in progress" ─────────────────────────────────────
+    repo.status_flag = 3
+    repo.status_text = "Fetching metadata..."
+    await db.flush()
+
+    # ── 4. Fetch fresh metadata from upstream ──────────────────────────────
     external_id = repo.full_name or repo.external_id
     try:
         fresh_data = await provider.get_repository(external_id)
     except DomainError as exc:
+        repo.status_flag = 1
+        repo.status_text = f"Error: {exc.detail}"
+        await db.commit()
         raise HTTPException(
             status_code=exc.status_code,
             detail=f"Failed to refresh repository metadata: {exc.detail}",
         ) from exc
 
-    # ── 4. Update mutable fields ───────────────────────────────────────────
-    repo.description = fresh_data.get("description")
-    repo.language = fresh_data.get("language")
-    repo.stars_count = fresh_data.get("stars", 0)
-    repo.forks_count = fresh_data.get("forks", 0)
-    repo.is_private = fresh_data.get("private", False)
-    repo.is_archived = fresh_data.get("archived", False)
-    repo.is_fork = fresh_data.get("fork", False)
-    repo.is_disabled = fresh_data.get("disabled", False)
-    if fresh_data.get("default_branch"):
-        repo.default_branch = fresh_data["default_branch"]
-    if fresh_data.get("html_url"):
-        repo.web_url = fresh_data["html_url"]
-    if fresh_data.get("clone_url"):
-        repo.clone_url_https = fresh_data["clone_url"]
-    if fresh_data.get("ssh_url"):
-        repo.clone_url_ssh = fresh_data["ssh_url"]
-    repo.source_created_at = fresh_data.get("created_at")
-    repo.source_updated_at = fresh_data.get("updated_at")
-    repo.source_pushed_at = fresh_data.get("pushed_at")
-    # Latest release (may be None for repos without releases)
-    if fresh_data.get("latest_release_tag"):
-        repo.latest_release_tag = fresh_data["latest_release_tag"]
-        repo.latest_release_name = fresh_data.get("latest_release_name")
-        published_at = fresh_data.get("latest_release_published_at")
-        if published_at is not None:
-            repo.latest_release_date = datetime.fromisoformat(published_at)
-        else:
-            repo.latest_release_date = None
-        repo.latest_release_url = fresh_data.get("latest_release_html_url")
-    # Latest prerelease (may be None if no prereleases exist)
-    if fresh_data.get("latest_prerelease_tag"):
-        repo.latest_prerelease_tag = fresh_data["latest_prerelease_tag"]
-        repo.latest_prerelease_name = fresh_data.get("latest_prerelease_name")
-        prerelease_published_at = fresh_data.get("latest_prerelease_published_at")
-        if prerelease_published_at is not None:
-            repo.latest_prerelease_date = datetime.fromisoformat(prerelease_published_at)
-        else:
-            repo.latest_prerelease_date = None
-        repo.latest_prerelease_url = fresh_data.get("latest_prerelease_html_url")
-    else:
-        repo.latest_prerelease_tag = None
-        repo.latest_prerelease_name = None
-        repo.latest_prerelease_date = None
-        repo.latest_prerelease_url = None
-    repo.last_seen_at = datetime.now(UTC)
+    # ── 5. Update all fields via shared helper ──────────────────────────────
+    await _fill_repo_metadata(repo, fresh_data)
 
-    # ── 5. Audit + persist ─────────────────────────────────────────────────
+    # ── 6. Sync releases for API-based providers ────────────────────────────
+    if sp.provider_type in (ProviderType.github, ProviderType.gitlab):
+        try:
+            if sp.provider_type == ProviderType.github:
+                await _sync_releases_from_github(db, repo.id, external_id, provider)
+            else:
+                await _sync_releases_from_gitlab(db, repo.id, external_id, provider)
+        except DomainError as release_exc:
+            logger.warning(
+                "Release sync failed during refresh for repo_id=%d: %s",
+                repo.id,
+                release_exc,
+            )
+
+    _set_repo_status(repo, 0, "OK")
+
+    # ── 7. Audit + persist ─────────────────────────────────────────────────
     await AuditService.log_event(
         db,
         user_id=current_user.id,
@@ -1532,7 +1834,7 @@ async def refresh_source_repository(
 # ===================================================================
 
 
-@router.get("/mirrors/", response_model=list[MirrorListOut])
+@router.get("/mirrors", response_model=list[MirrorListOut])
 async def list_mirrors(
     source_group_id: int | None = Query(None),
     sync_group_id: int | None = Query(None),
@@ -1589,7 +1891,7 @@ async def get_mirror(
     return MirrorDetailOut.model_validate(mirror)
 
 
-@router.post("/mirrors/", response_model=MirrorDetailOut, status_code=201)
+@router.post("/mirrors", response_model=MirrorDetailOut, status_code=201)
 async def create_mirror(
     data: MirrorCreate,
     db: AsyncSession = Depends(get_db),
@@ -1842,7 +2144,7 @@ async def check_mirror_duplicates(
     return result
 
 
-@router.get("/mirrors/{mirror_id}/logs/", response_model=list[MirrorLogOut])
+@router.get("/mirrors/{mirror_id}/logs", response_model=list[MirrorLogOut])
 async def get_mirror_logs(
     mirror_id: int,
     log_type: MirrorLogType | None = Query(None, description="Filter by log type"),
@@ -1883,7 +2185,7 @@ async def get_mirror_logs(
 # ===================================================================
 
 
-@router.get("/sync-groups/", response_model=list[SyncGroupOut])
+@router.get("/sync-groups", response_model=list[SyncGroupOut])
 async def list_sync_groups(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("sync_groups:read")),
@@ -1893,7 +2195,7 @@ async def list_sync_groups(
     return [SyncGroupOut.model_validate(g) for g in groups]
 
 
-@router.post("/sync-groups/", response_model=SyncGroupOut, status_code=201)
+@router.post("/sync-groups", response_model=SyncGroupOut, status_code=201)
 async def create_sync_group(
     data: SyncGroupCreate,
     db: AsyncSession = Depends(get_db),

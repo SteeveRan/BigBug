@@ -520,9 +520,7 @@ class GitLabSourceProvider(BaseSourceProvider):
             try:
 
                 def _fetch_releases():
-                    return project.releases.list(
-                        per_page=100, order_by="released_at", sort="desc"
-                    )
+                    return project.releases.list(per_page=100, order_by="released_at", sort="desc")
 
                 releases = await asyncio.to_thread(_fetch_releases)
                 for release in releases:
@@ -539,9 +537,7 @@ class GitLabSourceProvider(BaseSourceProvider):
                     )
                     html_url = f"{project.web_url}/-/releases/{tag}"
                     author = (
-                        release.author.get("name")
-                        if getattr(release, "author", None)
-                        else None
+                        release.author.get("name") if getattr(release, "author", None) else None
                     )
 
                     if is_prerelease and latest_prerelease_tag is None:

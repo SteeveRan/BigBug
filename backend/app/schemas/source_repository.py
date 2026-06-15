@@ -8,7 +8,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.source_provider import ProviderType
 
@@ -72,6 +72,12 @@ class SourceRepositoryDetailOut(BaseModel):
     license_name: str | None = None
     readme_html: str | None = None
     readme_fetched_at: datetime | None = None
+    status_flag: int = 4
+    status_text: str | None = None
+    last_commit_sha: str | None = None
+    last_commit_date: datetime | None = None
+    last_commit_author: str | None = None
+    last_commit_message: str | None = None
     latest_release_tag: str | None = None
     latest_release_name: str | None = None
     latest_release_date: datetime | None = None
@@ -133,12 +139,13 @@ class SourceRepositoryReadmeOut(BaseModel):
 class SourceRepositoryReleaseOut(BaseModel):
     """Release information for a source repository."""
 
-    tag: str | None = None
-    name: str | None = None
-    description: str | None = None
-    url: str | None = None
+    id: int
+    release_tag: str | None = Field(None, alias="tag")
+    release_name: str | None = Field(None, alias="name")
+    release_body: str | None = Field(None, alias="description")
+    html_url: str | None = Field(None, alias="url")
     published_at: datetime | None = None
     is_prerelease: bool = False
     detected_at: datetime | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

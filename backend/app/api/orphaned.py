@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/orphaned-mirrors/",
+    "/orphaned-mirrors",
     response_model=list[OrphanedMirrorOut],
 )
 async def list_orphaned_mirrors(

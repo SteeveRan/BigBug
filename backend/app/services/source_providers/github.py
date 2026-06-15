@@ -107,9 +107,7 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
                 is_prerelease = getattr(release, "prerelease", False)
                 tag = release.tag_name
                 title = getattr(release, "title", tag)
-                published_at = (
-                    release.published_at.isoformat() if release.published_at else None
-                )
+                published_at = release.published_at.isoformat() if release.published_at else None
                 html_url = getattr(release, "html_url", None)
 
                 if is_prerelease and latest_prerelease_tag is None:
@@ -127,9 +125,7 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
                 if latest_release_tag is not None and latest_prerelease_tag is not None:
                     break
         except Exception:
-            logger.debug(
-                "Failed to fetch releases for '%s'", repo.full_name, exc_info=True
-            )
+            logger.debug("Failed to fetch releases for '%s'", repo.full_name, exc_info=True)
 
     result: dict = {
         "external_id": repo.id,
@@ -196,6 +192,17 @@ def _repo_to_dict(repo, include_extra: bool = False) -> dict:
             result["last_commit_author"] = commit.commit.author.name
     except GithubException:
         logger.debug("Failed to fetch last commit for repo %s", repo.full_name, exc_info=True)
+
+    # Try to fetch README content
+    result["readme_html"] = None
+    try:
+        readme = repo.get_readme()
+        content = readme.decoded_content.decode("utf-8")
+        result["readme_html"] = content
+    except GithubException:
+        logger.debug("Failed to fetch README for repo %s", repo.full_name, exc_info=True)
+    except UnicodeDecodeError:
+        logger.debug("Failed to decode README for repo %s", repo.full_name, exc_info=True)
 
     return result
 

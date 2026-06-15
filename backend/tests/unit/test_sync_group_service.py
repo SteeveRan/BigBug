@@ -66,8 +66,7 @@ async def _seed_source_group(
 
 
 async def _seed_source_repository(
-    db_session: AsyncSession, sg_id: int, name: str = "test-repo",
-    sp_id: int | None = None
+    db_session: AsyncSession, sg_id: int, name: str = "test-repo", sp_id: int | None = None
 ) -> SourceRepository:
     """Create a minimal SourceRepository linked to *sg* and optionally *sp*."""
     sr = SourceRepository(

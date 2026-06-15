@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { Modal, Form, Select, Input, App, Typography } from 'antd';
+import { Modal, Form, Select, Input, App, Typography, Alert } from 'antd';
 import { useCreateSourceRepositoryMutation, useGetSourceProvidersQuery } from '../../../store/api';
 import type { ProviderType, SourceProvider, SourceRepositoryCreate } from '../../../types';
 
@@ -41,12 +41,24 @@ export function AddRepositoryModal({
     return undefined;
   }, [preselectedProviderId, providers]);
 
+  // Watch form fields for validation
+  const cloneUrl = Form.useWatch('clone_url', form);
+  const providerType = Form.useWatch('provider_type', form);
+
+  // Show warning when URL appears to be GitHub/GitLab but provider_type is generic
+  const showUrlMismatchWarning =
+    cloneUrl &&
+    providerType === 'generic' &&
+    (cloneUrl.includes('github.com') || cloneUrl.includes('gitlab.com'));
+
   // Reset on open
   useEffect(() => {
     if (open) {
       form.resetFields();
       if (preselectedProvider) {
         form.setFieldValue('provider_type', preselectedProvider.provider_type);
+      } else {
+        form.setFieldValue('provider_type', 'github');
       }
     }
   }, [open, form, preselectedProvider]);
@@ -81,7 +93,12 @@ export function AddRepositoryModal({
       cancelText="Cancel"
       destroyOnHidden
     >
-      <Form form={form} layout="vertical" onFinish={handleSubmit}>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={handleSubmit}
+        initialValues={{ provider_type: 'github' }}
+      >
         <Form.Item
           name="provider_type"
           label="Provider Type"
@@ -104,6 +121,15 @@ export function AddRepositoryModal({
         >
           <Input placeholder="https://git.example.com/owner/my-repo.git or git@..." />
         </Form.Item>
+
+        {showUrlMismatchWarning && (
+          <Alert
+            type="warning"
+            title="The URL appears to be a GitHub or GitLab repository. Consider switching provider type to GitHub for full metadata support."
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
         <Typography.Text type="secondary">
           Manually add a repository from any Git provider. The clone URL is parsed automatically to

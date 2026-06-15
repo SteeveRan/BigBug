@@ -56,9 +56,7 @@ class SourceProvider(Base):
 
     # Relationships
     credential = relationship("Credential", back_populates="source_providers")
-    source_repositories = relationship(
-        "SourceRepository", back_populates="source_provider"
-    )
+    source_repositories = relationship("SourceRepository", back_populates="source_provider")
 
     def __repr__(self) -> str:
         return (

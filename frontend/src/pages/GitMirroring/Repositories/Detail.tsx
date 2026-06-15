@@ -4,8 +4,8 @@
  * @dependencies antd, react-router, RTK Query
  */
 
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import {
   Card,
   Typography,
@@ -25,6 +25,7 @@ import {
   App,
   Row,
   Col,
+  Skeleton,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -33,6 +34,7 @@ import {
   StarOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
+import XMarkdown from '@ant-design/x-markdown';
 import {
   useGetSourceRepositoryQuery,
   useGetRepositoryReleasesQuery,
@@ -47,33 +49,55 @@ const RepositoryDetailPage = () => {
   const { message } = App.useApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const repositoryId = Number(id);
 
+  // Sync active tab with URL ?tab= parameter
+  const tabFromUrl = searchParams.get('tab') ?? 'info';
+  const validTabs = ['info', 'releases', 'readme'];
+  const activeTab = validTabs.includes(tabFromUrl) ? tabFromUrl : 'info';
+
+  const setActiveTab = (tab: string) => {
+    setSearchParams({ tab }, { replace: true });
+  };
+
   const [includePrereleases, setIncludePrereleases] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('info');
 
   // Fetch repository detail
   const {
     data: repo,
     isLoading: repoLoading,
     isError: repoError,
-  } = useGetSourceRepositoryQuery(repositoryId, { skip: isNaN(repositoryId) });
+    refetch: refetchRepo,
+  } = useGetSourceRepositoryQuery(repositoryId, {
+    skip: isNaN(repositoryId),
+  });
+
+  // Reactive polling: poll every 3s while status_flag === 3
+  useEffect(() => {
+    if (repo?.status_flag !== 3) return;
+    const interval = setInterval(() => {
+      refetchRepo();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [repo?.status_flag, refetchRepo]);
 
   const [refreshRepository, { isLoading: refreshLoading }] = useRefreshSourceRepositoryMutation();
 
-  // Fetch releases (only when releases tab is active)
+  // Fetch releases (only when releases tab is active, refetch on tab switch)
   const { data: releases = [], isLoading: releasesLoading } = useGetRepositoryReleasesQuery(
     { repository_id: repositoryId, include_prereleases: true },
-    { skip: activeTab !== 'releases' || isNaN(repositoryId) }
+    { skip: activeTab !== 'releases' || isNaN(repositoryId), refetchOnMountOrArgChange: true }
   );
 
-  // Fetch README (only when readme tab is active)
+  // Fetch README (only when readme tab is active, refetch on tab switch)
   const {
     data: readme,
     isLoading: readmeLoading,
     isError: readmeError,
   } = useGetRepositoryReadmeQuery(repositoryId, {
-    skip: activeTab !== 'readme' || isNaN(repositoryId) || !repo?.readme_html,
+    skip: activeTab !== 'readme' || isNaN(repositoryId),
+    refetchOnMountOrArgChange: true,
   });
 
   // Fetch mirrors (now loaded for Info tab)
@@ -104,24 +128,55 @@ const RepositoryDetailPage = () => {
     );
   }
 
+  // Determine if metadata is currently being fetched
+  const isFetching = repo.status_flag === 3;
+  const providerType = repo.source_provider?.provider_type ?? repo.provider_type ?? '—';
+
+  // Helper: build commit/release URL from clone_url
+  const buildCommitUrl = (sha: string) => {
+    const base = repo.clone_url_https || repo.web_url || '';
+    if (!base || !sha) return null;
+    // Strip .git suffix
+    const cleanBase = base.replace(/\.git$/, '');
+    // GitHub/GitLab commit URL pattern
+    return `${cleanBase}/commit/${sha}`;
+  };
+
+  // Format ISO date for display (dd.mm.yy HH:MM:SS, 24h)
+  const formatDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yy = String(d.getFullYear()).slice(-2);
+      const hh = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${dd}.${mm}.${yy} ${hh}:${min}:${ss}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   const releaseColumns: ColumnsType<SourceRepositoryRelease> = [
     {
       title: 'Tag',
-      dataIndex: 'release_tag',
-      key: 'release_tag',
+      dataIndex: 'tag',
+      key: 'tag',
       render: (tag: string) => <Typography.Text code>{tag}</Typography.Text>,
     },
     {
       title: 'Name',
-      dataIndex: 'release_name',
-      key: 'release_name',
+      dataIndex: 'name',
+      key: 'name',
       render: (name: string | undefined) => name ?? '—',
     },
     {
       title: 'Published At',
       dataIndex: 'published_at',
       key: 'published_at',
-      render: (date: string) => new Date(date).toLocaleString(),
+      render: (date: string) => formatDate(date),
     },
     {
       title: 'Prerelease',
@@ -139,7 +194,7 @@ const RepositoryDetailPage = () => {
             size="small"
             type="link"
             icon={<LinkOutlined />}
-            href={record.html_url}
+            href={record.url}
             target="_blank"
             rel="noopener noreferrer"
           />
@@ -173,7 +228,7 @@ const RepositoryDetailPage = () => {
       title: 'Last Sync',
       key: 'last_sync',
       render: (_: unknown, record: Mirror) =>
-        record.last_sync_at ? new Date(record.last_sync_at).toLocaleString() : '—',
+        record.last_sync_at ? formatDate(record.last_sync_at) : '—',
     },
   ];
 
@@ -192,10 +247,19 @@ const RepositoryDetailPage = () => {
                     <Typography.Text strong>{repo.full_name}</Typography.Text>
                   </Descriptions.Item>
                   <Descriptions.Item label="Description">
-                    {repo.description ?? '—'}
+                    {isFetching ? (
+                      <Skeleton.Input active size="small" block />
+                    ) : (
+                      repo.description ?? '—'
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Provider Type">
+                    <Tag>{providerType}</Tag>
                   </Descriptions.Item>
                   <Descriptions.Item label="Web URL">
-                    {repo.web_url ? (
+                    {isFetching ? (
+                      <Skeleton.Input active size="small" block />
+                    ) : repo.web_url ? (
                       <Button
                         type="link"
                         icon={<GithubOutlined />}
@@ -217,13 +281,23 @@ const RepositoryDetailPage = () => {
               <Card title="Details" style={{ height: '100%' }}>
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Stars">
-                    <Space>
-                      <StarOutlined />
-                      {repo.stars_count}
-                    </Space>
+                    {isFetching ? (
+                      <Skeleton.Input active size="small" />
+                    ) : (
+                      <Space>
+                        <StarOutlined />
+                        {repo.stars_count}
+                      </Space>
+                    )}
                   </Descriptions.Item>
                   <Descriptions.Item label="License">
-                    {repo.license_spdx ? <Tag>{repo.license_spdx}</Tag> : '—'}
+                    {isFetching ? (
+                      <Skeleton.Input active size="small" />
+                    ) : repo.license_spdx ? (
+                      <Tag>{repo.license_spdx}</Tag>
+                    ) : (
+                      '—'
+                    )}
                   </Descriptions.Item>
                   <Descriptions.Item label="Archived">
                     {repo.is_archived ? <Tag color="warning">Yes</Tag> : 'No'}
@@ -239,57 +313,116 @@ const RepositoryDetailPage = () => {
             </Col>
           </Row>
 
-          {/* ── Block 2: Activity ──────────────────────────────────────────────── */}
+          {/* ── Block 2: Activity in 3 columns ────────────────────────────────── */}
           <Card title="Activity">
-            <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
-              <Descriptions.Item label="Last Commit">
-                {repo.source_pushed_at ? new Date(repo.source_pushed_at).toLocaleString() : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Last Commit Date">
-                {repo.source_pushed_at ? new Date(repo.source_pushed_at).toLocaleDateString() : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Latest Release">
-                {repo.latest_release_tag ? (
-                  <Space>
-                    <Typography.Text code>{repo.latest_release_tag}</Typography.Text>
-                    {repo.latest_release_name && (
-                      <Typography.Text type="secondary">
-                        ({repo.latest_release_name})
+            <Row gutter={16}>
+              {/* ── Last Commit ─────────────────────────────────────────────── */}
+              <Col xs={24} sm={8}>
+                <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Last Commit
+                </Typography.Text>
+                {isFetching ? (
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                ) : repo.last_commit_sha ? (
+                  <Flex vertical gap={4}>
+                    {buildCommitUrl(repo.last_commit_sha) ? (
+                      <Typography.Link
+                        href={buildCommitUrl(repo.last_commit_sha)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontFamily: 'monospace', fontSize: 14 }}
+                      >
+                        {repo.last_commit_sha.substring(0, 7)}
+                      </Typography.Link>
+                    ) : (
+                      <Typography.Text code>{repo.last_commit_sha.substring(0, 7)}</Typography.Text>
+                    )}
+                    <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      {formatDate(repo.last_commit_date)}
+                    </Typography.Text>
+                    {repo.last_commit_message && (
+                      <Typography.Text type="secondary" ellipsis style={{ fontSize: 13 }}>
+                        {repo.last_commit_message}
                       </Typography.Text>
                     )}
-                  </Space>
+                  </Flex>
                 ) : (
-                  '—'
+                  <Typography.Text type="secondary">No data</Typography.Text>
                 )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Latest Release Date">
-                {repo.latest_release_date
-                  ? new Date(repo.latest_release_date).toLocaleString()
-                  : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Latest Pre-release">
-                {repo.latest_prerelease_tag ? (
-                  <Space>
-                    <Typography.Text code>{repo.latest_prerelease_tag}</Typography.Text>
-                    {repo.latest_prerelease_name && (
-                      <Typography.Text type="secondary">
-                        ({repo.latest_prerelease_name})
-                      </Typography.Text>
+              </Col>
+
+              {/* ── Latest Release ──────────────────────────────────────────── */}
+              <Col xs={24} sm={8}>
+                <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Latest Release
+                </Typography.Text>
+                {isFetching ? (
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                ) : repo.latest_release_tag ? (
+                  <Flex vertical gap={4}>
+                    <Typography.Text strong style={{ fontSize: 15 }}>
+                      {repo.latest_release_name || repo.latest_release_tag}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      {formatDate(repo.latest_release_date)}
+                    </Typography.Text>
+                    {repo.latest_release_url && (
+                      <Typography.Link
+                        href={repo.latest_release_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 13 }}
+                      >
+                        View release <LinkOutlined />
+                      </Typography.Link>
                     )}
-                  </Space>
+                  </Flex>
                 ) : (
-                  '—'
+                  <Typography.Text type="secondary">No data</Typography.Text>
                 )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Latest Pre-release Date">
-                {repo.latest_prerelease_date
-                  ? new Date(repo.latest_prerelease_date).toLocaleString()
-                  : '—'}
-              </Descriptions.Item>
-            </Descriptions>
+              </Col>
+
+              {/* ── Latest Pre-release ───────────────────────────────────────── */}
+              <Col xs={24} sm={8}>
+                <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Latest Pre-release
+                </Typography.Text>
+                {isFetching ? (
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                ) : repo.latest_prerelease_tag ? (
+                  <Flex vertical gap={4}>
+                    <Typography.Text strong style={{ fontSize: 15 }}>
+                      {repo.latest_prerelease_name || repo.latest_prerelease_tag}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                      {formatDate(repo.latest_prerelease_date)}
+                    </Typography.Text>
+                    {repo.latest_prerelease_url && (
+                      <Typography.Link
+                        href={repo.latest_prerelease_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 13 }}
+                      >
+                        View release <LinkOutlined />
+                      </Typography.Link>
+                    )}
+                  </Flex>
+                ) : (
+                  <Typography.Text type="secondary">No data</Typography.Text>
+                )}
+              </Col>
+            </Row>
           </Card>
 
-          {/* ── Block 3: Mirrors table ──────────────────────────────────────────── */}
+          {/* ── Block 3: README ──────────────────────────────────────────────── */}
+          {repo.readme_html && (
+            <Card title="README">
+              <XMarkdown content={repo.readme_html} openLinksInNewTab />
+            </Card>
+          )}
+
+          {/* ── Block 4: Mirrors table ──────────────────────────────────────────── */}
           <Card title={`Mirrors (${repoMirrors.length})`}>
             <Table
               columns={mirrorColumns}
@@ -345,14 +478,11 @@ const RepositoryDetailPage = () => {
               showIcon
             />
           )}
-          {!readmeLoading && !readmeError && !readme?.html && (
+          {!readmeLoading && !readmeError && !readme?.readme_html && (
             <Empty description="No README available" />
           )}
-          {readme?.html && (
-            <div
-              dangerouslySetInnerHTML={{ __html: readme.html }}
-              style={{ maxWidth: '100%', overflow: 'auto' }}
-            />
+          {readme?.readme_html && (
+            <XMarkdown content={readme.readme_html} openLinksInNewTab />
           )}
         </Card>
       ),
@@ -390,24 +520,27 @@ const RepositoryDetailPage = () => {
           {repo.full_name}
         </Typography.Title>
         <Space>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={refreshLoading}
-            onClick={async () => {
-              try {
-                await refreshRepository(repositoryId).unwrap();
-                message.success('Metadata refreshed successfully');
-              } catch (err: unknown) {
-                const msg =
-                  err && typeof err === 'object' && 'data' in err
-                    ? (err as { data?: { detail?: string } }).data?.detail
-                    : undefined;
-                message.error(msg ?? 'Failed to refresh metadata');
-              }
-            }}
-          >
-            Refresh Metadata
-          </Button>
+          <Tooltip title={isFetching ? 'Metadata is being fetched...' : undefined}>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={refreshLoading}
+              disabled={isFetching}
+              onClick={async () => {
+                try {
+                  await refreshRepository(repositoryId).unwrap();
+                  message.success('Metadata refreshed successfully');
+                } catch (err: unknown) {
+                  const msg =
+                    err && typeof err === 'object' && 'data' in err
+                      ? (err as { data?: { detail?: string } }).data?.detail
+                      : undefined;
+                  message.error(msg ?? 'Failed to refresh metadata');
+                }
+              }}
+            >
+              Refresh Metadata
+            </Button>
+          </Tooltip>
           {repo.web_url && (
             <Button
               icon={<GithubOutlined />}
@@ -420,6 +553,16 @@ const RepositoryDetailPage = () => {
           )}
         </Space>
       </Flex>
+
+      {/* ── Inline fetching banner ─────────────────────────────────────────── */}
+      {isFetching && (
+        <Alert
+          type="info"
+          title="Metadata is being fetched in background..."
+          description="Some fields may be incomplete. The page will update automatically when fetching completes."
+          showIcon
+        />
+      )}
 
       {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <Card>

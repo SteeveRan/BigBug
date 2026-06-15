@@ -18,4 +18,7 @@ export default defineConfig({
       '@': '/src',
     },
   },
+  optimizeDeps: {
+    include: ['@ant-design/x-markdown'],
+  },
 })

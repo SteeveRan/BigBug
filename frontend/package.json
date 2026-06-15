@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
+    "@ant-design/x-markdown": "^2.8.0",
     "@reduxjs/toolkit": "^2.3.0",
     "@uiw/react-markdown-preview": "^5.2.1",
     "antd": "^6.4.3",

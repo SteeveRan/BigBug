@@ -85,6 +85,14 @@ class SourceRepository(Base):
     source_updated_at = Column(DateTime(timezone=True), nullable=True)
     source_pushed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Status tracking for async metadata fetch
+    status_flag = Column(Integer, default=4, nullable=False)
+    status_text = Column(String(500), nullable=True)
+    last_commit_sha = Column(String(40), nullable=True)
+    last_commit_date = Column(DateTime(timezone=True), nullable=True)
+    last_commit_author = Column(String(255), nullable=True)
+    last_commit_message = Column(Text, nullable=True)
+
     # Soft delete
     is_deleted = Column(Boolean, default=False, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)

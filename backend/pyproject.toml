@@ -11,6 +11,8 @@ dependencies = [
     # Web framework
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
+    # Git
+    "GitPython>=3.1",
     # Database
     "sqlalchemy>=2.0.0",
     "asyncpg>=0.29.0",
@@ -18,7 +20,7 @@ dependencies = [
     # Redis
     "redis>=5.0.0",
     # Rate limiting
-    "fastapi-limiter>=0.2.0",
+    "pyrate-limiter>=4.4.0",
     # Auth
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.0.0",

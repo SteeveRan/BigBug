@@ -52,9 +52,7 @@ SourceGroupDetailOut.model_rebuild(
 # ── Helpers ─────────────────────────────────────────────────────────
 
 
-async def _seed_credential(
-    db: AsyncSession, name: str = "test-token"
-) -> Credential:
+async def _seed_credential(db: AsyncSession, name: str = "test-token") -> Credential:
     """Create a non-deleted test credential with a valid Fernet-encrypted secret."""
     cred = Credential(
         name=name,
@@ -87,9 +85,7 @@ async def _seed_source_provider(
     return sp
 
 
-async def _seed_source_group(
-    db: AsyncSession, with_repository: bool = False
-) -> SourceGroup:
+async def _seed_source_group(db: AsyncSession, with_repository: bool = False) -> SourceGroup:
     """Create a test source group.
 
     When *with_repository* is True a SourceRepository linking the provider
@@ -199,10 +195,8 @@ async def _seed_mirror(db: AsyncSession) -> Mirror:
     result = await db.execute(
         select(Mirror)
         .options(
-            selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_group),
-            selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_provider),
+            selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
+            selectinload(Mirror.source_repository).selectinload(SourceRepository.source_provider),
             selectinload(Mirror.sync_group)
             .selectinload(SyncGroup.pipeline)
             .selectinload(Pipeline.gitlab_instance),
@@ -319,7 +313,7 @@ async def test_source_provider_created_audit(
 
     with patch("app.api.mirroring.AuditService.log_event", new_callable=AsyncMock) as mock_audit:
         response = await client.post(
-            "/api/mirroring/providers/",
+            "/api/mirroring/providers",
             json={
                 "credential_id": cred.id,
                 "provider_type": "github",
@@ -675,6 +669,11 @@ async def test_refresh_source_repository_uses_full_name_not_uuid(
         "default_branch": "main",
         "html_url": "https://github.com/testorg/my-repo",
         "clone_url": "https://github.com/testorg/my-repo.git",
+        # Wave 1 — last commit metadata
+        "last_commit_sha": "abc123def456",
+        "last_commit_date": datetime(2026, 6, 15, 1, 0, 0, tzinfo=UTC),
+        "last_commit_author": "Test Author",
+        "last_commit_message": "feat: add refresh test",
     }
 
     with (
@@ -682,6 +681,10 @@ async def test_refresh_source_repository_uses_full_name_not_uuid(
             "app.services.source_providers.create_source_provider",
             new_callable=AsyncMock,
         ) as mock_factory,
+        patch(
+            "app.api.mirroring._sync_releases_from_github",
+            new_callable=AsyncMock,
+        ),
     ):
         mock_provider = AsyncMock()
         mock_provider.get_repository = AsyncMock(return_value=mock_repo_data)
@@ -752,11 +755,232 @@ async def test_refresh_source_repository_handles_domain_error_gracefully(
             headers=login_headers,
         )
 
-    assert response.status_code == 404, (
-        f"Expected 404, got {response.status_code}: {response.text}"
-    )
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}: {response.text}"
     data = response.json()
     assert "detail" in data
     assert "Failed to refresh repository metadata" in data["detail"]
     # exc.message was the old (broken) attribute; exc.detail is the fix
     assert "GitHub resource not found" in data["detail"]
+
+
+# ── Wave 1: create_source_repository tests ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_source_repository_returns_201_with_status_flag_3(
+    db_session: AsyncSession, client: AsyncClient, login_headers: dict
+):
+    """POST /api/mirroring/repositories/ — status_flag=3 (In Progress) in response.
+
+    After creating a repository, the API returns status_flag=3 because a
+    background task is launched to fetch metadata.
+    """
+    # Create provider WITHOUT credential to avoid MissingGreenlet on
+    # SourceProvider.credential during Pydantic validation of the response.
+    sp = SourceProvider(
+        provider_type="github",
+        label="create-status-provider",
+    )
+    db_session.add(sp)
+    await db_session.commit()
+    await db_session.refresh(sp)
+
+    sg = SourceGroup(
+        external_id="testorg",
+        name="testorg",
+        full_path="https://github.com/testorg",
+    )
+    db_session.add(sg)
+    await db_session.commit()
+    await db_session.refresh(sg)
+
+    payload = {
+        "provider_type": "github",
+        "clone_url": "https://github.com/testorg/create-test-repo.git",
+        "source_provider_id": sp.id,
+    }
+
+    with patch(
+        "app.api.mirroring._detect_default_branch",
+        new_callable=AsyncMock,
+    ) as mock_detect:
+        mock_detect.return_value = "main"
+
+        response = await client.post(
+            "/api/mirroring/repositories",
+            json=payload,
+            headers=login_headers,
+        )
+
+    assert response.status_code == 201, (
+        f"Expected 201, got {response.status_code}: {response.json().get('detail', response.text)}"
+    )
+    data = response.json()
+    assert data["status_flag"] == 3, (
+        f"Expected status_flag=3 (In Progress), got {data['status_flag']}"
+    )
+    assert data["status_text"] == "Fetching metadata..."
+    assert data["full_name"] == "testorg/create-test-repo"
+
+
+@pytest.mark.asyncio
+async def test_create_source_repository_launches_background_fetch(
+    db_session: AsyncSession, client: AsyncClient, login_headers: dict
+):
+    """POST /api/mirroring/repositories/ — background _fetch_metadata_background is scheduled.
+
+    Verify that the create endpoint calls _fetch_metadata_background(repo_id)
+    in a background task.
+    """
+    # Create provider WITHOUT credential to avoid MissingGreenlet on validation.
+    sp = SourceProvider(
+        provider_type="github",
+        label="create-bg-provider",
+    )
+    db_session.add(sp)
+    await db_session.commit()
+    await db_session.refresh(sp)
+
+    sg = SourceGroup(
+        external_id="testorg",
+        name="testorg",
+        full_path="https://github.com/testorg",
+    )
+    db_session.add(sg)
+    await db_session.commit()
+    await db_session.refresh(sg)
+
+    payload = {
+        "provider_type": "github",
+        "clone_url": "https://github.com/testorg/create-bg-repo.git",
+        "source_provider_id": sp.id,
+    }
+
+    with (
+        patch(
+            "app.api.mirroring._detect_default_branch",
+            new_callable=AsyncMock,
+        ) as mock_detect,
+        patch(
+            "app.api.mirroring._fetch_metadata_background",
+            new_callable=AsyncMock,
+        ) as mock_fetch,
+    ):
+        mock_detect.return_value = "main"
+
+        response = await client.post(
+            "/api/mirroring/repositories",
+            json=payload,
+            headers=login_headers,
+        )
+
+    assert response.status_code == 201, (
+        f"Expected 201, got {response.status_code}: {response.json().get('detail', response.text)}"
+    )
+
+    # Verify _fetch_metadata_background was called with the new repo's id
+    data = response.json()
+    mock_fetch.assert_called_once()
+    # The call receives (repo_id,) — a single integer argument
+    call_args = mock_fetch.call_args[0]
+    assert len(call_args) == 1
+    assert call_args[0] == data["id"], (
+        f"Expected _fetch_metadata_background({data['id']}), "
+        f"got _fetch_metadata_background({call_args[0]})"
+    )
+
+
+# ── Wave 1: refresh_source_repository extended tests ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_refresh_source_repository_sets_status_flag_and_saves_commits(
+    db_session: AsyncSession, client: AsyncClient, login_headers: dict
+):
+    """POST /repositories/{id}/refresh — saves last_commit_* fields from provider.
+
+    After a successful refresh, the repository should have status_flag=0
+    and the last commit metadata populated from the mock provider data.
+    """
+    sp = await _seed_source_provider(db_session, credential_name="refresh-commit-prov")
+    sg = SourceGroup(
+        external_id="testorg",
+        name="testorg",
+        full_path="https://github.com/testorg",
+    )
+    db_session.add(sg)
+    await db_session.commit()
+    await db_session.refresh(sg)
+
+    sr = SourceRepository(
+        source_group_id=sg.id,
+        source_provider_id=sp.id,
+        external_id="12345",
+        name="commit-repo",
+        full_name="testorg/commit-repo",
+        clone_url_https="https://github.com/testorg/commit-repo.git",
+        status_flag=4,
+        status_text="Pending",
+    )
+    db_session.add(sr)
+    await db_session.commit()
+    await db_session.refresh(sr)
+
+    mock_repo_data = {
+        "name": "commit-repo",
+        "full_name": "testorg/commit-repo",
+        "description": "A repo with commits",
+        "language": "Go",
+        "stars": 10,
+        "forks": 2,
+        "private": False,
+        "archived": False,
+        "fork": False,
+        "disabled": False,
+        "default_branch": "main",
+        "html_url": "https://github.com/testorg/commit-repo",
+        "clone_url": "https://github.com/testorg/commit-repo.git",
+        # Wave 1 — last commit metadata
+        "last_commit_sha": "deadbeefcafebabe0123456789abcdef01234567",
+        "last_commit_date": datetime(2026, 6, 15, 1, 0, 0, tzinfo=UTC),
+        "last_commit_author": "Commit Author",
+        "last_commit_message": "feat: implement commit tracking",
+    }
+
+    with (
+        patch(
+            "app.services.source_providers.create_source_provider",
+            new_callable=AsyncMock,
+        ) as mock_factory,
+        patch(
+            "app.api.mirroring._sync_releases_from_github",
+            new_callable=AsyncMock,
+        ),
+    ):
+        mock_provider = AsyncMock()
+        mock_provider.get_repository = AsyncMock(return_value=mock_repo_data)
+        mock_factory.return_value = mock_provider
+
+        response = await client.post(
+            f"/api/mirroring/repositories/{sr.id}/refresh",
+            headers=login_headers,
+        )
+
+    assert response.status_code == 200, (
+        f"Expected 200, got {response.status_code}: {response.json().get('detail', response.text)}"
+    )
+    data = response.json()
+
+    # Status should be OK after a successful refresh
+    assert data["status_flag"] == 0, (
+        f"Expected status_flag=0 (OK), got {data['status_flag']}"
+    )
+    assert data["status_text"] == "OK"
+
+    # Last commit fields should match the mock data
+    assert data["last_commit_sha"] == "deadbeefcafebabe0123456789abcdef01234567"
+    assert data["last_commit_date"] is not None
+    assert data["last_commit_author"] == "Commit Author"
+    assert data["last_commit_message"] == "feat: implement commit tracking"
+
+

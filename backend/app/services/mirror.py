@@ -77,8 +77,7 @@ async def _get_mirror_or_404(db: AsyncSession, mirror_id: int) -> Mirror:
     result = await db.execute(
         select(Mirror)
         .options(
-            selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_group),
+            selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
             selectinload(Mirror.source_repository)
             .selectinload(SourceRepository.source_provider)
             .selectinload(SourceProvider.credential),
@@ -635,9 +634,7 @@ class MirrorService:
             # Auto-create a minimal SourceRepository
             # SourceGroup no longer has source_provider_id, find any non-deleted group
             sg_result = await db.execute(
-                select(SourceGroup)
-                .where(~SourceGroup.is_deleted)
-                .limit(1)
+                select(SourceGroup).where(~SourceGroup.is_deleted).limit(1)
             )
             source_group = sg_result.scalar_one_or_none()
 

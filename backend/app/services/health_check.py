@@ -21,7 +21,6 @@ from sqlalchemy.orm import selectinload
 from app.core.secrets import SecretEncryptionError, decrypt_secret
 from app.models.credential import Credential
 from app.models.mirror import Mirror
-from app.models.source_group import SourceGroup
 from app.models.source_provider import SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
@@ -529,8 +528,7 @@ class HealthCheckService:
         result = await db.execute(
             select(Mirror)
             .options(
-                selectinload(Mirror.source_repository)
-                .selectinload(SourceRepository.source_group),
+                selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
                 selectinload(Mirror.source_repository)
                 .selectinload(SourceRepository.source_provider)
                 .selectinload(SourceProvider.credential),

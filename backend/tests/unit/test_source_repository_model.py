@@ -33,7 +33,7 @@ class TestSourceRepositoryModel:
         assert repo.discovery_status == DiscoveryStatus.new
 
     def test_source_repository_with_all_fields(self):
-        """Create a SourceRepository with optional fields populated."""
+        """Create a SourceRepository with optional fields populated — including Wave 1 additions."""
         repo = SourceRepository(
             source_group_id=2,
             external_id="repo-456",
@@ -48,6 +48,11 @@ class TestSourceRepositoryModel:
             is_archived=False,
             is_fork=True,
             is_disabled=False,
+            status_flag=0,
+            status_text="OK",
+            last_commit_sha="abc123def456",
+            last_commit_author="Test Author",
+            last_commit_message="feat: add test",
         )
         assert repo.description == "A test repository"
         assert repo.default_branch == "develop"
@@ -55,6 +60,52 @@ class TestSourceRepositoryModel:
         assert repo.license_name == "MIT License"
         assert repo.latest_release_tag == "v2.0.0"
         assert repo.is_fork is True
+        assert repo.status_flag == 0
+        assert repo.status_text == "OK"
+        assert repo.last_commit_sha == "abc123def456"
+        assert repo.last_commit_author == "Test Author"
+        assert repo.last_commit_message == "feat: add test"
+
+    def test_source_repository_with_status_fields(self):
+        """Create a SourceRepository and verify status field defaults (Wave 1).
+
+        SQLAlchemy Column(default=...) is only applied at DB insert time so
+        for a pure-Python model test we set the default explicitly.
+        """
+        repo = SourceRepository(
+            source_group_id=1,
+            external_id="repo-status",
+            name="status-repo",
+            full_name="org/status-repo",
+            status_flag=4,
+            status_text=None,
+        )
+        assert repo.status_flag == 4, (
+            f"Expected default status_flag=4 (pending), got {repo.status_flag}"
+        )
+        assert repo.status_text is None, (
+            f"Expected default status_text=None, got {repo.status_text!r}"
+        )
+
+    def test_source_repository_with_last_commit_fields(self):
+        """Create a SourceRepository with all last_commit fields populated (Wave 1)."""
+        from datetime import datetime, timezone
+
+        commit_date = datetime(2026, 6, 15, 1, 0, 0, tzinfo=timezone.utc)
+        repo = SourceRepository(
+            source_group_id=1,
+            external_id="repo-commit",
+            name="commit-repo",
+            full_name="org/commit-repo",
+            last_commit_sha="a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+            last_commit_date=commit_date,
+            last_commit_author="Jane Doe",
+            last_commit_message="fix: resolve bug in parsing logic",
+        )
+        assert repo.last_commit_sha == "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+        assert repo.last_commit_date == commit_date
+        assert repo.last_commit_author == "Jane Doe"
+        assert repo.last_commit_message == "fix: resolve bug in parsing logic"
 
     def test_discovery_status_enum_values(self):
         """Verify all DiscoveryStatus enum values."""
