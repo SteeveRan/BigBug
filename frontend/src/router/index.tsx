@@ -8,12 +8,11 @@ import { PermissionGate } from '../components/PermissionGate';
 import { LoginPage } from '../pages/Login';
 import { SsoCallbackPage } from '../pages/SsoCallback';
 import { DashboardPage } from '../pages/Overview';
-import { HelmChartsPage, HelmChartDetailPage } from '../pages/Mirroring/HelmCharts';
-import {
-  DockerImagesPage,
-  DockerImageDetailPage,
-  DockerImageComparePage,
-} from '../pages/Mirroring/DockerImages';
+import { HelmChartsPage } from '../pages/HelmCharts';
+import { HelmChartDetailPage } from '../pages/HelmCharts/HelmChartDetail';
+import { DockerImagesPage } from '../pages/DockerImages';
+import { DockerImageDetailPage } from '../pages/DockerImages/DockerImageDetail';
+import { DockerImageComparePage } from '../pages/DockerImages/DockerImageCompare';
 import { GoldImagesPage } from '../pages/Builds/GoldImages';
 import { AppImagesPage } from '../pages/Builds/AppImages';
 import { PipelinesPage } from '../pages/Pipelines/Runs';
@@ -106,7 +105,7 @@ export function AppRouter() {
         {/* ── Mirroring / Repositories → Git Mirroring V2 ─ */}
         <Route
           path="mirroring/repositories"
-          element={<Navigate to="/git-mirroring/repositories" replace />}
+          element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />}
         />
         <Route path="mirroring/repositories/:id" element={<RedirectMirroringRepositoryId />} />
 
@@ -326,15 +325,12 @@ export function AppRouter() {
             После завершения миграции страниц эти редиректы можно удалить.
            ════════════════════════════════════════════════════ */}
 
-        {/* Old Overview → Overview */}
-        <Route path="dashboard" element={<Navigate to="/overview" replace />} />
-
         {/* Old Projects → Git Mirroring V2 / Repositories */}
-        <Route path="projects" element={<Navigate to="/git-mirroring/repositories" replace />} />
+        <Route path="projects" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
         <Route path="projects/:id" element={<RedirectProjectsId />} />
 
         {/* Old Mirrors → Git Mirroring V2 / Repositories */}
-        <Route path="mirrors" element={<Navigate to="/git-mirroring/repositories" replace />} />
+        <Route path="mirrors" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
         <Route path="mirrors/:id" element={<RedirectMirrorsId />} />
 
         {/* Old Helm Charts → Mirroring / Helm Charts */}
