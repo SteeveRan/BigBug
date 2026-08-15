@@ -243,8 +243,7 @@ export function PipelinesPage() {
         okText="Trigger"
         cancelText="Cancel"
         okButtonProps={{
-          disabled:
-            isTriggering || !form.provider_id || !form.gitlab_project_id || !form.ref,
+          disabled: isTriggering || !form.provider_id || !form.gitlab_project_id || !form.ref,
         }}
       >
         <Flex vertical gap={16}>

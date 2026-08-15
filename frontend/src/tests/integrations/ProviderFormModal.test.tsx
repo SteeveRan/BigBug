@@ -100,7 +100,7 @@ describe('ProviderFormModal', () => {
     ]);
   });
 
-  it('renders subtype select and label field', () => {
+  it('renders subtype selector and label field', () => {
     render(
       <Provider store={createTestStore()}>
         <App>
@@ -108,7 +108,7 @@ describe('ProviderFormModal', () => {
         </App>
       </Provider>
     );
-    expect(screen.getByText('Subtype')).toBeInTheDocument();
+    expect(screen.getByText('Provider type')).toBeInTheDocument();
     expect(screen.getByText('Label')).toBeInTheDocument();
   });
 

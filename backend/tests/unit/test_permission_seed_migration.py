@@ -157,9 +157,7 @@ class TestPermissionSeedMigration:
         )
         admin_permissions = {r["name"] for r in rows}
         missing = EXPECTED_PERMISSIONS - admin_permissions
-        assert not missing, (
-            f"Admin role is missing these permission links: {sorted(missing)}"
-        )
+        assert not missing, f"Admin role is missing these permission links: {sorted(missing)}"
 
     def test_operator_and_viewer_get_read_links(self, perm_env):
         """Operator and viewer both receive providers:read / teams:read (read-only)."""

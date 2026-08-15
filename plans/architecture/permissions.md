@@ -60,13 +60,13 @@
 | 50 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
 | 51 | `admin:panel:access` | Доступ к Admin Panel (отдельный интерфейс) | A | Header кнопка «Admin Panel» → `AdminLayout` | ✅ |
 | 52 | `providers:read` | list/get public+system (+ private свои) | A, O, V | `/settings/providers` | ✅ |
-| 53 | `providers:write` | create/update/test public+свои private | A, O | — | только бэкенд |
+| 53 | `providers:write` | create/update/test public+свои private (кроме `is_default`) | A, O | — | только бэкенд |
 | 54 | `providers:delete` | delete public+свои private | A | — | только бэкенд |
 | 55 | `providers:use` | доменные действия (list_repositories и т.д.) | A, O | — | только бэкенд |
 | 56 | `providers:read_all` | видеть все private всех пользователей | A | — | только бэкенд |
-| 57 | `providers_system:write` | create/update/delete system-категории | A | — | только бэкенд |
+| 57 | `providers_system:write` | create/update/delete system-категории + назначение default-провайдера (`is_default`) | A | — | только бэкенд |
 | 58 | `providers:share` | share/unshare своих провайдеров команде | A, O | — | только бэкенд |
-| 59 | `teams:read` | список своих команд + карточка | A, O, V | `/settings/teams` | ✅ |
+| 59 | `teams:read` | список своих команд + карточка | A, O, V | `/profile` (My teams) | ✅ |
 | 60 | `teams:write` | создание/изменение/удаление команд (админ) | A | `/admin/teams` | ✅ |
 | 61 | `teams:manage_members` | добавление/удаление участников (админ; лид — scope) | A | — | только бэкенд |
 

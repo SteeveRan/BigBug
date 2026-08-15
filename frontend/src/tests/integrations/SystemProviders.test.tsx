@@ -1,6 +1,8 @@
 /**
- * @file Providers.test.tsx
- * @description Integration tests for the unified Providers page (`/settings/providers`).
+ * @file SystemProviders.test.tsx
+ * @description Integration tests for the admin System Providers page
+ *              (`/admin/providers`). Verifies system providers are loaded and
+ *              rendered, and that the error/empty states work.
  * @dependencies Vitest, @testing-library/react, Redux Toolkit, React Router
  */
 
@@ -21,6 +23,7 @@ vi.mock('../../store/api', async () => {
     useUpdateProviderMutation: vi.fn(),
     useTestProviderMutation: vi.fn(),
     useListUsersQuery: vi.fn(),
+    useGetCredentialsQuery: vi.fn(),
   };
 });
 
@@ -35,9 +38,10 @@ import {
   useUpdateProviderMutation,
   useTestProviderMutation,
   useListUsersQuery,
+  useGetCredentialsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
-import ProvidersPage from '../../pages/Settings/Providers';
+import SystemProvidersPage from '../../pages/Admin/SystemProviders';
 import type { ResourceProvider, ProviderTypeSpec } from '../../types';
 
 function createTestStore(): Store {
@@ -51,22 +55,22 @@ function mockProvider(overrides: Partial<ResourceProvider> = {}): ResourceProvid
   return {
     id: 1,
     domain: 'git',
-    subtype: 'github',
-    category: 'private',
-    direction: 'external',
-    name: 'github-main',
-    label: 'GitHub',
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
+    name: 'system-gitlab',
+    label: 'System GitLab',
     description: null,
-    base_url: null,
+    base_url: 'https://gitlab.internal',
     config: {},
     credential_id: null,
-    owner_user_id: 1,
+    owner_user_id: null,
     visibility: 'owner',
     team_id: null,
     team_name: null,
     is_active: true,
-    is_default: false,
-    is_protected: false,
+    is_default: true,
+    is_protected: true,
     verify_ssl: true,
     priority: 0,
     status_flag: 0,
@@ -80,19 +84,19 @@ function mockProvider(overrides: Partial<ResourceProvider> = {}): ResourceProvid
 }
 
 const mockType: ProviderTypeSpec = {
-  subtype: 'github',
+  subtype: 'gitlab',
   domain: 'git',
-  label: 'GitHub',
+  label: 'GitLab',
   capabilities: [],
-  allowed_categories: ['public', 'private'],
-  allowed_directions: ['external'],
-  allowed_credential_types: ['github_token'],
+  allowed_categories: ['system'],
+  allowed_directions: ['internal'],
+  allowed_credential_types: ['gitlab_token'],
   config_schema: { type: 'object', properties: {}, additionalProperties: false },
   oci_compliant: false,
-  requires_base_url: false,
+  requires_base_url: true,
 };
 
-describe('ProvidersPage', () => {
+describe('SystemProvidersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (usePermissions as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -115,13 +119,18 @@ describe('ProvidersPage', () => {
       { isLoading: false },
     ]);
     (useListUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [{ id: 1, username: 'admin', email: 'admin@bigbug.dev', is_active: true, roles: [] }],
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+    (useGetCredentialsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
       isLoading: false,
       isError: false,
     });
   });
 
-  it('renders Providers heading and Create button', () => {
+  it('renders System Providers heading and refresh button', () => {
     (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
       isLoading: false,
@@ -132,22 +141,18 @@ describe('ProvidersPage', () => {
       <Provider store={createTestStore()}>
         <BrowserRouter>
           <App>
-            <ProvidersPage />
+            <SystemProvidersPage />
           </App>
         </BrowserRouter>
       </Provider>
     );
-    expect(screen.getAllByText('Providers').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Create provider')).toBeInTheDocument();
+    expect(screen.getAllByText('System Providers').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Refresh')).toBeInTheDocument();
   });
 
-  it('renders provider rows with Public/Private badges and hides system providers', () => {
+  it('renders system provider rows', () => {
     (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [
-        mockProvider({ id: 1, label: 'System GitLab', category: 'system', is_protected: true }),
-        mockProvider({ id: 2, label: 'Public Hub', category: 'public' }),
-        mockProvider({ id: 3, label: 'Private Git', category: 'private' }),
-      ],
+      data: [mockProvider({ id: 1, label: 'System GitLab', is_protected: true })],
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
@@ -156,15 +161,13 @@ describe('ProvidersPage', () => {
       <Provider store={createTestStore()}>
         <BrowserRouter>
           <App>
-            <ProvidersPage />
+            <SystemProvidersPage />
           </App>
         </BrowserRouter>
       </Provider>
     );
-    // System providers are surfaced on the admin page, not in the general grid.
-    expect(screen.queryByText('System GitLab')).not.toBeInTheDocument();
-    expect(screen.getByText('Public Hub')).toBeInTheDocument();
-    expect(screen.getByText('Private Git')).toBeInTheDocument();
+    expect(screen.getByText('System GitLab')).toBeInTheDocument();
+    expect(screen.getByText('GitLab')).toBeInTheDocument();
   });
 
   it('shows error alert when providers fail to load', () => {
@@ -178,7 +181,7 @@ describe('ProvidersPage', () => {
       <Provider store={createTestStore()}>
         <BrowserRouter>
           <App>
-            <ProvidersPage />
+            <SystemProvidersPage />
           </App>
         </BrowserRouter>
       </Provider>

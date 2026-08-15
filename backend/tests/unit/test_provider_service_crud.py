@@ -35,6 +35,7 @@ ADMIN = [
     "providers_system:write",
 ]
 OPERATOR = ["providers:read", "providers:write", "providers:use"]
+SYSTEM_ADMIN = ["providers:read", "providers_system:write"]
 
 
 class TestCreate:
@@ -132,6 +133,36 @@ class TestUpdateDefault:
         assert second.is_default is True
         assert first.is_default is False
 
+    async def test_operator_cannot_set_default(self, db_session: AsyncSession):
+        svc = ProviderService(db_session)
+        provider = await svc.create_provider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="operator-default",
+            label="Operator Default",
+            user=_user(1, ADMIN),
+        )
+        with pytest.raises(DomainError) as exc:
+            await svc.update_provider(provider.id, _user(2, OPERATOR), is_default=True)
+        assert exc.value.status_code == 403
+
+    async def test_admin_can_set_default(self, db_session: AsyncSession):
+        svc = ProviderService(db_session)
+        provider = await svc.create_provider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="admin-default",
+            label="Admin Default",
+            user=_user(1, ADMIN),
+        )
+        updated = await svc.update_provider(provider.id, _user(1, ADMIN), is_default=True)
+        await db_session.refresh(updated)
+        assert updated.is_default is True
+
 
 class TestDelete:
     async def test_protected_delete_conflict(self, db_session: AsyncSession):
@@ -149,6 +180,22 @@ class TestDelete:
         with pytest.raises(DomainError) as exc:
             await svc.delete_provider(p.id, _user(1, ADMIN))
         assert exc.value.status_code == 409
+
+
+class TestSystemVisibility:
+    async def test_system_provider_visible_without_read_all(self, db_session: AsyncSession):
+        svc = ProviderService(db_session)
+        await svc.create_provider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.gitlab,
+            category=ProviderCategory.system,
+            direction=ProviderDirection.internal,
+            name="sys-visible",
+            label="System GitLab",
+            user=_user(1, ADMIN),
+        )
+        providers = await svc.list_providers(_user(2, SYSTEM_ADMIN))
+        assert any(p.name == "sys-visible" for p in providers)
 
 
 class TestVisibility:

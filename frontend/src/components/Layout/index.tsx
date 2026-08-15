@@ -19,7 +19,6 @@ import {
   ApiOutlined,
   LogoutOutlined,
   UserOutlined,
-  TeamOutlined,
   SunOutlined,
   MoonOutlined,
   DisconnectOutlined,
@@ -99,10 +98,7 @@ export function Layout() {
         </span>
       ),
       type: 'group',
-      children: [
-        { key: '/settings/providers', icon: <ApiOutlined />, label: 'Providers' },
-        { key: '/settings/teams', icon: <TeamOutlined />, label: 'Teams' },
-      ],
+      children: [{ key: '/settings/providers', icon: <ApiOutlined />, label: 'Providers' }],
     },
     {
       key: 'group-artifacts',
@@ -169,6 +165,12 @@ export function Layout() {
 
   // ── User dropdown ──────────────────────────────────────────
   const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: 'My Profile',
+      onClick: () => navigate('/profile'),
+    },
     {
       key: 'logout',
       icon: <LogoutOutlined />,

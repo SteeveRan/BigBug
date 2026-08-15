@@ -21,8 +21,9 @@ import { AdminPage } from '../pages/Admin/Users';
 import { AdminCredentials } from '../pages/Admin/Credentials';
 import { AuthenticationSettings } from '../pages/Admin/Authentication';
 import { AuditLogPage } from '../pages/Admin/AuditLog';
+import { SystemProvidersPage } from '../pages/Admin/SystemProviders';
 import { ProvidersPage } from '../pages/Settings/Providers';
-import { SettingsTeams } from '../pages/Settings/Teams';
+import { ProfilePage } from '../pages/Profile';
 import { AdminTeams } from '../pages/Admin/Teams';
 import { TeamDetailPage } from '../pages/Admin/Teams/TeamDetail';
 
@@ -105,6 +106,9 @@ export function AppRouter() {
         <Route path="overview" element={<DashboardPage />} />
         <Route index element={<Navigate to="/overview" replace />} />
         <Route path="dashboard" element={<Navigate to="/overview" replace />} />
+
+        {/* ── Profile (личный кабинет) ──────────────────── */}
+        <Route path="profile" element={<ProfilePage />} />
 
         {/* ── Mirroring / Repositories → Git Mirroring V2 ─ */}
         <Route
@@ -385,14 +389,8 @@ export function AppRouter() {
             </PermissionGate>
           }
         />
-        <Route
-          path="settings/teams"
-          element={
-            <PermissionGate permission="teams:read">
-              <SettingsTeams />
-            </PermissionGate>
-          }
-        />
+        {/* Old Settings / Teams → Profile (личный кабинет) */}
+        <Route path="settings/teams" element={<Navigate to="/profile" replace />} />
       </Route>
 
       {/* ── Admin Panel (separate layout) ──────────────────────── */}
@@ -445,6 +443,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="credentials:read">
               <AdminCredentials />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="providers"
+          element={
+            <PermissionGate anyOf={['providers_system:write', 'providers:read_all']}>
+              <SystemProvidersPage />
             </PermissionGate>
           }
         />

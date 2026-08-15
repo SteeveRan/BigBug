@@ -12,6 +12,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(150), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=True)  # display name from OIDC 'name' claim
     hashed_password = Column(String(255), nullable=True)  # nullable for SSO-only users
     keycloak_sub = Column(String(255), unique=True, nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False)

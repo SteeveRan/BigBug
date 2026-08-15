@@ -146,6 +146,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
+  full_name?: string | null;
   is_active: boolean;
   roles: string[];
 }
@@ -352,7 +353,6 @@ export interface ScopeItemRequest {
   sync_group_id?: number;
   provider_id?: number;
 }
-
 
 // ──── OIDC Configuration Types ─────────────────────────────────────────────
 
@@ -775,7 +775,6 @@ export interface CredentialUpdate {
   ssh_public_key?: string | null;
   base_url?: string | null;
 }
-
 
 export interface SourceGroup {
   id: number;

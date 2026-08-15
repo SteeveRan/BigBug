@@ -175,6 +175,31 @@ class TestProviderVisibility:
         )
         assert response.status_code == 403
 
+    async def test_operator_cannot_set_default(
+        self, client: AsyncClient, admin_token: str, operator_token: str
+    ):
+        """An operator with ``providers:write`` cannot flip ``is_default``; only admins can."""
+        create_resp = await client.post(
+            "/api/providers", headers=auth(admin_token), json=public_payload("default-flag")
+        )
+        assert create_resp.status_code == 201
+        provider_id = create_resp.json()["id"]
+
+        operator_patch = await client.patch(
+            f"/api/providers/{provider_id}",
+            headers=auth(operator_token),
+            json={"is_default": True},
+        )
+        assert operator_patch.status_code == 403
+
+        admin_patch = await client.patch(
+            f"/api/providers/{provider_id}",
+            headers=auth(admin_token),
+            json={"is_default": True},
+        )
+        assert admin_patch.status_code == 200
+        assert admin_patch.json()["is_default"] is True
+
     async def test_viewer_can_read_200(self, client: AsyncClient, viewer_token: str):
         """A viewer can read the provider list."""
         response = await client.get("/api/providers", headers=auth(viewer_token))

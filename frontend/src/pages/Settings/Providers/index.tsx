@@ -1,11 +1,13 @@
 /**
  * @file Settings/Providers/index.tsx
  * @description Unified Providers V3 page (`/settings/providers`). A single grid with
- *              domain/category/direction tabs and a filter row. Private providers are
- *              personal (owner=me), system providers are read-only without
- *              `providers_system:write`.
+ *              domain/category/direction tabs and a filter row. Column sets are
+ *              customised per tab: the "All" tab shows only common information while
+ *              git/docker/helm tabs add domain-specific columns. System providers are
+ *              hidden here (they live on the admin page). Connection tests report
+ *              their result via antd `message`, not a modal.
  * @dependencies antd, @ant-design/icons, react-router, RTK Query, PermissionGate, StatusChip
- * @relatedFiles ./ProviderFormModal.tsx, ./TestConnectionModal.tsx, ./DeleteProviderModal.tsx,
+ * @relatedFiles ./ProviderFormModal.tsx, ./DeleteProviderModal.tsx,
  *               ./CredentialAssignModal.tsx, ./ShareProviderModal.tsx
  */
 
@@ -46,6 +48,8 @@ import {
   useGetProvidersQuery,
   useGetProviderUsageQuery,
   useUpdateProviderMutation,
+  useTestProviderMutation,
+  useListUsersQuery,
 } from '../../../store/api';
 import type {
   ProviderCategory,
@@ -53,15 +57,18 @@ import type {
   ProviderDomain,
   ResourceProvider,
   ProviderTypeSpec,
+  ProviderSubtype,
+  User,
 } from '../../../types';
 import { StatusChip } from '../../../components/StatusChip';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { ProviderFormModal } from './ProviderFormModal';
-import { TestConnectionModal } from './TestConnectionModal';
 import { DeleteProviderModal } from './DeleteProviderModal';
 import { CredentialAssignModal } from './CredentialAssignModal';
 import { ShareProviderModal } from './ShareProviderModal';
+import { resolveProviderColumns } from './providersColumns';
+import type { ProviderColumnKey } from './providersColumns';
 
 const DOMAIN_LABELS: Record<ProviderDomain, string> = {
   git: 'Git',
@@ -106,7 +113,6 @@ const TABS: TabConfig[] = [
   { key: 'docker', label: 'Docker', domain: 'docker' },
   { key: 'helm', label: 'Helm', domain: 'helm' },
   { key: 'mine', label: 'My providers', owner: 'me', category: 'private' },
-  { key: 'system', label: 'System', category: 'system' },
 ];
 
 export function ProvidersPage() {
@@ -129,19 +135,23 @@ export function ProvidersPage() {
   // Modal state
   const [formOpen, setFormOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ResourceProvider | undefined>(undefined);
-  const [testProvider, setTestProvider] = useState<ResourceProvider | undefined>(undefined);
   const [deleteProvider, setDeleteProvider] = useState<ResourceProvider | undefined>(undefined);
   const [credentialProvider, setCredentialProvider] = useState<ResourceProvider | undefined>(
     undefined
   );
   const [shareProvider, setShareProvider] = useState<ResourceProvider | undefined>(undefined);
   const [usageProvider, setUsageProvider] = useState<ResourceProvider | undefined>(undefined);
+  const [testingId, setTestingId] = useState<number | undefined>(undefined);
 
   const {
     data: types = [],
     isLoading: typesLoading,
     isError: typesError,
   } = useGetProviderTypesQuery();
+
+  const { data: users = [] } = useListUsersQuery(undefined, {
+    skip: !hasPermission('users:read'),
+  });
 
   const providerParams = useMemo(() => {
     const tab = TABS.find((t) => t.key === activeTab);
@@ -165,9 +175,23 @@ export function ProvidersPage() {
     refetch,
   } = useGetProvidersQuery(providerParams);
 
-  // Client-side filtering for search/active-only (not part of the backend query contract).
+  // Resolve human labels / OCI compliance from the subtype registry metadata.
+  const typeSpecs = useMemo(() => {
+    const map = new Map<ProviderSubtype, ProviderTypeSpec>();
+    for (const t of types as ProviderTypeSpec[]) map.set(t.subtype, t);
+    return map;
+  }, [types]);
+
+  const getUserLabel = (record: ResourceProvider): string => {
+    if (!record.owner_user_id) return '—';
+    const owner = (users as User[]).find((u) => u.id === record.owner_user_id);
+    return owner?.username ?? `#${record.owner_user_id}`;
+  };
+
+  // Client-side filtering for search/active-only + hide system providers here
+  // (system providers are surfaced on the admin page, not in the general grid).
   const providers = useMemo(() => {
-    let list = rawProviders as ResourceProvider[];
+    let list = (rawProviders as ResourceProvider[]).filter((p) => p.category !== 'system');
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
@@ -179,10 +203,12 @@ export function ProvidersPage() {
     }
     return list;
   }, [rawProviders, search, onlyActive]);
+
   const [updateProvider] = useUpdateProviderMutation();
+  const [testConnection] = useTestProviderMutation();
 
   const typeOptions = useMemo(() => {
-    return types.map((t: ProviderTypeSpec) => ({ label: t.label, value: t.subtype }));
+    return (types as ProviderTypeSpec[]).map((t) => ({ label: t.label, value: t.subtype }));
   }, [types]);
 
   const handleSetDefault = async (record: ResourceProvider, value: boolean) => {
@@ -194,195 +220,290 @@ export function ProvidersPage() {
     }
   };
 
-  const columns: ColumnsType<ResourceProvider> = [
-    {
-      title: 'Label',
-      key: 'label',
-      sorter: (a, b) => a.label.localeCompare(b.label),
-      render: (_: unknown, record) => (
-        <Flex vertical>
-          <Space size={4}>
-            <Typography.Text strong>{record.label}</Typography.Text>
-            {record.is_default && <Tag color="blue">Default</Tag>}
-            {record.is_protected && <Tag color="gold">Protected</Tag>}
-          </Space>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {record.name}
-          </Typography.Text>
-        </Flex>
-      ),
-    },
-    {
-      title: 'Domain',
-      dataIndex: 'domain',
-      key: 'domain',
-      sorter: (a, b) => a.domain.localeCompare(b.domain),
-      render: (value: ProviderDomain) => (
-        <Tag color={DOMAIN_COLORS[value]}>{DOMAIN_LABELS[value]}</Tag>
-      ),
-    },
-    {
-      title: 'Subtype',
-      dataIndex: 'subtype',
-      key: 'subtype',
-      sorter: (a, b) => a.subtype.localeCompare(b.subtype),
-      render: (value: string, record) => (
+  const handleTestConnection = async (record: ResourceProvider) => {
+    if (testingId !== undefined) return;
+    setTestingId(record.id);
+    try {
+      const result = await testConnection(record.id).unwrap();
+      if (result.ok || result.status_flag === 0) {
+        message.success(result.status_text ?? 'Connection successful');
+      } else {
+        message.error(result.status_text ?? 'Connection test failed');
+      }
+    } catch (err) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail;
+      message.error(detail ?? 'Connection test failed');
+    } finally {
+      setTestingId(undefined);
+    }
+  };
+
+  const subtypeLabel = (record: ResourceProvider): string =>
+    typeSpecs.get(record.subtype)?.label ?? record.subtype;
+
+  const isOciCompliant = (record: ResourceProvider): boolean =>
+    typeSpecs.get(record.subtype)?.oci_compliant ?? false;
+
+  const labelColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Label',
+    key: 'label',
+    width: 200,
+    sorter: (a, b) => a.label.localeCompare(b.label),
+    render: (_: unknown, record) => (
+      <Flex vertical>
         <Space size={4}>
-          <Tag>{value}</Tag>
-          {record.domain === 'docker' && (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              OCI
-            </Typography.Text>
+          <Typography.Text strong ellipsis={{ tooltip: record.label }}>
+            {record.label}
+          </Typography.Text>
+          {record.is_default && <Tag color="blue">Default</Tag>}
+          {record.is_protected && <Tag color="gold">Protected</Tag>}
+        </Space>
+        <Typography.Text
+          type="secondary"
+          style={{ fontSize: 12 }}
+          ellipsis={{ tooltip: record.name }}
+        >
+          {record.name}
+        </Typography.Text>
+      </Flex>
+    ),
+  };
+
+  const domainColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Domain',
+    dataIndex: 'domain',
+    key: 'domain',
+    width: 90,
+    sorter: (a, b) => a.domain.localeCompare(b.domain),
+    render: (value: ProviderDomain) => (
+      <Tag color={DOMAIN_COLORS[value]}>{DOMAIN_LABELS[value]}</Tag>
+    ),
+  };
+
+  const subtypeColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Subtype',
+    dataIndex: 'subtype',
+    key: 'subtype',
+    width: 170,
+    sorter: (a, b) => a.subtype.localeCompare(b.subtype),
+    render: (_: string, record) => (
+      <Typography.Text ellipsis={{ tooltip: record.subtype }}>
+        {subtypeLabel(record)}
+      </Typography.Text>
+    ),
+  };
+
+  const categoryColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Category',
+    dataIndex: 'category',
+    key: 'category',
+    width: 100,
+    sorter: (a, b) => a.category.localeCompare(b.category),
+    render: (value: ProviderCategory) => (
+      <Tag color={CATEGORY_COLORS[value]}>{CATEGORY_LABELS[value]}</Tag>
+    ),
+  };
+
+  const directionColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Direction',
+    dataIndex: 'direction',
+    key: 'direction',
+    width: 100,
+    sorter: (a, b) => a.direction.localeCompare(b.direction),
+    render: (value: ProviderDirection) => DIRECTION_LABELS[value],
+  };
+
+  const visibilityColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Visibility',
+    dataIndex: 'visibility',
+    key: 'visibility',
+    width: 140,
+    render: (value: string, record) => {
+      if (value === 'team') return <Tag color="blue">Team · {record.team_name ?? '—'}</Tag>;
+      if (value === 'public') return <Tag color="green">Public</Tag>;
+      return <Tag>Private</Tag>;
+    },
+  };
+
+  const statusColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Status',
+    key: 'status',
+    width: 120,
+    render: (_: unknown, record) => (
+      <StatusChip
+        statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
+        statusText={record.status_text}
+      />
+    ),
+  };
+
+  const ociColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'OCI',
+    key: 'oci',
+    width: 70,
+    align: 'center',
+    render: (_: unknown, record) =>
+      isOciCompliant(record) ? (
+        <Tag color="cyan">OCI</Tag>
+      ) : (
+        <Typography.Text type="secondary">—</Typography.Text>
+      ),
+  };
+
+  const baseUrlColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Base URL',
+    dataIndex: 'base_url',
+    key: 'base_url',
+    width: 200,
+    render: (value: string | null) =>
+      value ? (
+        <Typography.Text style={{ fontSize: 12 }} ellipsis={{ tooltip: value }}>
+          {value}
+        </Typography.Text>
+      ) : (
+        <Typography.Text type="secondary">—</Typography.Text>
+      ),
+  };
+
+  const defaultColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Default',
+    key: 'default',
+    width: 90,
+    align: 'center',
+    render: (_: unknown, record) => (
+      <PermissionGate permission="providers:write">
+        <Switch
+          size="small"
+          checked={record.is_default}
+          onChange={(checked) => handleSetDefault(record, checked)}
+        />
+      </PermissionGate>
+    ),
+  };
+
+  const credentialColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Credential',
+    key: 'credential',
+    width: 110,
+    align: 'center',
+    render: (_: unknown, record) => (
+      <PermissionGate permission="providers:write">
+        <Tooltip title={record.has_credential ? 'Credential assigned' : 'Assign credential'}>
+          <Button
+            size="small"
+            type={record.has_credential ? 'primary' : 'text'}
+            icon={<KeyOutlined />}
+            onClick={() => setCredentialProvider(record)}
+          />
+        </Tooltip>
+      </PermissionGate>
+    ),
+  };
+
+  const ownerColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Owner',
+    key: 'owner',
+    width: 110,
+    render: (_: unknown, record) => <Typography.Text>{getUserLabel(record)}</Typography.Text>,
+  };
+
+  const actionsColumn: ColumnsType<ResourceProvider>[number] = {
+    title: 'Actions',
+    key: 'actions',
+    align: 'right',
+    width: 240,
+    fixed: 'right',
+    render: (_: unknown, record) => {
+      const canMutate = !record.is_protected && hasPermission('providers:write');
+      return (
+        <Space size={4}>
+          <PermissionGate permission="providers:use">
+            <Tooltip title="Test">
+              <Button
+                size="small"
+                type="text"
+                icon={<PlayCircleOutlined />}
+                loading={testingId === record.id}
+                onClick={() => handleTestConnection(record)}
+              />
+            </Tooltip>
+          </PermissionGate>
+          {canMutate && (
+            <Tooltip title="Edit">
+              <Button
+                size="small"
+                type="text"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setEditingProvider(record);
+                  setFormOpen(true);
+                }}
+              />
+            </Tooltip>
+          )}
+          <PermissionGate permission="providers:share">
+            {record.visibility !== 'team' && record.category !== 'system' && (
+              <Tooltip title="Share">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<ShareAltOutlined />}
+                  onClick={() => setShareProvider(record)}
+                />
+              </Tooltip>
+            )}
+          </PermissionGate>
+          <PermissionGate permission="providers:read">
+            <Tooltip title="Usage">
+              <Button
+                size="small"
+                type="text"
+                icon={<BarChartOutlined />}
+                onClick={() => setUsageProvider(record)}
+              />
+            </Tooltip>
+          </PermissionGate>
+          {hasPermission('providers:delete') && canMutate && (
+            <Tooltip title="Delete">
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => setDeleteProvider(record)}
+              />
+            </Tooltip>
           )}
         </Space>
-      ),
+      );
     },
-    {
-      title: 'Category',
-      dataIndex: 'category',
-      key: 'category',
-      sorter: (a, b) => a.category.localeCompare(b.category),
-      render: (value: ProviderCategory) => (
-        <Tag color={CATEGORY_COLORS[value]}>{CATEGORY_LABELS[value]}</Tag>
-      ),
-    },
-    {
-      title: 'Direction',
-      dataIndex: 'direction',
-      key: 'direction',
-      sorter: (a, b) => a.direction.localeCompare(b.direction),
-      render: (value: ProviderDirection) => DIRECTION_LABELS[value],
-    },
-    {
-      title: 'Visibility',
-      dataIndex: 'visibility',
-      key: 'visibility',
-      render: (value: string, record) => {
-        if (value === 'team') return <Tag color="blue">Team · {record.team_name ?? '—'}</Tag>;
-        if (value === 'public') return <Tag color="green">Public</Tag>;
-        return <Tag>Private</Tag>;
-      },
-    },
-    {
-      title: 'Status',
-      key: 'status',
-      render: (_: unknown, record) => (
-        <StatusChip
-          statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
-          statusText={record.status_text}
-        />
-      ),
-    },
-    {
-      title: 'Default',
-      key: 'default',
-      width: 90,
-      align: 'center',
-      render: (_: unknown, record) => (
-        <PermissionGate permission="providers:write">
-          <Switch
-            size="small"
-            checked={record.is_default}
-            onChange={(checked) => handleSetDefault(record, checked)}
-          />
-        </PermissionGate>
-      ),
-    },
-    {
-      title: 'Credential',
-      key: 'credential',
-      width: 110,
-      align: 'center',
-      render: (_: unknown, record) => (
-        <PermissionGate permission="providers:write">
-          <Tooltip title={record.has_credential ? 'Credential assigned' : 'Assign credential'}>
-            <Button
-              size="small"
-              type={record.has_credential ? 'primary' : 'text'}
-              icon={<KeyOutlined />}
-              onClick={() => setCredentialProvider(record)}
-            />
-          </Tooltip>
-        </PermissionGate>
-      ),
-    },
-    {
-      title: 'Owner',
-      key: 'owner',
-      render: (_: unknown, record) => (
-        <Typography.Text>{record.owner_user_id ? `#${record.owner_user_id}` : '—'}</Typography.Text>
-      ),
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      align: 'right',
-      width: 240,
-      render: (_: unknown, record) => {
-        const canMutate = !record.is_protected && hasPermission('providers:write');
-        return (
-          <Space size={4}>
-            <PermissionGate permission="providers:use">
-              <Tooltip title="Test">
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<PlayCircleOutlined />}
-                  onClick={() => setTestProvider(record)}
-                />
-              </Tooltip>
-            </PermissionGate>
-            {canMutate && (
-              <Tooltip title="Edit">
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<EditOutlined />}
-                  onClick={() => {
-                    setEditingProvider(record);
-                    setFormOpen(true);
-                  }}
-                />
-              </Tooltip>
-            )}
-            <PermissionGate permission="providers:share">
-              {record.visibility !== 'team' && record.category !== 'system' && (
-                <Tooltip title="Share">
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<ShareAltOutlined />}
-                    onClick={() => setShareProvider(record)}
-                  />
-                </Tooltip>
-              )}
-            </PermissionGate>
-            <PermissionGate permission="providers:read">
-              <Tooltip title="Usage">
-                <Button
-                  size="small"
-                  type="text"
-                  icon={<BarChartOutlined />}
-                  onClick={() => setUsageProvider(record)}
-                />
-              </Tooltip>
-            </PermissionGate>
-            {hasPermission('providers:delete') && canMutate && (
-              <Tooltip title="Delete">
-                <Button
-                  size="small"
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => setDeleteProvider(record)}
-                />
-              </Tooltip>
-            )}
-          </Space>
-        );
-      },
-    },
-  ];
+  };
+
+  const columns = useMemo<ColumnsType<ResourceProvider>>(() => {
+    const keys = resolveProviderColumns({ activeTab, domain });
+    const columnMap: Record<ProviderColumnKey, ColumnsType<ResourceProvider>[number]> = {
+      label: labelColumn,
+      domain: domainColumn,
+      subtype: subtypeColumn,
+      category: categoryColumn,
+      direction: directionColumn,
+      visibility: visibilityColumn,
+      status: statusColumn,
+      oci: ociColumn,
+      base_url: baseUrlColumn,
+      default: defaultColumn,
+      credential: credentialColumn,
+      owner: ownerColumn,
+      actions: actionsColumn,
+    };
+    return keys.map((key) => columnMap[key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, domain, typeSpecs, users, testingId]);
+
+  const scrollX = useMemo(() => {
+    const width = columns.reduce((sum, col) => sum + (Number(col.width) || 0), 0);
+    return Math.max(width + 32, 1200);
+  }, [columns]);
 
   const onTabChange = (key: string) => {
     setActiveTab(key);
@@ -399,7 +520,8 @@ export function ProvidersPage() {
             Providers
           </Typography.Title>
           <Typography.Text type="secondary">
-            Unified resource providers (Git, Docker, Helm) with personal, public and system scopes.
+            Unified resource providers (Git, Docker, Helm) with personal, public and team
+            visibility.
           </Typography.Text>
         </Flex>
         <Space>
@@ -512,6 +634,7 @@ export function ProvidersPage() {
             dataSource={providers as ResourceProvider[]}
             rowKey="id"
             pagination={{ pageSize: 10 }}
+            scroll={{ x: scrollX }}
             locale={{ emptyText: <Empty description="No providers configured" /> }}
           />
         </Card>
@@ -526,7 +649,6 @@ export function ProvidersPage() {
           setEditingProvider(undefined);
         }}
       />
-      <TestConnectionModal provider={testProvider} onClose={() => setTestProvider(undefined)} />
       <DeleteProviderModal provider={deleteProvider} onClose={() => setDeleteProvider(undefined)} />
       <CredentialAssignModal
         provider={credentialProvider}

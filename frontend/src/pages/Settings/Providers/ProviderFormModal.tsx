@@ -3,15 +3,34 @@
  * @description Create/edit modal for a unified provider. Dynamically renders config
  *              fields from `/api/providers/types`, filters credentials by allowed
  *              types, and offers visibility (owner/team/public) when permitted.
- * @dependencies antd, RTK Query, ../../../types
+ *              Subtype selection uses grouped button cards (read-only on edit, since
+ *              domain/subtype are immutable after creation). The edit form also runs
+ *              POST /providers/{id}/test and reports the result via antd message.
+ * @dependencies antd, @ant-design/icons, RTK Query, ../../../types
  * @relatedFiles ./index.tsx, ./CredentialAssignModal.tsx
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { App, Button, Form, Input, InputNumber, Modal, Radio, Select, Space, Switch } from 'antd';
+import {
+  App,
+  Button,
+  Flex,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Radio,
+  Select,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
+import { PlayCircleOutlined } from '@ant-design/icons';
 import {
   useCreateProviderMutation,
   useUpdateProviderMutation,
+  useTestProviderMutation,
   useGetProviderTypesQuery,
   useGetCredentialsQuery,
   useGetTeamsQuery,
@@ -19,6 +38,7 @@ import {
 import type {
   ProviderCategory,
   ProviderDirection,
+  ProviderDomain,
   ProviderSubtype,
   ProviderTypeSpec,
   ProviderVisibility,
@@ -53,6 +73,20 @@ interface FormValues {
 const SECRET_KEY_PATTERN =
   /(token|password|secret|passwd|api_key|access_key|private_key|credential)/i;
 
+const DOMAIN_LABELS: Record<ProviderDomain, string> = {
+  git: 'Git',
+  docker: 'Docker',
+  helm: 'Helm',
+};
+
+const DOMAIN_ORDER: ProviderDomain[] = ['git', 'docker', 'helm'];
+
+const humanizeKey = (key: string): string =>
+  key
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
 export function ProviderFormModal({ open, provider, onClose }: ProviderFormModalProps) {
   const { message } = App.useApp();
   const { hasPermission } = usePermissions();
@@ -65,6 +99,7 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
 
   const [createProvider, { isLoading: isCreating }] = useCreateProviderMutation();
   const [updateProvider, { isLoading: isUpdating }] = useUpdateProviderMutation();
+  const [testConnection, { isLoading: isTesting }] = useTestProviderMutation();
   const isLoading = isCreating || isUpdating;
 
   const [selectedSubtype, setSelectedSubtype] = useState<ProviderSubtype | undefined>();
@@ -135,6 +170,21 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
     return true;
   };
 
+  const handleTest = async () => {
+    if (!provider) return;
+    try {
+      const result = await testConnection(provider.id).unwrap();
+      if (result.ok || result.status_flag === 0) {
+        message.success(result.status_text ?? 'Connection successful');
+      } else {
+        message.error(result.status_text ?? 'Connection test failed');
+      }
+    } catch (err) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail;
+      message.error(detail ?? 'Connection test failed');
+    }
+  };
+
   const handleSubmit = async (values: FormValues) => {
     const config = values.config ?? {};
     if (!validateConfig(config)) return;
@@ -199,36 +249,37 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
     const properties = spec.config_schema.properties ?? {};
     return Object.entries(properties).map(([key, field]) => {
       const name = ['config', key];
+      const label = humanizeKey(key);
       if (field.type === 'integer') {
         return (
-          <Form.Item key={key} name={name} label={key}>
+          <Form.Item key={key} name={name} label={label}>
             <InputNumber style={{ width: '100%' }} />
           </Form.Item>
         );
       }
       if (field.type === 'boolean') {
         return (
-          <Form.Item key={key} name={name} label={key} valuePropName="checked">
+          <Form.Item key={key} name={name} label={label} valuePropName="checked">
             <Switch />
           </Form.Item>
         );
       }
       if (field.type === 'array') {
         return (
-          <Form.Item key={key} name={name} label={key}>
+          <Form.Item key={key} name={name} label={label}>
             <Select mode="tags" style={{ width: '100%' }} />
           </Form.Item>
         );
       }
       if (field.enum) {
         return (
-          <Form.Item key={key} name={name} label={key}>
+          <Form.Item key={key} name={name} label={label}>
             <Select options={field.enum.map((v) => ({ label: String(v), value: v as string }))} />
           </Form.Item>
         );
       }
       return (
-        <Form.Item key={key} name={name} label={key}>
+        <Form.Item key={key} name={name} label={label}>
           <Input />
         </Form.Item>
       );
@@ -243,6 +294,17 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
       width={640}
       destroyOnHidden
       footer={[
+        isEdit ? (
+          <Button
+            key="test"
+            icon={<PlayCircleOutlined />}
+            loading={isTesting}
+            disabled={isLoading}
+            onClick={handleTest}
+          >
+            Test connection
+          </Button>
+        ) : null,
         <Button key="cancel" onClick={onClose} disabled={isLoading}>
           Cancel
         </Button>,
@@ -252,16 +314,44 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
       ]}
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
-        <Form.Item name="subtype" label="Subtype" rules={[{ required: true }]}>
-          <Select
-            placeholder="Select subtype"
-            options={types.map((t: ProviderTypeSpec) => ({
-              label: `${t.label} (${t.domain})`,
-              value: t.subtype,
-            }))}
-            onChange={(v) => setSelectedSubtype(v)}
-          />
-        </Form.Item>
+        {isEdit ? (
+          <Form.Item label="Provider type">
+            <Space>
+              <Tag color="blue">{spec?.label ?? provider?.subtype}</Tag>
+              <Typography.Text type="secondary">
+                {spec ? DOMAIN_LABELS[spec.domain] : provider?.domain}
+              </Typography.Text>
+            </Space>
+          </Form.Item>
+        ) : (
+          <Form.Item name="subtype" label="Provider type" rules={[{ required: true }]}>
+            <Radio.Group
+              style={{ width: '100%' }}
+              onChange={(e) => setSelectedSubtype(e.target.value)}
+            >
+              <Flex vertical gap={12} style={{ width: '100%' }}>
+                {DOMAIN_ORDER.map((domain) => {
+                  const group = types.filter((t: ProviderTypeSpec) => t.domain === domain);
+                  if (group.length === 0) return null;
+                  return (
+                    <Flex key={domain} vertical gap={4}>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {DOMAIN_LABELS[domain]}
+                      </Typography.Text>
+                      <Flex wrap gap={8}>
+                        {group.map((t: ProviderTypeSpec) => (
+                          <Radio.Button key={t.subtype} value={t.subtype}>
+                            {t.label}
+                          </Radio.Button>
+                        ))}
+                      </Flex>
+                    </Flex>
+                  );
+                })}
+              </Flex>
+            </Radio.Group>
+          </Form.Item>
+        )}
 
         <Form.Item name="label" label="Label" rules={[{ required: true }]}>
           <Input placeholder="e.g. GitHub main" />

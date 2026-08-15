@@ -11,8 +11,10 @@ import {
   ArrowLeftOutlined,
   SunOutlined,
   MoonOutlined,
+  DeploymentUnitOutlined,
 } from '@ant-design/icons';
 import { useThemeMode } from '../../hooks/useThemeMode';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const { Header, Content, Sider } = AntLayout;
 
@@ -39,6 +41,7 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { mode, toggleTheme } = useThemeMode();
+  const { hasPermission } = usePermissions();
 
   const isDark = mode === 'dark';
   const selectedKeys = computeSelectedKey(location.pathname);
@@ -50,6 +53,9 @@ export function AdminLayout() {
     { key: '/admin/permissions', icon: <KeyOutlined />, label: 'Permissions' },
     { key: '/admin/teams', icon: <TeamOutlined />, label: 'Teams' },
     { key: '/admin/credentials', icon: <ApiOutlined />, label: 'Credentials' },
+    ...(hasPermission('providers_system:write') || hasPermission('providers:read_all')
+      ? [{ key: '/admin/providers', icon: <DeploymentUnitOutlined />, label: 'System Providers' }]
+      : []),
     { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
     { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
   ];

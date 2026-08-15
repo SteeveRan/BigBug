@@ -242,12 +242,10 @@ export function DockerImagesPage() {
 
   // ── Registry select options ───────────────────────────────────────────────
 
-  const registryOptions = (analysis?.compatible_registries || []).map(
-    (r: ResourceProvider) => ({
-      label: `${r.name} (${r.base_url ?? r.label})`,
-      value: r.id,
-    })
-  );
+  const registryOptions = (analysis?.compatible_registries || []).map((r: ResourceProvider) => ({
+    label: `${r.name} (${r.base_url ?? r.label})`,
+    value: r.id,
+  }));
 
   // ── Render ────────────────────────────────────────────────────────────────
 

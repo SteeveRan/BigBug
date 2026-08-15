@@ -162,6 +162,7 @@ import {
   useGetProviderUsageQuery,
   useGetCredentialsQuery,
   useGetTeamsQuery,
+  useGetMeQuery,
   useUpdateProviderMutation,
   useCreateProviderMutation,
   useTestProviderMutation,
@@ -173,6 +174,7 @@ import {
   useDeleteProjectMutation,
   useRefreshProjectMutation,
   useUpdateProjectMutation,
+  useListUsersQuery,
   useCreateHelmChartMutation,
   useIndexHelmChartMutation,
   useCreateDockerImageMutation,
@@ -204,6 +206,7 @@ import {
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionGate } from '../../components/PermissionGate';
+import authReducer from '../../store/authSlice';
 
 import { DashboardPage } from '../../pages/Overview';
 import { SourcesPage } from '../../pages/GitMirroring/Sources';
@@ -214,7 +217,7 @@ import { AppImagesPage } from '../../pages/AppImages';
 import { PipelinesPage } from '../../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../../pages/Pipelines/Components';
 import { ProvidersPage } from '../../pages/Settings/Providers';
-import { SettingsTeams } from '../../pages/Settings/Teams';
+import { ProfilePage } from '../../pages/Profile';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -234,6 +237,7 @@ function mockQueryEmpty() {
 function createTestStore() {
   return configureStore({
     reducer: {
+      auth: authReducer,
       [api.reducerPath]: api.reducer,
     },
     middleware: (gdm) => gdm().concat(api.middleware),
@@ -315,10 +319,10 @@ const MENU_PAGES: MenuPageConfig[] = [
     contentMarker: 'Providers',
   },
   {
-    label: 'Settings / Teams',
-    page: <SettingsTeams />,
-    permission: 'teams:read',
-    contentMarker: 'My teams',
+    label: 'Profile',
+    page: <ProfilePage />,
+    permission: null, // нет PermissionGate — доступен каждому аутентифицированному
+    contentMarker: 'My Profile',
   },
 ];
 
@@ -363,6 +367,8 @@ function setupDefaultApiMocks() {
   (useGetProviderUsageQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetCredentialsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetTeamsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetMeQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useListUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetGoldImageScanResultsMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockMutation());
 
   // Mutations → [fn, { isLoading: false }]

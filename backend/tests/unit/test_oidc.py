@@ -230,6 +230,7 @@ async def test_validate_id_token_success(
     assert claims.subject == "kc-user-001"
     assert claims.username == "sso_user"
     assert claims.email == "sso_user@example.com"
+    assert claims.full_name == "sso_user"  # fallback: no 'name' claim in token
     assert claims.roles == frozenset({"admin", "viewer"})
 
 
@@ -288,6 +289,7 @@ async def test_provision_or_update_user_new(
         subject="kc-new-user",
         username="new_user",
         email="new_user@example.com",
+        full_name="New User",
         roles=frozenset({"operator", "viewer"}),
     )
     service = KeycloakOIDCService(
@@ -297,6 +299,7 @@ async def test_provision_or_update_user_new(
 
     assert user.id is not None
     assert user.username == "new_user"
+    assert user.full_name == "New User"
     assert user.keycloak_sub == "kc-new-user"
     assert user.hashed_password is None  # SSO-only
     assert user.is_active is True
@@ -335,6 +338,7 @@ async def test_provision_or_update_user_existing(
         subject="kc-existing",
         username="existing_updated",
         email="updated@example.com",
+        full_name="Existing Updated",
         roles=frozenset({"admin"}),
     )
     service = KeycloakOIDCService(
@@ -344,6 +348,7 @@ async def test_provision_or_update_user_existing(
 
     assert updated.id == user.id
     assert updated.email == "updated@example.com"
+    assert updated.full_name == "Existing Updated"
 
     # Re-query with eager-load to avoid MissingGreenlet on lazy relationships
     from sqlalchemy.orm import selectinload
@@ -373,6 +378,7 @@ async def test_provision_or_update_user_find_by_email(
         subject="kc-new-sub-link",
         username="email_user",
         email="link-me@example.com",
+        full_name="Email User",
         roles=frozenset({"viewer"}),
     )
     service = KeycloakOIDCService(
@@ -476,13 +482,38 @@ class TestExtractClaims:
                 "sub": "abc",
                 "preferred_username": "john",
                 "email": "john@example.com",
+                "name": "John Doe",
                 "realm_access": {"roles": ["admin", "operator"]},
             }
         )
         assert claims.subject == "abc"
         assert claims.username == "john"
         assert claims.email == "john@example.com"
+        assert claims.full_name == "John Doe"
         assert claims.roles == frozenset({"admin", "operator"})
+
+    def test_name_claim_maps_to_full_name(self):
+        claims = KeycloakOIDCService._extract_claims(
+            {
+                "sub": "abc",
+                "preferred_username": "jane",
+                "email": "jane@example.com",
+                "name": "Jane Smith",
+                "realm_access": {"roles": []},
+            }
+        )
+        assert claims.full_name == "Jane Smith"
+
+    def test_full_name_falls_back_to_username(self):
+        claims = KeycloakOIDCService._extract_claims(
+            {
+                "sub": "abc",
+                "preferred_username": "jdoe",
+                "email": "jdoe@example.com",
+                "realm_access": {"roles": []},
+            }
+        )
+        assert claims.full_name == "jdoe"
 
     def test_no_preferred_username_falls_back_to_email(self):
         claims = KeycloakOIDCService._extract_claims(

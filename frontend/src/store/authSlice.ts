@@ -24,6 +24,7 @@ export interface AuthUser {
   id: number;
   username: string;
   email: string;
+  full_name?: string | null;
   roles: string[];
   is_active: boolean;
 }

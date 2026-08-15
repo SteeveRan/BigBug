@@ -45,6 +45,10 @@ async def test_get_me(client: AsyncClient, admin_token: str):
     data = response.json()
     assert data["username"] == "testadmin"
     assert "admin" in data["roles"]
+    # full_name is a nullable field added for the profile page; the admin
+    # fixture doesn't set it, so the response must include the key as null.
+    assert "full_name" in data
+    assert data["full_name"] is None
 
 
 @pytest.mark.asyncio

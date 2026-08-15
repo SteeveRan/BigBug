@@ -59,6 +59,7 @@ class OIDCClaims:
     subject: str
     username: str
     email: str
+    full_name: str
     roles: frozenset[str]
 
 
@@ -315,9 +316,19 @@ class KeycloakOIDCService:
         # email local-part so we always have a non-empty username.
         email = payload.get("email", "") or ""
         username = payload.get("preferred_username") or (email.split("@")[0] if email else subject)
+        # Standard OIDC 'name' claim carries the display name; fall back to the
+        # username so the field is never left empty for existing Keycloak realms
+        # that don't configure the name mapper.
+        full_name = payload.get("name") or username
         realm_roles = payload.get("realm_access", {}).get("roles", []) or []
         roles = frozenset(r for r in realm_roles if r in _KNOWN_ROLES)
-        return OIDCClaims(subject=subject, username=username, email=email, roles=roles)
+        return OIDCClaims(
+            subject=subject,
+            username=username,
+            email=email,
+            full_name=full_name,
+            roles=roles,
+        )
 
     async def _find_user(self, claims: OIDCClaims) -> User | None:
         # Match on the immutable Keycloak subject first; fall back to email so a
@@ -335,6 +346,7 @@ class KeycloakOIDCService:
         user = User(
             username=claims.username,
             email=claims.email or f"{claims.subject}@sso.local",
+            full_name=claims.full_name,
             hashed_password=None,  # SSO-only account
             keycloak_sub=claims.subject,
             is_active=True,
@@ -355,6 +367,8 @@ class KeycloakOIDCService:
             user.email = claims.email  # type: ignore[assignment]
         if claims.username:
             user.username = claims.username  # type: ignore[assignment]
+        if claims.full_name:
+            user.full_name = claims.full_name  # type: ignore[assignment]
 
     async def _sync_roles(self, user: User, desired_roles: frozenset[str]) -> None:
         """Make the user's role assignments match ``desired_roles`` exactly."""

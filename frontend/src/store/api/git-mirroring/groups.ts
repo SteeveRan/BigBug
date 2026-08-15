@@ -10,8 +10,7 @@ import { api } from '../base';
 export const sourceGroupsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getSourceGroups: builder.query<SourceGroup[], number | undefined>({
-      query: (providerId) =>
-        `/mirroring/groups${providerId ? `?provider_id=${providerId}` : ''}`,
+      query: (providerId) => `/mirroring/groups${providerId ? `?provider_id=${providerId}` : ''}`,
       providesTags: ['SourceGroup'],
     }),
     importSourceGroup: builder.mutation<SourceGroup, { providerId?: number; groupName: string }>({

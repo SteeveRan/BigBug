@@ -20,7 +20,14 @@ export const authApi = api.injectEndpoints({
       }),
     }),
     getMe: builder.query<
-      { id: number; username: string; email: string; roles: string[]; is_active: boolean },
+      {
+        id: number;
+        username: string;
+        email: string;
+        full_name?: string | null;
+        roles: string[];
+        is_active: boolean;
+      },
       void
     >({
       query: () => '/auth/me',

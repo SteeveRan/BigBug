@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -84,6 +84,23 @@ class ProviderService:
                 return
             raise DomainError("Access denied: not the owner of this private provider", 403)
 
+    async def _ensure_can_set_default(self, user: User) -> None:
+        """Enforce that only admins may change the ``is_default`` flag.
+
+        Business rule: default providers are configured by administrators only,
+        not by operators holding ``providers:write``. ``providers_system:write``
+        is the primary admin marker; ``admin:panel:access`` is accepted as an
+        equivalent so a custom admin-scoped role can manage defaults without the
+        full system-provider write permission.
+        """
+        perms = await self._permissions_async(user)
+        if "providers_system:write" not in perms and "admin:panel:access" not in perms:
+            raise DomainError(
+                "Setting a provider as default requires admin rights "
+                "(providers_system:write or admin:panel:access)",
+                403,
+            )
+
     async def _is_team_member(self, team_id: int, user_id: int) -> bool:
         result = await self.db.execute(
             select(TeamMember).where(
@@ -130,16 +147,22 @@ class ProviderService:
         stmt = select(ResourceProvider).where(ResourceProvider.is_deleted.is_(False))
         if "providers:read_all" not in perms:
             # 12.2.4: public | own private | team-shared private (membership).
-            stmt = stmt.where(
-                (ResourceProvider.visibility == ProviderVisibility.public)
-                | (ResourceProvider.owner_user_id == user.id)
-                | (
+            conditions = [
+                (ResourceProvider.visibility == ProviderVisibility.public),
+                (ResourceProvider.owner_user_id == user.id),
+                (
                     (ResourceProvider.visibility == ProviderVisibility.team)
                     & ResourceProvider.team_id.in_(
                         select(TeamMember.team_id).where(TeamMember.user_id == user.id)
                     )
-                )
-            )
+                ),
+            ]
+            # System providers are admin-managed; expose them to holders of
+            # ``providers_system:write`` even without the global ``read_all``
+            # so the admin page can list them via ``?category=system``.
+            if "providers_system:write" in perms:
+                conditions.append(ResourceProvider.category == ProviderCategory.system)
+            stmt = stmt.where(or_(*conditions))
         result = await self.db.execute(
             stmt.options(selectinload(ResourceProvider.team)).order_by(ResourceProvider.name)
         )
@@ -269,6 +292,9 @@ class ProviderService:
 
         if visibility is not None or team_id is not None:
             await self._apply_visibility(provider, user, visibility, team_id)
+
+        if is_default is not None:
+            await self._ensure_can_set_default(user)
 
         if is_default is True:
             await self._unset_previous_default(provider)
