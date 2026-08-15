@@ -44,7 +44,9 @@ class GitLabClient:
             raise ProviderClientError(f"GitLab request failed: {exc}") from exc
         if resp.is_success:
             return {"ok": True, "version": resp.json().get("version")}
-        raise ProviderClientError(f"GitLab returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitLab returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def list_groups(self) -> list[dict]:
         try:
@@ -57,7 +59,9 @@ class GitLabClient:
                 {"id": str(g.get("id")), "name": g.get("name"), "full_path": g.get("full_path")}
                 for g in resp.json()
             ]
-        raise ProviderClientError(f"GitLab returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitLab returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def list_repositories(self, group_external_id: str) -> list[dict]:
         try:
@@ -77,7 +81,9 @@ class GitLabClient:
                 }
                 for p in resp.json()
             ]
-        raise ProviderClientError(f"GitLab returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitLab returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def get_commit(self, repo_external_id: str, ref: str | None = None) -> dict:
         params = {}
@@ -101,4 +107,6 @@ class GitLabClient:
                 "message": commit.get("title"),
                 "author": commit.get("author_name"),
             }
-        raise ProviderClientError(f"GitLab returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitLab returned HTTP {resp.status_code}", status_code=resp.status_code
+        )

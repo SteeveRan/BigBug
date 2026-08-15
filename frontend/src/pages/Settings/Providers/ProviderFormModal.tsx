@@ -1,11 +1,12 @@
 /**
  * @file Settings/Providers/ProviderFormModal.tsx
- * @description Create/edit modal for a unified provider. Dynamically renders config
- *              fields from `/api/providers/types`, filters credentials by allowed
- *              types, and offers visibility (owner/team/public) when permitted.
- *              Subtype selection uses grouped button cards (read-only on edit, since
- *              domain/subtype are immutable after creation). The edit form also runs
- *              POST /providers/{id}/test and reports the result via antd message.
+ * @description Create/edit modal for a unified provider. The provider "type" is the
+ *              domain (git/docker/helm, chosen via Radio.Group); the "subtype" is a
+ *              cascading Select fed by the selected domain. When a domain has exactly
+ *              one subtype the Select is hidden and the subtype is set automatically.
+ *              Credentials are entered inline (token / https-basic / ssh key) and an
+ *              "Anonymous access" switch hides them and submits `credential_id: null`.
+ *              System providers (category === 'system') are never offered here.
  * @dependencies antd, @ant-design/icons, RTK Query, ../../../types
  * @relatedFiles ./index.tsx, ./CredentialAssignModal.tsx
  */
@@ -34,8 +35,11 @@ import {
   useGetProviderTypesQuery,
   useGetCredentialsQuery,
   useGetTeamsQuery,
+  useCreateCredentialMutation,
 } from '../../../store/api';
 import type {
+  CredentialDetail,
+  CredentialType,
   ProviderCategory,
   ProviderDirection,
   ProviderDomain,
@@ -43,7 +47,6 @@ import type {
   ProviderTypeSpec,
   ProviderVisibility,
   ResourceProvider,
-  CredentialDetail,
   Team,
 } from '../../../types';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -55,18 +58,22 @@ interface ProviderFormModalProps {
 }
 
 interface FormValues {
-  subtype: ProviderSubtype;
+  subtype?: ProviderSubtype;
   category: ProviderCategory;
   direction: ProviderDirection;
   label: string;
   description?: string;
   base_url?: string;
-  credential_id?: number;
   visibility: ProviderVisibility;
   team_id?: number;
   verify_ssl: boolean;
   priority: number;
   config: Record<string, unknown>;
+  anonymous: boolean;
+  credential_type?: CredentialType;
+  credential_username?: string;
+  credential_secret?: string;
+  credential_ssh_public_key?: string;
 }
 
 // Deny-list of secret-like config keys rejected client-side (mirrors backend rule 11.1.2).
@@ -80,6 +87,19 @@ const DOMAIN_LABELS: Record<ProviderDomain, string> = {
 };
 
 const DOMAIN_ORDER: ProviderDomain[] = ['git', 'docker', 'helm'];
+
+const CREDENTIAL_TYPE_LABELS: Record<CredentialType, string> = {
+  github_token: 'GitHub Token',
+  gitlab_token: 'GitLab Token',
+  https_basic: 'HTTPS Basic',
+  ssh_key: 'SSH Key',
+};
+
+const secretLabel = (type: CredentialType): string => {
+  if (type === 'ssh_key') return 'Private key';
+  if (type === 'https_basic') return 'Password';
+  return 'Token';
+};
 
 const humanizeKey = (key: string): string =>
   key
@@ -100,22 +120,50 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
   const [createProvider, { isLoading: isCreating }] = useCreateProviderMutation();
   const [updateProvider, { isLoading: isUpdating }] = useUpdateProviderMutation();
   const [testConnection, { isLoading: isTesting }] = useTestProviderMutation();
+  const [createCredential] = useCreateCredentialMutation();
   const isLoading = isCreating || isUpdating;
 
+  const [selectedDomain, setSelectedDomain] = useState<ProviderDomain | undefined>();
   const [selectedSubtype, setSelectedSubtype] = useState<ProviderSubtype | undefined>();
   const [selectedCategory, setSelectedCategory] = useState<ProviderCategory>('private');
 
+  // System providers cannot be created from this form: drop subtypes that only
+  // support the `system` category so they never appear in the subtype Select.
+  const availableTypes = useMemo<ProviderTypeSpec[]>(
+    () =>
+      (types as ProviderTypeSpec[]).filter((t) => t.allowed_categories.some((c) => c !== 'system')),
+    [types]
+  );
+
   const spec = useMemo<ProviderTypeSpec | undefined>(
-    () => types.find((t: ProviderTypeSpec) => t.subtype === selectedSubtype),
+    () => (types as ProviderTypeSpec[]).find((t) => t.subtype === selectedSubtype),
     [types, selectedSubtype]
   );
 
-  const canChooseSystem = hasPermission('providers_system:write');
+  const domainSubtypes = useMemo<ProviderTypeSpec[]>(
+    () => (selectedDomain ? availableTypes.filter((t) => t.domain === selectedDomain) : []),
+    [availableTypes, selectedDomain]
+  );
+
   const canChoosePublic = hasPermission('providers:share');
 
+  const allowedCredentialTypes = useMemo(
+    () => (spec?.allowed_credential_types ?? []) as CredentialType[],
+    [spec]
+  );
+
+  const teamOptions = useMemo(
+    () => (teams as Team[]).map((t) => ({ label: t.name, value: t.id })),
+    [teams]
+  );
+
+  // ── Initialise / reset on open ──────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     if (provider) {
+      setSelectedDomain(provider.domain);
+      setSelectedSubtype(provider.subtype);
+      setSelectedCategory(provider.category);
       form.setFieldsValue({
         subtype: provider.subtype,
         category: provider.category,
@@ -123,16 +171,17 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
         label: provider.label,
         description: provider.description ?? undefined,
         base_url: provider.base_url ?? undefined,
-        credential_id: provider.credential_id ?? undefined,
         visibility: provider.visibility,
         team_id: provider.team_id ?? undefined,
         verify_ssl: provider.verify_ssl,
         priority: provider.priority,
         config: provider.config ?? {},
+        anonymous: !provider.has_credential,
       });
-      setSelectedSubtype(provider.subtype);
-      setSelectedCategory(provider.category);
     } else {
+      setSelectedDomain(undefined);
+      setSelectedSubtype(undefined);
+      setSelectedCategory('private');
       form.resetFields();
       form.setFieldsValue({
         category: 'private',
@@ -140,25 +189,43 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
         verify_ssl: true,
         priority: 0,
         config: {},
+        anonymous: false,
       });
-      setSelectedSubtype(undefined);
-      setSelectedCategory('private');
     }
   }, [open, provider, form]);
 
-  const allowedCredentialTypes = useMemo(() => spec?.allowed_credential_types ?? [], [spec]);
-  const credentialOptions = useMemo(
-    () =>
-      (credentials as CredentialDetail[])
-        .filter((c) => allowedCredentialTypes.includes(c.credential_type))
-        .map((c) => ({ label: c.name, value: c.id })),
-    [credentials, allowedCredentialTypes]
-  );
+  // Auto-select the sole subtype for a domain (hide the Select).
+  useEffect(() => {
+    if (!open || isEdit) return;
+    if (selectedDomain && domainSubtypes.length === 1) {
+      setSelectedSubtype(domainSubtypes[0].subtype);
+      form.setFieldValue('subtype', domainSubtypes[0].subtype);
+    }
+  }, [open, isEdit, selectedDomain, domainSubtypes, form]);
 
-  const teamOptions = useMemo(
-    () => (teams as Team[]).map((t) => ({ label: t.name, value: t.id })),
-    [teams]
-  );
+  // Dynamic fields (base_url / config) are only mounted once `spec` resolves, so
+  // re-apply their values after the subtype is known — fixes empty fields on edit.
+  useEffect(() => {
+    if (!open || !provider || !spec) return;
+    form.setFieldsValue({
+      base_url: provider.base_url ?? undefined,
+      config: provider.config ?? {},
+    });
+  }, [open, provider, spec, form]);
+
+  // Prefill credential type/username from the already-assigned credential.
+  useEffect(() => {
+    if (!open || !provider?.credential_id) return;
+    const credential = (credentials as CredentialDetail[]).find(
+      (c) => c.id === provider.credential_id
+    );
+    if (credential) {
+      form.setFieldsValue({
+        credential_type: credential.credential_type,
+        credential_username: credential.username ?? undefined,
+      });
+    }
+  }, [open, provider, credentials, form]);
 
   const validateConfig = (config: Record<string, unknown>): boolean => {
     for (const key of Object.keys(config)) {
@@ -168,6 +235,12 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
       }
     }
     return true;
+  };
+
+  const handleDomainChange = (domain: ProviderDomain) => {
+    setSelectedDomain(domain);
+    setSelectedSubtype(undefined);
+    form.setFieldValue('subtype', undefined);
   };
 
   const handleTest = async () => {
@@ -189,13 +262,44 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
     const config = values.config ?? {};
     if (!validateConfig(config)) return;
 
-    const name = values.label
+    const label = values.label;
+    const name = label
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    const domain = spec?.domain ?? 'git';
+    const domain = spec?.domain ?? provider?.domain ?? 'git';
+    const subtype = isEdit ? provider?.subtype : selectedSubtype;
+    if (!subtype) return;
 
     try {
+      // Credentials: anonymous → null; a typed secret → create a credential and
+      // link its id; edit without changes → leave the existing credential_id.
+      let credentialId: number | null | undefined;
+      if (values.anonymous) {
+        credentialId = null;
+      } else if (values.credential_secret) {
+        const credentialType = (values.credential_type ?? allowedCredentialTypes[0]) as
+          | CredentialType
+          | undefined;
+        if (credentialType) {
+          const created = await createCredential({
+            name: `${name}-credential`,
+            credential_type: credentialType,
+            provider: domain,
+            username: values.credential_username,
+            secret: values.credential_secret,
+            ssh_public_key: values.credential_ssh_public_key,
+          }).unwrap();
+          credentialId = created.id;
+        } else {
+          credentialId = null;
+        }
+      } else if (isEdit && provider) {
+        credentialId = provider.credential_id;
+      } else {
+        credentialId = null;
+      }
+
       if (isEdit && provider) {
         await updateProvider({
           id: provider.id,
@@ -206,7 +310,7 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
             description: values.description,
             base_url: values.base_url,
             config,
-            credential_id: values.credential_id,
+            credential_id: credentialId,
             visibility: values.visibility,
             team_id: values.visibility === 'team' ? values.team_id : undefined,
             verify_ssl: values.verify_ssl,
@@ -218,14 +322,14 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
         await createProvider({
           domain,
           name,
-          subtype: values.subtype,
+          subtype,
           category: values.category,
           direction: values.direction,
           label: values.label,
           description: values.description,
           base_url: values.base_url,
           config,
-          credential_id: values.credential_id,
+          credential_id: credentialId ?? null,
           visibility: values.visibility,
           team_id: values.visibility === 'team' ? values.team_id : undefined,
         }).unwrap();
@@ -241,7 +345,6 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
   const categoryOptions = [
     { label: 'Private', value: 'private' },
     ...(canChoosePublic ? [{ label: 'Public', value: 'public' }] : []),
-    ...(canChooseSystem ? [{ label: 'System', value: 'system' }] : []),
   ];
 
   const renderConfigFields = () => {
@@ -324,33 +427,38 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
             </Space>
           </Form.Item>
         ) : (
-          <Form.Item name="subtype" label="Provider type" rules={[{ required: true }]}>
-            <Radio.Group
-              style={{ width: '100%' }}
-              onChange={(e) => setSelectedSubtype(e.target.value)}
-            >
-              <Flex vertical gap={12} style={{ width: '100%' }}>
-                {DOMAIN_ORDER.map((domain) => {
-                  const group = types.filter((t: ProviderTypeSpec) => t.domain === domain);
-                  if (group.length === 0) return null;
-                  return (
-                    <Flex key={domain} vertical gap={4}>
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <>
+            <Form.Item label="Provider type" required>
+              <Radio.Group
+                value={selectedDomain}
+                onChange={(e) => handleDomainChange(e.target.value)}
+                style={{ width: '100%' }}
+              >
+                <Flex gap={8} wrap>
+                  {DOMAIN_ORDER.map((domain) => {
+                    const hasSubtypes = availableTypes.some((t) => t.domain === domain);
+                    if (!hasSubtypes) return null;
+                    return (
+                      <Radio.Button key={domain} value={domain}>
                         {DOMAIN_LABELS[domain]}
-                      </Typography.Text>
-                      <Flex wrap gap={8}>
-                        {group.map((t: ProviderTypeSpec) => (
-                          <Radio.Button key={t.subtype} value={t.subtype}>
-                            {t.label}
-                          </Radio.Button>
-                        ))}
-                      </Flex>
-                    </Flex>
-                  );
-                })}
-              </Flex>
-            </Radio.Group>
-          </Form.Item>
+                      </Radio.Button>
+                    );
+                  })}
+                </Flex>
+              </Radio.Group>
+            </Form.Item>
+
+            {selectedDomain && domainSubtypes.length > 1 && (
+              <Form.Item name="subtype" label="Provider subtype" rules={[{ required: true }]}>
+                <Select
+                  placeholder="Select subtype"
+                  value={selectedSubtype}
+                  onChange={setSelectedSubtype}
+                  options={domainSubtypes.map((t) => ({ label: t.label, value: t.subtype }))}
+                />
+              </Form.Item>
+            )}
+          </>
         )}
 
         <Form.Item name="label" label="Label" rules={[{ required: true }]}>
@@ -414,13 +522,64 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
 
         {spec && renderConfigFields()}
 
-        <Form.Item name="credential_id" label="Credential">
-          <Select
-            allowClear
-            placeholder="Select credential"
-            options={credentialOptions}
-            notFoundContent="No compatible credentials"
-          />
+        <Form.Item name="anonymous" label="Anonymous access" valuePropName="checked">
+          <Switch />
+        </Form.Item>
+
+        <Form.Item noStyle shouldUpdate>
+          {() => {
+            const anonymous = form.getFieldValue('anonymous');
+            if (anonymous || allowedCredentialTypes.length <= 1) return null;
+            return (
+              <Form.Item
+                name="credential_type"
+                label="Credential type"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={allowedCredentialTypes.map((t) => ({
+                    label: CREDENTIAL_TYPE_LABELS[t],
+                    value: t,
+                  }))}
+                />
+              </Form.Item>
+            );
+          }}
+        </Form.Item>
+
+        <Form.Item noStyle shouldUpdate>
+          {() => {
+            const anonymous = form.getFieldValue('anonymous');
+            if (anonymous || allowedCredentialTypes.length === 0) return null;
+            const credentialType = (form.getFieldValue('credential_type') ??
+              allowedCredentialTypes[0]) as CredentialType | undefined;
+            if (!credentialType) return null;
+            return (
+              <>
+                {credentialType === 'https_basic' && (
+                  <Form.Item
+                    name="credential_username"
+                    label="Username"
+                    rules={[{ required: !isEdit }]}
+                  >
+                    <Input autoComplete="off" />
+                  </Form.Item>
+                )}
+                <Form.Item
+                  name="credential_secret"
+                  label={secretLabel(credentialType)}
+                  rules={[{ required: !isEdit }]}
+                >
+                  <Input.Password autoComplete="new-password" />
+                </Form.Item>
+                {credentialType === 'ssh_key' && (
+                  <Form.Item name="credential_ssh_public_key" label="Public key">
+                    <Input.TextArea rows={3} />
+                  </Form.Item>
+                )}
+              </>
+            );
+          }}
         </Form.Item>
 
         <Space size="large" wrap>

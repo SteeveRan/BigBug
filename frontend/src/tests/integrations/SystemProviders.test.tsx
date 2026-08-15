@@ -170,6 +170,71 @@ describe('SystemProvidersPage', () => {
     expect(screen.getByText('GitLab')).toBeInTheDocument();
   });
 
+  it('renders default (non-system) providers alongside system providers', () => {
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [
+        mockProvider({ id: 1, label: 'System GitLab', category: 'system', is_default: false }),
+        mockProvider({
+          id: 2,
+          domain: 'git',
+          subtype: 'github',
+          category: 'public',
+          direction: 'external',
+          name: 'github-anonymous',
+          label: 'GitHub Anonymous',
+          is_default: true,
+          is_protected: true,
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <Provider store={createTestStore()}>
+        <BrowserRouter>
+          <App>
+            <SystemProvidersPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    );
+    expect(screen.getByText('System GitLab')).toBeInTheDocument();
+    expect(screen.getByText('GitHub Anonymous')).toBeInTheDocument();
+    expect(screen.getByText('Public')).toBeInTheDocument();
+  });
+
+  it('hides ordinary public/private (non-default, non-system) providers', () => {
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [
+        mockProvider({
+          id: 3,
+          domain: 'git',
+          subtype: 'github',
+          category: 'public',
+          direction: 'external',
+          name: 'ordinary-public',
+          label: 'Ordinary Public',
+          is_default: false,
+          is_protected: false,
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <Provider store={createTestStore()}>
+        <BrowserRouter>
+          <App>
+            <SystemProvidersPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    );
+    expect(screen.queryByText('Ordinary Public')).not.toBeInTheDocument();
+  });
+
   it('shows error alert when providers fail to load', () => {
     (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],

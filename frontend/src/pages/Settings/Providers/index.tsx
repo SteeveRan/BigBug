@@ -12,7 +12,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   App,
   Alert,
@@ -34,14 +34,16 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
+  BarChartOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  GlobalOutlined,
+  KeyOutlined,
+  LockOutlined,
+  PlayCircleOutlined,
   PlusOutlined,
   ReloadOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlayCircleOutlined,
-  KeyOutlined,
   ShareAltOutlined,
-  BarChartOutlined,
 } from '@ant-design/icons';
 import {
   useGetProviderTypesQuery,
@@ -82,23 +84,6 @@ const DOMAIN_COLORS: Record<ProviderDomain, string> = {
   helm: 'purple',
 };
 
-const CATEGORY_LABELS: Record<ProviderCategory, string> = {
-  system: 'System',
-  public: 'Public',
-  private: 'Private',
-};
-
-const CATEGORY_COLORS: Record<ProviderCategory, string> = {
-  system: 'gold',
-  public: 'green',
-  private: 'default',
-};
-
-const DIRECTION_LABELS: Record<ProviderDirection, string> = {
-  external: 'External',
-  internal: 'Internal',
-};
-
 interface TabConfig {
   key: string;
   label: string;
@@ -118,6 +103,7 @@ const TABS: TabConfig[] = [
 export function ProvidersPage() {
   const { message } = App.useApp();
   const { hasPermission } = usePermissions();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -238,97 +224,65 @@ export function ProvidersPage() {
     }
   };
 
-  const subtypeLabel = (record: ResourceProvider): string =>
-    typeSpecs.get(record.subtype)?.label ?? record.subtype;
-
   const isOciCompliant = (record: ResourceProvider): boolean =>
     typeSpecs.get(record.subtype)?.oci_compliant ?? false;
 
   const labelColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Label',
+    title: 'Name',
     key: 'label',
     width: 200,
     sorter: (a, b) => a.label.localeCompare(b.label),
-    render: (_: unknown, record) => (
-      <Flex vertical>
-        <Space size={4}>
-          <Typography.Text strong ellipsis={{ tooltip: record.label }}>
-            {record.label}
-          </Typography.Text>
-          {record.is_default && <Tag color="blue">Default</Tag>}
-          {record.is_protected && <Tag color="gold">Protected</Tag>}
-        </Space>
-        <Typography.Text
-          type="secondary"
-          style={{ fontSize: 12 }}
-          ellipsis={{ tooltip: record.name }}
-        >
-          {record.name}
-        </Typography.Text>
-      </Flex>
-    ),
+    render: (_: unknown, record) => {
+      const isPublic = record.visibility === 'public';
+      return (
+        <Flex vertical>
+          <Space size={4}>
+            <Tooltip title={isPublic ? 'Public' : 'Private'}>
+              {isPublic ? <GlobalOutlined /> : <LockOutlined />}
+            </Tooltip>
+            <Tooltip title={record.label}>
+              <Typography.Link
+                strong
+                ellipsis
+                onClick={() => navigate(`/settings/providers/${record.id}`)}
+              >
+                {record.label}
+              </Typography.Link>
+            </Tooltip>
+            {record.is_default && <Tag color="blue">Default</Tag>}
+            {record.is_protected && <Tag color="gold">Protected</Tag>}
+          </Space>
+          {record.description && (
+            <Typography.Text
+              type="secondary"
+              style={{ fontSize: 12 }}
+              ellipsis={{ tooltip: record.description }}
+            >
+              {record.description}
+            </Typography.Text>
+          )}
+        </Flex>
+      );
+    },
   };
 
   const domainColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Domain',
+    title: 'Type',
     dataIndex: 'domain',
     key: 'domain',
     width: 90,
+    responsive: ['md'],
     sorter: (a, b) => a.domain.localeCompare(b.domain),
     render: (value: ProviderDomain) => (
       <Tag color={DOMAIN_COLORS[value]}>{DOMAIN_LABELS[value]}</Tag>
     ),
   };
 
-  const subtypeColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Subtype',
-    dataIndex: 'subtype',
-    key: 'subtype',
-    width: 170,
-    sorter: (a, b) => a.subtype.localeCompare(b.subtype),
-    render: (_: string, record) => (
-      <Typography.Text ellipsis={{ tooltip: record.subtype }}>
-        {subtypeLabel(record)}
-      </Typography.Text>
-    ),
-  };
-
-  const categoryColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Category',
-    dataIndex: 'category',
-    key: 'category',
-    width: 100,
-    sorter: (a, b) => a.category.localeCompare(b.category),
-    render: (value: ProviderCategory) => (
-      <Tag color={CATEGORY_COLORS[value]}>{CATEGORY_LABELS[value]}</Tag>
-    ),
-  };
-
-  const directionColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Direction',
-    dataIndex: 'direction',
-    key: 'direction',
-    width: 100,
-    sorter: (a, b) => a.direction.localeCompare(b.direction),
-    render: (value: ProviderDirection) => DIRECTION_LABELS[value],
-  };
-
-  const visibilityColumn: ColumnsType<ResourceProvider>[number] = {
-    title: 'Visibility',
-    dataIndex: 'visibility',
-    key: 'visibility',
-    width: 140,
-    render: (value: string, record) => {
-      if (value === 'team') return <Tag color="blue">Team · {record.team_name ?? '—'}</Tag>;
-      if (value === 'public') return <Tag color="green">Public</Tag>;
-      return <Tag>Private</Tag>;
-    },
-  };
-
   const statusColumn: ColumnsType<ResourceProvider>[number] = {
     title: 'Status',
     key: 'status',
     width: 120,
+    responsive: ['md'],
     render: (_: unknown, record) => (
       <StatusChip
         statusFlag={record.status_flag as 0 | 1 | 2 | 3 | 4}
@@ -342,6 +296,7 @@ export function ProvidersPage() {
     key: 'oci',
     width: 70,
     align: 'center',
+    responsive: ['md'],
     render: (_: unknown, record) =>
       isOciCompliant(record) ? (
         <Tag color="cyan">OCI</Tag>
@@ -355,6 +310,7 @@ export function ProvidersPage() {
     dataIndex: 'base_url',
     key: 'base_url',
     width: 200,
+    responsive: ['md'],
     render: (value: string | null) =>
       value ? (
         <Typography.Text style={{ fontSize: 12 }} ellipsis={{ tooltip: value }}>
@@ -370,6 +326,7 @@ export function ProvidersPage() {
     key: 'default',
     width: 90,
     align: 'center',
+    responsive: ['md'],
     render: (_: unknown, record) => (
       <PermissionGate permission="providers:write">
         <Switch
@@ -386,6 +343,7 @@ export function ProvidersPage() {
     key: 'credential',
     width: 110,
     align: 'center',
+    responsive: ['md'],
     render: (_: unknown, record) => (
       <PermissionGate permission="providers:write">
         <Tooltip title={record.has_credential ? 'Credential assigned' : 'Assign credential'}>
@@ -404,6 +362,7 @@ export function ProvidersPage() {
     title: 'Owner',
     key: 'owner',
     width: 110,
+    responsive: ['md'],
     render: (_: unknown, record) => <Typography.Text>{getUserLabel(record)}</Typography.Text>,
   };
 
@@ -484,10 +443,6 @@ export function ProvidersPage() {
     const columnMap: Record<ProviderColumnKey, ColumnsType<ResourceProvider>[number]> = {
       label: labelColumn,
       domain: domainColumn,
-      subtype: subtypeColumn,
-      category: categoryColumn,
-      direction: directionColumn,
-      visibility: visibilityColumn,
       status: statusColumn,
       oci: ociColumn,
       base_url: baseUrlColumn,

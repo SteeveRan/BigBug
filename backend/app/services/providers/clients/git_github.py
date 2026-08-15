@@ -47,7 +47,9 @@ class GitHubClient:
             raise ProviderClientError(f"GitHub request failed: {exc}") from exc
         if resp.is_success:
             return {"ok": True, "rate_limit": resp.json().get("rate", {})}
-        raise ProviderClientError(f"GitHub returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitHub returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def list_groups(self) -> list[dict]:
         items: list[dict] = []
@@ -60,7 +62,9 @@ class GitHubClient:
             for org in resp.json():
                 items.append({"id": str(org.get("id")), "name": org.get("login")})
             return items
-        raise ProviderClientError(f"GitHub returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitHub returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def list_repositories(self, group_external_id: str) -> list[dict]:
         items: list[dict] = []
@@ -80,7 +84,9 @@ class GitHubClient:
                     }
                 )
             return items
-        raise ProviderClientError(f"GitHub returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitHub returned HTTP {resp.status_code}", status_code=resp.status_code
+        )
 
     async def get_commit(self, repo_external_id: str, ref: str | None = None) -> dict:
         path = f"{self.api_url}/repos/{repo_external_id}/commits"
@@ -102,4 +108,6 @@ class GitHubClient:
                 "message": (commit.get("commit") or {}).get("message"),
                 "author": ((commit.get("commit") or {}).get("author") or {}).get("name"),
             }
-        raise ProviderClientError(f"GitHub returned HTTP {resp.status_code}")
+        raise ProviderClientError(
+            f"GitHub returned HTTP {resp.status_code}", status_code=resp.status_code
+        )

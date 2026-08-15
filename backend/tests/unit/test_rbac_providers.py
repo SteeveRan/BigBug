@@ -283,20 +283,23 @@ class TestProviderCategoryMatrix:
                 label="Sys GitLab",
                 user=_user(7, OPERATOR),
             )
-        assert "providers_system:write" in str(exc.value)
+        assert "cannot be created via the API" in str(exc.value)
 
-    async def test_system_create_allowed_for_admin(self, db_session: AsyncSession):
+    async def test_system_create_forbidden_for_admin(self, db_session: AsyncSession):
+        """System providers cannot be created through the API, even by admins."""
         svc = ProviderService(db_session)
-        p = await svc.create_provider(
-            domain=ProviderDomain.git,
-            subtype=ProviderSubtype.gitlab,
-            category=ProviderCategory.system,
-            direction=ProviderDirection.internal,
-            name="sys-gitlab-admin",
-            label="Sys GitLab",
-            user=_user(1, ADMIN),
-        )
-        assert p.id is not None
+        with pytest.raises(DomainError) as exc:
+            await svc.create_provider(
+                domain=ProviderDomain.git,
+                subtype=ProviderSubtype.gitlab,
+                category=ProviderCategory.system,
+                direction=ProviderDirection.internal,
+                name="sys-gitlab-admin",
+                label="Sys GitLab",
+                user=_user(1, ADMIN),
+            )
+        assert exc.value.status_code == 403
+        assert "cannot be created via the API" in str(exc.value)
 
     async def test_private_read_denied_to_non_owner(self, db_session: AsyncSession):
         svc = ProviderService(db_session)

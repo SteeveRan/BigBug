@@ -10,10 +10,6 @@ import type { ProviderDomain } from '../../../types';
 export type ProviderColumnKey =
   | 'label'
   | 'domain'
-  | 'subtype'
-  | 'category'
-  | 'direction'
-  | 'visibility'
   | 'status'
   | 'oci'
   | 'base_url'
@@ -38,69 +34,11 @@ export interface ProviderColumnGroup {
 // "All" shows only common information; domain tabs add their domain-specific column.
 // Management columns (default/credential) only appear on a concrete domain tab.
 export const PROVIDER_COLUMN_GROUPS: ProviderColumnGroup = {
-  all: [
-    'label',
-    'domain',
-    'subtype',
-    'category',
-    'direction',
-    'visibility',
-    'status',
-    'owner',
-    'actions',
-  ],
-  git: [
-    'label',
-    'subtype',
-    'category',
-    'direction',
-    'visibility',
-    'status',
-    'base_url',
-    'default',
-    'credential',
-    'owner',
-    'actions',
-  ],
-  docker: [
-    'label',
-    'subtype',
-    'category',
-    'direction',
-    'visibility',
-    'status',
-    'oci',
-    'default',
-    'credential',
-    'owner',
-    'actions',
-  ],
-  helm: [
-    'label',
-    'subtype',
-    'category',
-    'direction',
-    'visibility',
-    'status',
-    'base_url',
-    'default',
-    'credential',
-    'owner',
-    'actions',
-  ],
-  mine: [
-    'label',
-    'domain',
-    'subtype',
-    'category',
-    'direction',
-    'visibility',
-    'status',
-    'default',
-    'credential',
-    'owner',
-    'actions',
-  ],
+  all: ['label', 'domain', 'status', 'owner', 'actions'],
+  git: ['label', 'status', 'base_url', 'default', 'credential', 'owner', 'actions'],
+  docker: ['label', 'status', 'oci', 'default', 'credential', 'owner', 'actions'],
+  helm: ['label', 'status', 'base_url', 'default', 'credential', 'owner', 'actions'],
+  mine: ['label', 'domain', 'status', 'default', 'credential', 'owner', 'actions'],
 };
 
 /**

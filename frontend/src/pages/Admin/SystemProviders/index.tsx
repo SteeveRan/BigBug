@@ -39,6 +39,7 @@ import {
   useListUsersQuery,
 } from '../../../store/api';
 import type {
+  ProviderCategory,
   ProviderDirection,
   ProviderDomain,
   ProviderSubtype,
@@ -64,6 +65,18 @@ const DOMAIN_COLORS: Record<ProviderDomain, string> = {
   helm: 'purple',
 };
 
+const CATEGORY_LABELS: Record<ProviderCategory, string> = {
+  system: 'System',
+  public: 'Public',
+  private: 'Private',
+};
+
+const CATEGORY_COLORS: Record<ProviderCategory, string> = {
+  system: 'gold',
+  public: 'green',
+  private: 'default',
+};
+
 const DIRECTION_LABELS: Record<ProviderDirection, string> = {
   external: 'External',
   internal: 'Internal',
@@ -83,11 +96,22 @@ export function SystemProvidersPage() {
   });
 
   const {
-    data: providers = [],
+    data: rawProviders = [],
     isLoading,
     isError,
     refetch,
-  } = useGetProvidersQuery({ category: 'system' });
+  } = useGetProvidersQuery(undefined);
+
+  // Admin page surfaces both platform providers (category=system) and the
+  // default providers (`is_default`) configured by the seed/admin. Ordinary
+  // public/private providers stay on the general Settings→Providers grid.
+  const providers = useMemo(
+    () =>
+      (rawProviders as ResourceProvider[]).filter(
+        (p) => p.category === 'system' || p.is_default
+      ),
+    [rawProviders]
+  );
 
   const [updateProvider] = useUpdateProviderMutation();
   const [testConnection] = useTestProviderMutation();
@@ -158,6 +182,16 @@ export function SystemProvidersPage() {
               {record.name}
             </Typography.Text>
           </Flex>
+        ),
+      },
+      {
+        title: 'Category',
+        dataIndex: 'category',
+        key: 'category',
+        width: 100,
+        sorter: (a, b) => a.category.localeCompare(b.category),
+        render: (value: ProviderCategory) => (
+          <Tag color={CATEGORY_COLORS[value]}>{CATEGORY_LABELS[value]}</Tag>
         ),
       },
       {
@@ -262,15 +296,17 @@ export function SystemProvidersPage() {
                   onClick={() => setEditingProvider(record)}
                 />
               </Tooltip>
-              <Tooltip title="Delete">
-                <Button
-                  size="small"
-                  type="text"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => setDeleteProvider(record)}
-                />
-              </Tooltip>
+              {!record.is_protected && (
+                <Tooltip title="Delete">
+                  <Button
+                    size="small"
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => setDeleteProvider(record)}
+                  />
+                </Tooltip>
+              )}
             </PermissionGate>
           </Space>
         ),
@@ -293,7 +329,8 @@ export function SystemProvidersPage() {
             System Providers
           </Typography.Title>
           <Typography.Text type="secondary">
-            System-level resource providers (Git, Docker, Helm) managed by administrators.
+            System-level and default resource providers (Git, Docker, Helm) managed by
+            administrators.
           </Typography.Text>
         </Flex>
         <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
@@ -315,7 +352,7 @@ export function SystemProvidersPage() {
             rowKey="id"
             pagination={{ pageSize: 10 }}
             scroll={{ x: scrollX }}
-            locale={{ emptyText: <Empty description="No system providers configured" /> }}
+            locale={{ emptyText: <Empty description="No system or default providers configured" /> }}
           />
         </Card>
       )}

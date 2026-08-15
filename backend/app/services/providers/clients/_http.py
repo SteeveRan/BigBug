@@ -17,7 +17,17 @@ DEFAULT_TIMEOUT = 15.0
 
 
 class ProviderClientError(RuntimeError):
-    """Raised when a provider HTTP call fails (transport or non-2xx)."""
+    """Raised when a provider HTTP call fails (transport or non-2xx).
+
+    ``status_code`` carries the upstream HTTP status for non-2xx responses so
+    the service layer can map it to a meaningful :class:`DomainError` (e.g. a
+    401 from an anonymous provider becomes an actionable message instead of a
+    blind "HTTP 401").
+    """
+
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def build_auth(secret: str | None, username: str | None = None) -> httpx.Auth | None:

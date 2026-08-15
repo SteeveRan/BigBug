@@ -119,18 +119,13 @@ class TestProviderCrud:
         response = await client.post("/api/providers", headers=auth(admin_token), json=payload)
         assert response.status_code == 422
 
-    async def test_delete_protected_409(self, client: AsyncClient, admin_token: str):
-        """System providers are protected and cannot be deleted (409)."""
+    async def test_create_system_provider_forbidden(self, client: AsyncClient, admin_token: str):
+        """Creating a system provider through the API is forbidden (403)."""
         create_resp = await client.post(
             "/api/providers", headers=auth(admin_token), json=system_payload("system-gitlab")
         )
-        assert create_resp.status_code == 201
-        assert create_resp.json()["is_protected"] is True
-
-        delete_resp = await client.delete(
-            f"/api/providers/{create_resp.json()['id']}", headers=auth(admin_token)
-        )
-        assert delete_resp.status_code == 409
+        assert create_resp.status_code == 403
+        assert "cannot be created via the API" in create_resp.json()["detail"]
 
     async def test_usage_200(self, client: AsyncClient, admin_token: str):
         """GET /api/providers/{id}/usage returns an (empty) usage list."""

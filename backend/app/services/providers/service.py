@@ -29,6 +29,7 @@ from app.models.resource_provider import (
 )
 from app.models.team_member import TeamMember
 from app.models.user import User
+from app.services.providers.clients._http import ProviderClientError
 from app.services.providers.clients.docker_harbor import HarborClient
 from app.services.providers.clients.docker_registry import registry_client_for_subtype
 from app.services.providers.clients.git_generic import GenericGitClient
@@ -191,8 +192,16 @@ class ProviderService:
         team_id: int | None = None,
     ) -> ResourceProvider:
         perms = await self._permissions_async(user)
-        if category == ProviderCategory.system and "providers_system:write" not in perms:
-            raise DomainError("System providers require providers_system:write", 403)
+        if category == ProviderCategory.system:
+            # System providers are configured manually (seed/admin setup) and must
+            # never be creatable through the public API — regardless of the
+            # caller's permissions. This keeps the platform's own integrations
+            # (GitLab for pipelines, Harbor) out of user-controlled CRUD.
+            raise DomainError(
+                "System providers cannot be created via the API; they are "
+                "configured manually by an administrator",
+                403,
+            )
 
         # Unique name among live rows.
         existing = await self.db.execute(
@@ -470,6 +479,13 @@ class ProviderService:
 
         try:
             result = await self._dispatch_test(provider, secret)
+        except ProviderClientError as exc:
+            message = self._client_error(provider, exc).detail
+            provider.status_flag = STATUS_FAILED
+            provider.status_text = message[:500]
+            provider.last_checked_at = datetime.now(UTC)
+            await self.db.commit()
+            return {"ok": False, "status_flag": STATUS_FAILED, "status_text": message}
         except Exception as exc:  # noqa: BLE001 — surface as failure status
             provider.status_flag = STATUS_FAILED
             provider.status_text = str(exc)[:500]
@@ -486,6 +502,39 @@ class ProviderService:
             "status_flag": provider.status_flag,
             "status_text": provider.status_text,
         }
+
+    @staticmethod
+    def _client_error(provider: ResourceProvider, exc: ProviderClientError) -> DomainError:
+        """Map a provider HTTP client failure to a meaningful :class:`DomainError`.
+
+        A 401 from an anonymous provider means the operation needs
+        authentication (private resources) — surface that clearly instead of a
+        blind "HTTP 401". With a credential attached it means the credential is
+        invalid or lacks access.
+        """
+        if exc.status_code == 401:
+            if provider.credential_id is None:
+                return DomainError(
+                    f"{provider.subtype.value} requires authentication for this "
+                    "operation; this provider is anonymous and can only access "
+                    "public resources. Attach a credential to access private "
+                    "resources.",
+                    401,
+                )
+            return DomainError(
+                f"{provider.subtype.value} authentication failed (HTTP 401). "
+                "Check that the provider credential is valid.",
+                401,
+            )
+        if exc.status_code == 403:
+            return DomainError(
+                f"{provider.subtype.value} access forbidden (HTTP 403). The "
+                "credential lacks permission for this resource.",
+                403,
+            )
+        if exc.status_code == 404:
+            return DomainError(f"{provider.subtype.value} resource not found (HTTP 404).", 404)
+        return DomainError(f"{provider.subtype.value} request failed: {exc}", 502)
 
     async def _decrypt_credential_secret(self, credential_id: int | None) -> str | None:
         if credential_id is None:
@@ -515,7 +564,10 @@ class ProviderService:
             )
         secret = await self._decrypt_credential_secret(provider.credential_id)
         params = params or {}
-        return await self._dispatch(provider, action, secret, params)
+        try:
+            return await self._dispatch(provider, action, secret, params)
+        except ProviderClientError as exc:
+            raise self._client_error(provider, exc) from exc
 
     # ── Client dispatch ─────────────────────────────────────────────────
 

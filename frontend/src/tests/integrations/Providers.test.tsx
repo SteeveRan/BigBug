@@ -141,12 +141,12 @@ describe('ProvidersPage', () => {
     expect(screen.getByText('Create provider')).toBeInTheDocument();
   });
 
-  it('renders provider rows with Public/Private badges and hides system providers', () => {
+  it('renders provider rows and hides system providers', () => {
     (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [
         mockProvider({ id: 1, label: 'System GitLab', category: 'system', is_protected: true }),
-        mockProvider({ id: 2, label: 'Public Hub', category: 'public' }),
-        mockProvider({ id: 3, label: 'Private Git', category: 'private' }),
+        mockProvider({ id: 2, label: 'Public Hub', category: 'public', visibility: 'public' }),
+        mockProvider({ id: 3, label: 'Private Git', category: 'private', visibility: 'owner' }),
       ],
       isLoading: false,
       isError: false,
@@ -165,6 +165,56 @@ describe('ProvidersPage', () => {
     expect(screen.queryByText('System GitLab')).not.toBeInTheDocument();
     expect(screen.getByText('Public Hub')).toBeInTheDocument();
     expect(screen.getByText('Private Git')).toBeInTheDocument();
+  });
+
+  it('uses Name/Type column headers and has no Visible column', () => {
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockProvider({ id: 2, label: 'Public Hub', category: 'public' })],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    render(
+      <Provider store={createTestStore()}>
+        <BrowserRouter>
+          <App>
+            <ProvidersPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    );
+    expect(screen.getAllByText('Name').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Type').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Visible')).not.toBeInTheDocument();
+  });
+
+  it('renders description under the provider name and public/private icons', () => {
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [
+        mockProvider({
+          id: 2,
+          label: 'Public Hub',
+          category: 'public',
+          visibility: 'public',
+          description: 'Public Docker Hub registry',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    const { container } = render(
+      <Provider store={createTestStore()}>
+        <BrowserRouter>
+          <App>
+            <ProvidersPage />
+          </App>
+        </BrowserRouter>
+      </Provider>
+    );
+    expect(screen.getByText('Public Docker Hub registry')).toBeInTheDocument();
+    // Public providers render GlobalOutlined, private ones LockOutlined.
+    expect(container.querySelector('.anticon-global')).toBeInTheDocument();
   });
 
   it('shows error alert when providers fail to load', () => {

@@ -17,6 +17,7 @@ describe('resolveProviderColumns', () => {
     expect(keys).not.toContain('base_url');
     expect(keys).not.toContain('default');
     expect(keys).not.toContain('credential');
+    expect(keys).not.toContain('visibility');
   });
 
   it('adds the OCI column on the docker tab', () => {

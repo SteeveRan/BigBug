@@ -20,8 +20,10 @@ vi.mock('../../hooks/useThemeMode', () => ({
 // antd Grid / useBreakpoint uses window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
+  // antd responsive columns use min-width breakpoints (md >= 768px). Simulate a
+  // desktop viewport so columns marked `responsive: ['md']` stay visible in tests.
   value: (query: string) => ({
-    matches: false,
+    matches: query.includes('min-width'),
     media: query,
     onchange: null,
     addListener: () => {},

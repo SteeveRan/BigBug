@@ -82,6 +82,21 @@ class TestGitLabClient:
         result = asyncio.run(run())
         assert result["version"] == "17.0.0"
 
+    def test_anonymous_has_no_private_token(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert "PRIVATE-TOKEN" not in request.headers
+            return httpx.Response(200, json=[])
+
+        client = GitLabClient(base_url="https://gitlab.example.com", transport=_transport(handler))
+
+        async def run():
+            return await client.list_groups()
+
+        import asyncio
+
+        result = asyncio.run(run())
+        assert result == []
+
     def test_list_groups(self):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=[{"id": 1, "name": "g", "full_path": "g"}])

@@ -15,8 +15,10 @@ from app.models.resource_provider import (
     ProviderDirection,
     ProviderDomain,
     ProviderSubtype,
+    ResourceProvider,
 )
 from app.models.user import User
+from app.services.providers.clients._http import ProviderClientError
 from app.services.providers.service import ProviderService
 
 
@@ -89,7 +91,8 @@ class TestCreate:
             )
         assert exc.value.status_code == 409
 
-    async def test_system_requires_system_permission(self, db_session: AsyncSession):
+    async def test_system_creation_forbidden_even_with_permission(self, db_session: AsyncSession):
+        """Creating a system provider through the service is always rejected."""
         svc = ProviderService(db_session)
         with pytest.raises(DomainError) as exc:
             await svc.create_provider(
@@ -99,9 +102,10 @@ class TestCreate:
                 direction=ProviderDirection.internal,
                 name="sys-gitlab",
                 label="GitLab",
-                user=_user(2, OPERATOR),
+                user=_user(1, ADMIN),
             )
         assert exc.value.status_code == 403
+        assert "cannot be created via the API" in str(exc.value)
 
 
 class TestUpdateDefault:
@@ -167,15 +171,17 @@ class TestUpdateDefault:
 class TestDelete:
     async def test_protected_delete_conflict(self, db_session: AsyncSession):
         svc = ProviderService(db_session)
-        p = await svc.create_provider(
+        p = ResourceProvider(
             domain=ProviderDomain.git,
             subtype=ProviderSubtype.gitlab,
             category=ProviderCategory.system,
             direction=ProviderDirection.internal,
             name="sys",
             label="System GitLab",
-            user=_user(1, ADMIN),
+            is_protected=True,
         )
+        db_session.add(p)
+        await db_session.flush()
         assert p.is_protected is True
         with pytest.raises(DomainError) as exc:
             await svc.delete_provider(p.id, _user(1, ADMIN))
@@ -185,15 +191,18 @@ class TestDelete:
 class TestSystemVisibility:
     async def test_system_provider_visible_without_read_all(self, db_session: AsyncSession):
         svc = ProviderService(db_session)
-        await svc.create_provider(
-            domain=ProviderDomain.git,
-            subtype=ProviderSubtype.gitlab,
-            category=ProviderCategory.system,
-            direction=ProviderDirection.internal,
-            name="sys-visible",
-            label="System GitLab",
-            user=_user(1, ADMIN),
+        db_session.add(
+            ResourceProvider(
+                domain=ProviderDomain.git,
+                subtype=ProviderSubtype.gitlab,
+                category=ProviderCategory.system,
+                direction=ProviderDirection.internal,
+                name="sys-visible",
+                label="System GitLab",
+                is_protected=True,
+            )
         )
+        await db_session.flush()
         providers = await svc.list_providers(_user(2, SYSTEM_ADMIN))
         assert any(p.name == "sys-visible" for p in providers)
 
@@ -228,3 +237,46 @@ class TestVisibility:
         admin = _user(9, ADMIN)
         providers = await svc.list_providers(admin)
         assert any(p.name == "private-2" for p in providers)
+
+
+class TestClientErrorMapping:
+    """Stage 6: 401 from an anonymous provider maps to an actionable message."""
+
+    async def test_401_anonymous_requires_auth(self, db_session: AsyncSession):
+        svc = ProviderService(db_session)
+        p = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.gitlab,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="anon-401",
+            label="Anon GitLab",
+            base_url="https://gitlab.com",
+        )
+        db_session.add(p)
+        await db_session.flush()
+
+        err = svc._client_error(p, ProviderClientError("GitLab returned HTTP 401", status_code=401))
+        assert err.status_code == 401
+        assert "requires authentication" in err.detail
+        assert "anonymous" in err.detail
+
+    async def test_401_with_credential_is_auth_failure(self, db_session: AsyncSession):
+        svc = ProviderService(db_session)
+        p = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.gitlab,
+            category=ProviderCategory.private,
+            direction=ProviderDirection.external,
+            name="cred-401",
+            label="Private GitLab",
+            base_url="https://gitlab.com",
+            credential_id=1,
+            owner_user_id=7,
+        )
+        db_session.add(p)
+        await db_session.flush()
+
+        err = svc._client_error(p, ProviderClientError("GitLab returned HTTP 401", status_code=401))
+        assert err.status_code == 401
+        assert "credential is valid" in err.detail

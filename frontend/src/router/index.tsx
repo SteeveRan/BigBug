@@ -23,6 +23,7 @@ import { AuthenticationSettings } from '../pages/Admin/Authentication';
 import { AuditLogPage } from '../pages/Admin/AuditLog';
 import { SystemProvidersPage } from '../pages/Admin/SystemProviders';
 import { ProvidersPage } from '../pages/Settings/Providers';
+import { ProviderDetailPage } from '../pages/Settings/Providers/ProviderDetail';
 import { ProfilePage } from '../pages/Profile';
 import { AdminTeams } from '../pages/Admin/Teams';
 import { TeamDetailPage } from '../pages/Admin/Teams/TeamDetail';
@@ -386,6 +387,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="providers:read">
               <ProvidersPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="settings/providers/:providerId"
+          element={
+            <PermissionGate permission="providers:read">
+              <ProviderDetailPage />
             </PermissionGate>
           }
         />
