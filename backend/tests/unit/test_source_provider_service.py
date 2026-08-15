@@ -7,12 +7,13 @@
               ../../app/core/exceptions.py
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.core.exceptions import DomainError
-from app.models.source_provider import ProviderType, SourceProvider
+from app.models.provider_type import ProviderType
 from app.services.source_providers.github import GitHubSourceProvider
 
 # ---------------------------------------------------------------------------
@@ -126,8 +127,13 @@ def _make_mock_org(**overrides):
     return org
 
 
-def _make_provider(**overrides) -> SourceProvider:
-    """Build a SourceProvider ORM model (no DB session needed)."""
+def _make_provider(**overrides) -> SimpleNamespace:
+    """Build a provider-shaped object (no DB session needed).
+
+    The V2 GitHubSourceProvider only reads ``id`` (and the decrypted secret is
+    passed separately), so a plain namespace is enough after the SourceProvider
+    model was removed in Providers V3 phase 7F.
+    """
     defaults = {
         "id": 1,
         "credential_id": 10,
@@ -136,8 +142,7 @@ def _make_provider(**overrides) -> SourceProvider:
         "is_deleted": False,
     }
     defaults.update(overrides)
-    sp = SourceProvider(**defaults)
-    return sp
+    return SimpleNamespace(**defaults)
 
 
 # ---------------------------------------------------------------------------

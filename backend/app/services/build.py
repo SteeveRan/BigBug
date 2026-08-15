@@ -1,13 +1,13 @@
 """
 @file build.py
 @description Build service — trigger GitLab pipelines for gold and app image
-             builds. Supports multi-instance: resolves the active GitLab instance
-             from the database; falls back to settings.GITLAB_URL /
+             builds. Resolves the active platform GitLab from
+             ``resource_providers`` (subtype=gitlab, category=system,
+             direction=internal); falls back to settings.GITLAB_URL /
              settings.GITLAB_TOKEN for backward compatibility.
-@dependencies python-gitlab, app.config.settings, app.core.secrets,
-               app.services.integrations.get_default_gitlab_instance
-@relatedFiles ../models/gitlab_instance.py, ../models/gold_image.py,
-               ../models/app_image.py, ./integrations.py, ./gitlab.py
+@dependencies python-gitlab, app.config.settings, app.core.secrets
+@relatedFiles ../models/resource_provider.py, ../models/gold_image.py,
+               ../models/app_image.py, ./gitlab.py
 """
 
 from __future__ import annotations
@@ -25,39 +25,44 @@ from app.models.app_image import AppImage
 from app.models.build_log import BuildLog
 from app.models.gold_image import GoldImage
 from app.models.image_version import ImageVersion
+from app.services.gitlab import get_default_gitlab_provider
 
 if TYPE_CHECKING:
-    from app.models.gitlab_instance import GitlabInstance
+    from app.models.resource_provider import ResourceProvider
 
 
 class BuildService:
     # ------------------------------------------------------------------
-    # Instance resolution
+    # Provider resolution
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def get_default_instance(db: AsyncSession) -> GitlabInstance | None:
-        """Return the first active GitLab instance from the database."""
-        from app.services.integrations import get_default_gitlab_instance
-
-        return await get_default_gitlab_instance(db)
+    async def get_default_instance(db: AsyncSession) -> ResourceProvider | None:
+        """Return the default platform GitLab provider from resource_providers."""
+        return await get_default_gitlab_provider(db)
 
     # ------------------------------------------------------------------
     # Client factory
     # ------------------------------------------------------------------
 
-    def _get_client(self, instance: GitlabInstance | None = None) -> gitlab.Gitlab:
+    def _get_client(self, provider: ResourceProvider | None = None) -> gitlab.Gitlab:
         """
         Build a python-gitlab client.
 
         Priority:
-        1. ``instance`` — use its URL and *decrypted* token.
+        1. ``provider`` — use its base_url and *decrypted* credential secret.
         2. ``settings.gitlab_url`` and ``settings.gitlab_token`` (fallback).
         3. ``settings.gitlab_url`` without auth.
         """
-        if instance is not None:
-            token = decrypt_secret(instance.token) if instance.token else None
-            return gitlab.Gitlab(instance.url, private_token=token or None)
+        if provider is not None:
+            token: str | None = None
+            if provider.credential is not None and provider.credential.encrypted_secret:
+                token = decrypt_secret(provider.credential.encrypted_secret)
+            return gitlab.Gitlab(
+                provider.base_url,
+                private_token=token or None,
+                ssl_verify=provider.verify_ssl,
+            )
 
         # Backward-compatible fallback
         if settings.gitlab_url:
@@ -67,10 +72,10 @@ class BuildService:
             )
         return gitlab.Gitlab()
 
-    def _pipeline_base_url(self, instance: GitlabInstance | None) -> str:
+    def _pipeline_base_url(self, provider: ResourceProvider | None) -> str:
         """Return the base URL for constructing pipeline links."""
-        if instance is not None:
-            return instance.url
+        if provider is not None:
+            return provider.base_url or settings.gitlab_url
         return settings.gitlab_url
 
     # ------------------------------------------------------------------
@@ -85,14 +90,14 @@ class BuildService:
         db: AsyncSession,
         triggered_by: str = "manual",
         *,
-        instance: GitlabInstance | None = None,
+        provider: ResourceProvider | None = None,
     ) -> ImageVersion:
         """Trigger a GitLab pipeline to build a gold image version."""
         if not image.gitlab_project_id:
             raise BadRequestError("Gold image has no GitLab project configured")
 
-        if instance is None:
-            instance = await self.get_default_instance(db)
+        if provider is None:
+            provider = await self.get_default_instance(db)
 
         version = ImageVersion(
             image_type="gold",
@@ -106,7 +111,7 @@ class BuildService:
         await db.flush()
 
         try:
-            gl = self._get_client(instance)
+            gl = self._get_client(provider)
             gl_project = gl.projects.get(image.gitlab_project_id)
             pipeline = gl_project.pipelines.create(
                 {
@@ -124,7 +129,7 @@ class BuildService:
             await db.commit()
             raise ExternalServiceError("GitLab", str(e)) from e
 
-        base_url = self._pipeline_base_url(instance)
+        base_url = self._pipeline_base_url(provider)
         now = datetime.now(UTC)
         build_log = BuildLog(
             image_version_id=version.id,
@@ -152,14 +157,14 @@ class BuildService:
         db: AsyncSession,
         triggered_by: str = "manual",
         *,
-        instance: GitlabInstance | None = None,
+        provider: ResourceProvider | None = None,
     ) -> ImageVersion:
         """Trigger a GitLab pipeline to build an app image version."""
         if not image.gitlab_project_id:
             raise BadRequestError("App image has no GitLab project configured")
 
-        if instance is None:
-            instance = await self.get_default_instance(db)
+        if provider is None:
+            provider = await self.get_default_instance(db)
 
         version = ImageVersion(
             image_type="app",
@@ -173,7 +178,7 @@ class BuildService:
         await db.flush()
 
         try:
-            gl = self._get_client(instance)
+            gl = self._get_client(provider)
             gl_project = gl.projects.get(image.gitlab_project_id)
             pipeline = gl_project.pipelines.create(
                 {
@@ -191,7 +196,7 @@ class BuildService:
             await db.commit()
             raise ExternalServiceError("GitLab", str(e)) from e
 
-        base_url = self._pipeline_base_url(instance)
+        base_url = self._pipeline_base_url(provider)
         now = datetime.now(UTC)
         build_log = BuildLog(
             image_version_id=version.id,

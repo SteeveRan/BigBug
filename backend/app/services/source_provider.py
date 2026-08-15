@@ -2,8 +2,8 @@
 @file source_provider.py
 @description Abstract base class for source providers (GitHub, GitLab, Generic, etc.).
              Defines the interface that all source provider implementations must satisfy.
-@dependencies abc, app.models.source_provider.SourceProvider
-@relatedFiles ./source_providers/github.py, ../models/source_provider.py
+@dependencies abc
+@relatedFiles ./source_providers/github.py
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from app.models.source_provider import SourceProvider
+    pass
 
 
 class BaseSourceProvider(ABC):
@@ -24,8 +24,8 @@ class BaseSourceProvider(ABC):
     repositories within those groups.
 
     Args:
-        provider: The :class:`SourceProvider` ORM model instance with provider
-                  configuration (type, credential reference, etc.).
+        provider: A provider-shaped object (V2 adapter) with configuration
+                  (type, credential reference, etc.).
         credential_secret: The *decrypted* secret string (e.g. a GitHub
                            personal access token). The caller is responsible
                            for decrypting the value read from the database
@@ -33,7 +33,7 @@ class BaseSourceProvider(ABC):
                            anonymous providers.
     """
 
-    def __init__(self, provider: SourceProvider, credential_secret: str | None) -> None:
+    def __init__(self, provider: object, credential_secret: str | None) -> None:
         self.provider = provider
         self.credential_secret = credential_secret
 

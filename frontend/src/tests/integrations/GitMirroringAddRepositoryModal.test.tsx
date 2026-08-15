@@ -21,7 +21,7 @@ vi.mock('../../store/api', async () => {
   const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
-    useGetSourceProvidersQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
     useCreateSourceRepositoryMutation: vi.fn(),
   };
 });
@@ -35,10 +35,7 @@ vi.mock('../../hooks/usePermissions', () => ({
 // ---------------------------------------------------------------------------
 
 import { api } from '../../store/api';
-import {
-  useGetSourceProvidersQuery,
-  useCreateSourceRepositoryMutation,
-} from '../../store/api';
+import { useGetProvidersQuery, useCreateSourceRepositoryMutation } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { AddRepositoryModal } from '../../pages/GitMirroring/Sources/AddRepositoryModal';
 import type { SourceProvider } from '../../types';
@@ -82,7 +79,11 @@ function renderModal(options: RenderModalOptions = {}) {
   const result = render(
     <Provider store={store}>
       <App>
-        <AddRepositoryModal open onClose={onClose} preselectedProviderId={options.preselectedProviderId} />
+        <AddRepositoryModal
+          open
+          onClose={onClose}
+          preselectedProviderId={options.preselectedProviderId}
+        />
       </App>
     </Provider>
   );
@@ -96,7 +97,6 @@ function renderModal(options: RenderModalOptions = {}) {
 
 describe('AddRepositoryModal', () => {
   let mockCreateRepo: ReturnType<typeof vi.fn>;
-  let onClose: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,7 +113,7 @@ describe('AddRepositoryModal', () => {
       isLoading: false,
     });
 
-    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockGithubProvider],
       isLoading: false,
       isError: false,
@@ -158,18 +158,14 @@ describe('AddRepositoryModal', () => {
     await user.click(genericOption);
 
     // Enter a github.com URL in the clone_url input
-    const urlInput = screen.getByPlaceholderText(
-      /git\.example\.com/
-    );
+    const urlInput = screen.getByPlaceholderText(/git\.example\.com/);
     await user.type(urlInput, 'https://github.com/owner/repo.git');
 
     // The warning Alert should appear
     await waitFor(() => {
       const alert = screen.getByRole('alert');
       expect(alert).toBeInTheDocument();
-      expect(alert.textContent).toContain(
-        'The URL appears to be a GitHub or GitLab repository'
-      );
+      expect(alert.textContent).toContain('The URL appears to be a GitHub or GitLab repository');
     });
   });
 
@@ -182,9 +178,7 @@ describe('AddRepositoryModal', () => {
     // Provider type defaults to 'github' — no need to change
 
     // Enter a github.com URL
-    const urlInput = screen.getByPlaceholderText(
-      /git\.example\.com/
-    );
+    const urlInput = screen.getByPlaceholderText(/git\.example\.com/);
     await user.type(urlInput, 'https://github.com/owner/repo.git');
 
     // The warning Alert should NOT appear
@@ -206,9 +200,7 @@ describe('AddRepositoryModal', () => {
     await user.click(genericOption);
 
     // Enter a non-github, non-gitlab URL
-    const urlInput = screen.getByPlaceholderText(
-      /git\.example\.com/
-    );
+    const urlInput = screen.getByPlaceholderText(/git\.example\.com/);
     await user.type(urlInput, 'https://example.com/repo.git');
 
     // The warning Alert should NOT appear
@@ -230,9 +222,7 @@ describe('AddRepositoryModal', () => {
     await user.click(gitlabOption);
 
     // Enter a clone URL
-    const urlInput = screen.getByPlaceholderText(
-      /git\.example\.com/
-    );
+    const urlInput = screen.getByPlaceholderText(/git\.example\.com/);
     await user.type(urlInput, 'https://gitlab.com/group/repo.git');
 
     // Submit the form
@@ -255,9 +245,7 @@ describe('AddRepositoryModal', () => {
     const { onClose, user } = renderModal();
 
     // Enter a clone URL
-    const urlInput = screen.getByPlaceholderText(
-      /git\.example\.com/
-    );
+    const urlInput = screen.getByPlaceholderText(/git\.example\.com/);
     await user.type(urlInput, 'https://github.com/owner/repo.git');
 
     // Submit the form

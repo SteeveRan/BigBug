@@ -6,8 +6,8 @@
 
 import { useEffect, useMemo } from 'react';
 import { Modal, Form, Select, Input, App, Typography, Alert } from 'antd';
-import { useCreateSourceRepositoryMutation, useGetSourceProvidersQuery } from '../../../store/api';
-import type { ProviderType, SourceProvider, SourceRepositoryCreate } from '../../../types';
+import { useCreateSourceRepositoryMutation, useGetProvidersQuery } from '../../../store/api';
+import type { ProviderType, ResourceProvider, SourceRepositoryCreate } from '../../../types';
 
 interface AddRepositoryModalProps {
   open: boolean;
@@ -31,10 +31,13 @@ export function AddRepositoryModal({
 
   const [createRepo, { isLoading }] = useCreateSourceRepositoryMutation();
 
-  const { data: providers = [] } = useGetSourceProvidersQuery(undefined, { skip: !open });
+  const { data: providers = [] } = useGetProvidersQuery(
+    { domain: 'git', direction: 'external' },
+    { skip: !open }
+  );
 
   // Resolve the selected provider to auto-fill provider_type
-  const preselectedProvider = useMemo<SourceProvider | undefined>(() => {
+  const preselectedProvider = useMemo<ResourceProvider | undefined>(() => {
     if (preselectedProviderId != null) {
       return providers.find((p) => p.id === preselectedProviderId);
     }
@@ -56,7 +59,12 @@ export function AddRepositoryModal({
     if (open) {
       form.resetFields();
       if (preselectedProvider) {
-        form.setFieldValue('provider_type', preselectedProvider.provider_type);
+        const subtypeToType: Record<string, ProviderType> = {
+          github: 'github',
+          gitlab: 'gitlab',
+          generic_git: 'generic',
+        };
+        form.setFieldValue('provider_type', subtypeToType[preselectedProvider.subtype] ?? 'github');
       } else {
         form.setFieldValue('provider_type', 'github');
       }

@@ -2,7 +2,7 @@
 
 > Единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 > 
-> **Последняя сверка:** 2026-06-14 — все бэкенд-эндпоинты и фронтенд-роуты сверены с этой таблицей.
+> **Последняя сверка:** 2026-08-15 — фаза 5 рефакторинга Providers V3: добавлены `providers:*`/`providers_system:*`/`teams:*`/`credentials:write`, удалены легаси-права (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`), `credentials:read` начат реально проверяться.
 
 ## Сводная таблица
 
@@ -18,7 +18,7 @@
 | 8 | `projects:read` | Просмотр проектов (GithubProject) | A, O, V | `/projects`, `/:id` | ✅ |
 | 9 | `projects:write` | Создание/изменение проектов | A, O | — | только бэкенд |
 | 10 | `projects:delete` | Удаление проектов | A | — | только бэкенд |
-| 11 | `source_groups:read` | Просмотр Source Groups и репозиториев | A, O, V | `/git-mirroring/repositories`, `/git-mirroring/groups`, `/git-mirroring/providers` | ✅ |
+| 11 | `source_groups:read` | Просмотр Source Groups и репозиториев | A, O, V | `/git-mirroring/sources` | ✅ |
 | 12 | `source_groups:write` | Импорт/изменение Source Groups | A, O | — | только бэкенд |
 | 13 | `source_groups:refresh` | Обновление списка репозиториев | A, O | — | только бэкенд |
 | 14 | `helm:read` | Просмотр Helm charts | A, O, V | `/helm-charts`, `/:id` | ✅ |
@@ -45,8 +45,8 @@
 | 35 | `sync_groups:read` | Просмотр Sync Groups | A, O, V | `/git-mirroring/sync-groups` | ✅ |
 | 36 | `sync_groups:write` | Создание/изменение Sync Groups | A, O | — | только бэкенд |
 | 37 | `sync_groups:delete` | Удаление Sync Groups | A | — | только бэкенд |
-| 38 | `credentials:read` | Просмотр учётных данных | A | `/admin/integrations` (credentials tab) | ⚠️ см. примечание |
-| 39 | `credentials:use` | Использование учётных данных (для source providers) | A, O | — | ⚠️ см. примечание |
+| 38 | `credentials:read` | Просмотр учётных данных (list/get) | A | `/admin/credentials` | ✅ (проверяется с фазы 5) |
+| 39 | `credentials:write` | Создание/изменение/удаление/тест учётных данных | A | `/admin/credentials` | ✅ (проверяется с фазы 5) |
 | 40 | `reports:read` | Генерация отчётов зеркалирования | A | `/git-mirroring/reports` | ✅ |
 | 41 | `users:read` | Просмотр пользователей | A, V | `/admin/users` | ✅ |
 | 42 | `users:write` | Создание/изменение пользователей | A | — | только бэкенд |
@@ -55,13 +55,22 @@
 | 45 | `roles:write` | Создание/изменение ролей (включая scope) | A | — | только бэкенд |
 | 46 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
 | 47 | `system:config` | Изменение конфигурации системы (cleanup) | A | — | только бэкенд |
-| 48 | `integrations:read` | Просмотр конфигураций интеграций | A, V | `/admin/integrations` | ✅ |
-| 49 | `integrations:write` | Управление интеграциями | A | — | только бэкенд |
-| 50 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
-| 51 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
-| 52 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
-| 53 | `admin:panel:access` | Доступ к Admin Panel (отдельный интерфейс) | A | Header кнопка «Admin Panel» → `AdminLayout` | ✅ |
-**Обозначения:** A = Admin, O = Operator, V = Viewer. `—` = не используется (нет `PermissionGate` в роутере). `✅` = есть и в seed, и в роутере. `⚠️` = см. примечание.
+| 48 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
+| 49 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
+| 50 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
+| 51 | `admin:panel:access` | Доступ к Admin Panel (отдельный интерфейс) | A | Header кнопка «Admin Panel» → `AdminLayout` | ✅ |
+| 52 | `providers:read` | list/get public+system (+ private свои) | A, O, V | `/settings/providers` | ✅ |
+| 53 | `providers:write` | create/update/test public+свои private | A, O | — | только бэкенд |
+| 54 | `providers:delete` | delete public+свои private | A | — | только бэкенд |
+| 55 | `providers:use` | доменные действия (list_repositories и т.д.) | A, O | — | только бэкенд |
+| 56 | `providers:read_all` | видеть все private всех пользователей | A | — | только бэкенд |
+| 57 | `providers_system:write` | create/update/delete system-категории | A | — | только бэкенд |
+| 58 | `providers:share` | share/unshare своих провайдеров команде | A, O | — | только бэкенд |
+| 59 | `teams:read` | список своих команд + карточка | A, O, V | `/settings/teams` | ✅ |
+| 60 | `teams:write` | создание/изменение/удаление команд (админ) | A | `/admin/teams` | ✅ |
+| 61 | `teams:manage_members` | добавление/удаление участников (админ; лид — scope) | A | — | только бэкенд |
+
+**Обозначения:** A = Admin, O = Operator, V = Viewer. `—` = не используется (нет `PermissionGate` в роутере). `✅` = есть и в seed, и в роутере.
 
 ## Распределение по ролям
 
@@ -105,7 +114,7 @@
 | `sync_groups:write` | ✅ | ✅ | |
 | `sync_groups:delete` | ✅ | | |
 | `credentials:read` | ✅ | | |
-| `credentials:use` | ✅ | ✅ | |
+| `credentials:write` | ✅ | | |
 | `reports:read` | ✅ | | |
 | `users:read` | ✅ | | ✅ |
 | `users:write` | ✅ | | |
@@ -114,32 +123,44 @@
 | `roles:write` | ✅ | | |
 | `roles:delete` | ✅ | | |
 | `system:config` | ✅ | | |
-| `integrations:read` | ✅ | | ✅ |
-| `integrations:write` | ✅ | | |
 | `oidc:read` | ✅ | | ✅ |
 | `oidc:write` | ✅ | | |
 | `audit:read` | ✅ | ✅ | ✅ |
 | `admin:panel:access` | ✅ | | |
+| `providers:read` | ✅ | ✅ | ✅ |
+| `providers:write` | ✅ | ✅ | |
+| `providers:delete` | ✅ | | |
+| `providers:use` | ✅ | ✅ | |
+| `providers:read_all` | ✅ | | |
+| `providers_system:write` | ✅ | | |
+| `providers:share` | ✅ | ✅ | |
+| `teams:read` | ✅ | ✅ | ✅ |
+| `teams:write` | ✅ | | |
+| `teams:manage_members` | ✅ | | |
+
 Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS`.
 
-## Легаси-права (существуют в БД, но не используются в API)
+## Легаси-права (удалены в фазе 5)
 
-Эти permissions созданы предыдущими миграциями, но заменены на более гранулярные аналоги в новой модели RBAC. `seed_admin.py` их не назначает ролям, API не проверяет.
+Эти permissions были созданы предыдущими миграциями и удалены чистящей миграцией фазы 5 ([`20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py`](backend/alembic/versions/20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py)). Физически отсутствуют в БД после `alembic upgrade head`.
 
-| Legacy Permission | Миграция | Заменён на |
+| Удалённое право | Бывшая миграция | Заменён на |
 |---|---|---|
-| `integrations:manage` | [`a66daaecc2fa`](backend/alembic/versions/20260606_2145_a66daaecc2fa_add_integration_instances.py:27) | `integrations:read` + `integrations:write` |
-| `docker_registry:manage` | [`b0714dde902c`](backend/alembic/versions/20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py:28) | — (управляется через integrations) |
-| `helm_repository:manage` | [`b0714dde902c`](backend/alembic/versions/20260606_2220_b0714dde902c_add_docker_registry_and_helm_repo_.py:32) | — (управляется через integrations) |
-| `pipelines:manage` | [`d1e2f3a4b5c6`](backend/alembic/versions/20260607_0352_d1e2f3a4b5c6_add_pipeline_runs_and_components.py:46) | `pipelines:write` + `pipelines:delete` |
+| `integrations:read` | `745f271b2faf` | `providers:read` |
+| `integrations:write` | `745f271b2faf` | `providers:write` + `providers_system:write` |
+| `integrations:manage` | [`a66daaecc2fa`](backend/alembic/versions/20260606_2145_a66daaecc2fa_add_integration_instances.py:27) | `providers:read` + `providers:write` |
+| `docker_registry:manage` | `b0714dde902c` | — (управляется через providers) |
+| `helm_repository:manage` | `b0714dde902c` | — (управляется через providers) |
+| `pipelines:manage` | `d1e2f3a4b5c6` | `pipelines:write` + `pipelines:delete` |
+| `credentials:use` | `b214fda62040` | внутренняя логика провайдеров (не проверяется) |
 
 ## Примечания
 
-### ⚠️ `credentials:read` и `credentials:use`
+### `credentials:read` / `credentials:write`
 
-Эти права назначены ролям через [`seed_admin.py`](backend/docker/seed_admin.py), но **фактически не проверяются** ни в одном API-эндпоинте. Эндпоинты [`credentials.py`](backend/app/api/credentials.py) используют `integrations:read` (list/get) и `integrations:write` (create/update/delete/test). Права `credentials:read`/`credentials:use` зарезервированы для будущего использования — когда credentials получат собственный permission check вместо проксирования через integrations.
+С фазы 5 эндпоинты [`credentials.py`](backend/app/api/credentials.py) используют `credentials:read` (list/get) и `credentials:write` (create/update/delete/test). Право `credentials:read` ранее было назначено, но не проверялось; `credentials:write` — новое право, заменившее `integrations:write` в этом роутере.
 
-Фронтенд в [`RoleModal.tsx`](frontend/src/pages/Admin/Roles/RoleModal.tsx:89) группирует их под лейблом «Credentials» для UI-редактора ролей.
+Фронтенд в `RoleModal.tsx` группирует их под лейблом «Credentials» для UI-редактора ролей.
 
 ### Системные эндпоинты
 
@@ -153,4 +174,6 @@
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-08-15 | Фаза 7F Providers V3: выпил legacy-таблиц/роутеров (`api/integrations/`, `services/integrations.py`, instance-модели, `source_providers`). Роутеры `/settings/providers`, `/admin/credentials`, `/settings/teams`, `/admin/teams` — окончательные. `source_groups:read` привязан к `/git-mirroring/sources`. |
+| 2026-08-15 | Фаза 5 Providers V3: добавлены `providers:read/write/delete/use/read_all`, `providers_system:write`, `providers:share`, `teams:read/write/manage_members`, `credentials:write`; `credentials:read` начат реально проверяться; удалены `integrations:read/write/manage`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use` |
 | 2026-06-14 | Глобальная сверка и исправление: заменены `require_admin()` → `require_permission()` в `admin.py` и `auth.py`; исправлены `PermissionGate` в роутере для git-mirroring; интеграции переведены с легаси-прав на `integrations:read`/`integrations:write`; `audit.py`: `users:read` → `audit:read`; `seed_admin.py`: добавлено 6 прав оператору; все `require_operator()`/`require_viewer()` заменены на `require_permission()` в domain API |

@@ -16,7 +16,7 @@ class TestGitLabComponentModel:
         """GitLabComponent can be used in multiple PipelineComponents."""
         comp = GitLabComponent(
             name="mirror-component",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="ci/components",
             component_path="mirror.yml",
         )

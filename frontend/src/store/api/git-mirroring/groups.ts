@@ -11,12 +11,12 @@ export const sourceGroupsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getSourceGroups: builder.query<SourceGroup[], number | undefined>({
       query: (providerId) =>
-        `/mirroring/groups${providerId ? `?source_provider_id=${providerId}` : ''}`,
+        `/mirroring/groups${providerId ? `?provider_id=${providerId}` : ''}`,
       providesTags: ['SourceGroup'],
     }),
     importSourceGroup: builder.mutation<SourceGroup, { providerId?: number; groupName: string }>({
       query: ({ providerId, groupName }) => ({
-        url: `/mirroring/groups/import?group_name=${encodeURIComponent(groupName)}${providerId ? `&source_provider_id=${providerId}` : ''}`,
+        url: `/mirroring/groups/import?group_name=${encodeURIComponent(groupName)}${providerId ? `&provider_id=${providerId}` : ''}`,
         method: 'POST',
       }),
       invalidatesTags: ['SourceGroup'],

@@ -5,19 +5,14 @@ from app.models.build_schedule import BuildSchedule
 from app.models.credential import Credential, CredentialType
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
-from app.models.docker_registry_instance import DockerRegistryInstance
 from app.models.docker_sync_log import DockerSyncLog
-from app.models.github_instance import GithubInstance
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
 from app.models.gitlab_component import GitLabComponent
-from app.models.gitlab_instance import GitlabInstance
 from app.models.gold_image import GoldImage
-from app.models.harbor_instance import HarborInstance
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
-from app.models.helm_repository_instance import HelmRepositoryInstance
 from app.models.helm_sync_log import HelmSyncLog
 from app.models.image_version import ImageVersion
 from app.models.mirror import Mirror
@@ -27,17 +22,29 @@ from app.models.oidc_config import OIDCConfig
 from app.models.permission import Permission, role_permissions
 from app.models.pipeline import Pipeline, PipelineComponent
 from app.models.pipeline_run import PipelineRun
+from app.models.provider_type import ProviderType
+from app.models.resource_provider import (
+    ProviderCapability,
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ProviderVisibility,
+    ResourceProvider,
+)
 from app.models.role import Role, UserRole
 from app.models.role_scope import (
     RoleScopeCredential,
+    RoleScopeProvider,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
 )
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import DiscoveryStatus, SourceRepository
 from app.models.sync_group import SyncGroup
 from app.models.sync_schedule import SyncSchedule
+from app.models.team import Team, TeamRole
+from app.models.team_member import TeamMember
 from app.models.user import User
 
 __all__ = [
@@ -50,13 +57,10 @@ __all__ = [
     "Credential",
     "CredentialType",
     "DiscoveryStatus",
-    "GithubInstance",
     "GithubOrg",
     "GithubProject",
     "GithubRelease",
-    "GitlabInstance",
     "GitLabComponent",
-    "HarborInstance",
     "Mirror",
     "MirrorLog",
     "MirrorLogType",
@@ -66,14 +70,24 @@ __all__ = [
     "PipelineComponent",
     "PipelineRun",
     "ProviderType",
+    "ResourceProvider",
+    "ProviderDomain",
+    "ProviderSubtype",
+    "ProviderCategory",
+    "ProviderDirection",
+    "ProviderVisibility",
+    "ProviderCapability",
     "RoleScopeCredential",
+    "RoleScopeProvider",
     "RoleScopeSourceGroup",
     "RoleScopeSyncGroup",
     "SourceGroup",
-    "SourceProvider",
     "SourceRepository",
     "SyncGroup",
     "SyncSchedule",
+    "Team",
+    "TeamRole",
+    "TeamMember",
     "GoldImage",
     "AppImage",
     "ImageVersion",
@@ -81,10 +95,8 @@ __all__ = [
     "BuildLog",
     "HelmChartSource",
     "HelmChartVersion",
-    "HelmRepositoryInstance",
     "HelmSyncLog",
     "DockerImageSource",
     "DockerImageTag",
-    "DockerRegistryInstance",
     "DockerSyncLog",
 ]

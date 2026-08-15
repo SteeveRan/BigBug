@@ -32,8 +32,8 @@ router = APIRouter()
 async def list_orphaned_mirrors(
     gitlab_instance_id: int | None = Query(
         None,
-        description="Limit scan to a specific GitLab instance. "
-        "If omitted, scans all configured instances.",
+        description="Limit scan to a specific GitLab provider (system/internal). "
+        "If omitted, scans all configured providers.",
     ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -47,7 +47,7 @@ async def list_orphaned_mirrors(
     try:
         report = await OrphanedMirrorService.find_orphaned(
             db,
-            gitlab_instance_id=gitlab_instance_id,
+            provider_id=gitlab_instance_id,
         )
     except (DomainError, NotFoundError) as e:
         status_code = e.status_code if isinstance(e, DomainError) else 404

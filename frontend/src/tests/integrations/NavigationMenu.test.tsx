@@ -35,23 +35,16 @@ vi.mock('../../store/api', async () => {
     ...(actual as object),
     // Dashboard (Overview)
     useListProjectsQuery: vi.fn(),
-    useListMirrorsQuery: vi.fn(),
+    useGetMirrorsQuery: vi.fn(),
     useListGoldImagesQuery: vi.fn(),
     useListAppImagesQuery: vi.fn(),
-    // Mirrors / Projects
+    // Projects (live github_projects)
     useGetProjectQuery: vi.fn(),
     useCreateProjectMutation: vi.fn(),
     useImportProjectMutation: vi.fn(),
     useUpdateProjectMutation: vi.fn(),
     useDeleteProjectMutation: vi.fn(),
     useRefreshProjectMutation: vi.fn(),
-    useGetMirrorQuery: vi.fn(),
-    useCreateMirrorMutation: vi.fn(),
-    useImportMirrorMutation: vi.fn(),
-    useTriggerSyncMutation: vi.fn(),
-    useGetMirrorLogsQuery: vi.fn(),
-    useGetMirrorScheduleQuery: vi.fn(),
-    useUpdateMirrorScheduleMutation: vi.fn(),
     // Helm Charts
     useListHelmChartsQuery: vi.fn(),
     useGetHelmChartQuery: vi.fn(),
@@ -102,41 +95,6 @@ vi.mock('../../store/api', async () => {
     useCreateRoleMutation: vi.fn(),
     useUpdateRoleMutation: vi.fn(),
     useDeleteRoleMutation: vi.fn(),
-    // Integrations — GitLab
-    useGetGitlabInstancesQuery: vi.fn(),
-    useGetGitlabInstanceQuery: vi.fn(),
-    useCreateGitlabInstanceMutation: vi.fn(),
-    useUpdateGitlabInstanceMutation: vi.fn(),
-    useDeleteGitlabInstanceMutation: vi.fn(),
-    useTestGitlabConnectionMutation: vi.fn(),
-    // Integrations — Harbor
-    useGetHarborInstancesQuery: vi.fn(),
-    useGetHarborInstanceQuery: vi.fn(),
-    useCreateHarborInstanceMutation: vi.fn(),
-    useUpdateHarborInstanceMutation: vi.fn(),
-    useDeleteHarborInstanceMutation: vi.fn(),
-    useTestHarborConnectionMutation: vi.fn(),
-    // Integrations — GitHub
-    useGetGithubInstancesQuery: vi.fn(),
-    useGetGithubInstanceQuery: vi.fn(),
-    useCreateGithubInstanceMutation: vi.fn(),
-    useUpdateGithubInstanceMutation: vi.fn(),
-    useDeleteGithubInstanceMutation: vi.fn(),
-    useTestGithubConnectionMutation: vi.fn(),
-    // Integrations — Docker Registry
-    useGetDockerRegistryInstancesQuery: vi.fn(),
-    useGetDockerRegistryInstanceQuery: vi.fn(),
-    useCreateDockerRegistryInstanceMutation: vi.fn(),
-    useUpdateDockerRegistryInstanceMutation: vi.fn(),
-    useDeleteDockerRegistryInstanceMutation: vi.fn(),
-    useTestDockerRegistryConnectionMutation: vi.fn(),
-    // Integrations — Helm Repository
-    useGetHelmRepositoryInstancesQuery: vi.fn(),
-    useGetHelmRepositoryInstanceQuery: vi.fn(),
-    useCreateHelmRepositoryInstanceMutation: vi.fn(),
-    useUpdateHelmRepositoryInstanceMutation: vi.fn(),
-    useDeleteHelmRepositoryInstanceMutation: vi.fn(),
-    useTestHelmRepositoryConnectionMutation: vi.fn(),
     // OIDC / Authentication
     useGetOidcConfigQuery: vi.fn(),
     useUpdateOidcConfigMutation: vi.fn(),
@@ -151,6 +109,17 @@ vi.mock('../../store/api', async () => {
     useCreateComponentMutation: vi.fn(),
     useUpdateComponentMutation: vi.fn(),
     useDeleteComponentMutation: vi.fn(),
+    // Git Mirroring Sources (SourcesPage)
+    useGetProvidersQuery: vi.fn(),
+    useGetSourceGroupsQuery: vi.fn(),
+    useGetSourceRepositoriesQuery: vi.fn(),
+    useGetSyncGroupsQuery: vi.fn(),
+    useRefreshSourceGroupMutation: vi.fn(),
+    useDeleteSourceGroupMutation: vi.fn(),
+    useImportSourceGroupMutation: vi.fn(),
+    useCreateSourceRepositoryMutation: vi.fn(),
+    useDeleteSourceRepositoryMutation: vi.fn(),
+    useBulkCreateMirrorsMutation: vi.fn(),
     // Audit Log
     useGetAuditLogsQuery: vi.fn(),
     // Auth
@@ -168,15 +137,17 @@ vi.mock('../../store/api', async () => {
 import { api } from '../../store/api';
 import {
   useListProjectsQuery,
-  useListMirrorsQuery,
+  useGetMirrorsQuery,
   useListGoldImagesQuery,
   useListAppImagesQuery,
   useListHelmChartsQuery,
   useListDockerImagesQuery,
   useGetPipelineRunsQuery,
   useGetComponentsQuery,
-  useGetHarborInstancesQuery,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
+  useGetSourceGroupsQuery,
+  useGetSourceRepositoriesQuery,
+  useGetSyncGroupsQuery,
   useGetGoldImageScanResultsMutation,
   useCreateProjectMutation,
   useImportProjectMutation,
@@ -205,12 +176,18 @@ import {
   useCreateComponentMutation,
   useUpdateComponentMutation,
   useDeleteComponentMutation,
+  useRefreshSourceGroupMutation,
+  useDeleteSourceGroupMutation,
+  useImportSourceGroupMutation,
+  useCreateSourceRepositoryMutation,
+  useDeleteSourceRepositoryMutation,
+  useBulkCreateMirrorsMutation,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionGate } from '../../components/PermissionGate';
 
 import { DashboardPage } from '../../pages/Overview';
-import { ProjectsPage } from '../../pages/Projects';
+import { SourcesPage } from '../../pages/GitMirroring/Sources';
 import { HelmChartsPage } from '../../pages/HelmCharts';
 import { DockerImagesPage } from '../../pages/DockerImages';
 import { GoldImagesPage } from '../../pages/GoldImages';
@@ -269,10 +246,10 @@ const MENU_PAGES: MenuPageConfig[] = [
     contentMarker: 'Dashboard',
   },
   {
-    label: 'Mirroring / Repositories',
-    page: <ProjectsPage />,
-    permission: 'projects:read',
-    contentMarker: 'GitHub Projects',
+    label: 'Git Mirroring / Sources',
+    page: <SourcesPage />,
+    permission: 'source_groups:read',
+    contentMarker: 'Sources',
   },
   {
     label: 'Mirroring / Helm Charts',
@@ -338,15 +315,17 @@ function setupDefaultApiMocks() {
   const mockQ = mockQueryEmpty();
   // Queries → empty data
   (useListProjectsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useListGoldImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useListAppImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useListHelmChartsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useListDockerImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetPipelineRunsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetComponentsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetHarborInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
-  (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetSourceGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetSourceRepositoriesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetGoldImageScanResultsMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockMutation());
 
   // Mutations → [fn, { isLoading: false }]
@@ -380,6 +359,19 @@ function setupDefaultApiMocks() {
     useUpdateComponentMutation,
     useDeleteComponentMutation,
   ];
+  // Source-related mutations used by SourcesPage (RepositoriesTab / GroupsTab)
+  const sourceMutations = [
+    useRefreshSourceGroupMutation,
+    useDeleteSourceGroupMutation,
+    useImportSourceGroupMutation,
+    useCreateSourceRepositoryMutation,
+    useDeleteSourceRepositoryMutation,
+    useBulkCreateMirrorsMutation,
+  ];
+  for (const m of sourceMutations) {
+    (m as ReturnType<typeof vi.fn>).mockReturnValue(mMock);
+  }
+
   for (const m of mutations) {
     (m as ReturnType<typeof vi.fn>).mockReturnValue(mMock);
   }
@@ -406,6 +398,7 @@ describe('NavigationMenu — все пункты меню', () => {
         // Разрешаем ВСЕ permissions, чтобы PermissionGate пропустил любую проверку
         setPermissions([
           'projects:read',
+          'source_groups:read',
           'helm:read',
           'docker:read',
           'gold_images:read',
@@ -447,7 +440,7 @@ describe('NavigationMenu — все пункты меню', () => {
       it(`${cfg.label} без "${cfg.permission}" — страница не рендерится`, () => {
         // Даём права, НО НЕ то, которое требуется для этой страницы
         const otherPermissions = [
-          'projects:read',
+          'source_groups:read',
           'helm:read',
           'docker:read',
           'gold_images:read',
@@ -484,6 +477,7 @@ describe('NavigationMenu — все пункты меню', () => {
         'mirrors:write',
         'mirrors:delete',
         'mirrors:sync',
+        'source_groups:read',
         'projects:read',
         'projects:write',
         'projects:delete',

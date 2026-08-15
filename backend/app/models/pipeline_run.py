@@ -3,7 +3,7 @@
 @description Pipeline run model — tracks GitLab pipeline executions triggered
              from BigBug. Stores status, timing, and reference to the GitLab instance
              and optionally the GitLab CI/CD Component used.
-@dependencies app.database.Base, ../models/gitlab_instance.py, ../models/user.py,
+@dependencies app.database.Base, ../models/user.py,
               ../models/gitlab_component.py
 @relatedFiles ../../schemas/pipeline.py, ../../services/pipeline.py
 """
@@ -20,7 +20,14 @@ class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
 
     id = Column(Integer, primary_key=True, index=True)
-    gitlab_instance_id = Column(Integer, ForeignKey("gitlab_instances.id"), nullable=False)
+    # Providers V3 (phase 7A): runs are triggered via resource_providers and
+    # write provider_id; the legacy gitlab_instance_id column is removed.
+    provider_id = Column(
+        Integer,
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     gitlab_project_id = Column(Integer, nullable=False)
     gitlab_pipeline_id = Column(Integer, nullable=True)  # null until triggered
     pipeline_id = Column(
@@ -48,7 +55,7 @@ class PipelineRun(Base):
     finished_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
-    gitlab_instance = relationship("GitlabInstance", lazy="select")
+    provider = relationship("ResourceProvider", foreign_keys=[provider_id])
     triggered_by = relationship("User", lazy="select")
     component = relationship("GitLabComponent", lazy="select")
     pipeline = relationship("Pipeline", back_populates="pipeline_runs")

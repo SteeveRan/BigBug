@@ -5,7 +5,7 @@
  */
 
 import { Modal, Form, Select, Input, App } from 'antd';
-import { useImportSourceGroupMutation, useGetSourceProvidersQuery } from '../../../store/api';
+import { useImportSourceGroupMutation, useGetProvidersQuery } from '../../../store/api';
 
 interface ImportGroupModalProps {
   open: boolean;
@@ -22,8 +22,8 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
   const [form] = Form.useForm<FormValues>();
 
   const [importGroup, { isLoading }] = useImportSourceGroupMutation();
-  const { data: providers = [], isLoading: providersLoading } = useGetSourceProvidersQuery(
-    undefined,
+  const { data: providers = [], isLoading: providersLoading } = useGetProvidersQuery(
+    { domain: 'git', direction: 'external' },
     { skip: !open }
   );
 
@@ -65,7 +65,7 @@ export function ImportGroupModal({ open, onClose }: ImportGroupModalProps) {
             placeholder="Select provider"
             loading={providersLoading}
             options={providers.map((p) => ({
-              label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
+              label: p.label,
               value: p.id,
             }))}
           />

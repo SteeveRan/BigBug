@@ -20,8 +20,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import DomainError, NotFoundError
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.mirror import MirrorService
@@ -39,8 +45,15 @@ from app.services.sync_group import SyncGroupService
 
 async def _seed_source_provider(
     db_session: AsyncSession, label: str = "test-github"
-) -> SourceProvider:
-    sp = SourceProvider(provider_type=ProviderType.github, label=label)
+) -> ResourceProvider:
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=label,
+        label=label,
+    )
     db_session.add(sp)
     await db_session.commit()
     await db_session.refresh(sp)
@@ -288,7 +301,7 @@ class TestPipelineSoftDeleteService:
 
         assert pipeline.is_deleted is False
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
         await db_session.refresh(pipeline)
@@ -325,13 +338,13 @@ class TestPipelineSoftDeleteService:
         """restore_pipeline clears is_deleted."""
         pipeline = await _seed_pipeline(db_session, "restore-me-pl")
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
         await db_session.refresh(pipeline)
         assert pipeline.is_deleted is True
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             restored = await restore_pipeline(db_session, pipeline.id, username="testuser")
 
         assert restored.is_deleted is False
@@ -346,7 +359,7 @@ class TestPipelineSoftDeleteService:
         """get_pipeline_config should not return soft-deleted pipelines."""
         pipeline = await _seed_pipeline(db_session, "filter-deleted-pl")
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
         result = await get_pipeline_config(db_session, pipeline.id)
@@ -356,13 +369,13 @@ class TestPipelineSoftDeleteService:
         """After restore, the pipeline should be visible again."""
         pipeline = await _seed_pipeline(db_session, "reappear-pl")
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             await delete_pipeline(db_session, pipeline.id, username="testuser")
 
         result = await get_pipeline_config(db_session, pipeline.id)
         assert result is None
 
-        with patch("app.services.pipeline.AuditService.log_event", new_callable=AsyncMock):
+        with patch("app.services.pipeline._configs.AuditService.log_event", new_callable=AsyncMock):
             await restore_pipeline(db_session, pipeline.id, username="testuser")
 
         result = await get_pipeline_config(db_session, pipeline.id)

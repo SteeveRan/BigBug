@@ -9,7 +9,7 @@ import { Modal, Form, Input, Select, Switch, Typography, App } from 'antd';
 import {
   useCreatePipelineConfigMutation,
   useUpdatePipelineConfigMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
   useGetComponentsQuery,
 } from '../../../store/api';
 import type { PipelineConfig, PipelineConfigCreate, PipelineConfigUpdate } from '../../../types';
@@ -23,7 +23,7 @@ interface PipelineModalProps {
 interface FormValues {
   name: string;
   description?: string;
-  gitlab_instance_id?: number | null;
+  provider_id?: number | null;
   ref?: string;
   is_default: boolean;
   is_enabled: boolean;
@@ -38,7 +38,11 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
 
   const [createConfig, { isLoading: isCreating }] = useCreatePipelineConfigMutation();
   const [updateConfig, { isLoading: isUpdating }] = useUpdatePipelineConfigMutation();
-  const { data: gitlabInstances = [] } = useGetGitlabInstancesQuery();
+  const { data: providers = [] } = useGetProvidersQuery({
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
+  });
   const { data: components = [] } = useGetComponentsQuery();
   const isLoading = isCreating || isUpdating;
 
@@ -50,7 +54,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
         form.setFieldsValue({
           name: pipeline.name,
           description: pipeline.description ?? undefined,
-          gitlab_instance_id: pipeline.gitlab_instance_id ?? undefined,
+          provider_id: pipeline.provider_id ?? undefined,
           ref: pipeline.ref ?? 'main',
           is_default: pipeline.is_default,
           is_enabled: pipeline.is_enabled,
@@ -101,7 +105,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
       if (isEdit && pipeline) {
         const data: PipelineConfigUpdate = {
           description: values.description ?? null,
-          gitlab_instance_id: values.gitlab_instance_id ?? null,
+          provider_id: values.provider_id ?? null,
           ref: values.ref ?? null,
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
@@ -118,7 +122,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
         const data: PipelineConfigCreate = {
           name: values.name,
           description: values.description ?? null,
-          gitlab_instance_id: values.gitlab_instance_id ?? null,
+          provider_id: values.provider_id ?? null,
           ref: values.ref ?? 'main',
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
@@ -138,9 +142,9 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
     }
   };
 
-  const gitlabInstanceOptions = gitlabInstances.map((inst) => ({
-    label: inst.name,
-    value: inst.id,
+  const providerOptions = providers.map((p) => ({
+    label: p.label,
+    value: p.id,
   }));
 
   const componentOptions = components.map((comp) => ({
@@ -176,11 +180,11 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           />
         </Form.Item>
 
-        <Form.Item name="gitlab_instance_id" label="GitLab Instance">
+        <Form.Item name="provider_id" label="GitLab Provider">
           <Select
-            placeholder="Select GitLab instance (optional)"
+            placeholder="Select GitLab provider (optional)"
             allowClear
-            options={gitlabInstanceOptions}
+            options={providerOptions}
           />
         </Form.Item>
 

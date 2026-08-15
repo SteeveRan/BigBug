@@ -16,7 +16,7 @@ class TestPipelineRunModel:
         """PipelineRun can reference a Pipeline via pipeline_id."""
         pl = Pipeline(name="test-pipe", ref="main")
         pr = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=100,
             ref="main",
             pipeline_id=1,
@@ -28,7 +28,7 @@ class TestPipelineRunModel:
     def test_pipeline_run_pipeline_nullable(self):
         """PipelineRun with no pipeline (pipeline_id is nullable)."""
         pr = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=100,
             ref="main",
         )

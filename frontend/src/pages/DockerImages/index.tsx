@@ -28,7 +28,7 @@ import {
   useCreateDockerImageMutation,
   useAnalyzeDockerImageMutation,
 } from '../../store/api';
-import { DockerImageSource, AnalyzeImageResponse, DockerRegistryInstance } from '../../types';
+import { DockerImageSource, AnalyzeImageResponse, ResourceProvider } from '../../types';
 
 export function DockerImagesPage() {
   const navigate = useNavigate();
@@ -96,9 +96,9 @@ export function DockerImagesPage() {
       );
       await createSource({
         name: analysis.image_name,
-        registry_url: selectedRegistry?.url || analysis.detected_registry_host,
+        registry_url: selectedRegistry?.base_url || analysis.detected_registry_host,
         image_name: analysis.normalized_image,
-        registry_instance_id: selectedRegistryId ?? undefined,
+        provider_id: selectedRegistryId ?? undefined,
       }).unwrap();
       message.success('Docker image added successfully');
       setDialogOpen(false);
@@ -243,8 +243,8 @@ export function DockerImagesPage() {
   // ── Registry select options ───────────────────────────────────────────────
 
   const registryOptions = (analysis?.compatible_registries || []).map(
-    (r: DockerRegistryInstance) => ({
-      label: `${r.name} (${r.url})`,
+    (r: ResourceProvider) => ({
+      label: `${r.name} (${r.base_url ?? r.label})`,
       value: r.id,
     })
   );

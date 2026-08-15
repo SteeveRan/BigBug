@@ -161,11 +161,6 @@ describe('Layout sidebar', () => {
       expect(screen.getByText('Sources')).toBeInTheDocument();
     });
 
-    it('shows Source Providers in Git Mirroring', () => {
-      renderLayout();
-      expect(screen.getByText('Source Providers')).toBeInTheDocument();
-    });
-
     it('shows Sync Groups in Git Mirroring', () => {
       renderLayout();
       expect(screen.getByText('Sync Groups')).toBeInTheDocument();
@@ -179,6 +174,18 @@ describe('Layout sidebar', () => {
     it('shows Reports in Git Mirroring (new)', () => {
       renderLayout();
       expect(screen.getByText('Reports')).toBeInTheDocument();
+    });
+  });
+
+  describe('Settings group', () => {
+    it('shows Providers under Settings', () => {
+      renderLayout();
+      expect(screen.getByText('Providers')).toBeInTheDocument();
+    });
+
+    it('shows Teams under Settings', () => {
+      renderLayout();
+      expect(screen.getByText('Teams')).toBeInTheDocument();
     });
   });
 });

@@ -4,8 +4,9 @@
              results for Docker image artifacts stored in Harbor registries.
              Updates ImageVersion.vulnerabilities / vulnerability_severity.
 @dependencies httpx, app.core.secrets (decrypt_secret),
-              app.models.image_version, app.models.harbor_instance
-@relatedFiles ../models/image_version.py, ../models/harbor_instance.py,
+              app.models.image_version, app.models.resource_provider,
+              app.models.credential
+@relatedFiles ../models/image_version.py, ../models/resource_provider.py,
               ../api/gold_images.py, ../api/app_images.py
 """
 
@@ -20,8 +21,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.core.secrets import decrypt_secret
-from app.models.harbor_instance import HarborInstance
+from app.models.credential import Credential
 from app.models.image_version import ImageVersion
+from app.models.resource_provider import (
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +100,36 @@ def _parse_scan_overview(
 # ---------------------------------------------------------------------------
 
 
-async def _get_harbor_client(harbor_instance: HarborInstance) -> httpx.AsyncClient:
-    """Create an authenticated httpx AsyncClient for a Harbor instance."""
-    password = decrypt_secret(harbor_instance.password)
+async def _get_harbor_provider(db: AsyncSession, provider_id: int) -> ResourceProvider:
+    """Fetch a live Harbor ResourceProvider (docker domain) by id."""
+    result = await db.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.id == provider_id,
+            ResourceProvider.domain == ProviderDomain.docker,
+            ResourceProvider.subtype == ProviderSubtype.harbor,
+            ResourceProvider.is_deleted.is_(False),
+        )
+    )
+    provider = result.scalar_one_or_none()
+    if provider is None:
+        raise NotFoundError(f"Harbor provider with id={provider_id} not found")
+    return provider
+
+
+async def _get_harbor_client(
+    provider: ResourceProvider,
+    credential: Credential | None = None,
+) -> httpx.AsyncClient:
+    """Create an authenticated httpx AsyncClient for a Harbor provider."""
+    username = credential.username if credential else None
+    password = None
+    if credential is not None and credential.encrypted_secret:
+        password = decrypt_secret(credential.encrypted_secret)
+    auth = (username, password) if (username and password) else None
     return httpx.AsyncClient(
-        base_url=harbor_instance.url.rstrip("/"),
-        auth=(harbor_instance.username, password),
-        verify=harbor_instance.verify_ssl,
+        base_url=(provider.base_url or "").rstrip("/"),
+        auth=auth,
+        verify=provider.verify_ssl,
         timeout=30.0,
     )
 
@@ -125,7 +154,8 @@ class HarborScanService:
         """
         Trigger a Harbor vulnerability scan for an image artifact.
 
-        Uses Harbor API:
+        ``harbor_instance_id`` is a compatibility alias for the Harbor
+        ``ResourceProvider`` id (phase 7C). Uses Harbor API:
         ``POST /api/v2.0/projects/{project}/repositories/{repo}/artifacts/{digest}/scan``
         """
         # Fetch and validate ImageVersion
@@ -134,16 +164,16 @@ class HarborScanService:
         if image_version is None:
             raise NotFoundError(f"Image version with id={image_version_id} not found")
 
-        # Fetch Harbor instance
-        result = await db.execute(
-            select(HarborInstance).where(HarborInstance.id == harbor_instance_id)
+        # Fetch Harbor provider
+        provider = await _get_harbor_provider(db, harbor_instance_id)
+        credential = (
+            await db.get(Credential, provider.credential_id)
+            if provider.credential_id is not None
+            else None
         )
-        harbor_instance = result.scalar_one_or_none()
-        if harbor_instance is None:
-            raise NotFoundError(f"Harbor instance with id={harbor_instance_id} not found")
 
         # Trigger scan via Harbor API
-        async with await _get_harbor_client(harbor_instance) as client:
+        async with await _get_harbor_client(provider, credential) as client:
             scan_url = (
                 f"/api/v2.0/projects/{project_name}"
                 f"/repositories/{repository_name}"
@@ -188,7 +218,9 @@ class HarborScanService:
         ``GET /api/v2.0/projects/{project}/repositories/{repo}/artifacts/{reference}``
         with ``?with_scan_overview=true`` query parameter.
 
-        Parses the ``scan_overview`` block and updates ``ImageVersion``.
+        ``harbor_instance_id`` is a compatibility alias for the Harbor
+        ``ResourceProvider`` id (phase 7C). Parses the ``scan_overview`` block and
+        updates ``ImageVersion``.
         """
         # Fetch and validate ImageVersion
         result = await db.execute(select(ImageVersion).where(ImageVersion.id == image_version_id))
@@ -196,16 +228,16 @@ class HarborScanService:
         if image_version is None:
             raise NotFoundError(f"Image version with id={image_version_id} not found")
 
-        # Fetch Harbor instance
-        result = await db.execute(
-            select(HarborInstance).where(HarborInstance.id == harbor_instance_id)
+        # Fetch Harbor provider
+        provider = await _get_harbor_provider(db, harbor_instance_id)
+        credential = (
+            await db.get(Credential, provider.credential_id)
+            if provider.credential_id is not None
+            else None
         )
-        harbor_instance = result.scalar_one_or_none()
-        if harbor_instance is None:
-            raise NotFoundError(f"Harbor instance with id={harbor_instance_id} not found")
 
         # Get artifact with scan overview
-        async with await _get_harbor_client(harbor_instance) as client:
+        async with await _get_harbor_client(provider, credential) as client:
             artifact_url = (
                 f"/api/v2.0/projects/{project_name}"
                 f"/repositories/{repository_name}"

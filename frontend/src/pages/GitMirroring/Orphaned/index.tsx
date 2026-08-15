@@ -29,9 +29,9 @@ import { DeleteOutlined, LinkOutlined, SwapOutlined, SearchOutlined } from '@ant
 import {
   useGetOrphanedMirrorsQuery,
   useDeleteOrphanedMirrorMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
 } from '../../../store/api';
-import type { OrphanedMirror, OrphanReason, GitlabInstance } from '../../../types';
+import type { OrphanedMirror, OrphanReason, ResourceProvider } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { RelinkModal } from './RelinkModal';
 
@@ -75,7 +75,11 @@ const OrphanedPage = () => {
   };
 
   const { data, isLoading, isError } = useGetOrphanedMirrorsQuery(queryParams);
-  const { data: gitlabInstances = [] } = useGetGitlabInstancesQuery();
+  const { data: gitlabProviders = [] } = useGetProvidersQuery({
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
+  });
   const [deleteOrphanedMirror, { isLoading: isDeleting }] = useDeleteOrphanedMirrorMutation();
 
   const orphanedMirrors = data?.items ?? [];
@@ -100,9 +104,9 @@ const OrphanedPage = () => {
     // tab selection is handled inside RelinkModal via initialTab prop if needed
   };
 
-  const gitlabInstanceOptions = gitlabInstances.map((inst: GitlabInstance) => ({
-    label: inst.name,
-    value: inst.id,
+  const gitlabInstanceOptions = gitlabProviders.map((p: ResourceProvider) => ({
+    label: p.label,
+    value: p.id,
   }));
 
   const columns: ColumnsType<OrphanedMirror> = [
@@ -283,7 +287,7 @@ const OrphanedPage = () => {
               }}
             />
             <Select
-              placeholder="GitLab Instance"
+              placeholder="GitLab Provider"
               allowClear
               style={{ minWidth: 200 }}
               value={gitlabInstanceFilter}

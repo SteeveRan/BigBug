@@ -28,12 +28,7 @@ import {
   Skeleton,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  LinkOutlined,
-  GithubOutlined,
-  StarOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { LinkOutlined, GithubOutlined, StarOutlined, ReloadOutlined } from '@ant-design/icons';
 import XMarkdown from '@ant-design/x-markdown';
 import {
   useGetSourceRepositoryQuery,
@@ -130,7 +125,7 @@ const RepositoryDetailPage = () => {
 
   // Determine if metadata is currently being fetched
   const isFetching = repo.status_flag === 3;
-  const providerType = repo.source_provider?.provider_type ?? repo.provider_type ?? '—';
+  const providerType = repo.provider_id != null ? `#${repo.provider_id}` : '—';
 
   // Helper: build commit/release URL from clone_url
   const buildCommitUrl = (sha: string) => {
@@ -250,7 +245,7 @@ const RepositoryDetailPage = () => {
                     {isFetching ? (
                       <Skeleton.Input active size="small" block />
                     ) : (
-                      repo.description ?? '—'
+                      (repo.description ?? '—')
                     )}
                   </Descriptions.Item>
                   <Descriptions.Item label="Provider Type">
@@ -481,9 +476,7 @@ const RepositoryDetailPage = () => {
           {!readmeLoading && !readmeError && !readme?.readme_html && (
             <Empty description="No README available" />
           )}
-          {readme?.readme_html && (
-            <XMarkdown content={readme.readme_html} openLinksInNewTab />
-          )}
+          {readme?.readme_html && <XMarkdown content={readme.readme_html} openLinksInNewTab />}
         </Card>
       ),
     },

@@ -3,7 +3,7 @@
 @description Pipeline and PipelineComponent models — Pipelines are reusable
              CI/CD workflow definitions composed of GitLab Components. A Pipeline
              can be marked as default and is assigned to SyncGroups.
-@dependencies app.database.Base, ./gitlab_instance.py, ./gitlab_component.py
+@dependencies app.database.Base, ./gitlab_component.py
 @relatedFiles ./sync_group.py, ./pipeline_run.py
 """
 
@@ -30,10 +30,14 @@ class Pipeline(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    gitlab_instance_id = Column(
+    # Providers V3 (phase 7A): the platform GitLab is a resource_providers row
+    # with subtype=gitlab, category=system, direction=internal (11.3.4).
+    # The legacy gitlab_instance_id column is removed.
+    provider_id = Column(
         Integer,
-        ForeignKey("gitlab_instances.id", ondelete="SET NULL"),
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
     ref = Column(String(255), nullable=False)
     default_variables = Column(JSON, default=dict, nullable=False)
@@ -50,7 +54,7 @@ class Pipeline(Base):
     )
 
     # Relationships
-    gitlab_instance = relationship("GitlabInstance", back_populates="pipelines")
+    provider = relationship("ResourceProvider", foreign_keys=[provider_id])
     components = relationship(
         "PipelineComponent", back_populates="pipeline", cascade="all, delete-orphan"
     )

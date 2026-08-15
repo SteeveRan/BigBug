@@ -117,6 +117,16 @@ seed_admin() {
     fi
 }
 
+# WHY: Seeding the default public providers after migrations keeps the platform
+# usable out-of-the-box (GitHub/GitLab/Docker Hub anonymous sources). The script
+# is idempotent (upsert by name) and only touches seeded fields.
+seed_providers() {
+    log INFO "Seeding default providers (idempotent)"
+    if ! python3 -m scripts.seed_providers; then
+        log WARN "Provider seeding returned non-zero (see above) — continuing"
+    fi
+}
+
 # WHY: `--reload` is only safe and useful in development, where the source tree
 # is bind-mounted into the container. In production the watcher wastes CPU and
 # can lead to inconsistent worker state on partial writes.
@@ -145,12 +155,14 @@ main() {
             wait_for_db
             run_migrations
             seed_admin
+            seed_providers
             start_app
             ;;
         app:init)
             wait_for_db
             run_migrations
             seed_admin
+            seed_providers
             log INFO "Initialization complete, exiting (app:init)"
             ;;
         *)

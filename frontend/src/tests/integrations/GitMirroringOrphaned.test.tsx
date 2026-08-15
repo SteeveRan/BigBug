@@ -26,7 +26,7 @@ vi.mock('../../store/api', async () => {
     useMoveOrphanedTargetMutation: vi.fn(),
     useDeleteOrphanedMirrorMutation: vi.fn(),
     useCheckMirrorIntegrityMutation: vi.fn(),
-    useGetGitlabInstancesQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
     useGetSyncGroupsQuery: vi.fn(),
   };
 });
@@ -46,12 +46,12 @@ import {
   useMoveOrphanedTargetMutation,
   useDeleteOrphanedMirrorMutation,
   useCheckMirrorIntegrityMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
   useGetSyncGroupsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import OrphanedPage from '../../pages/GitMirroring/Orphaned';
-import type { OrphanedMirror, SyncGroup, GitlabInstance } from '../../types';
+import type { OrphanedMirror, SyncGroup, ResourceProvider } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -141,19 +141,33 @@ const mockSyncGroupProd: SyncGroup = {
   updated_at: '2026-01-01T00:00:00Z',
 };
 
-const mockGitlabInstance: GitlabInstance = {
+const mockGitlabInstance: ResourceProvider = {
   id: 1,
-  name: 'GitLab Local',
-  url: 'https://gitlab.example.com',
+  domain: 'git',
+  subtype: 'gitlab',
+  category: 'system',
+  direction: 'internal',
+  name: 'gitlab-local',
+  label: 'GitLab Local',
+  description: null,
+  base_url: 'https://gitlab.example.com',
+  config: {},
+  credential_id: null,
+  owner_user_id: null,
+  visibility: 'public',
+  team_id: null,
+  team_name: null,
   is_active: true,
-  verify_ssl: true,
   is_default: true,
-  default_group_id: null,
+  is_protected: false,
+  verify_ssl: true,
+  priority: 0,
   status_flag: 0,
   status_text: 'Connected',
   last_checked_at: '2026-06-13T12:00:00Z',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-06-13T12:00:00Z',
+  has_credential: false,
 };
 
 function createTestStore(): Store {
@@ -202,7 +216,7 @@ describe('GitMirroring Orphaned Page', () => {
       error: null,
     });
 
-    (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockGitlabInstance],
       isLoading: false,
       isError: false,

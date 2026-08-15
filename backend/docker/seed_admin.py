@@ -35,7 +35,7 @@ from app.models.user import User
 
 # ── Role → permission assignments (TO-BE, 2026-06-08) ───────────────────
 
-# Admin: all 48 permissions
+# Admin: all permissions
 ADMIN_PERMISSIONS = [
     # Mirrors
     "mirrors:read", "mirrors:write", "mirrors:delete", "mirrors:sync",
@@ -58,8 +58,6 @@ ADMIN_PERMISSIONS = [
     "roles:read", "roles:write", "roles:delete",
     # System
     "system:config",
-    # Integrations
-    "integrations:read", "integrations:write",
     # OIDC
     "oidc:read", "oidc:write",
     # Audit
@@ -69,14 +67,19 @@ ADMIN_PERMISSIONS = [
     # Sync Groups
     "sync_groups:read", "sync_groups:write", "sync_groups:delete",
     # Credentials
-    "credentials:read", "credentials:use",
+    "credentials:read", "credentials:write",
     # Reports
     "reports:read",
     # Admin Panel
     "admin:panel:access",
+    # Providers (V3)
+    "providers:read", "providers:write", "providers:delete", "providers:use",
+    "providers:read_all", "providers_system:write", "providers:share",
+    # Teams
+    "teams:read", "teams:write", "teams:manage_members",
 ]
 
-# Operator: read + write actions (no delete), no user/role/oidc/integrations management
+# Operator: read + write actions (no delete), no user/role/oidc/teams management
 OPERATOR_PERMISSIONS = [
     "mirrors:read", "mirrors:write", "mirrors:sync", "mirrors:import", "mirrors:integrity_check",
     "projects:read", "projects:write",
@@ -90,8 +93,10 @@ OPERATOR_PERMISSIONS = [
     "source_groups:read", "source_groups:write", "source_groups:refresh",
     # Sync Groups
     "sync_groups:read", "sync_groups:write",
-    # Credentials
-    "credentials:use",
+    # Providers (V3)
+    "providers:read", "providers:write", "providers:use", "providers:share",
+    # Teams
+    "teams:read",
 ]
 
 # Viewer: read-only across all resources
@@ -105,13 +110,16 @@ VIEWER_PERMISSIONS = [
     "pipelines:read",
     "users:read",
     "roles:read",
-    "integrations:read",
     "oidc:read",
     "audit:read",
     # Source Groups
     "source_groups:read",
     # Sync Groups
     "sync_groups:read",
+    # Providers (V3)
+    "providers:read",
+    # Teams
+    "teams:read",
 ]
 
 logger = logging.getLogger("seed_admin")

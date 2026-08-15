@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api import (
     admin,
@@ -14,16 +15,18 @@ from app.api import (
     gold_images,
     health_check,
     helm_charts,
-    integrations,
     mirroring,
     orphaned,
     pipelines,
     projects,
+    providers,
     reports,
     schedules,
+    teams,
     webhooks,
 )
 from app.config import settings
+from app.core.exceptions import DomainError
 
 
 @asynccontextmanager
@@ -74,15 +77,26 @@ app.include_router(schedules.router, prefix="/api/schedules", tags=["schedules"]
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(helm_charts.router, prefix="/api/helm-charts", tags=["helm-charts"])
 app.include_router(docker_images.router, prefix="/api/docker-images", tags=["docker-images"])
-app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
 app.include_router(components.router, prefix="/api/components", tags=["components"])
 app.include_router(credentials.router, prefix="/api/credentials", tags=["credentials"])
 app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
 app.include_router(mirroring.router, prefix="/api/mirroring", tags=["mirroring"])
+app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
+app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
 app.include_router(health_check.router, prefix="/api", tags=["health-check"])
 app.include_router(orphaned.router, prefix="/api/mirroring", tags=["orphaned"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    """Map service-layer DomainError to its HTTP status code.
+
+    Services raise DomainError (not HTTPException) to stay transport-agnostic;
+    this handler keeps try/except blocks out of the API layer.
+    """
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.get("/api/health", tags=["health"])

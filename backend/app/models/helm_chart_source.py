@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -15,6 +15,15 @@ class HelmChartSource(Base):
     name = Column(String(255), unique=True, nullable=False, index=True)
     repo_url = Column(String(500), nullable=False)  # URL to index.yaml
     description = Column(Text, nullable=True)
+
+    # Providers V3 (phase 4): helm source is a resource_providers row
+    # (domain=helm, subtype=helm_repo, direction=external).
+    provider_id = Column(
+        Integer,
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # GitLab mirror project for Helm chart sync pipelines
     gitlab_project_id = Column(String(255), nullable=True)
@@ -35,6 +44,7 @@ class HelmChartSource(Base):
     )
 
     # Relationships
+    provider = relationship("ResourceProvider", foreign_keys=[provider_id])
     versions = relationship(
         "HelmChartVersion", back_populates="source", cascade="all, delete-orphan"
     )

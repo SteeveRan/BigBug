@@ -12,7 +12,7 @@ Quick reference for AI agents working on BigBug project.
 
 **Архитектура**: FastAPI backend + React frontend + PostgreSQL + Redis + GitLab CI/CD
 
-**Текущее состояние**: Проект проходит масштабный рефакторинг. Реализована базовая функциональность (блоки 1-5), идёт миграция на новую архитектуру с расширенной RBAC и управляемыми интеграциями.
+**Текущее состояние**: Проект прошёл миграцию Providers V3 — единая сущность `resource_providers` (таблица + реестр + `/api/providers`) заменила 5 legacy-таблиц инстансов и V2-систему `source_providers`. Расширенная RBAC (`providers:*`, `teams:*`, scope-providers) активна.
 
 ## Repository Structure
 
@@ -252,17 +252,17 @@ See: [`/plans/development/testing.md`](plans/development/testing.md)
 
 ## Working with Specific Features
 
-### Adding New Integration
+### Adding New Provider Subtype
 
-1. Define model in [`backend/app/models/`](backend/app/models/)
-2. Create Alembic migration
-3. Create Pydantic schemas in [`backend/app/schemas/`](backend/app/schemas/)
-4. Implement service in [`backend/app/services/`](backend/app/services/)
-5. Create API router in [`backend/app/api/`](backend/app/api/)
-6. Add RTK Query endpoints in [`frontend/src/store/api.ts`](frontend/src/store/api.ts)
-7. Create UI pages in [`frontend/src/pages/`](frontend/src/pages/)
+Все внешние интеграции управляются через единую сущность `resource_providers` (реестр подтипов в коде).
 
-See: [`/plans/features/integrations.md`](plans/features/integrations.md)
+1. Добавьте подтип в реестр [`backend/app/services/providers/registry.py`](backend/app/services/providers/registry.py) (поля, типы credentials, действия, правила категорий)
+2. При необходимости — HTTP-клиент в [`backend/app/services/providers/clients/`](backend/app/services/providers/clients/)
+3. Доменные действия (`list_repositories` и т.д.) диспатчатся через [`backend/app/services/providers/service.py`](backend/app/services/providers/service.py)
+4. API уже унифицирован: [`backend/app/api/providers.py`](backend/app/api/providers.py) (`/api/providers`)
+5. Frontend получает метаданные через `GET /api/providers/types` — новые формы генерируются автоматически
+
+See: [`/plans/features/integrations.md`](plans/features/integrations.md) и [`/plans/features/providers-unified.md`](plans/features/providers-unified.md)
 
 ### Modifying RBAC
 
@@ -448,6 +448,9 @@ await createResource({ name: 'test' });
 - Secrets encryption: [`backend/app/core/secrets.py`](backend/app/core/secrets.py)
 - OIDC service: [`backend/app/services/oidc.py`](backend/app/services/oidc.py)
 - API entrypoint: [`backend/app/main.py`](backend/app/main.py)
+- Providers API: [`backend/app/api/providers.py`](backend/app/api/providers.py)
+- Providers registry: [`backend/app/services/providers/registry.py`](backend/app/services/providers/registry.py)
+- Providers service: [`backend/app/services/providers/service.py`](backend/app/services/providers/service.py)
 - Frontend store: [`frontend/src/store/api.ts`](frontend/src/store/api.ts)
 - Frontend routing: [`frontend/src/router/index.tsx`](frontend/src/router/index.tsx)
 - Permissions index: [`plans/architecture/permissions.md`](plans/architecture/permissions.md)

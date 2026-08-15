@@ -85,12 +85,27 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
     permissions: ['pipelines:read', 'pipelines:write', 'pipelines:delete'],
   },
   {
-    label: 'Credentials',
-    permissions: ['credentials:read', 'credentials:use'],
+    label: 'Providers',
+    permissions: [
+      'providers:read',
+      'providers:write',
+      'providers:delete',
+      'providers:use',
+      'providers:read_all',
+      'providers_system:write',
+    ],
   },
   {
-    label: 'Integrations',
-    permissions: ['integrations:read', 'integrations:write'],
+    label: 'Credentials',
+    permissions: ['credentials:read', 'credentials:write'],
+  },
+  {
+    label: 'Teams',
+    permissions: ['teams:read', 'teams:write', 'teams:manage_members'],
+  },
+  {
+    label: 'Sharing',
+    permissions: ['providers:share'],
   },
   {
     label: 'OIDC',

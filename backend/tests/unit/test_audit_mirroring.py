@@ -21,29 +21,30 @@ from sqlalchemy.orm import selectinload
 
 from app.core.secrets import encrypt_secret
 from app.models.credential import Credential, CredentialType
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline
 from app.models.pipeline_run import PipelineRun
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
-from app.schemas.credential import CredentialOut
 from app.schemas.source_group import SourceGroupDetailOut, SourceGroupListOut
-from app.schemas.source_provider import SourceProviderOut
 from app.schemas.source_repository import SourceRepositoryListOut
 from app.services.mirror import MirrorService
 
 # Ensure forward references are resolved for Pydantic v2 before any schema usage.
 # Namespace must be passed explicitly because schema modules only import
 # cross-referenced types under TYPE_CHECKING (not available at runtime).
-SourceProviderOut.model_rebuild(_types_namespace={"CredentialOut": CredentialOut})
 SourceGroupListOut.model_rebuild()
 SourceGroupDetailOut.model_rebuild(
     _types_namespace={
-        "SourceProviderOut": SourceProviderOut,
         "SourceRepositoryListOut": SourceRepositoryListOut,
     }
 )
@@ -71,13 +72,17 @@ async def _seed_credential(db: AsyncSession, name: str = "test-token") -> Creden
 
 async def _seed_source_provider(
     db: AsyncSession, credential_name: str = "test-token"
-) -> SourceProvider:
+) -> ResourceProvider:
     """Create a test source provider with credential."""
     cred = await _seed_credential(db, name=credential_name)
-    sp = SourceProvider(
-        credential_id=cred.id,
-        provider_type="github",
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=f"test-provider-{credential_name}",
         label="test-provider",
+        credential_id=cred.id,
     )
     db.add(sp)
     await db.commit()
@@ -103,7 +108,7 @@ async def _seed_source_group(db: AsyncSession, with_repository: bool = False) ->
 
     if with_repository:
         sr = SourceRepository(
-            source_provider_id=sp.id,
+            provider_id=sp.id,
             source_group_id=sg.id,
             external_id="test/repo",
             name="repo",
@@ -125,7 +130,7 @@ async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
     sg = await _seed_source_group(db)
     sp = await _seed_source_provider(db, credential_name="test-token-repo")
     sr = SourceRepository(
-        source_provider_id=sp.id,
+        provider_id=sp.id,
         source_group_id=sg.id,
         external_id="test/repo",
         name="repo",
@@ -139,7 +144,7 @@ async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
         select(SourceRepository)
         .options(
             selectinload(SourceRepository.source_group),
-            selectinload(SourceRepository.source_provider),
+            selectinload(SourceRepository.provider),
         )
         .where(SourceRepository.id == sr.id)
     )
@@ -147,25 +152,31 @@ async def _seed_source_repo(db: AsyncSession) -> SourceRepository:
 
 
 async def _seed_mirror(db: AsyncSession) -> Mirror:
-    """Create a test mirror with sync_group, pipeline and gitlab_instance (eager-loaded)."""
+    """Create a test mirror with sync_group, pipeline and gitlab provider (eager-loaded)."""
     sr = await _seed_source_repo(db)
 
-    # Create a GitLab instance (required by Pipeline for trigger_pipeline)
-    gitlab_instance = GitlabInstance(
+    # Create a system/internal GitLab provider (required by Pipeline for trigger_pipeline)
+    gitlab_provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
         name="test-gitlab",
-        url="https://gitlab.example.com",
+        label="test-gitlab",
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
         is_default=True,
     )
-    db.add(gitlab_instance)
+    db.add(gitlab_provider)
     await db.flush()
 
-    # Create a pipeline linked to the GitLab instance
+    # Create a pipeline linked to the GitLab provider
     pipeline = Pipeline(
         name="test-pipeline",
         ref="main",
         is_default=False,
         is_enabled=True,
-        gitlab_instance_id=gitlab_instance.id,
+        provider_id=gitlab_provider.id,
     )
     db.add(pipeline)
     await db.flush()
@@ -196,10 +207,10 @@ async def _seed_mirror(db: AsyncSession) -> Mirror:
         select(Mirror)
         .options(
             selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
-            selectinload(Mirror.source_repository).selectinload(SourceRepository.source_provider),
+            selectinload(Mirror.source_repository).selectinload(SourceRepository.provider),
             selectinload(Mirror.sync_group)
             .selectinload(SyncGroup.pipeline)
-            .selectinload(Pipeline.gitlab_instance),
+            .selectinload(Pipeline.provider),
         )
         .where(Mirror.id == mirror.id)
     )
@@ -304,28 +315,10 @@ async def test_credential_tested_audit(
 # ── Source Provider Audit Events ────────────────────────────────────
 
 
-@pytest.mark.asyncio
-async def test_source_provider_created_audit(
-    db_session: AsyncSession, client: AsyncClient, login_headers: dict
-):
-    """POST /api/mirroring/providers/ should log source_provider.created audit event."""
-    cred = await _seed_credential(db_session)
-
-    with patch("app.api.mirroring.AuditService.log_event", new_callable=AsyncMock) as mock_audit:
-        response = await client.post(
-            "/api/mirroring/providers",
-            json={
-                "credential_id": cred.id,
-                "provider_type": "github",
-                "label": "audit-test-provider",
-            },
-            headers=login_headers,
-        )
-
-    assert response.status_code == 201
-    assert _find_audit_action(mock_audit, "source_provider.created"), (
-        "Expected source_provider.created audit event"
-    )
+# Phase 4 (Providers V3): POST /api/mirroring/providers was removed together
+# with the provider part of the mirroring API. Provider CRUD now lives under
+# /api/providers (covered by tests/e2e/test_providers.py); the "created" audit
+# case for the mirroring flow is covered by source_repository.created below.
 
 
 # ── Source Group Audit Events ───────────────────────────────────────
@@ -339,9 +332,11 @@ async def test_source_group_refreshed_audit(
     sg = await _seed_source_group(db_session, with_repository=True)
 
     with (
-        patch("app.api.mirroring.AuditService.log_event", new_callable=AsyncMock) as mock_audit,
         patch(
-            "app.services.source_providers.create_source_provider", new_callable=AsyncMock
+            "app.services.source_group.AuditService.log_event", new_callable=AsyncMock
+        ) as mock_audit,
+        patch(
+            "app.services.source_group.create_source_provider", new_callable=AsyncMock
         ) as mock_factory,
     ):
         # Mock the GitHub provider to return empty repos (otherwise it will try real API)
@@ -500,7 +495,7 @@ async def test_mirror_integrity_checked_audit(db_session: AsyncSession):
         # Mock trigger_pipeline to return a PipelineRun
         mock_run = PipelineRun(
             id=999,
-            gitlab_instance_id=mirror.sync_group.pipeline.gitlab_instance_id,
+            provider_id=mirror.sync_group.pipeline.provider_id,
             gitlab_project_id=12345,
             gitlab_pipeline_id=100,
             ref="main",
@@ -529,7 +524,7 @@ async def test_mirror_sync_completed_audit(db_session: AsyncSession, client: Asy
 
     # Create a PipelineRun associated with a MirrorLog
     pipeline_run = PipelineRun(
-        gitlab_instance_id=1,
+        provider_id=1,
         gitlab_project_id=12345,
         gitlab_pipeline_id=200,
         ref="main",
@@ -577,7 +572,7 @@ async def test_mirror_sync_failed_audit(db_session: AsyncSession, client: AsyncC
     mirror = await _seed_mirror(db_session)
 
     pipeline_run = PipelineRun(
-        gitlab_instance_id=1,
+        provider_id=1,
         gitlab_project_id=12345,
         gitlab_pipeline_id=300,
         ref="main",
@@ -645,7 +640,7 @@ async def test_refresh_source_repository_uses_full_name_not_uuid(
 
     sr = SourceRepository(
         source_group_id=sg.id,
-        source_provider_id=sp.id,
+        provider_id=sp.id,
         external_id=str(uuid.uuid4()),
         name="my-repo",
         full_name="testorg/my-repo",
@@ -678,11 +673,11 @@ async def test_refresh_source_repository_uses_full_name_not_uuid(
 
     with (
         patch(
-            "app.services.source_providers.create_source_provider",
+            "app.services.source_repository.create_source_provider",
             new_callable=AsyncMock,
         ) as mock_factory,
         patch(
-            "app.api.mirroring._sync_releases_from_github",
+            "app.services.source_repository.sync_releases_from_github",
             new_callable=AsyncMock,
         ),
     ):
@@ -723,7 +718,7 @@ async def test_refresh_source_repository_handles_domain_error_gracefully(
 
     sr = SourceRepository(
         source_group_id=sg.id,
-        source_provider_id=sp.id,
+        provider_id=sp.id,
         external_id="12345",
         name="gone-repo",
         full_name="testorg/gone-repo",
@@ -737,7 +732,7 @@ async def test_refresh_source_repository_handles_domain_error_gracefully(
 
     with (
         patch(
-            "app.services.source_providers.create_source_provider",
+            "app.services.source_repository.create_source_provider",
             new_callable=AsyncMock,
         ) as mock_factory,
     ):
@@ -758,8 +753,8 @@ async def test_refresh_source_repository_handles_domain_error_gracefully(
     assert response.status_code == 404, f"Expected 404, got {response.status_code}: {response.text}"
     data = response.json()
     assert "detail" in data
-    assert "Failed to refresh repository metadata" in data["detail"]
-    # exc.message was the old (broken) attribute; exc.detail is the fix
+    # Phase 4: the thin API layer re-raises DomainError; the global handler
+    # in main.py maps it to its status code with exc.detail as the message.
     assert "GitHub resource not found" in data["detail"]
 
 
@@ -777,8 +772,12 @@ async def test_create_source_repository_returns_201_with_status_flag_3(
     """
     # Create provider WITHOUT credential to avoid MissingGreenlet on
     # SourceProvider.credential during Pydantic validation of the response.
-    sp = SourceProvider(
-        provider_type="github",
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name="create-status-provider",
         label="create-status-provider",
     )
     db_session.add(sp)
@@ -797,11 +796,11 @@ async def test_create_source_repository_returns_201_with_status_flag_3(
     payload = {
         "provider_type": "github",
         "clone_url": "https://github.com/testorg/create-test-repo.git",
-        "source_provider_id": sp.id,
+        "provider_id": sp.id,
     }
 
     with patch(
-        "app.api.mirroring._detect_default_branch",
+        "app.services.source_repository.detect_default_branch",
         new_callable=AsyncMock,
     ) as mock_detect:
         mock_detect.return_value = "main"
@@ -833,8 +832,12 @@ async def test_create_source_repository_launches_background_fetch(
     in a background task.
     """
     # Create provider WITHOUT credential to avoid MissingGreenlet on validation.
-    sp = SourceProvider(
-        provider_type="github",
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name="create-bg-provider",
         label="create-bg-provider",
     )
     db_session.add(sp)
@@ -853,16 +856,16 @@ async def test_create_source_repository_launches_background_fetch(
     payload = {
         "provider_type": "github",
         "clone_url": "https://github.com/testorg/create-bg-repo.git",
-        "source_provider_id": sp.id,
+        "provider_id": sp.id,
     }
 
     with (
         patch(
-            "app.api.mirroring._detect_default_branch",
+            "app.services.source_repository.detect_default_branch",
             new_callable=AsyncMock,
         ) as mock_detect,
         patch(
-            "app.api.mirroring._fetch_metadata_background",
+            "app.api.mirroring.fetch_metadata_background",
             new_callable=AsyncMock,
         ) as mock_fetch,
     ):
@@ -914,7 +917,7 @@ async def test_refresh_source_repository_sets_status_flag_and_saves_commits(
 
     sr = SourceRepository(
         source_group_id=sg.id,
-        source_provider_id=sp.id,
+        provider_id=sp.id,
         external_id="12345",
         name="commit-repo",
         full_name="testorg/commit-repo",
@@ -949,11 +952,11 @@ async def test_refresh_source_repository_sets_status_flag_and_saves_commits(
 
     with (
         patch(
-            "app.services.source_providers.create_source_provider",
+            "app.services.source_repository.create_source_provider",
             new_callable=AsyncMock,
         ) as mock_factory,
         patch(
-            "app.api.mirroring._sync_releases_from_github",
+            "app.services.source_repository.sync_releases_from_github",
             new_callable=AsyncMock,
         ),
     ):
@@ -972,9 +975,7 @@ async def test_refresh_source_repository_sets_status_flag_and_saves_commits(
     data = response.json()
 
     # Status should be OK after a successful refresh
-    assert data["status_flag"] == 0, (
-        f"Expected status_flag=0 (OK), got {data['status_flag']}"
-    )
+    assert data["status_flag"] == 0, f"Expected status_flag=0 (OK), got {data['status_flag']}"
     assert data["status_text"] == "OK"
 
     # Last commit fields should match the mock data
@@ -982,5 +983,3 @@ async def test_refresh_source_repository_sets_status_flag_and_saves_commits(
     assert data["last_commit_date"] is not None
     assert data["last_commit_author"] == "Commit Author"
     assert data["last_commit_message"] == "feat: implement commit tracking"
-
-

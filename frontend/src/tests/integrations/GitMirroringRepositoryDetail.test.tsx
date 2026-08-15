@@ -55,7 +55,7 @@ import type { SourceRepository } from '../../types';
 
 const mockRepo: SourceRepository = {
   id: 10,
-  source_provider_id: 1,
+  provider_id: 1,
   source_group_id: 1,
   name: 'test-repo',
   full_name: 'owner/test-repo',
@@ -101,21 +101,6 @@ const mockRepo: SourceRepository = {
   last_commit_date: '2026-06-15T00:00:00Z',
   last_commit_author: 'Test Author',
   last_commit_message: 'Test commit message',
-  // ---- Provider type ----
-  provider_type: 'github',
-  source_provider: {
-    id: 1,
-    label: 'GitHub',
-    provider_type: 'github',
-    credential_id: null,
-    credential: undefined,
-    is_anon: false,
-    is_builtin: false,
-    status_flag: 0,
-    status_text: 'OK',
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-  },
   source_group: null,
   mirrors: [],
 };
@@ -303,9 +288,7 @@ describe('RepositoryDetailPage', () => {
     renderDetailPage();
 
     // Info banner
-    expect(
-      screen.getByText('Metadata is being fetched in background...')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Metadata is being fetched in background...')).toBeInTheDocument();
 
     // Skeleton indicators — antd adds 'ant-skeleton' class
     const skeletons = document.querySelectorAll('.ant-skeleton');
@@ -333,12 +316,12 @@ describe('RepositoryDetailPage', () => {
   // -----------------------------------------------------------------------
   // WP10b.3: Shows provider_type in Repository Info
   // -----------------------------------------------------------------------
-  it('shows provider_type in Repository Info', () => {
+  it('shows provider_id in Repository Info', () => {
     renderDetailPage();
 
-    // The provider_type appears inside a <Tag> in the Repository Info card
+    // The provider id appears inside a <Tag> in the Repository Info card
     expect(screen.getByText('Provider Type')).toBeInTheDocument();
-    expect(screen.getByText('github')).toBeInTheDocument();
+    expect(screen.getByText('#1')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
@@ -362,9 +345,7 @@ describe('RepositoryDetailPage', () => {
     // The sha 'abc1234def5678abcdef1234567890abcdef12' truncated to 'abc1234'
     expect(screen.getByText('abc1234')).toBeInTheDocument();
     // The full 40-char SHA should NOT be present
-    expect(
-      screen.queryByText('abc1234def5678abcdef1234567890abcdef12')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('abc1234def5678abcdef1234567890abcdef12')).not.toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------

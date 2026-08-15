@@ -34,7 +34,8 @@ export const dockerImagesApi = api.injectEndpoints({
         registry_url: string;
         description?: string;
         image_name?: string;
-        registry_instance_id?: number;
+        provider_id?: number;
+        target_provider_id?: number;
         target_registry_url?: string;
         target_project?: string;
       }

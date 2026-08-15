@@ -13,9 +13,14 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
-from app.core.secrets import encrypt_secret
-from app.models.harbor_instance import HarborInstance
 from app.models.image_version import ImageVersion
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.services.harbor_scan import (
     HarborScanService,
     _parse_scan_overview,
@@ -114,7 +119,7 @@ class TestHarborScanServiceScanImage:
     """Tests for HarborScanService.scan_image()"""
 
     async def _create_fixtures(self, db_session: AsyncSession):
-        """Create test ImageVersion and HarborInstance."""
+        """Create test ImageVersion and Harbor ResourceProvider."""
         version = ImageVersion(
             image_type="gold",
             version_tag="3.0.0",
@@ -125,11 +130,14 @@ class TestHarborScanServiceScanImage:
         db_session.add(version)
         await db_session.flush()
 
-        harbor = HarborInstance(
+        harbor = ResourceProvider(
+            domain=ProviderDomain.docker,
+            subtype=ProviderSubtype.harbor,
+            category=ProviderCategory.system,
+            direction=ProviderDirection.internal,
             name="test-harbor",
-            url="https://harbor.example.com",
-            username="admin",
-            password=encrypt_secret("harbor-pass"),
+            label="Test Harbor",
+            base_url="https://harbor.example.com",
             verify_ssl=True,
         )
         db_session.add(harbor)
@@ -237,7 +245,7 @@ class TestHarborScanServiceGetResults:
     """Tests for HarborScanService.get_scan_results()"""
 
     async def _create_fixtures(self, db_session: AsyncSession):
-        """Create test ImageVersion and HarborInstance."""
+        """Create test ImageVersion and Harbor ResourceProvider."""
         version = ImageVersion(
             image_type="app",
             version_tag="4.0.0",
@@ -248,11 +256,14 @@ class TestHarborScanServiceGetResults:
         db_session.add(version)
         await db_session.flush()
 
-        harbor = HarborInstance(
+        harbor = ResourceProvider(
+            domain=ProviderDomain.docker,
+            subtype=ProviderSubtype.harbor,
+            category=ProviderCategory.system,
+            direction=ProviderDirection.internal,
             name="test-harbor-results",
-            url="https://harbor.example.com",
-            username="admin",
-            password=encrypt_secret("harbor-pass"),
+            label="Test Harbor Results",
+            base_url="https://harbor.example.com",
             verify_ssl=True,
         )
         db_session.add(harbor)

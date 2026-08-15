@@ -15,10 +15,16 @@ from datetime import UTC, datetime
 import gitlab as _gitlab_module
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.core.secrets import decrypt_secret
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +54,11 @@ class OrphanedMirrorResult:
 
 @dataclass
 class OrphanedReport:
-    """Aggregated report of orphaned mirrors across GitLab instances."""
+    """Aggregated report of orphaned mirrors across GitLab providers."""
 
     items: list[OrphanedMirrorResult] = field(default_factory=list)
-    gitlab_instance_id: int | None = None
-    gitlab_instance_url: str | None = None
+    provider_id: int | None = None
+    provider_url: str | None = None
     scanned_at: datetime | None = None
 
     @property
@@ -68,42 +74,54 @@ class OrphanedReport:
 class OrphanedMirrorService:
     """Service for discovering orphaned mirrors in GitLab.
 
-    Scans GitLab instances for projects that are not tracked by any
-    BigBug Mirror record, helping operators identify abandoned or
-    externally-created projects.
+    Scans the platform GitLab provider(s) (subtype=gitlab, category=system,
+    direction=internal) for projects that are not tracked by any BigBug
+    Mirror record, helping operators identify abandoned or externally-created
+    projects.
     """
 
     @staticmethod
     async def find_orphaned(
         db: AsyncSession,
-        gitlab_instance_id: int | None = None,
+        provider_id: int | None = None,
     ) -> OrphanedReport:
         """Find GitLab projects not tracked by any BigBug Mirror.
 
         Args:
             db: Async database session.
-            gitlab_instance_id: Optional GitLab instance ID to scope
-                                the scan. If None, scans all instances.
+            provider_id: Optional ResourceProvider ID to scope the scan.
+                         If None, scans all active system/internal GitLab
+                         providers.
 
         Returns:
             OrphanedReport with list of orphaned projects.
 
         Raises:
-            DomainError: When no GitLab instance is configured or
-                             the GitLab API is unreachable.
+            DomainError: When no GitLab provider is configured or the
+                         GitLab API is unreachable.
         """
         from app.core.exceptions import DomainError
 
-        # ── Resolve GitLab instance(s) ───────────────────────────────
-        instance_query = select(GitlabInstance).where(GitlabInstance.is_active.is_(True))
-        if gitlab_instance_id is not None:
-            instance_query = instance_query.where(GitlabInstance.id == gitlab_instance_id)
-        instance_result = await db.execute(instance_query)
-        instances: list[GitlabInstance] = list(instance_result.scalars().all())
+        # ── Resolve GitLab provider(s) ──────────────────────────────
+        provider_query = (
+            select(ResourceProvider)
+            .options(joinedload(ResourceProvider.credential))
+            .where(
+                ResourceProvider.subtype == ProviderSubtype.gitlab,
+                ResourceProvider.category == ProviderCategory.system,
+                ResourceProvider.direction == ProviderDirection.internal,
+                ResourceProvider.is_active.is_(True),
+                ResourceProvider.is_deleted.is_(False),
+            )
+        )
+        if provider_id is not None:
+            provider_query = provider_query.where(ResourceProvider.id == provider_id)
+        provider_result = await db.execute(provider_query)
+        providers: list[ResourceProvider] = list(provider_result.unique().scalars().all())
 
-        if not instances:
+        if not providers:
             raise DomainError(
-                "No GitLab instances configured",
+                "No GitLab providers configured",
                 status_code=400,
             )
 
@@ -122,16 +140,18 @@ class OrphanedMirrorService:
 
         # ── Scan GitLab projects ────────────────────────────────────
         all_orphaned: list[OrphanedMirrorResult] = []
-        scanned_instance_id: int | None = None
-        scanned_instance_url: str | None = None
+        scanned_provider_id: int | None = None
+        scanned_provider_url: str | None = None
 
-        for instance in instances:
+        for provider in providers:
             try:
-                token = decrypt_secret(instance.token)
+                token: str | None = None
+                if provider.credential is not None and provider.credential.encrypted_secret:
+                    token = decrypt_secret(provider.credential.encrypted_secret)
                 gl = _gitlab_module.Gitlab(
-                    url=instance.url,
+                    url=provider.base_url,
                     private_token=token,
-                    ssl_verify=instance.verify_ssl,
+                    ssl_verify=provider.verify_ssl,
                     user_agent="BigBug/1.0",
                 )
 
@@ -143,8 +163,8 @@ class OrphanedMirrorService:
                     sort="asc",
                 )
 
-                scanned_instance_id = instance.id
-                scanned_instance_url = instance.url
+                scanned_provider_id = provider.id
+                scanned_provider_url = provider.base_url
 
                 for project in projects:
                     if project.id in known_ids:
@@ -161,38 +181,38 @@ class OrphanedMirrorService:
                     all_orphaned.append(orphaned)
 
                 logger.info(
-                    "Scanned GitLab instance %d (%s): %d orphaned projects found",
-                    instance.id,
-                    instance.url,
-                    len([o for o in all_orphaned if o.gitlab_project_id not in known_ids]),
+                    "Scanned GitLab provider %d (%s): %d orphaned projects found",
+                    provider.id,
+                    provider.base_url,
+                    len(all_orphaned),
                 )
             except Exception as exc:
                 logger.error(
-                    "Failed to scan GitLab instance %d (%s): %s",
-                    instance.id,
-                    instance.url,
+                    "Failed to scan GitLab provider %d (%s): %s",
+                    provider.id,
+                    provider.base_url,
                     exc,
                 )
-                # Continue with next instance rather than failing entirely
+                # Continue with next provider rather than failing entirely
                 continue
 
         return OrphanedReport(
             items=all_orphaned,
-            gitlab_instance_id=scanned_instance_id,
-            gitlab_instance_url=scanned_instance_url,
+            provider_id=scanned_provider_id,
+            provider_url=scanned_provider_url,
             scanned_at=datetime.now(UTC),
         )
 
     @staticmethod
     async def find_orphaned_for_instance(
         db: AsyncSession,
-        gitlab_instance_id: int,
+        provider_id: int,
     ) -> OrphanedReport:
-        """Find orphaned mirrors for a specific GitLab instance.
+        """Find orphaned mirrors for a specific GitLab provider.
 
         Convenience wrapper around :meth:`find_orphaned`.
         """
         return await OrphanedMirrorService.find_orphaned(
             db,
-            gitlab_instance_id=gitlab_instance_id,
+            provider_id=provider_id,
         )

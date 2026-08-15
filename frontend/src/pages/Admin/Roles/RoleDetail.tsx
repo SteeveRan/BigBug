@@ -28,12 +28,14 @@ import { ArrowLeftOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router';
 
 import type { TabsProps } from 'antd';
+import type { Key } from 'react';
 import type {
   Role,
   Permission,
   SyncGroup,
   SourceGroup,
-  SourceProvider,
+  CredentialDetail,
+  ResourceProvider,
   User,
 } from '../../../types';
 import {
@@ -45,8 +47,9 @@ import {
   useSetRoleScopeMutation,
   useAddRoleScopeItemMutation,
   useGetSyncGroupsQuery,
-  useGetSourceProvidersQuery,
+  useGetCredentialsQuery,
   useGetSourceGroupsQuery,
+  useGetProvidersQuery,
 } from '../../../store/api';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,7 +162,7 @@ interface TransferItem {
   description?: string;
 }
 
-type ScopeType = 'source-groups' | 'credentials' | 'sync-groups';
+type ScopeType = 'source-groups' | 'credentials' | 'sync-groups' | 'providers';
 
 interface ScopeTabProps {
   roleId: number;
@@ -187,6 +190,8 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
         return scope.credential_ids ?? [];
       case 'sync-groups':
         return scope.sync_group_ids ?? [];
+      case 'providers':
+        return scope.provider_ids ?? [];
       default:
         return [];
     }
@@ -200,8 +205,8 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
   }, [currentIds, roleId, scopeType]);
 
   const handleTransferChange = useCallback(
-    (targetKeys: string[], _direction: string, _moveKeys: string[]) => {
-      setSelectedIds(targetKeys);
+    (targetKeys: Key[], _direction: string, _moveKeys: Key[]) => {
+      setSelectedIds(targetKeys.map(String));
     },
     []
   );
@@ -229,6 +234,13 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
             roleId,
             scopeType,
             data: { sync_group_ids: numericIds },
+          }).unwrap();
+          break;
+        case 'providers':
+          await setScope({
+            roleId,
+            scopeType,
+            data: { provider_ids: numericIds },
           }).unwrap();
           break;
       }
@@ -269,11 +281,15 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
         case 'sync-groups':
           item.sync_group_id = addValue;
           break;
+        case 'providers':
+          item.provider_id = addValue;
+          break;
       }
       const scopeItem = item as {
         source_group_id?: number;
         credential_id?: number;
         sync_group_id?: number;
+        provider_id?: number;
       };
       await addScopeItem({
         roleId,
@@ -390,18 +406,17 @@ const RoleDetailPage = () => {
 
   const role = useMemo(() => roles.find((r: Role) => r.id === numericId), [roles, numericId]);
 
-  // Load providers and their source groups for Source Groups scope tab
-  const { data: providers = [] } = useGetSourceProvidersQuery();
-
-  // Load source groups from the first available provider
-  const typedProviders = providers as SourceProvider[];
-  const firstProviderId = typedProviders.length > 0 ? typedProviders[0].id : 0;
-  const { data: sourceGroupsList = [] } = useGetSourceGroupsQuery(firstProviderId, {
-    skip: !firstProviderId,
-  });
+  // Load source groups for the Source Groups scope tab
+  const { data: sourceGroupsList = [] } = useGetSourceGroupsQuery(undefined);
 
   // Load sync groups
   const { data: syncGroupsList = [] } = useGetSyncGroupsQuery();
+
+  // Load unified resource providers for the Providers scope tab
+  const { data: resourceProviders = [] } = useGetProvidersQuery({});
+
+  // Load credentials for the Credentials scope tab
+  const { data: credentials = [] } = useGetCredentialsQuery();
 
   // Build transfer items for Source Groups
   const allSourceGroupItems: TransferItem[] = useMemo(() => {
@@ -421,17 +436,23 @@ const RoleDetailPage = () => {
     }));
   }, [syncGroupsList]);
 
-  // Build transfer items for Credentials (from integration instances)
-  // Exclude providers without a linked credential (credential_id can be null)
+  // Build transfer items for Credentials
   const credentialItems: TransferItem[] = useMemo(() => {
-    return typedProviders
-      .filter((p) => p.credential_id != null)
-      .map((p) => ({
-        key: String(p.credential_id!),
-        title: p.credential?.name ?? `Credential #${p.credential_id!}`,
-        description: p.label,
-      }));
-  }, [typedProviders]);
+    return (credentials as CredentialDetail[]).map((c) => ({
+      key: String(c.id),
+      title: c.name,
+      description: c.credential_type,
+    }));
+  }, [credentials]);
+
+  // Build transfer items for unified Providers scope
+  const providerItems: TransferItem[] = useMemo(() => {
+    return (resourceProviders as ResourceProvider[]).map((p) => ({
+      key: String(p.id),
+      title: p.label,
+      description: `${p.domain} / ${p.subtype}`,
+    }));
+  }, [resourceProviders]);
 
   if (isRoleLoading) {
     return (
@@ -503,6 +524,18 @@ const RoleDetailPage = () => {
           scopeType="sync-groups"
           title="Sync Groups"
           availableItems={syncGroupItems}
+        />
+      ),
+    },
+    {
+      key: 'providers',
+      label: 'Providers',
+      children: (
+        <ScopeTab
+          roleId={numericId}
+          scopeType="providers"
+          title="Providers"
+          availableItems={providerItems}
         />
       ),
     },

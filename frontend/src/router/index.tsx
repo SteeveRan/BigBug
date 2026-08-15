@@ -18,21 +18,25 @@ import { AppImagesPage } from '../pages/Builds/AppImages';
 import { PipelinesPage } from '../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../pages/Pipelines/Components';
 import { AdminPage } from '../pages/Admin/Users';
-import { SettingsIntegrations } from '../pages/Admin/Integrations';
+import { AdminCredentials } from '../pages/Admin/Credentials';
 import { AuthenticationSettings } from '../pages/Admin/Authentication';
 import { AuditLogPage } from '../pages/Admin/AuditLog';
+import { ProvidersPage } from '../pages/Settings/Providers';
+import { SettingsTeams } from '../pages/Settings/Teams';
+import { AdminTeams } from '../pages/Admin/Teams';
+import { TeamDetailPage } from '../pages/Admin/Teams/TeamDetail';
 
 // Git Mirroring V2 lazy imports
 const GitMirroringMirrors = lazy(() => import('@/pages/GitMirroring/Mirrors'));
 const GitMirroringMirrorProcess = lazy(() => import('@/pages/GitMirroring/Mirrors/Process'));
 const GitMirroringSources = lazy(() => import('@/pages/GitMirroring/Sources'));
 const GitMirroringRepositoryDetail = lazy(() => import('@/pages/GitMirroring/Repositories/Detail'));
-const GitMirroringProviders = lazy(() => import('@/pages/GitMirroring/Providers'));
 const GitMirroringSyncGroups = lazy(() => import('@/pages/GitMirroring/SyncGroups'));
 const GitMirroringSyncGroupDetail = lazy(() => import('@/pages/GitMirroring/SyncGroups/Detail'));
 const GitMirroringDashboard = lazy(() => import('@/pages/GitMirroring/Dashboard'));
 const GitMirroringOrphaned = lazy(() => import('@/pages/GitMirroring/Orphaned'));
 const GitMirroringReports = lazy(() => import('@/pages/GitMirroring/Reports'));
+// GitMirroringProviders removed — /git-mirroring/providers redirects to /settings/providers
 const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'));
 const RolesPage = lazy(() => import('@/pages/Admin/Roles'));
 const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
@@ -216,11 +220,7 @@ export function AppRouter() {
         />
         <Route
           path="git-mirroring/providers"
-          element={
-            <PermissionGate permission="source_groups:read">
-              <GitMirroringProviders />
-            </PermissionGate>
-          }
+          element={<Navigate to="/settings/providers?domain=git&direction=external" replace />}
         />
         <Route
           path="git-mirroring/sync-groups"
@@ -326,11 +326,17 @@ export function AppRouter() {
            ════════════════════════════════════════════════════ */}
 
         {/* Old Projects → Git Mirroring V2 / Repositories */}
-        <Route path="projects" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
+        <Route
+          path="projects"
+          element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />}
+        />
         <Route path="projects/:id" element={<RedirectProjectsId />} />
 
         {/* Old Mirrors → Git Mirroring V2 / Repositories */}
-        <Route path="mirrors" element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />} />
+        <Route
+          path="mirrors"
+          element={<Navigate to="/git-mirroring/sources?tab=repositories" replace />}
+        />
         <Route path="mirrors/:id" element={<RedirectMirrorsId />} />
 
         {/* Old Helm Charts → Mirroring / Helm Charts */}
@@ -354,10 +360,10 @@ export function AppRouter() {
         {/* Old Pipelines → Pipelines / Runs */}
         <Route path="pipelines" element={<Navigate to="/pipelines/runs" replace />} />
 
-        {/* Old Settings → Administration */}
+        {/* Old Settings → Providers */}
         <Route
           path="settings/integrations"
-          element={<Navigate to="/admin/integrations" replace />}
+          element={<Navigate to="/settings/providers" replace />}
         />
         <Route
           path="settings/authentication"
@@ -368,7 +374,25 @@ export function AppRouter() {
           path="settings/pipelines/components"
           element={<Navigate to="/pipelines/components" replace />}
         />
-        <Route path="settings" element={<Navigate to="/admin/integrations" replace />} />
+        <Route path="settings" element={<Navigate to="/settings/providers" replace />} />
+
+        {/* ── Settings / Providers (unified) ─────────────────── */}
+        <Route
+          path="settings/providers"
+          element={
+            <PermissionGate permission="providers:read">
+              <ProvidersPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="settings/teams"
+          element={
+            <PermissionGate permission="teams:read">
+              <SettingsTeams />
+            </PermissionGate>
+          }
+        />
       </Route>
 
       {/* ── Admin Panel (separate layout) ──────────────────────── */}
@@ -415,11 +439,28 @@ export function AppRouter() {
             </PermissionGate>
           }
         />
+        <Route path="integrations" element={<Navigate to="/admin/credentials" replace />} />
         <Route
-          path="integrations"
+          path="credentials"
           element={
-            <PermissionGate permission="integrations:read">
-              <SettingsIntegrations />
+            <PermissionGate permission="credentials:read">
+              <AdminCredentials />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="teams"
+          element={
+            <PermissionGate permission="teams:write">
+              <AdminTeams />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="teams/:teamId"
+          element={
+            <PermissionGate permission="teams:write">
+              <TeamDetailPage />
             </PermissionGate>
           }
         />

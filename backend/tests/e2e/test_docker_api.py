@@ -188,21 +188,21 @@ async def test_update_docker_source_not_found(client: AsyncClient, operator_toke
 
 
 @pytest.mark.asyncio
-async def test_delete_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
-    """DELETE /api/docker-images/{id} removes the source."""
+async def test_delete_docker_source(client: AsyncClient, admin_token: str, sample_docker_source):
+    """DELETE /api/docker-images/{id} removes the source (delete is admin-only)."""
     response = await client.delete(
         f"/api/docker-images/{sample_docker_source.id}",
-        headers={"Authorization": f"Bearer {operator_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 204
 
 
 @pytest.mark.asyncio
-async def test_delete_docker_source_not_found(client: AsyncClient, operator_token: str):
+async def test_delete_docker_source_not_found(client: AsyncClient, admin_token: str):
     """Deleting non-existent source returns 404."""
     response = await client.delete(
         "/api/docker-images/99999",
-        headers={"Authorization": f"Bearer {operator_token}"},
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 404
 

@@ -33,6 +33,9 @@ class Role(Base):
     sync_group_scopes = relationship(
         "RoleScopeSyncGroup", back_populates="role", cascade="all, delete-orphan"
     )
+    provider_scopes = relationship(
+        "RoleScopeProvider", back_populates="role", cascade="all, delete-orphan"
+    )
 
 
 class UserRole(Base):

@@ -2,7 +2,7 @@
 @file mirror.py
 @description Mirror model — represents a git mirror of a source repository into
              GitLab. Does NOT hold direct FK to GitlabInstance/Components; instead
-             reaches them through SyncGroup → Pipeline → GitlabInstance.
+             reaches them through SyncGroup → Pipeline → ResourceProvider.
 @dependencies app.database.Base, ./source_repository.py, ./sync_group.py
 @relatedFiles ./source_repository.py, ./sync_group.py, ./mirror_log.py
 """
@@ -77,10 +77,10 @@ class Mirror(Base):
 
     @property
     def target_gitlab_instance(self):
-        """Return the GitlabInstance via SyncGroup → Pipeline, or None."""
+        """Return the platform GitLab provider via SyncGroup → Pipeline, or None."""
         pl = self.pipeline
         if pl is not None:
-            return pl.gitlab_instance
+            return pl.provider
         return None
 
     def __repr__(self) -> str:

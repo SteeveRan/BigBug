@@ -89,9 +89,9 @@ class TestSourceRepositoryModel:
 
     def test_source_repository_with_last_commit_fields(self):
         """Create a SourceRepository with all last_commit fields populated (Wave 1)."""
-        from datetime import datetime, timezone
+        from datetime import UTC, datetime
 
-        commit_date = datetime(2026, 6, 15, 1, 0, 0, tzinfo=timezone.utc)
+        commit_date = datetime(2026, 6, 15, 1, 0, 0, tzinfo=UTC)
         repo = SourceRepository(
             source_group_id=1,
             external_id="repo-commit",

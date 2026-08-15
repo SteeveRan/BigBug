@@ -29,6 +29,7 @@ class RoleOut(BaseModel):
     source_group_ids: list[int] | None = None
     credential_ids: list[int] | None = None
     sync_group_ids: list[int] | None = None
+    provider_ids: list[int] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,6 +79,7 @@ class RoleScopeOut(BaseModel):
     source_group_ids: list[int] = []
     credential_ids: list[int] = []
     sync_group_ids: list[int] = []
+    provider_ids: list[int] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,3 +90,4 @@ class RoleScopeUpdate(BaseModel):
     source_group_ids: list[int] | None = None
     credential_ids: list[int] | None = None
     sync_group_ids: list[int] | None = None
+    provider_ids: list[int] | None = None

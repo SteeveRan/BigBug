@@ -61,14 +61,24 @@ async def trigger_pipeline(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("pipelines:write")),
 ):
-    """Trigger a new pipeline run in GitLab."""
+    """Trigger a new pipeline run in GitLab.
+
+    Providers V3 (phase 7A): ``provider_id`` (system/internal gitlab
+    ResourceProvider) is the only input. The legacy ``gitlab_instance_id``
+    has been removed.
+    """
+    if data.provider_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="provider_id must be provided",
+        )
     run = await pipeline_service.trigger_pipeline(
         db,
-        gitlab_instance_id=data.gitlab_instance_id,
         gitlab_project_id=data.gitlab_project_id,
         ref=data.ref,
         variables=data.variables,
         user_id=current_user.id,
+        provider_id=data.provider_id,
     )
     return PipelineRunOut.model_validate(run)
 

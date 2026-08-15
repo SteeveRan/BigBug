@@ -50,6 +50,7 @@ class HelmChartSourceOut(BaseModel):
     name: str
     repo_url: str
     description: str | None
+    provider_id: int | None = None
     gitlab_project_id: str | None
     gitlab_project_url: str | None
     last_synced_at: datetime | None
@@ -74,6 +75,7 @@ class CreateHelmChartSourceRequest(BaseModel):
     name: str
     repo_url: str
     description: str | None = None
+    provider_id: int | None = None  # helm/helm_repo/external provider (V3)
 
 
 class UpdateHelmChartSourceRequest(BaseModel):

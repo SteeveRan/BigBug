@@ -41,9 +41,11 @@ class SourceRepository(Base):
         ForeignKey("source_groups.id", ondelete="CASCADE"),
         nullable=True,
     )
-    source_provider_id = Column(
+    # Providers V3 (phase 7E): git source is a resource_providers row
+    # (domain=git, direction=external). Legacy source_provider_id removed.
+    provider_id = Column(
         Integer,
-        ForeignKey("source_providers.id", ondelete="SET NULL"),
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -106,7 +108,7 @@ class SourceRepository(Base):
 
     # Relationships
     source_group = relationship("SourceGroup", back_populates="source_repositories")
-    source_provider = relationship("SourceProvider", back_populates="source_repositories")
+    provider = relationship("ResourceProvider", foreign_keys=[provider_id])
     mirrors = relationship(
         "Mirror", back_populates="source_repository", cascade="all, delete-orphan"
     )

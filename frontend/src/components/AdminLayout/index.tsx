@@ -48,7 +48,8 @@ export function AdminLayout() {
     { key: '/admin/users', icon: <TeamOutlined />, label: 'Users' },
     { key: '/admin/roles', icon: <IdcardOutlined />, label: 'Roles' },
     { key: '/admin/permissions', icon: <KeyOutlined />, label: 'Permissions' },
-    { key: '/admin/integrations', icon: <ApiOutlined />, label: 'Integrations' },
+    { key: '/admin/teams', icon: <TeamOutlined />, label: 'Teams' },
+    { key: '/admin/credentials', icon: <ApiOutlined />, label: 'Credentials' },
     { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
     { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
   ];

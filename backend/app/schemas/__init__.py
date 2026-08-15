@@ -38,9 +38,6 @@ from app.schemas.rbac import (
 # source_group.py — references source_provider + source_repository
 from app.schemas.source_group import SourceGroupDetailOut, SourceGroupListOut
 
-# source_provider.py — only references credential (already imported)
-from app.schemas.source_provider import SourceProviderOut
-
 # source_repository.py — references source_group + mirror
 from app.schemas.source_repository import SourceRepositoryDetailOut, SourceRepositoryListOut
 
@@ -53,7 +50,6 @@ from app.schemas.sync_group import SyncGroupOut
 
 _namespace: dict[str, object] = {
     "CredentialOut": CredentialOut,
-    "SourceProviderOut": SourceProviderOut,
     "SourceGroupListOut": SourceGroupListOut,
     "SourceGroupDetailOut": SourceGroupDetailOut,
     "SourceRepositoryListOut": SourceRepositoryListOut,
@@ -72,7 +68,6 @@ for _model_cls in (
     MirrorLogOut,
     SourceRepositoryDetailOut,
     SourceGroupDetailOut,
-    SourceProviderOut,
     SyncGroupOut,
 ):
     _model_cls.model_rebuild(_types_namespace=_namespace)

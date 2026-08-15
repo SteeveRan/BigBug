@@ -21,7 +21,8 @@ from sqlalchemy.orm import selectinload
 from app.core.secrets import SecretEncryptionError, decrypt_secret
 from app.models.credential import Credential
 from app.models.mirror import Mirror
-from app.models.source_provider import SourceProvider
+from app.models.pipeline import Pipeline as PipelineModel
+from app.models.resource_provider import ProviderDomain, ResourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.source_providers import create_source_provider
@@ -119,48 +120,36 @@ async def _check_credential(
 
 
 async def _check_source_provider(
-    sp: SourceProvider,
+    provider_obj: ResourceProvider,
 ) -> HealthCheckItem:
-    """Verify a source provider is accessible."""
-    component = f"source_provider:{sp.id}"
-
-    # Anonymous providers don't need a credential
-    if sp.is_anon:
-        try:
-            provider = await create_source_provider(sp, None)
-            await provider.check_access()
+    """Verify a unified resource provider is accessible."""
+    component = f"provider:{provider_obj.id}"
+    is_anon = provider_obj.credential_id is None
+    label = provider_obj.label
+    secret: str | None = None
+    if not is_anon:
+        if provider_obj.credential is None or not provider_obj.credential.encrypted_secret:
             return HealthCheckItem(
                 component=component,
-                severity=HealthCheckSeverity.OK,
-                message=f"SourceProvider '{sp.label}' (anonymous) is accessible",
+                severity=HealthCheckSeverity.WARNING,
+                message=f"Provider '{label}' has no credential configured",
             )
-        except Exception as exc:
-            return HealthCheckItem(
-                component=component,
-                severity=HealthCheckSeverity.ERROR,
-                message=f"SourceProvider '{sp.label}' access failed: {exc}",
-            )
+        secret = decrypt_secret(provider_obj.credential.encrypted_secret)
 
-    if sp.credential is None or not sp.credential.encrypted_secret:
-        return HealthCheckItem(
-            component=component,
-            severity=HealthCheckSeverity.WARNING,
-            message=f"SourceProvider '{sp.label}' has no credential configured",
-        )
     try:
-        secret = decrypt_secret(sp.credential.encrypted_secret)
-        provider = await create_source_provider(sp, secret)
+        provider = await create_source_provider(provider_obj, secret)
         await provider.check_access()
+        anon_suffix = " (anonymous)" if is_anon else ""
         return HealthCheckItem(
             component=component,
             severity=HealthCheckSeverity.OK,
-            message=f"SourceProvider '{sp.label}' is accessible",
+            message=f"Provider '{label}'{anon_suffix} is accessible",
         )
     except Exception as exc:
         return HealthCheckItem(
             component=component,
             severity=HealthCheckSeverity.ERROR,
-            message=f"SourceProvider '{sp.label}' access failed: {exc}",
+            message=f"Provider '{label}' access failed: {exc}",
         )
 
 
@@ -194,34 +183,37 @@ async def _check_single_mirror(
         )
         return items
 
-    sp = sr.source_provider
-    if sp is None:
+    # Phase 7E: unified ResourceProvider only
+    provider_obj: ResourceProvider | None = sr.provider
+    if provider_obj is None:
         items.append(
             HealthCheckItem(
                 component=component,
                 severity=HealthCheckSeverity.ERROR,
-                message=f"SourceRepository {sr.id} has no linked SourceProvider",
+                message=f"SourceRepository {sr.id} has no linked provider",
             )
         )
         return items
 
-    if sp.credential is not None:
-        cred_item = await _check_credential(sp.credential)
+    provider_credential = getattr(provider_obj, "credential", None)
+    if provider_credential is not None:
+        cred_item = await _check_credential(provider_credential)
         items.append(cred_item)
 
     # 2. Source accessibility
     try:
-        if sp.is_anon:
-            provider = await create_source_provider(sp, None)
-        elif sp.credential and sp.credential.encrypted_secret:
-            secret = decrypt_secret(sp.credential.encrypted_secret)
-            provider = await create_source_provider(sp, secret)
+        is_anon = provider_obj.credential_id is None
+        if is_anon:
+            provider = await create_source_provider(provider_obj, None)
+        elif provider_credential and provider_credential.encrypted_secret:
+            secret = decrypt_secret(provider_credential.encrypted_secret)
+            provider = await create_source_provider(provider_obj, secret)
         else:
             items.append(
                 HealthCheckItem(
                     component=component,
                     severity=HealthCheckSeverity.WARNING,
-                    message=f"SourceProvider '{sp.label}' has no credential",
+                    message=f"Provider '{provider_obj.label}' has no credential",
                 )
             )
             # Skip source accessibility + commit checks
@@ -270,13 +262,18 @@ async def _check_single_mirror(
     # 4. Target project check (via python-gitlab if pipeline configured)
     try:
         pipeline = mirror.pipeline
-        if pipeline is not None and pipeline.gitlab_instance is not None:
-            instance = pipeline.gitlab_instance
-            token = decrypt_secret(instance.token)
+        target_resolved = pipeline is not None and pipeline.provider is not None
+        if target_resolved:
+            rp = pipeline.provider
+            token = (
+                decrypt_secret(rp.credential.encrypted_secret)
+                if rp.credential is not None and rp.credential.encrypted_secret
+                else None
+            )
             gl = _gitlab_module.Gitlab(
-                url=instance.url,
+                url=rp.base_url,
                 private_token=token,
-                ssl_verify=instance.verify_ssl,
+                ssl_verify=rp.verify_ssl,
                 user_agent="BigBug/1.0",
             )
             if mirror.target_project_id and mirror.target_project_id.isdigit():
@@ -302,7 +299,7 @@ async def _check_single_mirror(
                 HealthCheckItem(
                     component=component,
                     severity=HealthCheckSeverity.WARNING,
-                    message="No pipeline/GitLab instance configured — target check skipped",
+                    message="No pipeline/GitLab provider configured — target check skipped",
                 )
             )
     except Exception as exc:
@@ -354,22 +351,25 @@ class HealthCheckService:
                 )
             )
 
-        # 2. Check all active SourceProviders
-        sp_result = await db.execute(
-            select(SourceProvider)
-            .options(selectinload(SourceProvider.credential))
-            .where(~SourceProvider.is_deleted)
+        # 2. Check all active git providers (phase 7E: resource_providers only)
+        rp_result = await db.execute(
+            select(ResourceProvider)
+            .options(selectinload(ResourceProvider.credential))
+            .where(
+                ResourceProvider.domain == ProviderDomain.git,
+                ~ResourceProvider.is_deleted,
+            )
         )
-        providers = sp_result.scalars().all()
-        if providers:
-            for sp in providers:
-                report.items.append(await _check_source_provider(sp))
+        git_providers = rp_result.scalars().all()
+        if git_providers:
+            for rp in git_providers:
+                report.items.append(await _check_source_provider(rp))
         else:
             report.items.append(
                 HealthCheckItem(
-                    component="source_providers",
+                    component="providers",
                     severity=HealthCheckSeverity.WARNING,
-                    message="No source providers configured",
+                    message="No git providers configured",
                 )
             )
 
@@ -433,9 +433,11 @@ class HealthCheckService:
                 .selectinload(SourceRepository.source_group),
                 selectinload(SyncGroup.mirrors)
                 .selectinload(Mirror.source_repository)
-                .selectinload(SourceRepository.source_provider)
-                .selectinload(SourceProvider.credential),
-                selectinload(SyncGroup.pipeline),
+                .selectinload(SourceRepository.provider)
+                .selectinload(ResourceProvider.credential),
+                selectinload(SyncGroup.pipeline)
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
             )
             .where(SyncGroup.id == sync_group_id, ~SyncGroup.is_deleted)
         )
@@ -461,18 +463,22 @@ class HealthCheckService:
             )
             return report
 
-        # Check credentials across all mirrors (deduplicate by provider)
-        seen_sp_ids: set[int] = set()
+        # Check credentials across all mirrors (deduplicate by provider;
+        # phase 7E: ResourceProvider only)
+        seen_provider_ids: set[int] = set()
         for mirror in active_mirrors:
             sr = mirror.source_repository
             if sr is None:
                 continue
-            sp = sr.source_provider
-            if sp is None or sp.id in seen_sp_ids:
+            provider_obj = sr.provider
+            if provider_obj is None:
                 continue
-            seen_sp_ids.add(sp.id)
-            if sp.credential is not None:
-                report.items.append(await _check_credential(sp.credential))
+            if provider_obj.id in seen_provider_ids:
+                continue
+            seen_provider_ids.add(provider_obj.id)
+            credential = getattr(provider_obj, "credential", None)
+            if credential is not None:
+                report.items.append(await _check_credential(credential))
 
         # Check all mirrors
         for mirror in active_mirrors:
@@ -530,9 +536,12 @@ class HealthCheckService:
             .options(
                 selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
                 selectinload(Mirror.source_repository)
-                .selectinload(SourceRepository.source_provider)
-                .selectinload(SourceProvider.credential),
-                selectinload(Mirror.sync_group).selectinload(SyncGroup.pipeline),
+                .selectinload(SourceRepository.provider)
+                .selectinload(ResourceProvider.credential),
+                selectinload(Mirror.sync_group)
+                .selectinload(SyncGroup.pipeline)
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
             )
             .where(Mirror.id == mirror_id, ~Mirror.is_deleted)
         )

@@ -699,3 +699,106 @@ async def remove_role_scope_sync_group(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error"
         ) from e
+
+
+# ------------------------------------------------------------------
+# RBAC — Role Scope: Providers
+# ------------------------------------------------------------------
+
+
+@router.get(
+    "/roles/{role_id}/scopes/providers",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def get_role_scope_providers(
+    role_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("roles:read")),
+):
+    """Get providers scope for a role."""
+    service = RBACService(db)
+    try:
+        provider_ids = await service.get_role_scope_providers(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(provider_ids=provider_ids)
+
+
+@router.post(
+    "/roles/{role_id}/scopes/providers",
+    response_model=RoleScopeOut,
+    status_code=status.HTTP_201_CREATED,
+    tags=["admin"],
+)
+async def add_role_scope_provider(
+    role_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("roles:write")),
+):
+    """Add a single provider to role scope."""
+    provider_id = body.get("provider_id")
+    if provider_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Field 'provider_id' is required",
+        )
+
+    service = RBACService(db)
+    try:
+        await service.add_role_scope_provider(role_id, int(provider_id))
+        provider_ids = await service.get_role_scope_providers(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(provider_ids=provider_ids)
+
+
+@router.put(
+    "/roles/{role_id}/scopes/providers",
+    response_model=RoleScopeOut,
+    tags=["admin"],
+)
+async def set_role_scope_providers(
+    role_id: int,
+    data: RoleScopeUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("roles:write")),
+):
+    """Replace all providers scope for a role (atomic)."""
+    service = RBACService(db)
+    try:
+        await service.set_role_scope_providers(role_id, data.provider_ids or [])
+        provider_ids = await service.get_role_scope_providers(role_id)
+    except RoleNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    return RoleScopeOut(provider_ids=provider_ids)
+
+
+@router.delete(
+    "/roles/{role_id}/scopes/providers/{provider_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["admin"],
+)
+async def remove_role_scope_provider(
+    role_id: int,
+    provider_id: int,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("roles:write")),
+):
+    """Remove a single provider from role scope."""
+    service = RBACService(db)
+    try:
+        await service.remove_role_scope_provider(role_id, provider_id)
+    except Exception as e:
+        logger.exception(
+            "Failed to remove provider scope: role_id=%s, provider_id=%s",
+            role_id,
+            provider_id,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error"
+        ) from e

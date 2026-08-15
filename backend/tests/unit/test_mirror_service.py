@@ -18,8 +18,14 @@ from sqlalchemy.orm import selectinload
 
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.models.user import User
@@ -31,16 +37,25 @@ from app.services.mirror import MirrorService
 # ---------------------------------------------------------------------------
 
 
-async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
-    """Create a minimal SourceRepository with a SourceGroup and SourceProvider."""
-    sp = SourceProvider(
-        credential_id=1,
-        provider_type=ProviderType.github,
-        label="test-provider",
+async def _seed_gitlab_provider(db: AsyncSession, name: str) -> ResourceProvider:
+    """Create a system/internal gitlab ResourceProvider for pipeline targets."""
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
+        name=name,
+        label=name,
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
     )
-    db.add(sp)
+    db.add(provider)
     await db.flush()
+    return provider
 
+
+async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
+    """Create a minimal SourceRepository with a SourceGroup."""
     sg = SourceGroup(
         external_id="testorg",
         name="Test Org",
@@ -388,23 +403,16 @@ class TestTriggerSync:
     @pytest.mark.asyncio
     async def test_trigger_sync(self, db_session: AsyncSession):
         """trigger_sync triggers a pipeline and creates a MirrorLog."""
-        from app.models.gitlab_instance import GitlabInstance
         from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
-        # Create GitlabInstance → Pipeline → SyncGroup
-        gi = GitlabInstance(
-            name="test-gitlab",
-            url="https://gitlab.example.com",
-            token="fake-token",
-        )
-        db_session.add(gi)
-        await db_session.flush()
+        # Create ResourceProvider → Pipeline → SyncGroup
+        provider = await _seed_gitlab_provider(db_session, "test-gitlab")
 
         pipeline = PipelineModel(
             name="test-pipeline",
-            gitlab_instance_id=gi.id,
+            provider_id=provider.id,
             ref="main",
             is_default=True,
         )
@@ -469,10 +477,15 @@ class TestCheckFreshness:
         db_session.add(cred)
         await db_session.flush()
 
-        sp = SourceProvider(
-            credential_id=cred.id,
-            provider_type=ProviderType.github,
+        sp = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="test-gh",
             label="test-gh",
+            credential_id=cred.id,
+            verify_ssl=True,
         )
         db_session.add(sp)
         await db_session.flush()
@@ -487,7 +500,7 @@ class TestCheckFreshness:
 
         sr = SourceRepository(
             source_group_id=sg.id,
-            source_provider_id=sp.id,
+            provider_id=sp.id,
             external_id="12345",
             name="fresh-repo",
             full_name="testorg/fresh-repo",
@@ -558,10 +571,15 @@ class TestImportExistingMirror:
         db_session.add(cred)
         await db_session.flush()
 
-        sp = SourceProvider(
-            credential_id=cred.id,
-            provider_type=ProviderType.github,
+        sp = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="test-gh-import",
             label="test-gh-import",
+            credential_id=cred.id,
+            verify_ssl=True,
         )
         db_session.add(sp)
         await db_session.flush()
@@ -652,22 +670,15 @@ class TestTriggerSyncCreatesPipelineRun:
     @pytest.mark.asyncio
     async def test_trigger_sync_creates_pipeline_run_and_mirror_log(self, db_session: AsyncSession):
         """trigger_sync creates PipelineRun and MirrorLog when Pipeline is configured."""
-        from app.models.gitlab_instance import GitlabInstance
         from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
-        gi = GitlabInstance(
-            name="test-gitlab-e2",
-            url="https://gitlab.example.com",
-            token="fake-token",
-        )
-        db_session.add(gi)
-        await db_session.flush()
+        provider = await _seed_gitlab_provider(db_session, "test-gitlab-e2")
 
         pipeline = PipelineModel(
             name="test-pipeline-e2",
-            gitlab_instance_id=gi.id,
+            provider_id=provider.id,
             ref="main",
             is_default=True,
             default_variables={"CUSTOM_VAR": "custom_val"},
@@ -717,7 +728,7 @@ class TestTriggerSyncCreatesPipelineRun:
         # Verify variables passed to trigger_pipeline include merged defaults
         mock_trigger.assert_called_once()
         call_kwargs = mock_trigger.call_args.kwargs
-        assert call_kwargs["gitlab_instance_id"] == gi.id
+        assert call_kwargs["provider_id"] == provider.id
         assert call_kwargs["gitlab_project_id"] == 42
         assert call_kwargs["ref"] == "main"
         assert "CUSTOM_VAR" in call_kwargs["variables"]
@@ -745,10 +756,15 @@ class TestCheckFreshnessExtended:
         db_session.add(cred)
         await db_session.flush()
 
-        sp = SourceProvider(
-            credential_id=cred.id,
-            provider_type=ProviderType.github,
+        sp = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="test-gh-ext",
             label="test-gh-ext",
+            credential_id=cred.id,
+            verify_ssl=True,
         )
         db_session.add(sp)
         await db_session.flush()
@@ -763,7 +779,7 @@ class TestCheckFreshnessExtended:
 
         sr = SourceRepository(
             source_group_id=sg.id,
-            source_provider_id=sp.id,
+            provider_id=sp.id,
             external_id="123456",
             name="fresh-ext-repo",
             full_name="testorg-ext/fresh-ext-repo",
@@ -889,22 +905,15 @@ class TestCreateMirrorAutoSync:
     @pytest.mark.asyncio
     async def test_create_mirror_triggers_initial_sync(self, db_session: AsyncSession):
         """create_mirror auto-triggers sync when SyncGroup has a Pipeline."""
-        from app.models.gitlab_instance import GitlabInstance
         from app.models.pipeline import Pipeline as PipelineModel
 
         sr = await _seed_source_repo(db_session)
 
-        gi = GitlabInstance(
-            name="test-gitlab-autosync",
-            url="https://gitlab.example.com",
-            token="fake-token",
-        )
-        db_session.add(gi)
-        await db_session.flush()
+        provider = await _seed_gitlab_provider(db_session, "test-gitlab-autosync")
 
         pipeline = PipelineModel(
             name="test-pipeline-autosync",
-            gitlab_instance_id=gi.id,
+            provider_id=provider.id,
             ref="main",
             is_default=True,
         )

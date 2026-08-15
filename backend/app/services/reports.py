@@ -21,6 +21,7 @@ from sqlalchemy.orm import selectinload
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline as PipelineModel
+from app.models.resource_provider import ResourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.schemas.reports import (
@@ -108,7 +109,8 @@ class ReportsService:
                 selectinload(Mirror.source_repository),
                 selectinload(Mirror.sync_group)
                 .selectinload(SyncGroup.pipeline)
-                .selectinload(PipelineModel.gitlab_instance),
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
             )
             .where(~Mirror.is_deleted)
             .order_by(Mirror.id)
@@ -634,8 +636,8 @@ class ReportsService:
         data: BulkChangeTargetGitlabRequest,
     ) -> BulkOperationResponse:
         """
-        Bulk change target GitLab instance by reassigning mirrors to a SyncGroup
-        that has the desired Pipeline → GitlabInstance chain.
+        Bulk change target GitLab provider by reassigning mirrors to a SyncGroup
+        that has the desired Pipeline → ResourceProvider chain.
         """
         return await ReportsService._bulk_operation(
             db=db,

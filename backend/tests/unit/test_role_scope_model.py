@@ -6,9 +6,17 @@
 """
 
 from app.models.credential import Credential, CredentialType
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.role import Role
 from app.models.role_scope import (
     RoleScopeCredential,
+    RoleScopeProvider,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
 )
@@ -95,3 +103,36 @@ class TestRoleScopeSyncGroup:
         rs.sync_group = sg
         assert rs.sync_group is sg
         assert rs.sync_group.name == "test-sync-group"
+
+
+class TestRoleScopeProvider:
+    """Tests for the RoleScopeProvider model."""
+
+    def test_creation(self):
+        """Create a RoleScopeProvider with composite PK."""
+        rp = RoleScopeProvider(role_id=1, provider_id=5)
+        assert rp.role_id == 1
+        assert rp.provider_id == 5
+
+    def test_role_relationship(self):
+        """RoleScopeProvider can reference a Role."""
+        role = Role(name="provider-role", description="Test")
+        rp = RoleScopeProvider(role_id=1, provider_id=5)
+        rp.role = role
+        assert rp.role is role
+        assert rp.role.name == "provider-role"
+
+    def test_provider_relationship(self):
+        """RoleScopeProvider can reference a ResourceProvider."""
+        provider = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.gitlab,
+            category=ProviderCategory.private,
+            direction=ProviderDirection.external,
+            name="gitlab",
+            label="GitLab",
+        )
+        rp = RoleScopeProvider(role_id=1, provider_id=5)
+        rp.provider = provider
+        assert rp.provider is provider
+        assert rp.provider.name == "gitlab"

@@ -115,10 +115,7 @@ def _is_prerelease_tag(tag: str) -> bool:
 
     # Strategy 2: general semver prerelease — major.minor.patch-DASH...
     stripped = tag.lstrip("v")
-    if re.match(r"^\d+\.\d+\.\d+-", stripped):
-        return True
-
-    return False
+    return bool(re.match(r"^\d+\.\d+\.\d+-", stripped))
 
 
 def _resolve_license_spdx(license_obj: dict | None) -> tuple[str | None, str | None]:
@@ -299,10 +296,14 @@ class GitLabSourceProvider(BaseSourceProvider):
 
     def __init__(self, provider, credential_secret: str | None) -> None:
         super().__init__(provider, credential_secret)
-        # Determine the GitLab instance URL from the credential base_url
-        # or fall back to gitlab.com for cloud.
+        # Determine the GitLab instance URL: Providers V3 stores it on the
+        # provider row itself (ResourceProvider.base_url); the legacy V2
+        # path kept it on the credential. Fall back to gitlab.com for cloud.
         base_url = "https://gitlab.com"
-        if self.provider.credential is not None and getattr(
+        provider_base_url = getattr(self.provider, "base_url", None)
+        if provider_base_url:
+            base_url = str(provider_base_url).rstrip("/")
+        elif self.provider.credential is not None and getattr(
             self.provider.credential, "base_url", None
         ):
             base_url = self.provider.credential.base_url.rstrip("/")

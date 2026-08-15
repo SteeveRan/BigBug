@@ -8,13 +8,14 @@
               ../../app/core/exceptions.py
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from app.core.exceptions import DomainError
 from app.models.credential import Credential, CredentialType
-from app.models.source_provider import ProviderType, SourceProvider
+from app.models.provider_type import ProviderType
 from app.services.source_providers.generic_git import (
     GenericGitSourceProvider,
     _build_auth_url,
@@ -43,8 +44,12 @@ def _make_credential(**overrides) -> Credential:
     return Credential(**defaults)
 
 
-def _make_provider(**overrides) -> SourceProvider:
-    """Build a SourceProvider ORM model for generic git."""
+def _make_provider(**overrides) -> SimpleNamespace:
+    """Build a provider-shaped object for generic git.
+
+    GenericGitSourceProvider only reads ``id`` and the decrypted secret (passed
+    separately); a plain namespace replaces the removed SourceProvider model.
+    """
     credential = overrides.pop("credential", _make_credential())
     defaults = {
         "id": 1,
@@ -54,7 +59,7 @@ def _make_provider(**overrides) -> SourceProvider:
         "is_deleted": False,
     }
     defaults.update(overrides)
-    sp = SourceProvider(**defaults)
+    sp = SimpleNamespace(**defaults)
     sp.credential = credential
     return sp
 

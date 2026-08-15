@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Providers V3 — миграция на единую сущность `resource_providers`:**
+  - Единый реестр провайдеров (таблица `resource_providers` + реестр подтипов в коде + `/api/providers`) вместо 5 legacy-таблиц инстансов (`gitlab_instances`, `harbor_instances`, `github_instances`, `docker_registry_instances`, `helm_repository_instances`) и V2-системы `source_providers`
+  - Подтипы `github`/`gitlab`/`generic_git`/`docker_hub`/`quay`/`gcr`/`ecr`/`acr`/`ghcr`/`harbor`/`generic_registry`/`helm_repo`; категории `system`/`public`/`private`; направления `external`/`internal`
+  - Расширенная RBAC: `providers:read/write/delete/use/read_all/share`, `providers_system:write`, `teams:read/write/manage_members`, `credentials:write`; scope-providers
+  - Команды (`teams`) и шаринг провайдеров (`visibility`, `team_id`, `/api/teams`, `/api/providers/{id}/share|unshare`)
+
+### Removed
+
+- Удалены legacy-роутеры `api/integrations/`, `services/integrations.py`, 5 instance-моделей, модель `SourceProvider` + таблица `source_providers` (enum `ProviderType` перенесён в нейтральное место)
+- Удалены legacy-сторы (`integrations.ts`, `git-mirroring/providers.ts`, `mirrors-legacy.ts`) и страницы (`Settings/Integrations`, `GitMirroring/Providers`, `Admin/Integrations`, `Mirrors`, `Projects`)
+- Удалены legacy-права (`integrations:*`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use`)
+
 - **Git Mirroring V2 Finalization — Этап 9:**
   - Reports: 4 типа отчётов по зеркалам (Summary, Sync History, Failures, Performance) с экспортом в CSV/JSON
   - Bulk Operations: 3 типа массовых операций (Sync, Validate Integrity, Delete) с подтверждением

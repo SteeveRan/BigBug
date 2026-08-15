@@ -24,9 +24,9 @@ import {
   useTriggerPipelineMutation,
   useCancelPipelineMutation,
   useRetryPipelineMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
 } from '../../store/api';
-import { PipelineRun, STATUS_FLAG, GitlabInstance } from '../../types';
+import { PipelineRun, STATUS_FLAG, ResourceProvider } from '../../types';
 import { StatusChip } from '../../components/StatusChip';
 
 // Sentinels for Segmented filter values — react requires non-undefined keys.
@@ -59,7 +59,7 @@ export function PipelinesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    gitlab_instance_id: 0,
+    provider_id: 0,
     gitlab_project_id: '',
     ref: '',
     variables: '',
@@ -72,7 +72,11 @@ export function PipelinesPage() {
   const [triggerPipeline, { isLoading: isTriggering }] = useTriggerPipelineMutation();
   const [cancelPipeline] = useCancelPipelineMutation();
   const [retryPipeline] = useRetryPipelineMutation();
-  const { data: instances = [] } = useGetGitlabInstancesQuery();
+  const { data: providers = [] } = useGetProvidersQuery({
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
+  });
 
   const handleTrigger = async () => {
     const variables: Record<string, string> = {};
@@ -87,14 +91,14 @@ export function PipelinesPage() {
 
     try {
       await triggerPipeline({
-        gitlab_instance_id: form.gitlab_instance_id,
+        provider_id: form.provider_id,
         gitlab_project_id: parseInt(form.gitlab_project_id, 10),
         ref: form.ref,
         variables,
       }).unwrap();
       message.success('Pipeline triggered successfully');
       setDialogOpen(false);
-      setForm({ gitlab_instance_id: 0, gitlab_project_id: '', ref: '', variables: '' });
+      setForm({ provider_id: 0, gitlab_project_id: '', ref: '', variables: '' });
     } catch {
       // error handled by RTK Query
     }
@@ -240,17 +244,17 @@ export function PipelinesPage() {
         cancelText="Cancel"
         okButtonProps={{
           disabled:
-            isTriggering || !form.gitlab_instance_id || !form.gitlab_project_id || !form.ref,
+            isTriggering || !form.provider_id || !form.gitlab_project_id || !form.ref,
         }}
       >
         <Flex vertical gap={16}>
           <Select
-            placeholder="GitLab Instance"
-            value={form.gitlab_instance_id || undefined}
-            onChange={(v) => setForm({ ...form, gitlab_instance_id: v })}
-            options={instances.map((inst: GitlabInstance) => ({
-              label: `${inst.name} (${inst.url})`,
-              value: inst.id,
+            placeholder="GitLab Provider"
+            value={form.provider_id || undefined}
+            onChange={(v) => setForm({ ...form, provider_id: v })}
+            options={providers.map((p: ResourceProvider) => ({
+              label: `${p.label}${p.base_url ? ` (${p.base_url})` : ''}`,
+              value: p.id,
             }))}
             style={{ width: '100%' }}
           />

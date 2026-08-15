@@ -199,27 +199,40 @@ function hasRole(userRole: string | undefined, required: string): boolean {
 
 ### Permission-based модель ✅ РЕАЛИЗОВАНО
 
-32 permissions по паттерну `resource:action`, реализованы в миграции [`20260606_1932_bde12d699ca4_add_rbac_permissions.py`](../../backend/alembic/versions/20260606_1932_bde12d699ca4_add_rbac_permissions.py):
+Permissions по паттерну `resource:action`, реализованы в миграции [`20260606_1932_bde12d699ca4_add_rbac_permissions.py`](../../backend/alembic/versions/20260606_1932_bde12d699ca4_add_rbac_permissions.py), расширены в фазе 5 Providers V3 правами `providers:*`, `providers_system:*`, `teams:*`, `credentials:write`.
 
 | Resource | Permissions |
 |----------|-------------|
-| `mirrors` | `read`, `write`, `delete`, `sync` |
+| `mirrors` | `read`, `write`, `delete`, `sync`, `import`, `integrity_check`, `manage_orphaned` |
 | `projects` | `read`, `write`, `delete` |
+| `source_groups` | `read`, `write`, `refresh` |
 | `helm` | `read`, `write`, `delete`, `sync`, `index` |
 | `docker` | `read`, `write`, `delete`, `sync`, `index` |
 | `gold_images` | `read`, `write`, `delete`, `build` |
 | `app_images` | `read`, `write`, `delete`, `build` |
+| `pipelines` | `read`, `write`, `delete` |
+| `sync_groups` | `read`, `write`, `delete` |
+| `credentials` | `read`, `write` |
+| `reports` | `read` |
 | `users` | `read`, `write`, `delete` |
 | `roles` | `read`, `write`, `delete` |
+| `oidc` | `read`, `write` |
+| `audit` | `read` |
+| `providers` | `read`, `write`, `delete`, `use`, `read_all`, `share` |
+| `providers_system` | `write` |
+| `teams` | `read`, `write`, `manage_members` |
 | `system` | `config` |
+| `admin` | `panel:access` |
+
+> Полный актуальный список — в [`plans/architecture/permissions.md`](../architecture/permissions.md).
 
 ### Предустановленные роли ✅ РЕАЛИЗОВАНО
 
 | Роль | Permissions |
 |------|-------------|
-| `admin` | Все 32 permissions |
+| `admin` | Все permissions |
 | `operator` | read + write + sync/index/build для ресурсов; без delete и admin-разделов |
-| `viewer` | Только `*:read` permissions (6 permissions) |
+| `viewer` | Только `*:read` permissions |
 
 Builtin-роли (`is_custom=False`) **защищены от модификации и удаления** через [`RBACService`](../../backend/app/services/rbac_service.py).
 

@@ -62,7 +62,7 @@ class TestPipelineCreate:
         """Create with inline components."""
         data = PipelineCreate(
             name="multi-component",
-            gitlab_instance_id=1,
+            provider_id=1,
             ref="main",
             components=[
                 PipelineComponentRef(component_id=10, order=1),
@@ -86,7 +86,7 @@ class TestPipelineUpdate:
         """All fields are optional."""
         data = PipelineUpdate()
         assert data.description is None
-        assert data.gitlab_instance_id is None
+        assert data.provider_id is None
 
     def test_update_partial(self):
         """Update description and is_enabled."""
@@ -119,7 +119,7 @@ class TestPipelineOut:
             "id",
             "name",
             "description",
-            "gitlab_instance_id",
+            "provider_id",
             "ref",
             "default_variables",
             "is_default",
@@ -129,7 +129,7 @@ class TestPipelineOut:
             "created_at",
             "updated_at",
             "components",
-            "gitlab_instance",
+            "provider",
         }
         assert fields == expected
 
@@ -150,7 +150,7 @@ class TestPipelineRunCreate:
 
     def test_create(self):
         data = PipelineRunCreate(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=123,
             ref="main",
         )
@@ -174,7 +174,7 @@ class TestGitLabComponentCreate:
     def test_create_minimal(self):
         data = GitLabComponentCreate(
             name="test-component",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="my-group/my-project",
             component_path="templates/component.yml",
         )

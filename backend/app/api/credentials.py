@@ -42,7 +42,7 @@ async def _get_credential_or_404(db: AsyncSession, credential_id: int) -> Creden
 @router.get("/", response_model=list[CredentialOut])
 async def list_credentials(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("integrations:read")),
+    _: User = Depends(require_permission("credentials:read")),
 ):
     """List all non-deleted credentials."""
     result = await db.execute(
@@ -58,7 +58,7 @@ async def list_credentials(
 async def get_credential(
     credential_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("integrations:read")),
+    _: User = Depends(require_permission("credentials:read")),
 ):
     """Get a single credential by ID (secret is never returned)."""
     return CredentialOut.model_validate(await _get_credential_or_404(db, credential_id))
@@ -72,7 +72,7 @@ async def create_credential(
     data: CredentialCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("integrations:write")),
+    current_user: User = Depends(require_permission("credentials:write")),
 ):
     """Create a new credential with encrypted secret storage."""
     encrypted = encrypt_secret(data.secret)
@@ -115,7 +115,7 @@ async def update_credential(
     data: CredentialUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("integrations:write")),
+    current_user: User = Depends(require_permission("credentials:write")),
 ):
     """Partially update a credential (re-encrypts secret if provided)."""
     credential = await _get_credential_or_404(db, credential_id)
@@ -165,7 +165,7 @@ async def delete_credential(
     credential_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("integrations:write")),
+    current_user: User = Depends(require_permission("credentials:write")),
 ):
     """Soft-delete a credential."""
     credential = await _get_credential_or_404(db, credential_id)
@@ -195,7 +195,7 @@ async def test_credential(
     credential_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_permission("integrations:write")),
+    current_user: User = Depends(require_permission("credentials:write")),
 ):
     """Mark a credential as tested (updates last_tested_at and logs audit event)."""
     from datetime import UTC, datetime

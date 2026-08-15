@@ -25,7 +25,7 @@ vi.mock('../../store/api', async () => {
     useGetPipelineConfigsQuery: vi.fn(),
     useDeletePipelineConfigMutation: vi.fn(),
     useDuplicatePipelineConfigMutation: vi.fn(),
-    useGetGitlabInstancesQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
     useGetComponentsQuery: vi.fn(),
   };
 });
@@ -43,7 +43,7 @@ import {
   useGetPipelineConfigsQuery,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
   useGetComponentsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -58,7 +58,7 @@ const mockConfig: PipelineConfig = {
   id: 1,
   name: 'Default Mirror Pipeline',
   description: 'Default pipeline for mirroring repositories',
-  gitlab_instance_id: 1,
+  provider_id: 1,
   ref: 'main',
   default_variables: { DEPLOY_ENV: 'production' },
   is_default: true,
@@ -76,7 +76,7 @@ const mockConfig: PipelineConfig = {
         id: 10,
         name: 'mirror-template',
         description: 'Mirror sync template',
-        gitlab_instance_id: 1,
+        provider_id: 1,
         project_path: 'bigbug/components/mirror-template',
         component_path: 'templates/mirror.yml',
         version: '1.0.0',
@@ -87,14 +87,33 @@ const mockConfig: PipelineConfig = {
       },
     },
   ],
-  gitlab_instance: {
+  provider: {
     id: 1,
+    domain: 'git',
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
     name: 'gitlab-local',
+    label: 'gitlab-local',
+    description: null,
     base_url: 'http://gitlab:8080',
-    api_url: 'http://gitlab:8080/api/v4',
+    config: {},
+    credential_id: null,
+    owner_user_id: null,
+    visibility: 'public',
+    team_id: null,
+    team_name: null,
     is_active: true,
+    is_default: false,
+    is_protected: false,
+    verify_ssl: true,
+    priority: 0,
+    status_flag: 0,
+    status_text: 'OK',
+    last_checked_at: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    has_credential: false,
   },
 };
 
@@ -102,7 +121,7 @@ const mockConfig2: PipelineConfig = {
   id: 2,
   name: 'Custom Build Pipeline',
   description: null,
-  gitlab_instance_id: null,
+  provider_id: null,
   ref: 'develop',
   default_variables: null,
   is_default: false,
@@ -110,7 +129,7 @@ const mockConfig2: PipelineConfig = {
   created_at: '2026-02-01T00:00:00Z',
   updated_at: '2026-02-10T00:00:00Z',
   components: [],
-  gitlab_instance: null,
+  provider: null,
 };
 
 function createTestStore(): Store {
@@ -168,7 +187,7 @@ describe('PipelineConfigsPage', () => {
       vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() }),
       { isLoading: false },
     ]);
-    (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
       isLoading: false,
       isError: false,

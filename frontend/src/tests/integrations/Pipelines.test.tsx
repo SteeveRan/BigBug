@@ -26,7 +26,7 @@ vi.mock('../../store/api', async () => {
     useTriggerPipelineMutation: vi.fn(),
     useCancelPipelineMutation: vi.fn(),
     useRetryPipelineMutation: vi.fn(),
-    useGetGitlabInstancesQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
   };
 });
 
@@ -44,7 +44,7 @@ import {
   useTriggerPipelineMutation,
   useCancelPipelineMutation,
   useRetryPipelineMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PipelinesPage } from '../../pages/Pipelines';
@@ -56,7 +56,7 @@ import { STATUS_FLAG, type PipelineRun } from '../../types';
 
 const mockPipelineRun: PipelineRun = {
   id: 1,
-  gitlab_instance_id: 1,
+  provider_id: 1,
   gitlab_project_id: 42,
   gitlab_pipeline_id: 101,
   triggered_by_user_id: 1,
@@ -131,8 +131,37 @@ describe('PipelinesPage', () => {
       vi.fn(),
       { isLoading: false },
     ]);
-    (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [],
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [
+        {
+          id: 1,
+          domain: 'git',
+          subtype: 'gitlab',
+          category: 'system',
+          direction: 'internal',
+          name: 'gitlab-local',
+          label: 'GitLab Local',
+          description: null,
+          base_url: 'https://gitlab.example.com',
+          config: {},
+          credential_id: null,
+          owner_user_id: null,
+          visibility: 'public',
+          team_id: null,
+          team_name: null,
+          is_active: true,
+          is_default: true,
+          is_protected: false,
+          verify_ssl: true,
+          priority: 0,
+          status_flag: STATUS_FLAG.OK,
+          status_text: 'Connected',
+          last_checked_at: null,
+          created_at: '2026-06-07T12:00:00Z',
+          updated_at: '2026-06-07T12:00:00Z',
+          has_credential: false,
+        },
+      ],
       isLoading: false,
       isError: false,
       error: null,
@@ -249,8 +278,8 @@ describe('PipelinesPage', () => {
     expect(dialog).toBeInTheDocument();
     // "Run Pipeline" appears as button text and dialog title
     expect(screen.getAllByText('Run Pipeline').length).toBeGreaterThanOrEqual(2);
-    // antd Select/Input uses placeholder, not label
-    expect(screen.getByText('GitLab Instance')).toBeInTheDocument();
+    // antd Select placeholder renders as a <span>, Input renders a native placeholder attr
+    expect(screen.getByText('GitLab Provider')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('GitLab Project ID')).toBeInTheDocument();
   });
 

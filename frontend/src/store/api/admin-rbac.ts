@@ -56,7 +56,7 @@ export const adminRbacApi = api.injectEndpoints({
 
     getRoleScope: builder.query<
       RoleScope,
-      { roleId: number; scopeType: 'source-groups' | 'credentials' | 'sync-groups' }
+      { roleId: number; scopeType: 'source-groups' | 'credentials' | 'sync-groups' | 'providers' }
     >({
       query: ({ roleId, scopeType }) => `/admin/roles/${roleId}/scopes/${scopeType}`,
       providesTags: (_result, _error, { roleId }) => [{ type: 'RoleScope', id: roleId }],
@@ -65,7 +65,7 @@ export const adminRbacApi = api.injectEndpoints({
       RoleScope,
       {
         roleId: number;
-        scopeType: 'source-groups' | 'credentials' | 'sync-groups';
+        scopeType: 'source-groups' | 'credentials' | 'sync-groups' | 'providers';
         item: ScopeItemRequest;
       }
     >({
@@ -80,7 +80,7 @@ export const adminRbacApi = api.injectEndpoints({
       RoleScope,
       {
         roleId: number;
-        scopeType: 'source-groups' | 'credentials' | 'sync-groups';
+        scopeType: 'source-groups' | 'credentials' | 'sync-groups' | 'providers';
         data: RoleScopeUpdate;
       }
     >({
@@ -93,7 +93,11 @@ export const adminRbacApi = api.injectEndpoints({
     }),
     removeRoleScopeItem: builder.mutation<
       void,
-      { roleId: number; scopeType: 'source-groups' | 'credentials' | 'sync-groups'; itemId: number }
+      {
+        roleId: number;
+        scopeType: 'source-groups' | 'credentials' | 'sync-groups' | 'providers';
+        itemId: number;
+      }
     >({
       query: ({ roleId, scopeType, itemId }) => ({
         url: `/admin/roles/${roleId}/scopes/${scopeType}/${itemId}`,

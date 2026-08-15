@@ -84,3 +84,26 @@ class RoleScopeSyncGroup(Base):
 
     def __repr__(self) -> str:
         return f"<RoleScopeSyncGroup(role_id={self.role_id}, sync_group_id={self.sync_group_id})>"
+
+
+class RoleScopeProvider(Base):
+    __tablename__ = "role_scope_providers"
+
+    role_id = Column(
+        Integer,
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    provider_id = Column(
+        Integer,
+        ForeignKey("resource_providers.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    # Relationships
+    role = relationship("Role", back_populates="provider_scopes")
+    provider = relationship("ResourceProvider", back_populates="role_scopes")
+
+    def __repr__(self) -> str:
+        return f"<RoleScopeProvider(role_id={self.role_id}, provider_id={self.provider_id})>"

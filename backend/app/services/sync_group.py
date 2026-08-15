@@ -22,6 +22,7 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import DomainError
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import ResourceProvider
 from app.models.role import Role
 from app.models.role_scope import RoleScopeSyncGroup
 from app.models.sync_group import SyncGroup
@@ -36,10 +37,12 @@ from app.services.pipeline import (
 )
 
 # Eager-load chain for SyncGroup.pipeline to avoid MissingGreenlet errors
-# when Pydantic validates PipelineOut (which requires .components + .gitlab_instance).
+# when Pydantic validates PipelineOut (which requires .components).
 _PIPELINE_EAGERLOAD = (
     selectinload(SyncGroup.pipeline).selectinload(Pipeline.components),
-    selectinload(SyncGroup.pipeline).selectinload(Pipeline.gitlab_instance),
+    selectinload(SyncGroup.pipeline)
+    .selectinload(Pipeline.provider)
+    .selectinload(ResourceProvider.credential),
 )
 
 logger = logging.getLogger(__name__)

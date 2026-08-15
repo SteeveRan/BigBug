@@ -2,7 +2,7 @@ import { Card, Col, Flex, Row, Spin, Typography } from 'antd';
 import { GithubOutlined, SwapOutlined, BlockOutlined, AppstoreOutlined } from '@ant-design/icons';
 import {
   useListProjectsQuery,
-  useListMirrorsQuery,
+  useGetMirrorsQuery,
   useListGoldImagesQuery,
   useListAppImagesQuery,
 } from '../../store/api';
@@ -39,7 +39,7 @@ function StatCard({
 
 export function DashboardPage() {
   const { data: projects = [], isLoading: loadingProjects } = useListProjectsQuery();
-  const { data: mirrors = [], isLoading: loadingMirrors } = useListMirrorsQuery();
+  const { data: mirrors = [], isLoading: loadingMirrors } = useGetMirrorsQuery({ limit: 500 });
   const { data: goldImages = [], isLoading: loadingGold } = useListGoldImagesQuery();
   const { data: appImages = [], isLoading: loadingApp } = useListAppImagesQuery();
 

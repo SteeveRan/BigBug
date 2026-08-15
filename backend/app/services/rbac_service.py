@@ -6,7 +6,7 @@ Handles:
 - Role CRUD operations
 - Permission assignments
 - Seeding default permissions
-- Role-scope management (source groups, credentials, sync groups)
+- Role-scope management (source groups, credentials, sync groups, providers)
 - Effective scope computation and scope-based access checks
 
 All methods are pure domain logic and raise domain exceptions (not HTTPException).
@@ -27,7 +27,14 @@ from app.core.exceptions import (
 )
 from app.models.permission import Permission
 from app.models.role import Role, UserRole
-from app.models.role_scope import RoleScopeCredential, RoleScopeSourceGroup, RoleScopeSyncGroup
+from app.models.role_scope import (
+    RoleScopeCredential,
+    RoleScopeProvider,
+    RoleScopeSourceGroup,
+    RoleScopeSyncGroup,
+)
+from app.models.team import TeamRole
+from app.models.team_member import TeamMember
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -439,6 +446,64 @@ class RBACService:
         )
 
     # ------------------------------------------------------------------
+    # Providers scope
+    # ------------------------------------------------------------------
+
+    async def get_role_scope_providers(self, role_id: int) -> list[int]:
+        """Return list of provider_ids assigned to this role."""
+        result = await self.db.execute(
+            select(RoleScopeProvider.provider_id).where(RoleScopeProvider.role_id == role_id)
+        )
+        return sorted(row.provider_id for row in result)
+
+    async def set_role_scope_providers(self, role_id: int, provider_ids: list[int]) -> None:
+        """Atomic replace: delete all existing scope for this role + insert new ones."""
+        role = await self.get_role_by_id(role_id)
+        if role is None:
+            raise RoleNotFoundError(f"Role with id={role_id} not found")
+
+        await self.db.execute(delete(RoleScopeProvider).where(RoleScopeProvider.role_id == role_id))
+
+        for provider_id in provider_ids:
+            self.db.add(RoleScopeProvider(role_id=role_id, provider_id=provider_id))
+
+        await self.db.commit()
+        logger.debug(
+            "set_role_scope_providers: role_id=%s, count=%s",
+            role_id,
+            len(provider_ids),
+        )
+
+    async def add_role_scope_provider(self, role_id: int, provider_id: int) -> None:
+        """Add single provider to role scope (idempotent)."""
+        existing = await self.db.get(RoleScopeProvider, (role_id, provider_id))
+        if existing is not None:
+            return
+
+        self.db.add(RoleScopeProvider(role_id=role_id, provider_id=provider_id))
+        await self.db.commit()
+        logger.debug(
+            "add_role_scope_provider: role_id=%s, provider_id=%s",
+            role_id,
+            provider_id,
+        )
+
+    async def remove_role_scope_provider(self, role_id: int, provider_id: int) -> None:
+        """Remove single provider from role scope (idempotent)."""
+        await self.db.execute(
+            delete(RoleScopeProvider).where(
+                RoleScopeProvider.role_id == role_id,
+                RoleScopeProvider.provider_id == provider_id,
+            )
+        )
+        await self.db.commit()
+        logger.debug(
+            "remove_role_scope_provider: role_id=%s, provider_id=%s",
+            role_id,
+            provider_id,
+        )
+
+    # ------------------------------------------------------------------
     # Effective scope + access checks
     # ------------------------------------------------------------------
 
@@ -447,9 +512,10 @@ class RBACService:
         Return effective scope for user = UNION of all scopes from all user's roles.
 
         Returns ``{"source_group_ids": {1,2,3}, "credential_ids": {5,6},
-        "sync_group_ids": {10,11}}``.
+        "sync_group_ids": {10,11}, "team_ids": {1,2}, "provider_ids": {7,8}}``.
 
-        Admins get None values (meaning "all access").
+        ``team_ids`` is computed from ``team_members`` membership (12.2.3) rather
+        than a role-scope link table. Admins get None values (meaning "all access").
         """
         # Load user with roles → scopes in a single query
         user_result = await self.db.execute(
@@ -464,6 +530,9 @@ class RBACService:
                 selectinload(User.user_roles)
                 .selectinload(UserRole.role)
                 .selectinload(Role.sync_group_scopes),
+                selectinload(User.user_roles)
+                .selectinload(UserRole.role)
+                .selectinload(Role.provider_scopes),
             )
             .where(User.id == user_id)
         )
@@ -481,11 +550,14 @@ class RBACService:
                 "source_group_ids": None,
                 "credential_ids": None,
                 "sync_group_ids": None,
+                "team_ids": None,
+                "provider_ids": None,
             }
 
         source_group_ids: set[int] = set()
         credential_ids: set[int] = set()
         sync_group_ids: set[int] = set()
+        provider_ids: set[int] = set()
 
         for user_role in user.user_roles:
             role = user_role.role
@@ -501,10 +573,21 @@ class RBACService:
             for scope in role.sync_group_scopes:
                 sync_group_ids.add(scope.sync_group_id)
 
+            for scope in role.provider_scopes:
+                provider_ids.add(scope.provider_id)
+
+        # team_ids = teams where the user is a member (12.2.3)
+        team_result = await self.db.execute(
+            select(TeamMember.team_id).where(TeamMember.user_id == user_id)
+        )
+        team_ids: set[int] = {row.team_id for row in team_result}
+
         return {
             "source_group_ids": source_group_ids,
             "credential_ids": credential_ids,
             "sync_group_ids": sync_group_ids,
+            "team_ids": team_ids,
+            "provider_ids": provider_ids,
         }
 
     async def check_scope_access(
@@ -528,3 +611,14 @@ class RBACService:
 
         # set (possibly empty) → check membership
         return resource_id in id_set
+
+    async def is_team_lead(self, user_id: int, team_id: int) -> bool:
+        """Return True if ``user_id`` is the lead of ``team_id`` (12.2.3)."""
+        result = await self.db.execute(
+            select(TeamMember.role).where(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id == user_id,
+            )
+        )
+        role = result.scalar_one_or_none()
+        return role is not None and role == TeamRole.lead

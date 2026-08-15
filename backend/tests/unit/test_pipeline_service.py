@@ -18,6 +18,7 @@ from app.core.exceptions import BadRequestError, DomainError, NotFoundError
 from app.models.gitlab_component import GitLabComponent
 from app.models.pipeline import Pipeline
 from app.models.pipeline_run import PipelineRun
+from app.models.resource_provider import ResourceProvider
 from app.models.sync_group import SyncGroup
 from app.schemas.pipeline import PipelineCreate, PipelineUpdate
 from app.services import pipeline as pipeline_service
@@ -34,7 +35,7 @@ class TestGetPipelineRuns:
         """Create 4 pipeline runs with varying statuses."""
         runs = [
             PipelineRun(
-                gitlab_instance_id=1,
+                provider_id=1,
                 gitlab_project_id=100 + i,
                 ref="main",
                 status_flag=flag,
@@ -101,7 +102,7 @@ async def test_get_pipeline_run_not_found(db_session: AsyncSession):
 async def test_get_pipeline_run_found(db_session: AsyncSession):
     """get_pipeline_run returns run when it exists."""
     run = PipelineRun(
-        gitlab_instance_id=1,
+        provider_id=1,
         gitlab_project_id=42,
         ref="main",
     )
@@ -123,33 +124,25 @@ class TestTriggerPipeline:
     """Tests for trigger_pipeline()"""
 
     @pytest.mark.asyncio
-    async def test_trigger_requires_gitlab_instance(self, db_session: AsyncSession):
-        """trigger_pipeline raises NotFoundError when instance doesn't exist."""
+    async def test_trigger_requires_provider(self, db_session: AsyncSession):
+        """trigger_pipeline raises NotFoundError when provider doesn't exist."""
         with pytest.raises(NotFoundError) as exc_info:
             await pipeline_service.trigger_pipeline(
                 db_session,
-                gitlab_instance_id=99999,
                 gitlab_project_id=1,
                 ref="main",
+                provider_id=99999,
             )
-        assert "instance" in str(exc_info.value.detail).lower()
+        assert "provider" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
     async def test_trigger_handles_gitlab_error(self, db_session: AsyncSession):
         """trigger_pipeline records failed run on GitLab API error."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
+        provider = await _seed_resource_provider(db_session)
 
-        instance = GitlabInstanceModel(
-            name="test-gitlab",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
-
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             import gitlab
@@ -160,9 +153,9 @@ class TestTriggerPipeline:
 
             run = await pipeline_service.trigger_pipeline(
                 db_session,
-                gitlab_instance_id=instance.id,
                 gitlab_project_id=42,
                 ref="main",
+                provider_id=provider.id,
             )
 
         assert run.status_flag == 1  # FAILED
@@ -171,19 +164,11 @@ class TestTriggerPipeline:
     @pytest.mark.asyncio
     async def test_trigger_creates_run_record(self, db_session: AsyncSession):
         """trigger_pipeline creates PipelineRun on success."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
+        provider = await _seed_resource_provider(db_session)
 
-        instance = GitlabInstanceModel(
-            name="test-gitlab-success",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
-
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_pipeline = MagicMock()
@@ -195,11 +180,11 @@ class TestTriggerPipeline:
 
             run = await pipeline_service.trigger_pipeline(
                 db_session,
-                gitlab_instance_id=instance.id,
                 gitlab_project_id=42,
                 ref="main",
                 variables={"KEY": "VALUE"},
                 user_id=1,
+                provider_id=provider.id,
             )
 
         assert run.status_flag == 3  # IN_PROGRESS
@@ -207,6 +192,7 @@ class TestTriggerPipeline:
         assert run.variables == {"KEY": "VALUE"}
         assert run.triggered_by_user_id == 1
         assert run.web_url == "https://gitlab.example.com/pipelines/12345"
+        assert run.provider_id == provider.id
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -221,7 +207,7 @@ class TestUpdatePipelineStatus:
     async def test_update_status_changes_flag(self, db_session: AsyncSession):
         """update_pipeline_status updates status_flag and status_text."""
         run = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=42,
             gitlab_pipeline_id=999,
             ref="main",
@@ -275,7 +261,7 @@ class TestGitLabComponents:
         comp = await pipeline_service.create_component(
             db_session,
             name="my-component",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
             description="Test component",
@@ -301,7 +287,7 @@ class TestGitLabComponents:
         comp = await pipeline_service.create_component(
             db_session,
             name="old-name",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="group/project",
             component_path=".gitlab/components/old.yml",
         )
@@ -324,7 +310,7 @@ class TestGitLabComponents:
         comp = await pipeline_service.create_component(
             db_session,
             name="to-delete",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="group/project",
             component_path=".gitlab/components/del.yml",
         )
@@ -353,7 +339,7 @@ class TestPipelineConfigCRUD:
             return
         comp = GitLabComponent(
             name="test-component",
-            gitlab_instance_id=1,
+            provider_id=1,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
@@ -661,24 +647,17 @@ class TestPipelineConfigCRUD:
 class TestTriggerPipelineFromConfig:
     """Tests for trigger_pipeline_from_config()"""
 
-    async def _seed_pipeline_with_instance(self, db_session: AsyncSession, **kwargs) -> Pipeline:
-        """Create a Pipeline with a real GitlabInstance in the DB,
-        reload with gitlab_instance eager-loaded, and return it."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-
-        instance = GitlabInstanceModel(
-            name=kwargs.pop("instance_name", "trigger-cfg-gitlab"),
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
+    async def _seed_pipeline_with_provider(self, db_session: AsyncSession, **kwargs) -> Pipeline:
+        """Create a Pipeline linked to a system/internal gitlab ResourceProvider,
+        reload with provider eager-loaded, and return it."""
+        provider = await _seed_resource_provider(
+            db_session,
+            name=kwargs.pop("provider_name", "trigger-cfg-gitlab"),
         )
-        db_session.add(instance)
-        await db_session.flush()
 
         pipeline = Pipeline(
             name=kwargs.pop("name", "trigger-cfg-pipeline"),
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             ref=kwargs.pop("ref", "main"),
             default_variables=kwargs.pop("default_variables", {}),
             is_enabled=kwargs.pop("is_enabled", True),
@@ -687,18 +666,20 @@ class TestTriggerPipelineFromConfig:
         db_session.add(pipeline)
         await db_session.commit()
 
-        # Reload with gitlab_instance eager-loaded
+        # Reload with provider/credential eager-loaded
         return await pipeline_service.get_pipeline_config(db_session, pipeline.id)
 
     @pytest.mark.asyncio
     async def test_trigger_from_config_success(self, db_session: AsyncSession):
         """Successful trigger creates PipelineRun with RUNNING status."""
-        pipeline = await self._seed_pipeline_with_instance(
+        pipeline = await self._seed_pipeline_with_provider(
             db_session,
             default_variables={"SOURCE": "default-src"},
         )
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_gl_pipeline = MagicMock()
@@ -731,12 +712,14 @@ class TestTriggerPipelineFromConfig:
     @pytest.mark.asyncio
     async def test_trigger_from_config_merges_variables(self, db_session: AsyncSession):
         """mirror_variables override default_variables with the same key."""
-        pipeline = await self._seed_pipeline_with_instance(
+        pipeline = await self._seed_pipeline_with_provider(
             db_session,
             default_variables={"KEY1": "default", "KEY2": "default2"},
         )
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_gl_pipeline = MagicMock()
@@ -759,7 +742,7 @@ class TestTriggerPipelineFromConfig:
     @pytest.mark.asyncio
     async def test_trigger_from_config_disabled_pipeline(self, db_session: AsyncSession):
         """Disabled pipeline raises BadRequestError."""
-        pipeline = await self._seed_pipeline_with_instance(
+        pipeline = await self._seed_pipeline_with_provider(
             db_session, is_enabled=False, name="disabled-pipe"
         )
 
@@ -772,17 +755,15 @@ class TestTriggerPipelineFromConfig:
         assert "disabled" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
-    async def test_trigger_from_config_no_gitlab_instance(self, db_session: AsyncSession):
-        """Pipeline without gitlab_instance raises NotFoundError."""
+    async def test_trigger_from_config_no_provider(self, db_session: AsyncSession):
+        """Pipeline without a provider raises NotFoundError."""
         pipeline = Pipeline(
             name="no-instance-pipe",
-            gitlab_instance_id=None,
+            provider_id=None,
             ref="main",
             default_variables={},
             is_enabled=True,
         )
-        # Manually ensure gitlab_instance is None (the relationship yields None when FK is None)
-        pipeline.gitlab_instance = None
 
         with pytest.raises(NotFoundError) as exc_info:
             await pipeline_service.trigger_pipeline_from_config(
@@ -790,17 +771,20 @@ class TestTriggerPipelineFromConfig:
                 pipeline=pipeline,
                 gitlab_project_id=1,
             )
-        assert "gitlab_instance" in str(exc_info.value.detail).lower()
+        # Phase 4: the error mentions the provider (no provider assigned)
+        assert "provider" in str(exc_info.value.detail).lower()
 
     @pytest.mark.asyncio
     async def test_trigger_from_config_gitlab_api_error(self, db_session: AsyncSession):
         """GitLab API error records a FAILED PipelineRun."""
-        pipeline = await self._seed_pipeline_with_instance(
+        pipeline = await self._seed_pipeline_with_provider(
             db_session,
             default_variables={"VAR": "val"},
         )
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             import gitlab
@@ -831,21 +815,14 @@ class TestMonitorPipelineStatus:
     """Tests for monitor_pipeline_status()"""
 
     async def _seed_pipeline_run(self, db_session: AsyncSession, **kwargs) -> PipelineRun:
-        """Create a PipelineRun with a real GitlabInstance in the DB."""
-        from app.core.secrets import encrypt_secret
-        from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
-
-        instance = GitlabInstanceModel(
-            name=kwargs.pop("instance_name", "monitor-gitlab"),
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
+        """Create a PipelineRun linked to a system/internal gitlab ResourceProvider."""
+        provider = await _seed_resource_provider(
+            db_session,
+            name=kwargs.pop("provider_name", "monitor-gitlab"),
         )
-        db_session.add(instance)
-        await db_session.flush()
 
         run = PipelineRun(
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             gitlab_project_id=kwargs.pop("gitlab_project_id", 42),
             gitlab_pipeline_id=kwargs.pop("gitlab_pipeline_id", 555),
             ref=kwargs.pop("ref", "main"),
@@ -879,7 +856,9 @@ class TestMonitorPipelineStatus:
         """Polling a successful pipeline updates status to OK."""
         run = await self._seed_pipeline_run(db_session)
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._clients._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_gl_pipeline = MagicMock()
@@ -903,7 +882,9 @@ class TestMonitorPipelineStatus:
         """Polling a failed pipeline updates status to FAILED."""
         run = await self._seed_pipeline_run(db_session)
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._clients._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_gl_pipeline = MagicMock()
@@ -924,7 +905,9 @@ class TestMonitorPipelineStatus:
         """GitLab API error sets status to WARNING."""
         run = await self._seed_pipeline_run(db_session)
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._clients._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             import gitlab
 
@@ -935,3 +918,162 @@ class TestMonitorPipelineStatus:
 
         assert updated.status_flag == 2  # STATUS_WARNING
         assert "GitLab API error" in updated.status_text
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Providers V3 (phase 4, plan stage 15): consumer link validation
+# ──────────────────────────────────────────────────────────────────────
+
+
+async def _seed_resource_provider(db_session: AsyncSession, **overrides) -> ResourceProvider:
+    """Create a ResourceProvider row; defaults describe the platform GitLab
+    (gitlab/system/internal — the only combination allowed for pipelines)."""
+    values = {
+        "domain": "git",
+        "subtype": "gitlab",
+        "category": "system",
+        "direction": "internal",
+        "name": "gitlab-system",
+        "label": "GitLab (system)",
+        "base_url": "https://gitlab.example.com",
+    }
+    values.update(overrides)
+    if values["name"] == "gitlab-system" and "name" not in overrides:
+        values["name"] = f"gitlab-system-{id(values):x}"
+    provider = ResourceProvider(**values)
+    db_session.add(provider)
+    await db_session.commit()
+    await db_session.refresh(provider)
+    return provider
+
+
+class TestPipelineProviderValidation:
+    """pipelines.provider_id must reference gitlab/system/internal (plan 11.3.4)."""
+
+    @pytest.mark.asyncio
+    async def test_create_with_valid_system_gitlab_provider(self, db_session: AsyncSession):
+        provider = await _seed_resource_provider(db_session)
+        data = PipelineCreate(name="prov-pipe-ok", provider_id=provider.id)
+
+        pipeline = await pipeline_service.create_pipeline(db_session, data)
+
+        assert pipeline.provider_id == provider.id
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_wrong_subtype(self, db_session: AsyncSession):
+        provider = await _seed_resource_provider(db_session, subtype="github", name="github-system")
+        data = PipelineCreate(name="prov-pipe-github", provider_id=provider.id)
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await pipeline_service.create_pipeline(db_session, data)
+        assert "gitlab" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_non_system_category(self, db_session: AsyncSession):
+        provider = await _seed_resource_provider(
+            db_session, category="public", name="gitlab-public"
+        )
+        data = PipelineCreate(name="prov-pipe-public", provider_id=provider.id)
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await pipeline_service.create_pipeline(db_session, data)
+        assert "category=system" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_external_direction(self, db_session: AsyncSession):
+        provider = await _seed_resource_provider(
+            db_session, direction="external", name="gitlab-external"
+        )
+        data = PipelineCreate(name="prov-pipe-external", provider_id=provider.id)
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await pipeline_service.create_pipeline(db_session, data)
+        assert "direction=internal" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_missing_provider(self, db_session: AsyncSession):
+        data = PipelineCreate(name="prov-pipe-missing", provider_id=99999)
+
+        with pytest.raises(NotFoundError):
+            await pipeline_service.create_pipeline(db_session, data)
+
+
+class TestDockerTargetProviderValidation:
+    """docker_image_sources.target_provider_id must reference an internal
+    harbor/generic_registry provider (plan 11.3.4)."""
+
+    @pytest.mark.asyncio
+    async def test_target_provider_internal_harbor_accepted(self, db_session: AsyncSession):
+        from app.services.docker import DockerRegistryService
+
+        provider = await _seed_resource_provider(
+            db_session,
+            domain="docker",
+            subtype="harbor",
+            category="system",
+            direction="internal",
+            name="harbor-internal",
+            base_url="https://harbor.example.com",
+        )
+        service = DockerRegistryService()
+
+        # image_name=None → no network indexing happens
+        source = await service.import_source_from_url(
+            name="harbor-target-src",
+            registry_url="https://registry-1.docker.io",
+            image_name=None,
+            db=db_session,
+            target_provider_id=provider.id,
+        )
+
+        assert source.target_provider_id == provider.id
+        # The legacy URL column is kept in sync with the provider base_url
+        assert source.target_registry_url == "https://harbor.example.com"
+
+    @pytest.mark.asyncio
+    async def test_target_provider_external_rejected(self, db_session: AsyncSession):
+        from app.services.docker import DockerRegistryService
+
+        provider = await _seed_resource_provider(
+            db_session,
+            domain="docker",
+            subtype="harbor",
+            category="public",
+            direction="external",
+            name="harbor-external",
+        )
+        service = DockerRegistryService()
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await service.import_source_from_url(
+                name="harbor-ext-src",
+                registry_url="https://registry-1.docker.io",
+                image_name=None,
+                db=db_session,
+                target_provider_id=provider.id,
+            )
+        assert "internal" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_target_provider_wrong_subtype_rejected(self, db_session: AsyncSession):
+        from app.services.docker import DockerRegistryService
+
+        provider = await _seed_resource_provider(
+            db_session,
+            domain="docker",
+            subtype="docker_hub",
+            category="system",
+            direction="internal",
+            name="dockerhub-internal",
+        )
+        service = DockerRegistryService()
+
+        with pytest.raises(BadRequestError) as exc_info:
+            await service.import_source_from_url(
+                name="dockerhub-tgt-src",
+                registry_url="https://registry-1.docker.io",
+                image_name=None,
+                db=db_session,
+                target_provider_id=provider.id,
+            )
+        assert "harbor or generic_registry" in str(exc_info.value.detail)

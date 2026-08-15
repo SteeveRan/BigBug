@@ -13,11 +13,16 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.credential import Credential, CredentialType
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.health_check import (
@@ -33,8 +38,8 @@ from app.services.health_check import (
 
 
 async def _seed_health_mirror(db: AsyncSession) -> Mirror:
-    """Create a full mirror chain: Credential → SourceProvider → SourceGroup →
-    SourceRepository → SyncGroup → Pipeline → GitlabInstance → Mirror."""
+    """Create a full mirror chain: Credential → ResourceProvider (source) →
+    SourceGroup → SourceRepository → SyncGroup → Pipeline → ResourceProvider → Mirror."""
     # Credential
     cred = Credential(
         name="test-cred",
@@ -46,11 +51,16 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
     db.add(cred)
     await db.flush()
 
-    # SourceProvider
-    sp = SourceProvider(
-        credential_id=cred.id,
-        provider_type=ProviderType.github,
+    # ResourceProvider (github/external — source provider)
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name="test-provider",
         label="test-provider",
+        credential_id=cred.id,
+        verify_ssl=True,
     )
     db.add(sp)
     await db.flush()
@@ -67,6 +77,7 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
     # SourceRepository
     sr = SourceRepository(
         source_group_id=sg.id,
+        provider_id=sp.id,
         external_id="12345",
         name="test-repo",
         full_name="testorg/test-repo",
@@ -75,20 +86,24 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
     db.add(sr)
     await db.flush()
 
-    # GitlabInstance
-    instance = GitlabInstance(
-        url="https://gitlab.example.com",
-        token="gAAAAAB...",  # dummy encrypted token
-        verify_ssl=True,
+    # ResourceProvider (gitlab/system/internal)
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
         name="test-instance",
+        label="test-instance",
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
     )
-    db.add(instance)
+    db.add(provider)
     await db.flush()
 
     # Pipeline
     pipeline = Pipeline(
         name="test-pipeline",
-        gitlab_instance_id=instance.id,
+        provider_id=provider.id,
         ref="main",
     )
     db.add(pipeline)
@@ -121,14 +136,17 @@ async def _seed_health_mirror(db: AsyncSession) -> Mirror:
 
 
 async def _seed_anon_health_mirror(db: AsyncSession) -> Mirror:
-    """Create a full mirror chain with an anonymous (no-credential) SourceProvider."""
-    # SourceProvider (anonymous, no credential)
-    sp = SourceProvider(
-        credential_id=None,
-        provider_type=ProviderType.github,
+    """Create a full mirror chain with an anonymous (no-credential) provider."""
+    # ResourceProvider (github/external, anonymous — no credential)
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name="anon-provider",
         label="anon-provider",
-        is_anon=True,
-        is_builtin=True,
+        credential_id=None,
+        verify_ssl=True,
     )
     db.add(sp)
     await db.flush()
@@ -145,7 +163,7 @@ async def _seed_anon_health_mirror(db: AsyncSession) -> Mirror:
     # SourceRepository
     sr = SourceRepository(
         source_group_id=sg.id,
-        source_provider_id=sp.id,
+        provider_id=sp.id,
         external_id="99999",
         name="anon-repo",
         full_name="anonorg/anon-repo",
@@ -154,20 +172,24 @@ async def _seed_anon_health_mirror(db: AsyncSession) -> Mirror:
     db.add(sr)
     await db.flush()
 
-    # GitlabInstance
-    instance = GitlabInstance(
-        url="https://gitlab.example.com",
-        token="gAAAAAB...",
-        verify_ssl=True,
+    # ResourceProvider (gitlab/system/internal)
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
         name="anon-instance",
+        label="anon-instance",
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
     )
-    db.add(instance)
+    db.add(provider)
     await db.flush()
 
     # Pipeline
     pipeline = Pipeline(
         name="anon-pipeline",
-        gitlab_instance_id=instance.id,
+        provider_id=provider.id,
         ref="main",
     )
     db.add(pipeline)
@@ -387,11 +409,14 @@ class TestCheckSystemAnonymous:
         self, db_session: AsyncSession
     ):
         """check_system creates anonymous provider with credential_secret=None."""
-        sp = SourceProvider(
+        sp = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="anon-gh",
             label="anon-gh",
-            provider_type=ProviderType.github,
-            is_anon=True,
-            is_builtin=True,
+            credential_id=None,
         )
         db_session.add(sp)
         await db_session.commit()
@@ -413,7 +438,7 @@ class TestCheckSystemAnonymous:
         assert call_args[1] is None  # credential_secret=None
 
         # Should report OK, not WARNING about missing credential
-        sp_items = [item for item in report.items if f"source_provider:{sp.id}" in item.component]
+        sp_items = [item for item in report.items if f"provider:{sp.id}" in item.component]
         assert len(sp_items) == 1
         assert sp_items[0].severity == HealthCheckSeverity.OK
         assert "(anonymous)" in sp_items[0].message
@@ -421,11 +446,14 @@ class TestCheckSystemAnonymous:
     @pytest.mark.asyncio
     async def test_check_system_anon_provider_failure(self, db_session: AsyncSession):
         """check_system reports ERROR when anonymous provider access fails."""
-        sp = SourceProvider(
+        sp = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.github,
+            category=ProviderCategory.public,
+            direction=ProviderDirection.external,
+            name="anon-bad",
             label="anon-bad",
-            provider_type=ProviderType.github,
-            is_anon=True,
-            is_builtin=True,
+            credential_id=None,
         )
         db_session.add(sp)
         await db_session.commit()
@@ -440,7 +468,7 @@ class TestCheckSystemAnonymous:
 
             report = await HealthCheckService.check_system(db_session)
 
-        sp_items = [item for item in report.items if f"source_provider:{sp.id}" in item.component]
+        sp_items = [item for item in report.items if f"provider:{sp.id}" in item.component]
         assert len(sp_items) == 1
         assert sp_items[0].severity == HealthCheckSeverity.ERROR
         assert "Connection refused" in sp_items[0].message
@@ -504,7 +532,9 @@ class TestCheckMirrorAnonymous:
         assert len(no_cred_items) == 0
 
         # create_source_provider should have been called with None secret
-        create_calls_for_sp = [c for c in mock_create.call_args_list if c.args[0].is_anon]
+        create_calls_for_sp = [
+            c for c in mock_create.call_args_list if c.args[0].credential_id is None
+        ]
         assert len(create_calls_for_sp) >= 1
         call_args, _ = create_calls_for_sp[0]
         assert call_args[1] is None

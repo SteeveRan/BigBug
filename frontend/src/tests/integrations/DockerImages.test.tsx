@@ -118,9 +118,29 @@ describe('DockerImagesPage', () => {
     image_name: 'library/nginx',
     normalized_image: 'library/nginx:latest',
     detected_registry_host: 'docker.io',
-    detected_provider: 'dockerhub',
-    compatible_registries: [{ id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' }],
-    suggested_registry: { id: 1, name: 'Docker Hub', url: 'https://registry-1.docker.io' },
+    detected_provider: 'docker_hub',
+    compatible_registries: [
+      {
+        id: 1,
+        domain: 'docker',
+        subtype: 'docker_hub',
+        category: 'public',
+        direction: 'external',
+        name: 'Docker Hub',
+        label: 'Docker Hub',
+        base_url: 'https://registry-1.docker.io',
+      },
+    ],
+    suggested_registry: {
+      id: 1,
+      domain: 'docker',
+      subtype: 'docker_hub',
+      category: 'public',
+      direction: 'external',
+      name: 'Docker Hub',
+      label: 'Docker Hub',
+      base_url: 'https://registry-1.docker.io',
+    },
     is_new_registry_needed: false,
   };
 
@@ -180,7 +200,7 @@ describe('DockerImagesPage', () => {
         name: 'library/nginx',
         registry_url: 'https://registry-1.docker.io',
         image_name: 'library/nginx:latest',
-        registry_instance_id: 1,
+        provider_id: 1,
       })
     );
   });

@@ -3,7 +3,7 @@
 @description Credential model — stores encrypted secrets (tokens, keys, passwords)
              for authenticating with source providers (GitHub, GitLab, etc.).
 @dependencies app.database.Base, app.core.secrets (via service layer)
-@relatedFiles ./source_provider.py, ./role_scope.py
+@relatedFiles ./role_scope.py
 """
 
 import enum
@@ -55,9 +55,6 @@ class Credential(Base):
     )
 
     # Relationships
-    source_providers = relationship(
-        "SourceProvider", back_populates="credential", cascade="all, delete-orphan"
-    )
     role_scopes = relationship(
         "RoleScopeCredential", back_populates="credential", cascade="all, delete-orphan"
     )

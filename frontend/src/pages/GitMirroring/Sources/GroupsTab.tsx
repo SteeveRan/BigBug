@@ -23,12 +23,12 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { ImportOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
-  useGetSourceProvidersQuery,
+  useGetProvidersQuery,
   useGetSourceGroupsQuery,
   useRefreshSourceGroupMutation,
   useDeleteSourceGroupMutation,
 } from '../../../store/api';
-import type { SourceGroup } from '../../../types';
+import type { SourceGroup, ResourceProvider } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { ImportGroupModal } from '../Groups/ImportGroupModal';
 
@@ -39,12 +39,12 @@ export function GroupsTab() {
   const [search] = useState('');
   const [importModalOpen, setImportModalOpen] = useState(false);
 
-  // Fetch providers
+  // Fetch git providers (external)
   const {
     data: providers = [],
     isLoading: providersLoading,
     isError: providersError,
-  } = useGetSourceProvidersQuery();
+  } = useGetProvidersQuery({ domain: 'git', direction: 'external' });
 
   // Auto-select first provider
   const effectiveProviderId = useMemo(() => {
@@ -217,8 +217,8 @@ export function GroupsTab() {
                 onChange={(v) => setSelectedProviderId(v)}
                 options={[
                   { label: 'All Providers', value: 0 },
-                  ...providers.map((p) => ({
-                    label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
+                  ...(providers as ResourceProvider[]).map((p) => ({
+                    label: p.label,
                     value: p.id,
                   })),
                 ]}

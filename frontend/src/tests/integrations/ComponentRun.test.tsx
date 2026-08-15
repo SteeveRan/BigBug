@@ -24,7 +24,7 @@ vi.mock('../../store/api', async () => {
     ...(actual as object),
     useGetComponentsQuery: vi.fn(),
     useRunComponentMutation: vi.fn(),
-    useGetGitlabInstancesQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
   };
 });
 
@@ -40,7 +40,7 @@ import { api } from '../../store/api';
 import {
   useGetComponentsQuery,
   useRunComponentMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { GitLabComponentsPage } from '../../pages/Settings/Pipelines';
@@ -54,7 +54,7 @@ const mockComponent: GitLabComponent = {
   id: 1,
   name: 'Test Component',
   description: 'A test component',
-  gitlab_instance_id: 1,
+  provider_id: 1,
   project_path: 'group/test-project',
   component_path: 'components/test-component.yml',
   version: '1.0.0',
@@ -81,7 +81,7 @@ const mockComponentWithoutInputs: GitLabComponent = {
   id: 2,
   name: 'Simple Component',
   description: 'A simple component without inputs',
-  gitlab_instance_id: 1,
+  provider_id: 1,
   project_path: 'group/simple-project',
   component_path: 'components/simple-component.yml',
   version: '1.0.0',
@@ -139,19 +139,35 @@ describe('Component Run Functionality', () => {
       error: null,
     });
 
-    (useGetGitlabInstancesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [
         {
           id: 1,
-          name: 'GitLab Instance 1',
-          url: 'https://gitlab.example.com',
+          domain: 'git',
+          subtype: 'gitlab',
+          category: 'system',
+          direction: 'internal',
+          name: 'gitlab-local',
+          label: 'GitLab Instance 1',
+          description: null,
+          base_url: 'https://gitlab.example.com',
+          config: {},
+          credential_id: null,
+          owner_user_id: null,
+          visibility: 'public',
+          team_id: null,
+          team_name: null,
           is_active: true,
-          verify_ssl: true,
           is_default: true,
+          is_protected: false,
+          verify_ssl: true,
+          priority: 0,
           status_flag: STATUS_FLAG.OK,
           status_text: 'Connected',
+          last_checked_at: null,
           created_at: '2026-06-07T12:00:00Z',
           updated_at: '2026-06-07T12:00:00Z',
+          has_credential: false,
         },
       ],
       isLoading: false,

@@ -19,6 +19,7 @@ import {
   ApiOutlined,
   LogoutOutlined,
   UserOutlined,
+  TeamOutlined,
   SunOutlined,
   MoonOutlined,
   DisconnectOutlined,
@@ -90,6 +91,20 @@ export function Layout() {
       label: 'Overview',
     },
     {
+      key: 'group-settings',
+      label: (
+        <span>
+          <SettingOutlined style={{ marginRight: 8 }} />
+          Settings
+        </span>
+      ),
+      type: 'group',
+      children: [
+        { key: '/settings/providers', icon: <ApiOutlined />, label: 'Providers' },
+        { key: '/settings/teams', icon: <TeamOutlined />, label: 'Teams' },
+      ],
+    },
+    {
       key: 'group-artifacts',
       label: (
         <span>
@@ -143,7 +158,6 @@ export function Layout() {
       type: 'group',
       children: [
         { key: '/git-mirroring/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
-        { key: '/git-mirroring/providers', icon: <ApiOutlined />, label: 'Source Providers' },
         { key: '/git-mirroring/sources', icon: <GithubOutlined />, label: 'Sources' },
         { key: '/git-mirroring/sync-groups', icon: <BlockOutlined />, label: 'Sync Groups' },
         { key: '/git-mirroring/mirrors', icon: <SyncOutlined />, label: 'Mirrors' },

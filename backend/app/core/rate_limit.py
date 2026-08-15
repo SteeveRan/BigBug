@@ -73,6 +73,10 @@ class _RateLimiter:
         of ``request.scope["route"].path``, avoiding the ``_IncludedRouter``
         AttributeError.
         """
+        # Check lazily so tests can flip ``settings.environment`` after import.
+        if settings.environment == "test" or not settings.rate_limit_enabled:
+            return
+
         ident = self._identity(request)
         if not ident:
             return

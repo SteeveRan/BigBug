@@ -71,7 +71,7 @@ async def seed_component(db_session: AsyncSession):
         return
     comp = GitLabComponent(
         name="integration-test-component",
-        gitlab_instance_id=1,
+        provider_id=1,
         project_path="group/project",
         component_path=".gitlab/components/test.yml",
     )

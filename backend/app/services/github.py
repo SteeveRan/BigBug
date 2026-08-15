@@ -1,24 +1,25 @@
 """
 @file github.py
 @description GitHub project service — import/repository discovery, metadata
-             refresh, and release syncing. Supports multi-instance: accepts an
-             optional ``instance`` parameter; falls back to the first active DB
-             instance, then to settings.GITHUB_TOKEN for backward compatibility.
+             refresh, and release syncing. Resolves the GitHub client from a
+             unified ``ResourceProvider`` (subtype=github, direction=external);
+             falls back to the seeded anonymous public provider, then to
+             settings.GITHUB_TOKEN for backward compatibility.
 @dependencies PyGithub, app.config.settings, app.core.secrets,
-              app.services.integrations.get_default_github_instance
-@relatedFiles ../models/github_instance.py, ../models/github_project.py,
-              ../core/secrets.py, ./integrations.py
+               app.models.resource_provider
+@relatedFiles ../models/resource_provider.py, ../models/github_project.py,
+               ../core/secrets.py
 """
 
 from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
 from github import Github, GithubException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.config import settings
 from app.core.exceptions import BadRequestError, ExternalServiceError
@@ -26,9 +27,12 @@ from app.core.secrets import decrypt_secret
 from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
-
-if TYPE_CHECKING:
-    from app.models.github_instance import GithubInstance
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 
 def _parse_github_url(url: str) -> tuple[str, str]:
@@ -44,37 +48,77 @@ def _parse_github_url(url: str) -> tuple[str, str]:
 
 
 class GitHubService:
-    """Service for interacting with GitHub instances."""
+    """Service for interacting with GitHub projects."""
 
     # ------------------------------------------------------------------
-    # Instance resolution
+    # Provider resolution
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def get_default_instance(db: AsyncSession) -> GithubInstance | None:
-        """Return the first active GitHub instance from the database."""
-        from app.services.integrations import get_default_github_instance
+    async def get_default_provider(db: AsyncSession) -> ResourceProvider | None:
+        """Return the default GitHub provider from ``resource_providers``.
 
-        return await get_default_github_instance(db)
+        Priority:
+        1. An active private provider (category=private) with a credential.
+        2. An active public provider (category=public) — the seeded
+           ``github-anonymous`` row (no credential required).
+
+        The credential relationship is eager-loaded so callers can decrypt the
+        token without triggering an async lazy load.
+        """
+        stmt = (
+            select(ResourceProvider)
+            .options(joinedload(ResourceProvider.credential))
+            .where(
+                ResourceProvider.subtype == ProviderSubtype.github,
+                ResourceProvider.direction == ProviderDirection.external,
+                ResourceProvider.is_active.is_(True),
+                ResourceProvider.is_deleted.is_(False),
+            )
+        )
+
+        # 1. Private provider with a credential (authenticated access).
+        private = await db.execute(
+            stmt.where(ResourceProvider.category == ProviderCategory.private).limit(1)
+        )
+        provider = private.unique().scalar_one_or_none()
+        if provider is not None and provider.credential_id is not None:
+            return provider
+
+        # 2. Public provider (anonymous fallback, e.g. github-anonymous).
+        public = await db.execute(
+            stmt.where(ResourceProvider.category == ProviderCategory.public)
+            .order_by(ResourceProvider.is_default.desc(), ResourceProvider.id.asc())
+            .limit(1)
+        )
+        return public.unique().scalar_one_or_none()
 
     # ------------------------------------------------------------------
     # Client factory
     # ------------------------------------------------------------------
 
-    def _get_client(self, instance: GithubInstance | None = None) -> Github:
+    def _get_client(self, provider: ResourceProvider | None = None) -> Github:
         """
         Build a PyGithub client.
 
         Priority:
-        1. ``instance`` — use its *decrypted* token.
+        1. ``provider`` — use its ``config.api_url`` base URL (if set) and
+           *decrypted* credential secret (if present).
         2. ``settings.github_token`` (fallback).
         3. Unauthenticated ``Github()`` if neither is available.
         """
-        if instance is not None:
-            token = decrypt_secret(instance.token) if instance.token else None
+        if provider is not None:
+            api_url = (provider.config or {}).get("api_url")
+            token: str | None = None
+            if provider.credential is not None and provider.credential.encrypted_secret:
+                token = decrypt_secret(provider.credential.encrypted_secret)
+
+            kwargs: dict = {}
+            if api_url:
+                kwargs["base_url"] = api_url
             if token:
-                return Github(token)
-            return Github()
+                return Github(token, **kwargs)
+            return Github(**kwargs)
 
         # Backward-compatible fallback
         if settings.github_token:
@@ -90,16 +134,16 @@ class GitHubService:
         github_url: str,
         db: AsyncSession,
         *,
-        instance: GithubInstance | None = None,
+        provider: ResourceProvider | None = None,
     ) -> GithubProject:
         """Discover a GitHub repository and persist it as a project."""
         owner, repo_name = _parse_github_url(github_url)
 
-        if instance is None:
-            instance = await self.get_default_instance(db)
+        if provider is None:
+            provider = await self.get_default_provider(db)
 
         try:
-            gh = self._get_client(instance)
+            gh = self._get_client(provider)
             gh_repo = gh.get_repo(f"{owner}/{repo_name}")
         except GithubException as e:
             raise ExternalServiceError("GitHub", str(e)) from e
@@ -178,7 +222,7 @@ class GitHubService:
                     bg_project = result.scalar_one()
 
                     # Get fresh repo instance
-                    gh = self._get_client(instance)
+                    gh = self._get_client(provider)
                     bg_gh_repo = gh.get_repo(project.full_name)
 
                     # Execute the sync with a timeout to prevent indefinite blocking
@@ -227,14 +271,14 @@ class GitHubService:
         project: GithubProject,
         db: AsyncSession,
         *,
-        instance: GithubInstance | None = None,
+        provider: ResourceProvider | None = None,
     ) -> None:
         """Re-fetch metadata from GitHub for an existing project."""
-        if instance is None:
-            instance = await self.get_default_instance(db)
+        if provider is None:
+            provider = await self.get_default_provider(db)
 
         try:
-            gh = self._get_client(instance)
+            gh = self._get_client(provider)
             gh_repo = gh.get_repo(project.full_name)
         except GithubException as e:
             raise ExternalServiceError("GitHub", str(e)) from e
@@ -272,7 +316,7 @@ class GitHubService:
                     bg_project = result.scalar_one()
 
                     # Get fresh repo instance
-                    gh = self._get_client(instance)
+                    gh = self._get_client(provider)
                     bg_gh_repo = gh.get_repo(project.full_name)
 
                     # Execute the sync with a timeout to prevent indefinite blocking

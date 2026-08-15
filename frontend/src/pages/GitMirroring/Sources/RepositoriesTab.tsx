@@ -25,13 +25,13 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, PlusOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
-  useGetSourceProvidersQuery,
+  useGetProvidersQuery,
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
   useDeleteSourceRepositoryMutation,
   useGetMirrorsQuery,
 } from '../../../store/api';
-import type { SourceRepository, Mirror } from '../../../types';
+import type { SourceRepository, Mirror, ResourceProvider } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
 import { AddRepositoryModal } from './AddRepositoryModal';
 import { BulkCreateMirrorsModal } from './BulkCreateMirrorsModal';
@@ -50,7 +50,10 @@ export function RepositoriesTab() {
   const navigate = useNavigate();
 
   // Provider → Group selection
-  const { data: providers = [], isLoading: providersLoading } = useGetSourceProvidersQuery();
+  const { data: providers = [], isLoading: providersLoading } = useGetProvidersQuery({
+    domain: 'git',
+    direction: 'external',
+  });
 
   const [selectedProviderId, setSelectedProviderId] = useState<number | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -235,8 +238,8 @@ export function RepositoriesTab() {
               allowClear
               onChange={(v) => setSelectedProviderId(v)}
               loading={providersLoading}
-              options={providers.map((p) => ({
-                label: `${p.label} (${p.provider_type})${p.is_anon ? ' [Anon]' : ''}${p.is_builtin ? ' [Builtin]' : ''}`,
+              options={(providers as ResourceProvider[]).map((p) => ({
+                label: p.label,
                 value: p.id,
               }))}
             />

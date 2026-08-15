@@ -218,8 +218,10 @@ export interface DockerImageSource {
   name: string;
   registry_url: string;
   description: string | null;
-  registry_instance_id: number | null;
-  registry_instance: DockerRegistryInstance | null;
+  provider_id: number | null;
+  target_provider_id: number | null;
+  provider: ResourceProvider | null;
+  target_provider: ResourceProvider | null;
   gitlab_project_id: string | null;
   gitlab_project_url: string | null;
   target_registry_url?: string | null;
@@ -302,6 +304,8 @@ export interface Role {
   credential_ids?: number[];
   /** Scope: IDs of sync groups this role can access */
   sync_group_ids?: number[];
+  /** Scope: IDs of resource providers this role can access */
+  provider_ids?: number[];
 }
 
 /** Ответ от GET /api/auth/me/permissions */
@@ -330,6 +334,7 @@ export interface RoleScope {
   source_group_ids: number[];
   credential_ids: number[];
   sync_group_ids: number[];
+  provider_ids: number[];
 }
 
 /** Request to replace role scope for a given scope type */
@@ -337,6 +342,7 @@ export interface RoleScopeUpdate {
   source_group_ids?: number[];
   credential_ids?: number[];
   sync_group_ids?: number[];
+  provider_ids?: number[];
 }
 
 /** Single scope item add/remove */
@@ -344,212 +350,9 @@ export interface ScopeItemRequest {
   source_group_id?: number;
   credential_id?: number;
   sync_group_id?: number;
+  provider_id?: number;
 }
 
-// ──── Integration Instance Types ────────────────────────────────────────────
-
-/** Result of a POST /test connection check */
-export interface ConnectionTestResult {
-  success: boolean;
-  message: string;
-  status_code: number | null;
-}
-
-// ── GitLab Instance ─────────────────────────────────────────────────────────
-
-export interface GitlabInstance {
-  id: number;
-  name: string;
-  url: string;
-  is_active: boolean;
-  verify_ssl: boolean;
-  is_default: boolean;
-  default_group_id: number | null;
-  status_flag: number;
-  status_text: string;
-  last_checked_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface GitlabInstanceCreate {
-  name: string;
-  url: string;
-  token?: string | null;
-  is_active?: boolean;
-  verify_ssl?: boolean;
-  is_default?: boolean;
-  default_group_id?: number | null;
-}
-
-export interface GitlabInstanceUpdate {
-  name?: string | null;
-  url?: string | null;
-  token?: string | null;
-  is_active?: boolean | null;
-  verify_ssl?: boolean | null;
-  is_default?: boolean | null;
-  default_group_id?: number | null;
-}
-
-// ── Harbor Instance ─────────────────────────────────────────────────────────
-
-export interface HarborInstance {
-  id: number;
-  name: string;
-  url: string;
-  username: string;
-  is_active: boolean;
-  verify_ssl: boolean;
-  is_default: boolean;
-  default_project: string | null;
-  status_flag: number;
-  status_text: string;
-  last_checked_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface HarborInstanceCreate {
-  name: string;
-  url: string;
-  username: string;
-  password?: string | null;
-  is_active?: boolean;
-  verify_ssl?: boolean;
-  is_default?: boolean;
-  default_project?: string | null;
-}
-
-export interface HarborInstanceUpdate {
-  name?: string | null;
-  url?: string | null;
-  username?: string | null;
-  password?: string | null;
-  is_active?: boolean | null;
-  verify_ssl?: boolean | null;
-  is_default?: boolean | null;
-  default_project?: string | null;
-}
-
-// ── GitHub Instance ─────────────────────────────────────────────────────────
-
-export interface GithubInstance {
-  id: number;
-  name: string;
-  is_active: boolean;
-  is_default: boolean;
-  status_flag: number;
-  status_text: string;
-  last_checked_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface GithubInstanceCreate {
-  name: string;
-  token?: string | null;
-  is_active?: boolean;
-  is_default?: boolean;
-}
-
-export interface GithubInstanceUpdate {
-  name?: string | null;
-  token?: string | null;
-  is_active?: boolean | null;
-  is_default?: boolean | null;
-}
-
-// ── Docker Registry Instance ─────────────────────────────────────────────────
-
-export interface DockerRegistryInstance {
-  id: number;
-  name: string;
-  url: string;
-  username: string | null;
-  is_active: boolean;
-  verify_ssl: boolean;
-  is_default: boolean;
-  registry_type: 'internal' | 'external';
-  registry_provider:
-    | 'docker_hub'
-    | 'quay_io'
-    | 'gcr'
-    | 'ecr'
-    | 'acr'
-    | 'ghcr'
-    | 'harbor'
-    | 'generic';
-  priority: number;
-  status_flag: number;
-  status_text: string;
-  last_checked_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DockerRegistryInstanceCreate {
-  name: string;
-  url: string;
-  username?: string | null;
-  password?: string | null;
-  is_active?: boolean;
-  verify_ssl?: boolean;
-  is_default?: boolean;
-  registry_type?: string;
-  registry_provider?: string;
-  priority?: number;
-}
-
-export interface DockerRegistryInstanceUpdate {
-  name?: string | null;
-  url?: string | null;
-  username?: string | null;
-  password?: string | null;
-  is_active?: boolean | null;
-  verify_ssl?: boolean | null;
-  is_default?: boolean | null;
-  registry_type?: string | null;
-  registry_provider?: string | null;
-  priority?: number | null;
-}
-
-// ── Helm Repository Instance ─────────────────────────────────────────────────
-
-export interface HelmRepositoryInstance {
-  id: number;
-  name: string;
-  url: string;
-  username: string | null;
-  is_active: boolean;
-  verify_ssl: boolean;
-  is_default: boolean;
-  status_flag: number;
-  status_text: string;
-  last_checked_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface HelmRepositoryInstanceCreate {
-  name: string;
-  url: string;
-  username?: string | null;
-  password?: string | null;
-  is_active?: boolean;
-  verify_ssl?: boolean;
-  is_default?: boolean;
-}
-
-export interface HelmRepositoryInstanceUpdate {
-  name?: string | null;
-  url?: string | null;
-  username?: string | null;
-  password?: string | null;
-  is_active?: boolean | null;
-  verify_ssl?: boolean | null;
-  is_default?: boolean | null;
-}
 
 // ──── OIDC Configuration Types ─────────────────────────────────────────────
 
@@ -580,7 +383,7 @@ export interface OIDCConfigUpdate {
 
 export interface PipelineRun {
   id: number;
-  gitlab_instance_id: number;
+  provider_id: number | null;
   gitlab_project_id: number;
   gitlab_pipeline_id: number | null;
   triggered_by_user_id: number | null;
@@ -597,7 +400,7 @@ export interface PipelineRun {
 }
 
 export interface PipelineRunCreate {
-  gitlab_instance_id: number;
+  provider_id: number;
   gitlab_project_id: number;
   ref: string;
   variables?: Record<string, string>;
@@ -616,7 +419,7 @@ export interface GitLabComponent {
   id: number;
   name: string;
   description: string | null;
-  gitlab_instance_id: number;
+  provider_id: number;
   project_path: string;
   component_path: string;
   version: string | null;
@@ -629,7 +432,7 @@ export interface GitLabComponent {
 export interface GitLabComponentCreate {
   name: string;
   description?: string;
-  gitlab_instance_id: number;
+  provider_id: number;
   project_path: string;
   component_path: string;
   version?: string;
@@ -639,7 +442,7 @@ export interface GitLabComponentCreate {
 export interface GitLabComponentUpdate {
   name?: string;
   description?: string | null;
-  gitlab_instance_id?: number;
+  provider_id?: number;
   project_path?: string;
   component_path?: string;
   version?: string | null;
@@ -746,8 +549,8 @@ export interface AnalyzeImageResponse {
   normalized_image: string;
   detected_registry_host: string;
   detected_provider: string;
-  suggested_registry: DockerRegistryInstance | null;
-  compatible_registries: DockerRegistryInstance[];
+  suggested_registry: ResourceProvider | null;
+  compatible_registries: ResourceProvider[];
   is_new_registry_needed: boolean;
 }
 
@@ -766,36 +569,213 @@ export interface Credential {
   created_at: string;
 }
 
-export interface SourceProvider {
-  id: number;
+// ============================================================
+// Providers V3 Types (unified resource_providers)
+// ============================================================
+
+export type ProviderCategory = 'system' | 'public' | 'private';
+export type ProviderDirection = 'external' | 'internal';
+export type ProviderVisibility = 'owner' | 'team' | 'public';
+export type ProviderDomain = 'git' | 'docker' | 'helm';
+export type ProviderSubtype =
+  | 'github'
+  | 'gitlab'
+  | 'generic_git'
+  | 'docker_hub'
+  | 'quay'
+  | 'gcr'
+  | 'ecr'
+  | 'acr'
+  | 'ghcr'
+  | 'harbor'
+  | 'generic_registry'
+  | 'helm_repo';
+
+export interface ProviderConfigField {
+  type: string;
+  default?: unknown;
+  enum?: unknown[];
+  items?: Record<string, unknown>;
+}
+
+export interface ProviderTypeSpec {
+  subtype: ProviderSubtype;
+  domain: ProviderDomain;
   label: string;
-  provider_type: ProviderType;
+  capabilities: string[];
+  allowed_categories: ProviderCategory[];
+  allowed_directions: ProviderDirection[];
+  allowed_credential_types: string[];
+  config_schema: {
+    type: string;
+    properties: Record<string, ProviderConfigField>;
+    additionalProperties: boolean;
+  };
+  oci_compliant: boolean;
+  requires_base_url: boolean;
+}
+
+export interface ResourceProvider {
+  id: number;
+  domain: ProviderDomain;
+  subtype: ProviderSubtype;
+  category: ProviderCategory;
+  direction: ProviderDirection;
+  name: string;
+  label: string;
+  description: string | null;
+  base_url: string | null;
+  config: Record<string, unknown>;
   credential_id: number | null;
-  credential?: Credential;
-  config_json?: Record<string, unknown>;
-  is_anon: boolean;
-  is_builtin: boolean;
+  owner_user_id: number | null;
+  visibility: ProviderVisibility;
+  team_id: number | null;
+  team_name: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  is_protected: boolean;
+  verify_ssl: boolean;
+  priority: number;
   status_flag: number;
-  status_text: string;
-  groups_count?: number;
+  status_text: string | null;
+  last_checked_at: string | null;
+  created_at: string;
+  updated_at: string;
+  has_credential: boolean;
+}
+
+export interface ProviderCreate {
+  domain: ProviderDomain;
+  subtype: ProviderSubtype;
+  category: ProviderCategory;
+  direction: ProviderDirection;
+  name: string;
+  label: string;
+  description?: string | null;
+  base_url?: string | null;
+  config?: Record<string, unknown>;
+  credential_id?: number | null;
+  visibility?: ProviderVisibility;
+  team_id?: number | null;
+}
+
+export interface ProviderUpdate {
+  category?: ProviderCategory;
+  direction?: ProviderDirection;
+  label?: string;
+  description?: string | null;
+  base_url?: string | null;
+  config?: Record<string, unknown>;
+  credential_id?: number | null;
+  is_active?: boolean;
+  is_default?: boolean;
+  verify_ssl?: boolean;
+  priority?: number;
+  visibility?: ProviderVisibility;
+  team_id?: number | null;
+}
+
+export interface ProviderUsageItem {
+  resource: string;
+  count: number;
+}
+
+export interface ProviderUsage {
+  provider_id: number;
+  usage: ProviderUsageItem[];
+}
+
+export interface ProviderTestResult {
+  ok: boolean;
+  status_flag: number;
+  status_text: string | null;
+}
+
+export interface ProviderActionOut {
+  action: string;
+  items: Record<string, unknown>[];
+}
+
+// ============================================================
+// Teams Types (revision 3)
+// ============================================================
+
+export type TeamRole = 'lead' | 'member';
+
+export interface Team {
+  id: number;
+  name: string;
+  description: string | null;
+  owner: {
+    id: number;
+    username: string;
+  };
+  members_count: number;
+  my_role: TeamRole | null;
+}
+
+export interface TeamCreate {
+  name: string;
+  description?: string | null;
+  owner_user_id: number;
+}
+
+export interface TeamUpdate {
+  name?: string | null;
+  description?: string | null;
+  owner_user_id?: number | null;
+}
+
+export interface TeamMember {
+  user_id: number;
+  username: string;
+  role: TeamRole;
+  joined_at: string;
+}
+
+export interface TeamMemberAdd {
+  user_id: number;
+}
+
+// ============================================================
+// Credentials V3 Types
+// ============================================================
+
+export type CredentialType = 'github_token' | 'gitlab_token' | 'https_basic' | 'ssh_key';
+
+export interface CredentialDetail {
+  id: number;
+  name: string;
+  credential_type: CredentialType;
+  provider: string;
+  username: string | null;
+  ssh_public_key: string | null;
+  base_url: string | null;
+  status_flag: number;
+  status_text: string | null;
+  last_tested_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface SourceProviderCreate {
-  label: string;
-  provider_type: ProviderType;
-  credential_id?: number;
-  is_anon?: boolean;
-  config_json?: Record<string, unknown>;
+export interface CredentialCreate {
+  name: string;
+  credential_type: CredentialType;
+  provider: string;
+  username?: string | null;
+  secret: string;
+  ssh_public_key?: string | null;
+  base_url?: string | null;
 }
 
-export interface SourceProviderUpdate {
-  label?: string;
-  credential_id?: number;
-  config_json?: Record<string, unknown>;
-  status_flag?: number;
+export interface CredentialUpdate {
+  name?: string | null;
+  username?: string | null;
+  secret?: string | null;
+  ssh_public_key?: string | null;
+  base_url?: string | null;
 }
+
 
 export interface SourceGroup {
   id: number;
@@ -813,7 +793,7 @@ export interface SourceGroup {
 
 export interface SourceRepository {
   id: number;
-  source_provider_id: number | null;
+  provider_id: number | null;
   source_group_id: number | null;
   name: string;
   full_name: string;
@@ -859,9 +839,6 @@ export interface SourceRepository {
   last_commit_date: string | null;
   last_commit_author: string | null;
   last_commit_message: string | null;
-  // ---- Provider type (from source_provider) ----
-  provider_type: string;
-  source_provider?: SourceProvider | null;
   source_group?: SourceGroup | null;
   mirrors?: Mirror[] | null;
 }
@@ -869,7 +846,7 @@ export interface SourceRepository {
 export interface SourceRepositoryCreate {
   provider_type: 'github' | 'gitlab' | 'generic';
   clone_url: string;
-  source_provider_id?: number;
+  provider_id?: number;
 }
 
 export interface SourceRepositoryReadme {
@@ -1058,7 +1035,7 @@ export interface PipelineConfig {
   id: number;
   name: string;
   description: string | null;
-  gitlab_instance_id: number | null;
+  provider_id: number | null;
   ref: string | null;
   default_variables: Record<string, unknown> | null;
   is_default: boolean;
@@ -1066,13 +1043,13 @@ export interface PipelineConfig {
   created_at: string;
   updated_at: string;
   components: PipelineConfigComponent[];
-  gitlab_instance?: GitlabInstance | null;
+  provider?: ResourceProvider | null;
 }
 
 export interface PipelineConfigCreate {
   name: string;
   description?: string | null;
-  gitlab_instance_id?: number | null;
+  provider_id?: number | null;
   ref?: string | null;
   default_variables?: Record<string, unknown> | null;
   is_default?: boolean | null;
@@ -1082,7 +1059,7 @@ export interface PipelineConfigCreate {
 
 export interface PipelineConfigUpdate {
   description?: string | null;
-  gitlab_instance_id?: number | null;
+  provider_id?: number | null;
   ref?: string | null;
   default_variables?: Record<string, unknown> | null;
   is_default?: boolean | null;
@@ -1097,7 +1074,7 @@ export interface PipelineConfigDuplicateRequest {
 export interface PipelineListItem {
   id: number;
   name: string;
-  gitlab_instance_name: string | null;
+  provider_name: string | null;
   ref: string | null;
   is_default: boolean;
   is_enabled: boolean;

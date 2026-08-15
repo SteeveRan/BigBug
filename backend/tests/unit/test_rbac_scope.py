@@ -16,14 +16,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import RoleNotFoundError
 from app.core.security import get_password_hash
 from app.models.credential import Credential, CredentialType
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.role import Role, UserRole
 from app.models.role_scope import (
     RoleScopeCredential,
+    RoleScopeProvider,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
 )
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.sync_group import SyncGroup
 from app.models.user import User
 from app.services.rbac_service import RBACService
@@ -44,8 +51,8 @@ async def _seed_role(db: AsyncSession, name: str = "test-role-scope") -> Role:
 
 async def _seed_source_provider_and_group(
     db: AsyncSession, group_name: str = "test-org", external_id: str = "testorg"
-) -> tuple[SourceProvider, SourceGroup]:
-    """Create a minimal SourceProvider and SourceGroup for scope tests."""
+) -> tuple[ResourceProvider, SourceGroup]:
+    """Create a minimal ResourceProvider and SourceGroup for scope tests."""
     from app.core.secrets import encrypt_secret
 
     cred = Credential(
@@ -57,10 +64,14 @@ async def _seed_source_provider_and_group(
     db.add(cred)
     await db.flush()
 
-    sp = SourceProvider(
-        credential_id=cred.id,
-        provider_type=ProviderType.github,
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=f"test-provider-{group_name}",
         label=f"test-provider-{group_name}",
+        credential_id=cred.id,
     )
     db.add(sp)
     await db.flush()
@@ -99,6 +110,23 @@ async def _seed_sync_group(db: AsyncSession, name: str = "test-sync-group-scope"
     await db.commit()
     await db.refresh(sg)
     return sg
+
+
+async def _seed_provider(db: AsyncSession, name: str = "test-provider-scope") -> ResourceProvider:
+    """Create a minimal private ResourceProvider."""
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.private,
+        direction=ProviderDirection.external,
+        name=name,
+        label=name,
+        owner_user_id=999,
+    )
+    db.add(provider)
+    await db.commit()
+    await db.refresh(provider)
+    return provider
 
 
 async def _seed_user(
@@ -282,6 +310,73 @@ class TestRBACServiceSyncGroups:
             await service.set_role_scope_sync_groups(99999, [1])
 
 
+class TestRBACServiceProviders:
+    """Tests for RBACService provider scope methods."""
+
+    @pytest.mark.asyncio
+    async def test_get_role_scope_providers_empty(self, db_session: AsyncSession):
+        """Getting provider scope for role with none returns empty list."""
+        role = await _seed_role(db_session, "provider-empty-role")
+        service = RBACService(db_session)
+
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == []
+
+    @pytest.mark.asyncio
+    async def test_set_role_scope_providers(self, db_session: AsyncSession):
+        """Setting provider scope atomically replaces existing ones."""
+        role = await _seed_role(db_session, "provider-set-role")
+        p1 = await _seed_provider(db_session, "provider-a")
+        p2 = await _seed_provider(db_session, "provider-b")
+        service = RBACService(db_session)
+
+        await service.set_role_scope_providers(role.id, [p1.id])
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == [p1.id]
+
+        await service.set_role_scope_providers(role.id, [p1.id, p2.id])
+        ids = await service.get_role_scope_providers(role.id)
+        assert sorted(ids) == sorted([p1.id, p2.id])
+
+        await service.set_role_scope_providers(role.id, [])
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == []
+
+    @pytest.mark.asyncio
+    async def test_add_role_scope_provider_idempotent(self, db_session: AsyncSession):
+        """Adding the same provider twice is idempotent."""
+        role = await _seed_role(db_session, "provider-add-role")
+        p = await _seed_provider(db_session, "provider-idem")
+        service = RBACService(db_session)
+
+        await service.add_role_scope_provider(role.id, p.id)
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == [p.id]
+
+        await service.add_role_scope_provider(role.id, p.id)
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == [p.id]
+
+    @pytest.mark.asyncio
+    async def test_remove_role_scope_provider_idempotent(self, db_session: AsyncSession):
+        """Removing a non-existent provider scope is idempotent (no error)."""
+        role = await _seed_role(db_session, "provider-remove-role")
+        service = RBACService(db_session)
+
+        await service.remove_role_scope_provider(role.id, 99999)
+
+        ids = await service.get_role_scope_providers(role.id)
+        assert ids == []
+
+    @pytest.mark.asyncio
+    async def test_provider_scope_nonexistent_role(self, db_session: AsyncSession):
+        """Setting provider scope for non-existent role raises RoleNotFoundError."""
+        service = RBACService(db_session)
+
+        with pytest.raises(RoleNotFoundError, match="Role with id=99999 not found"):
+            await service.set_role_scope_providers(99999, [1])
+
+
 # ========================================================================
 # Effective scope tests
 # ========================================================================
@@ -300,6 +395,7 @@ class TestEffectiveScope:
         assert scope["source_group_ids"] == set()
         assert scope["credential_ids"] == set()
         assert scope["sync_group_ids"] == set()
+        assert scope["team_ids"] == set()
 
     @pytest.mark.asyncio
     async def test_get_user_effective_scope_with_scope(self, db_session: AsyncSession):
@@ -308,11 +404,13 @@ class TestEffectiveScope:
         _, sg = await _seed_source_provider_and_group(db_session, "eff-org", "eff-org")
         sync_g = await _seed_sync_group(db_session, "eff-sync")
         cred = await _seed_credential(db_session, "eff-cred")
+        provider = await _seed_provider(db_session, "eff-provider")
 
         # Add scope to the role
         db_session.add(RoleScopeSourceGroup(role_id=role.id, source_group_id=sg.id))
         db_session.add(RoleScopeSyncGroup(role_id=role.id, sync_group_id=sync_g.id))
         db_session.add(RoleScopeCredential(role_id=role.id, credential_id=cred.id))
+        db_session.add(RoleScopeProvider(role_id=role.id, provider_id=provider.id))
         await db_session.commit()
 
         user = await _seed_user(db_session, "scopeduser", role=role)
@@ -322,6 +420,8 @@ class TestEffectiveScope:
         assert scope["source_group_ids"] == {sg.id}
         assert scope["credential_ids"] == {cred.id}
         assert scope["sync_group_ids"] == {sync_g.id}
+        assert scope["provider_ids"] == {provider.id}
+        assert scope["team_ids"] == set()
 
     @pytest.mark.asyncio
     async def test_get_user_effective_scope_admin(self, db_session: AsyncSession):
@@ -341,6 +441,7 @@ class TestEffectiveScope:
         assert scope["source_group_ids"] is None
         assert scope["credential_ids"] is None
         assert scope["sync_group_ids"] is None
+        assert scope["team_ids"] is None
 
     @pytest.mark.asyncio
     async def test_get_user_effective_scope_multiple_roles(self, db_session: AsyncSession):
@@ -591,6 +692,84 @@ class TestAdminScopeAPI:
         assert response.status_code == 200
         data = response.json()
         assert sg.id in data["sync_group_ids"]
+
+    @pytest.mark.asyncio
+    async def test_get_scope_providers(
+        self, db_session: AsyncSession, client: AsyncClient, admin_token: str
+    ):
+        """Admin can get provider scope — 200."""
+        role = await _seed_role(db_session, "api-provider-role")
+        provider = await _seed_provider(db_session, "api-provider")
+
+        db_session.add(RoleScopeProvider(role_id=role.id, provider_id=provider.id))
+        await db_session.commit()
+
+        response = await client.get(
+            f"/api/admin/roles/{role.id}/scopes/providers",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert provider.id in data["provider_ids"]
+
+    @pytest.mark.asyncio
+    async def test_put_scope_providers(
+        self, db_session: AsyncSession, client: AsyncClient, admin_token: str
+    ):
+        """Admin can replace provider scope atomically — 200."""
+        role = await _seed_role(db_session, "api-put-provider-role")
+        p1 = await _seed_provider(db_session, "put-provider-1")
+        p2 = await _seed_provider(db_session, "put-provider-2")
+
+        response = await client.put(
+            f"/api/admin/roles/{role.id}/scopes/providers",
+            json={"provider_ids": [p1.id, p2.id]},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert sorted(data["provider_ids"]) == sorted([p1.id, p2.id])
+
+    @pytest.mark.asyncio
+    async def test_post_scope_provider(
+        self, db_session: AsyncSession, client: AsyncClient, admin_token: str
+    ):
+        """Admin can add a single provider scope item — 201."""
+        role = await _seed_role(db_session, "api-post-provider-role")
+        provider = await _seed_provider(db_session, "post-provider")
+
+        response = await client.post(
+            f"/api/admin/roles/{role.id}/scopes/providers",
+            json={"provider_id": provider.id},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert provider.id in data["provider_ids"]
+
+    @pytest.mark.asyncio
+    async def test_delete_scope_provider(
+        self, db_session: AsyncSession, client: AsyncClient, admin_token: str
+    ):
+        """Admin can remove a single provider scope item — 204."""
+        role = await _seed_role(db_session, "api-del-provider-role")
+        provider = await _seed_provider(db_session, "del-provider")
+
+        db_session.add(RoleScopeProvider(role_id=role.id, provider_id=provider.id))
+        await db_session.commit()
+
+        response = await client.delete(
+            f"/api/admin/roles/{role.id}/scopes/providers/{provider.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 204
+        assert response.content == b""
+
+        get_resp = await client.get(
+            f"/api/admin/roles/{role.id}/scopes/providers",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert provider.id not in get_resp.json()["provider_ids"]
 
     @pytest.mark.asyncio
     async def test_scope_for_nonexistent_role_returns_404(

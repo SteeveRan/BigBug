@@ -25,7 +25,7 @@ vi.mock('../../store/api', async () => {
   return {
     ...(actual as object),
     useListProjectsQuery: vi.fn(),
-    useListMirrorsQuery: vi.fn(),
+    useGetMirrorsQuery: vi.fn(),
     useListGoldImagesQuery: vi.fn(),
     useListAppImagesQuery: vi.fn(),
   };
@@ -33,7 +33,7 @@ vi.mock('../../store/api', async () => {
 
 import {
   useListProjectsQuery,
-  useListMirrorsQuery,
+  useGetMirrorsQuery,
   useListGoldImagesQuery,
   useListAppImagesQuery,
 } from '../../store/api';
@@ -101,7 +101,7 @@ describe('OverviewPage (Dashboard)', () => {
       isLoading: false,
       isError: false,
     });
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
       isLoading: false,
       isError: false,
@@ -138,7 +138,7 @@ describe('OverviewPage (Dashboard)', () => {
       isLoading: false,
       isError: false,
     });
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockMirrors,
       isLoading: false,
       isError: false,
@@ -172,7 +172,7 @@ describe('OverviewPage (Dashboard)', () => {
       isLoading: true,
       isError: false,
     });
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: undefined,
       isLoading: true,
       isError: false,
@@ -194,7 +194,7 @@ describe('OverviewPage (Dashboard)', () => {
   });
 
   it('shows "Attention Required" card when mirrors have failures', () => {
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [
         {
           ...mockMirrors[0],
@@ -213,7 +213,7 @@ describe('OverviewPage (Dashboard)', () => {
   });
 
   it('shows "Attention Required" card when mirrors are stale', () => {
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [
         {
           ...mockMirrors[0],
@@ -232,7 +232,7 @@ describe('OverviewPage (Dashboard)', () => {
   });
 
   it('renders Recent Mirrors Status section', () => {
-    (useListMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetMirrorsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockMirrors,
       isLoading: false,
       isError: false,

@@ -20,11 +20,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.core.rbac import RoleName
-from app.core.secrets import encrypt_secret
 from app.models.gitlab_component import GitLabComponent
-from app.models.gitlab_instance import GitlabInstance as GitlabInstanceModel
 from app.models.permission import Permission, role_permissions
 from app.models.pipeline_run import PipelineRun
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 # Import the role model at the top with other imports
 from app.models.role import Role
@@ -36,6 +41,24 @@ REQUIRED_PERMISSIONS = [
     {"name": "pipelines:write", "description": "Create and trigger pipelines"},
     {"name": "pipelines:delete", "description": "Cancel and delete pipelines"},
 ]
+
+
+async def _seed_provider(db_session: AsyncSession, name: str) -> ResourceProvider:
+    """Create a system/internal gitlab ResourceProvider for component runs."""
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
+        name=name,
+        label=name,
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
+    )
+    db_session.add(provider)
+    await db_session.commit()
+    await db_session.refresh(provider)
+    return provider
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -134,20 +157,12 @@ class TestTriggerComponent:
     ):
         """trigger_component validates inputs against component's input schema."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-gitlab",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-gitlab")
 
         # Create a component with input schema requiring specific fields
         component = GitLabComponent(
             name="test-component",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
             inputs_schema={
@@ -175,27 +190,21 @@ class TestTriggerComponent:
     async def test_trigger_component_handles_missing_gitlab_project(self, db_session: AsyncSession):
         """trigger_component records failed run when GitLab project doesn't exist."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-gitlab",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-gitlab")
 
         # Create a component
         component = GitLabComponent(
             name="test-component",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="nonexistent/group-project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             import gitlab
 
@@ -222,27 +231,21 @@ class TestTriggerComponent:
     async def test_trigger_component_handles_gitlab_api_error(self, db_session: AsyncSession):
         """trigger_component records failed run on GitLab API error during pipeline creation."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-gitlab",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-gitlab")
 
         # Create a component
         component = GitLabComponent(
             name="test-component",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             import gitlab
@@ -274,27 +277,21 @@ class TestTriggerComponent:
     async def test_trigger_component_creates_run_record_on_success(self, db_session: AsyncSession):
         """trigger_component creates PipelineRun on successful pipeline trigger."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-gitlab-success",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-gitlab-success")
 
         # Create a component
         component = GitLabComponent(
             name="test-component-success",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_pipeline = MagicMock()
@@ -328,27 +325,21 @@ class TestTriggerComponent:
     async def test_trigger_component_with_empty_inputs(self, db_session: AsyncSession):
         """trigger_component works with empty inputs."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-gitlab-empty-inputs",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-gitlab-empty-inputs")
 
         # Create a component
         component = GitLabComponent(
             name="test-component-empty-inputs",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_pipeline = MagicMock()
@@ -403,27 +394,21 @@ class TestComponentRunEndpoint:
     ):
         """Endpoint successfully triggers component run."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-instance",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-instance")
 
         # Create a component
         component = GitLabComponent(
             name="api-test-component",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_pipeline = MagicMock()
@@ -454,20 +439,12 @@ class TestComponentRunEndpoint:
     ):
         """Endpoint returns 422 when input validation fails."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-instance-validation",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-instance-validation")
 
         # Create a component with input schema
         component = GitLabComponent(
             name="api-test-component-validation",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
             inputs_schema={
@@ -499,27 +476,21 @@ class TestComponentRunEndpoint:
     ):
         """Endpoint returns 201 but with failed run when GitLab API fails."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-instance-error",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-instance-error")
 
         # Create a component
         component = GitLabComponent(
             name="api-test-component-error",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             import gitlab
 
@@ -545,27 +516,21 @@ class TestComponentRunEndpoint:
     ):
         """Endpoint uses default ref value when not provided."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-instance-defaults",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        await db_session.commit()
+        provider = await _seed_provider(db_session, "test-instance-defaults")
 
         # Create a component
         component = GitLabComponent(
             name="api-test-component-defaults",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
         db_session.add(component)
         await db_session.commit()
 
-        with patch("app.services.pipeline._get_gitlab_client") as mock_client_factory:
+        with patch(
+            "app.services.pipeline._runs._get_provider_gitlab_client"
+        ) as mock_client_factory:
             mock_gl = MagicMock()
             mock_project = MagicMock()
             mock_pipeline = MagicMock()
@@ -601,7 +566,7 @@ class TestUpdatedPipelineRunModel:
     def test_pipeline_run_has_component_id_field(self, db_session: AsyncSession):
         """PipelineRun model includes component_id field."""
         run = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=42,
             ref="main",
             component_id=5,  # This should be supported now
@@ -613,7 +578,7 @@ class TestUpdatedPipelineRunModel:
     def test_pipeline_run_component_id_nullable(self, db_session: AsyncSession):
         """component_id field is nullable for regular pipeline runs."""
         run = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=42,
             ref="main",
             # component_id is None by default
@@ -624,21 +589,10 @@ class TestUpdatedPipelineRunModel:
     def test_pipeline_run_with_component_relationship(self, db_session: AsyncSession):
         """PipelineRun can be associated with a GitLabComponent."""
 
-        # Create a GitLab instance
-        instance = GitlabInstanceModel(
-            name="test-instance-model",
-            url="https://gitlab.example.com",
-            token=encrypt_secret("fake-token"),
-            verify_ssl=True,
-        )
-        db_session.add(instance)
-        # Note: We're just testing the model structure, not persisting to DB in this test
-        # So we don't need to flush/commit here
-
         # Create a component
         component = GitLabComponent(
             name="model-test-component",
-            gitlab_instance_id=instance.id,
+            provider_id=1,
             project_path="group/project",
             component_path=".gitlab/components/test.yml",
         )
@@ -646,7 +600,7 @@ class TestUpdatedPipelineRunModel:
 
         # Create a run with component association
         run = PipelineRun(
-            gitlab_instance_id=instance.id,
+            provider_id=1,
             gitlab_project_id=42,
             ref="main",
             component_id=component.id,

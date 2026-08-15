@@ -13,11 +13,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.credential import Credential, CredentialType
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.mirror import MirrorService
@@ -44,13 +49,18 @@ async def _seed_integrity_chain(
     db.add(cred)
     await db.flush()
 
-    # SourceProvider
-    sp = SourceProvider(
+    # ResourceProvider (github/external — source provider)
+    github_provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name="test-gh-source",
+        label="test-gh-source",
         credential_id=cred.id,
-        provider_type=ProviderType.github,
-        label="test-provider",
+        verify_ssl=True,
     )
-    db.add(sp)
+    db.add(github_provider)
     await db.flush()
 
     # SourceGroup
@@ -64,7 +74,7 @@ async def _seed_integrity_chain(
 
     # SourceRepository
     sr = SourceRepository(
-        source_provider_id=sp.id,
+        provider_id=github_provider.id,
         source_group_id=sg.id,
         external_id="12345",
         name="test-repo",
@@ -74,20 +84,24 @@ async def _seed_integrity_chain(
     db.add(sr)
     await db.flush()
 
-    # GitlabInstance
-    instance = GitlabInstance(
-        url="https://gitlab.example.com",
-        token="gAAAAAB...",
-        verify_ssl=True,
+    # ResourceProvider (gitlab/system/internal)
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
         name="test-instance",
+        label="test-instance",
+        base_url="https://gitlab.example.com",
+        verify_ssl=True,
     )
-    db.add(instance)
+    db.add(provider)
     await db.flush()
 
     # Pipeline
     pipeline = Pipeline(
         name="test-pipeline",
-        gitlab_instance_id=instance.id,
+        provider_id=provider.id,
         ref="main",
     )
     db.add(pipeline)
@@ -133,6 +147,11 @@ class TestCheckIntegrityDirect:
         mirror = await _seed_integrity_chain(db_session)
 
         with (
+            # Phase 4: source provider resolution moved to
+            # app.services.source_repository (resolve_repo_provider); the
+            # target gitlab_instance token is still decrypted in mirror.py
+            # (_target_gitlab_client), so both patches are needed.
+            patch("app.services.source_repository.decrypt_secret", return_value="fake-token"),
             patch("app.services.mirror.decrypt_secret", return_value="fake-token"),
             patch(
                 "app.services.mirror.create_source_provider",
@@ -173,6 +192,7 @@ class TestCheckIntegrityDirect:
         mirror = await _seed_integrity_chain(db_session)
 
         with (
+            patch("app.services.source_repository.decrypt_secret", return_value="fake-token"),
             patch("app.services.mirror.decrypt_secret", return_value="fake-token"),
             patch(
                 "app.services.mirror.create_source_provider",
@@ -212,6 +232,7 @@ class TestCheckIntegrityDirect:
         mirror = await _seed_integrity_chain(db_session)
 
         with (
+            patch("app.services.source_repository.decrypt_secret", return_value="fake-token"),
             patch("app.services.mirror.decrypt_secret", return_value="fake-token"),
             patch(
                 "app.services.mirror.create_source_provider",
@@ -254,6 +275,7 @@ class TestCheckIntegrityDirect:
         mirror = await _seed_integrity_chain(db_session)
 
         with (
+            patch("app.services.source_repository.decrypt_secret", return_value="fake-token"),
             patch("app.services.mirror.decrypt_secret", return_value="fake-token"),
             patch(
                 "app.services.mirror.create_source_provider",

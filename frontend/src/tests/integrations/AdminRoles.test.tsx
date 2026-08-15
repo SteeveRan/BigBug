@@ -37,9 +37,10 @@ vi.mock('../../store/api', async () => {
     useSetRoleScopeMutation: vi.fn(),
     useRemoveRoleScopeItemMutation: vi.fn(),
     // Source Groups / Providers / Sync Groups (for RoleDetail)
-    useGetSourceProvidersQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
     useGetSourceGroupsQuery: vi.fn(),
     useGetSyncGroupsQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
   };
 });
 
@@ -71,9 +72,10 @@ import {
   useAddRoleScopeItemMutation,
   useSetRoleScopeMutation,
   useRemoveRoleScopeItemMutation,
-  useGetSourceProvidersQuery,
+  useGetProvidersQuery,
   useGetSourceGroupsQuery,
   useGetSyncGroupsQuery,
+  useGetProvidersQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useParams } from 'react-router';
@@ -306,7 +308,7 @@ function setupDefaultMocks() {
   ]);
 
   // Default: empty source data
-  (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+  (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
     data: [],
     isLoading: false,
     isError: false,
@@ -319,6 +321,12 @@ function setupDefaultMocks() {
     error: null,
   });
   (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    error: null,
+  });
+  (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
     data: [],
     isLoading: false,
     isError: false,

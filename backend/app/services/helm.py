@@ -8,10 +8,16 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.core.exceptions import BadRequestError, ExternalServiceError, NotFoundError
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
 from app.models.helm_sync_log import HelmSyncLog
+from app.models.resource_provider import (
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 
 def _normalize_repo_url(url: str) -> str:
@@ -36,9 +42,17 @@ class HelmService:
     """
 
     async def import_source_from_url(
-        self, name: str, repo_url: str, db: AsyncSession
+        self,
+        name: str,
+        repo_url: str,
+        db: AsyncSession,
+        provider_id: int | None = None,
     ) -> HelmChartSource:
-        """Create a new HelmChartSource from a URL and index it."""
+        """Create a new HelmChartSource from a URL and index it.
+
+        Providers V3 (phase 4): ``provider_id`` optionally links a helm
+        ResourceProvider (domain=helm, subtype=helm_repo, direction=external).
+        """
         _validate_repo_url(repo_url)
         normalized_url = _normalize_repo_url(repo_url)
 
@@ -49,10 +63,32 @@ class HelmService:
         if existing_result.scalar_one_or_none() is not None:
             raise BadRequestError(f"Helm chart source with name '{name}' already exists")
 
+        if provider_id is not None:
+            result = await db.execute(
+                select(ResourceProvider).where(
+                    ResourceProvider.id == provider_id,
+                    ~ResourceProvider.is_deleted,
+                )
+            )
+            provider = result.scalar_one_or_none()
+            if provider is None:
+                raise NotFoundError(f"Provider with id={provider_id} not found")
+            if (
+                provider.domain != ProviderDomain.helm
+                or provider.subtype != ProviderSubtype.helm_repo
+                or provider.direction != ProviderDirection.external
+            ):
+                raise BadRequestError(
+                    f"Provider {provider_id} ({provider.domain}/{provider.subtype}/"
+                    f"{provider.direction}) cannot be a helm source: expected "
+                    "helm/helm_repo/external"
+                )
+
         source = HelmChartSource(
             name=name,
             repo_url=normalized_url,
             status_flag=4,
+            provider_id=provider_id,
         )
         db.add(source)
         await db.flush()

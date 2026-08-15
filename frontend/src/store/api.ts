@@ -12,14 +12,12 @@ export { api } from './api/base';
 // Порядок не важен, каждый файл самодостаточен.
 import './api/auth';
 import './api/projects-legacy';
-import './api/mirrors-legacy';
 import './api/gold-images';
 import './api/app-images';
 import './api/helm-charts';
 import './api/docker-images';
 import './api/admin-users';
 import './api/admin-rbac';
-import './api/integrations';
 import './api/oidc-config';
 import './api/pipelines';
 import './api/pipeline-configs';
@@ -27,6 +25,9 @@ import './api/components';
 import './api/git-mirroring';
 import './api/reports';
 import './api/audit-logs';
+import './api/providers';
+import './api/teams';
+import './api/credentials';
 
 // ═════════════════════════════════════════════════════════════════════════
 // Реэкспорт ВСЕХ хуков — чтобы потребители (страницы, компоненты, тесты)
@@ -53,18 +54,6 @@ export {
   useRefreshProjectMutation,
   useGetProjectReleasesQuery,
 } from './api/projects-legacy';
-
-// Mirrors (legacy)
-export {
-  useListMirrorsQuery,
-  useGetMirrorQuery,
-  useCreateMirrorMutation,
-  useImportMirrorMutation,
-  useTriggerSyncMutation,
-  useGetMirrorLogsQuery,
-  useGetMirrorScheduleQuery,
-  useUpdateMirrorScheduleMutation,
-} from './api/mirrors-legacy';
 
 // Gold Images
 export {
@@ -147,40 +136,6 @@ export {
   useRemoveRoleScopeItemMutation,
 } from './api/admin-rbac';
 
-// Integrations
-export {
-  useGetGitlabInstancesQuery,
-  useGetGitlabInstanceQuery,
-  useCreateGitlabInstanceMutation,
-  useUpdateGitlabInstanceMutation,
-  useDeleteGitlabInstanceMutation,
-  useTestGitlabConnectionMutation,
-  useGetHarborInstancesQuery,
-  useGetHarborInstanceQuery,
-  useCreateHarborInstanceMutation,
-  useUpdateHarborInstanceMutation,
-  useDeleteHarborInstanceMutation,
-  useTestHarborConnectionMutation,
-  useGetGithubInstancesQuery,
-  useGetGithubInstanceQuery,
-  useCreateGithubInstanceMutation,
-  useUpdateGithubInstanceMutation,
-  useDeleteGithubInstanceMutation,
-  useTestGithubConnectionMutation,
-  useGetDockerRegistryInstancesQuery,
-  useGetDockerRegistryInstanceQuery,
-  useCreateDockerRegistryInstanceMutation,
-  useUpdateDockerRegistryInstanceMutation,
-  useDeleteDockerRegistryInstanceMutation,
-  useTestDockerRegistryConnectionMutation,
-  useGetHelmRepositoryInstancesQuery,
-  useGetHelmRepositoryInstanceQuery,
-  useCreateHelmRepositoryInstanceMutation,
-  useUpdateHelmRepositoryInstanceMutation,
-  useDeleteHelmRepositoryInstanceMutation,
-  useTestHelmRepositoryConnectionMutation,
-} from './api/integrations';
-
 // OIDC Config
 export { useGetOidcConfigQuery, useUpdateOidcConfigMutation } from './api/oidc-config';
 
@@ -211,14 +166,6 @@ export {
   useDeleteComponentMutation,
   useRunComponentMutation,
 } from './api/components';
-
-// Git Mirroring V2 — Source Providers
-export {
-  useGetSourceProvidersQuery,
-  useCreateSourceProviderMutation,
-  useUpdateSourceProviderMutation,
-  useDeleteSourceProviderMutation,
-} from './api/git-mirroring/providers';
 
 // Git Mirroring V2 — Source Groups
 export {
@@ -289,3 +236,39 @@ export {
 
 // Audit Logs
 export { useGetAuditLogsQuery } from './api/audit-logs';
+
+// Providers V3
+export {
+  useGetProviderTypesQuery,
+  useGetProvidersQuery,
+  useGetProviderQuery,
+  useCreateProviderMutation,
+  useUpdateProviderMutation,
+  useDeleteProviderMutation,
+  useTestProviderMutation,
+  useRunProviderActionMutation,
+  useGetProviderUsageQuery,
+  useShareProviderMutation,
+  useUnshareProviderMutation,
+} from './api/providers';
+
+// Teams
+export {
+  useGetTeamsQuery,
+  useCreateTeamMutation,
+  useUpdateTeamMutation,
+  useDeleteTeamMutation,
+  useGetTeamMembersQuery,
+  useAddTeamMemberMutation,
+  useRemoveTeamMemberMutation,
+  useGetTeamProvidersQuery,
+} from './api/teams';
+
+// Credentials
+export {
+  useGetCredentialsQuery,
+  useCreateCredentialMutation,
+  useUpdateCredentialMutation,
+  useDeleteCredentialMutation,
+  useTestCredentialMutation,
+} from './api/credentials';

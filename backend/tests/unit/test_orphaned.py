@@ -11,10 +11,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.orphaned import OrphanedMirrorService
@@ -24,30 +29,27 @@ from app.services.orphaned import OrphanedMirrorService
 # ---------------------------------------------------------------------------
 
 
-async def _seed_gitlab_instance(db: AsyncSession) -> GitlabInstance:
-    """Create a GitlabInstance for orphaned mirror scanning."""
-    instance = GitlabInstance(
-        url="https://gitlab.example.com",
-        token="gAAAAAB...",
+async def _seed_gitlab_provider(db: AsyncSession) -> ResourceProvider:
+    """Create a system/internal gitlab ResourceProvider for orphaned scanning."""
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.gitlab,
+        category=ProviderCategory.system,
+        direction=ProviderDirection.internal,
+        name="test-gitlab-provider",
+        label="Test GitLab",
+        base_url="https://gitlab.example.com",
         verify_ssl=True,
-        name="test-instance",
+        is_active=True,
     )
-    db.add(instance)
+    db.add(provider)
     await db.commit()
-    await db.refresh(instance)
-    return instance
+    await db.refresh(provider)
+    return provider
 
 
 async def _seed_mirror(db: AsyncSession, target_project_id: str = "42") -> Mirror:
     """Create a minimal mirror with target_project_id for known-ids check."""
-    sp = SourceProvider(
-        credential_id=1,
-        provider_type=ProviderType.github,
-        label="test-provider",
-    )
-    db.add(sp)
-    await db.flush()
-
     sg = SourceGroup(
         external_id="testorg",
         name="Test Org",
@@ -97,17 +99,17 @@ class TestFindOrphaned:
     """Tests for OrphanedMirrorService.find_orphaned()."""
 
     @pytest.mark.asyncio
-    async def test_no_instances_raises(self, db_session: AsyncSession):
-        """Raises DomainError when no GitLab instances exist."""
+    async def test_no_providers_raises(self, db_session: AsyncSession):
+        """Raises DomainError when no GitLab providers exist."""
         from app.core.exceptions import DomainError
 
-        with pytest.raises(DomainError, match="No GitLab instances"):
+        with pytest.raises(DomainError, match="No GitLab providers"):
             await OrphanedMirrorService.find_orphaned(db_session)
 
     @pytest.mark.asyncio
     async def test_empty_gitlab_returns_empty(self, db_session: AsyncSession):
         """Returns empty report when GitLab has no projects."""
-        await _seed_gitlab_instance(db_session)
+        await _seed_gitlab_provider(db_session)
 
         with (
             patch("app.services.orphaned.decrypt_secret", return_value="fake-token"),
@@ -128,7 +130,7 @@ class TestFindOrphaned:
     @pytest.mark.asyncio
     async def test_all_known_returns_empty(self, db_session: AsyncSession):
         """Returns empty report when all GitLab projects are tracked."""
-        await _seed_gitlab_instance(db_session)
+        await _seed_gitlab_provider(db_session)
         await _seed_mirror(db_session, target_project_id="42")
 
         with (
@@ -154,7 +156,7 @@ class TestFindOrphaned:
     @pytest.mark.asyncio
     async def test_finds_orphaned_projects(self, db_session: AsyncSession):
         """Reports GitLab projects not tracked by BigBug."""
-        await _seed_gitlab_instance(db_session)
+        await _seed_gitlab_provider(db_session)
         await _seed_mirror(db_session, target_project_id="42")
 
         with (
@@ -191,9 +193,9 @@ class TestFindOrphaned:
         assert report.items[0].reason == "No matching BigBug mirror record"
 
     @pytest.mark.asyncio
-    async def test_filters_by_instance_id(self, db_session: AsyncSession):
-        """find_orphaned scoped to a specific instance returns only from it."""
-        instance = await _seed_gitlab_instance(db_session)
+    async def test_filters_by_provider_id(self, db_session: AsyncSession):
+        """find_orphaned scoped to a specific provider returns only from it."""
+        provider = await _seed_gitlab_provider(db_session)
 
         with (
             patch("app.services.orphaned.decrypt_secret", return_value="fake-token"),
@@ -211,15 +213,15 @@ class TestFindOrphaned:
             mock_gl.projects.list.return_value = [orphaned_project]
             mock_gl_class.return_value = mock_gl
 
-            report = await OrphanedMirrorService.find_orphaned_for_instance(db_session, instance.id)
+            report = await OrphanedMirrorService.find_orphaned_for_instance(db_session, provider.id)
 
         assert report.count == 1
-        assert report.gitlab_instance_id == instance.id
+        assert report.provider_id == provider.id
 
     @pytest.mark.asyncio
     async def test_api_error_handled_gracefully(self, db_session: AsyncSession):
         """GitLab API errors are caught and return empty report."""
-        await _seed_gitlab_instance(db_session)
+        await _seed_gitlab_provider(db_session)
 
         with (
             patch("app.services.orphaned.decrypt_secret", return_value="fake-token"),
@@ -240,7 +242,7 @@ class TestFindOrphaned:
     @pytest.mark.asyncio
     async def test_orphaned_report_dataclass(self, db_session: AsyncSession):
         """OrphanedReport.count property works correctly."""
-        await _seed_gitlab_instance(db_session)
+        await _seed_gitlab_provider(db_session)
 
         with (
             patch("app.services.orphaned.decrypt_secret", return_value="fake-token"),
@@ -267,4 +269,4 @@ class TestFindOrphaned:
 
         assert report.count == 2
         assert report.scanned_at is not None
-        assert report.gitlab_instance_url == "https://gitlab.example.com"
+        assert report.provider_url == "https://gitlab.example.com"

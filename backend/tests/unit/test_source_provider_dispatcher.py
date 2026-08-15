@@ -6,15 +6,22 @@
 @relatedFiles ../../app/services/source_providers/dispatcher.py,
               ../../app/services/source_providers/github.py,
               ../../app/services/source_providers/gitlab.py,
-              ../../app/models/source_provider.py
+              ../../app/models/resource_provider.py
 """
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.exceptions import BadRequestError
 from app.models.credential import Credential, CredentialType
-from app.models.source_provider import ProviderType, SourceProvider
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.services.source_provider import BaseSourceProvider
 from app.services.source_providers.dispatcher import (
     create_source_provider,
@@ -25,13 +32,37 @@ from app.services.source_providers.github import GitHubSourceProvider
 from app.services.source_providers.gitlab import GitLabSourceProvider
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_provider(
+    *, id: int, label: str, subtype: ProviderSubtype, credential: Credential | None = None
+) -> ResourceProvider:
+    """Build a detached git/external ResourceProvider for the dispatcher."""
+    provider = ResourceProvider(
+        id=id,
+        domain=ProviderDomain.git,
+        subtype=subtype,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=label,
+        label=label,
+        credential_id=credential.id if credential is not None else None,
+    )
+    if credential is not None:
+        provider.credential = credential
+    return provider
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def github_provider_db():
-    """Create a GitHub SourceProvider ORM model."""
+    """Create a GitHub ResourceProvider ORM model."""
     credential = Credential(
         id=1,
         name="test-github",
@@ -39,20 +70,17 @@ def github_provider_db():
         provider="github",
         encrypted_secret="encrypted:test-token",
     )
-    sp = SourceProvider(
+    return _make_provider(
         id=1,
         label="Test GitHub",
-        provider_type=ProviderType.github,
-        credential_id=1,
-        is_deleted=False,
+        subtype=ProviderSubtype.github,
+        credential=credential,
     )
-    sp.credential = credential
-    return sp
 
 
 @pytest.fixture
 def gitlab_provider_db():
-    """Create a GitLab SourceProvider ORM model."""
+    """Create a GitLab ResourceProvider ORM model."""
     credential = Credential(
         id=2,
         name="test-gitlab",
@@ -60,20 +88,17 @@ def gitlab_provider_db():
         provider="gitlab",
         encrypted_secret="encrypted:test-token-gitlab",
     )
-    sp = SourceProvider(
+    return _make_provider(
         id=2,
         label="Test GitLab",
-        provider_type=ProviderType.gitlab,
-        credential_id=2,
-        is_deleted=False,
+        subtype=ProviderSubtype.gitlab,
+        credential=credential,
     )
-    sp.credential = credential
-    return sp
 
 
 @pytest.fixture
 def generic_provider_db():
-    """Create a GenericGit SourceProvider ORM model."""
+    """Create a GenericGit ResourceProvider ORM model."""
     credential = Credential(
         id=3,
         name="test-generic",
@@ -81,15 +106,12 @@ def generic_provider_db():
         provider="generic",
         encrypted_secret="encrypted:test-token-generic",
     )
-    sp = SourceProvider(
+    return _make_provider(
         id=3,
         label="Test Generic",
-        provider_type=ProviderType.generic,
-        credential_id=3,
-        is_deleted=False,
+        subtype=ProviderSubtype.generic_git,
+        credential=credential,
     )
-    sp.credential = credential
-    return sp
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +173,11 @@ class TestCreateSourceProvider:
 
             result = await create_source_provider(github_provider_db, "test-token")
 
-        mock_gh_class.assert_called_once_with(github_provider_db, "test-token")
+        mock_gh_class.assert_called_once()
+        adapter, secret = mock_gh_class.call_args[0]
+        assert adapter.provider_type == "github"
+        assert adapter.label == "Test GitHub"
+        assert secret == "test-token"
         assert result is mock_instance
 
     @pytest.mark.asyncio
@@ -166,15 +192,22 @@ class TestCreateSourceProvider:
 
             result = await create_source_provider(gitlab_provider_db, "test-token-gl")
 
-        mock_gl_class.assert_called_once_with(gitlab_provider_db, "test-token-gl")
+        mock_gl_class.assert_called_once()
+        adapter, secret = mock_gl_class.call_args[0]
+        assert adapter.provider_type == "gitlab"
+        assert adapter.label == "Test GitLab"
+        assert secret == "test-token-gl"
         assert result is mock_instance
 
     @pytest.mark.asyncio
     async def test_create_provider_unknown_type(self):
-        """create_source_provider with unsupported type raises ValueError."""
-        sp = MagicMock(spec=SourceProvider)
-        sp.provider_type = "unsupported_type"
-        with pytest.raises(ValueError, match="Unsupported provider type"):
+        """create_source_provider with unsupported git subtype raises BadRequestError."""
+        sp = MagicMock(spec=ResourceProvider)
+        sp.domain = ProviderDomain.git
+        sp.direction = ProviderDirection.external
+        sp.subtype = "unsupported_type"
+        sp.id = 99
+        with pytest.raises(BadRequestError, match="is not a git source"):
             await create_source_provider(sp, "test-token")
 
     @pytest.mark.asyncio
@@ -189,7 +222,11 @@ class TestCreateSourceProvider:
 
             result = await create_source_provider(generic_provider_db, "test-token-generic")
 
-        mock_gen_class.assert_called_once_with(generic_provider_db, "test-token-generic")
+        mock_gen_class.assert_called_once()
+        adapter, secret = mock_gen_class.call_args[0]
+        assert adapter.provider_type == "generic"
+        assert adapter.label == "Test Generic"
+        assert secret == "test-token-generic"
         assert result is mock_instance
 
     @pytest.mark.asyncio
@@ -204,17 +241,16 @@ class TestCreateSourceProvider:
 
             await create_source_provider(github_provider_db, "my-secret-token")
 
-        mock_gh_class.assert_called_once_with(github_provider_db, "my-secret-token")
+        mock_gh_class.assert_called_once()
+        assert mock_gh_class.call_args[0][1] == "my-secret-token"
 
     @pytest.mark.asyncio
     async def test_create_anon_provider_passes_none_credential(self):
-        """create_source_provider with is_anon=True passes credential_secret=None."""
-        sp = SourceProvider(
+        """create_source_provider with anon provider passes credential_secret=None."""
+        sp = _make_provider(
             id=10,
             label="Test Anon GitHub",
-            provider_type=ProviderType.github,
-            is_anon=True,
-            is_deleted=False,
+            subtype=ProviderSubtype.github,
         )
 
         with patch(
@@ -226,17 +262,26 @@ class TestCreateSourceProvider:
 
             await create_source_provider(sp, "this-should-be-ignored")
 
-        mock_gh_class.assert_called_once_with(sp, None)
+        mock_gh_class.assert_called_once()
+        adapter, secret = mock_gh_class.call_args[0]
+        assert adapter.is_anon is True
+        assert secret is None
 
     @pytest.mark.asyncio
     async def test_create_anon_provider_raises_without_credential_when_not_anon(self):
-        """create_source_provider raises ValueError when not is_anon and no credential_secret."""
-        sp = SourceProvider(
+        """create_source_provider raises ValueError when not anon and no credential_secret."""
+        credential = Credential(
+            id=11,
+            name="test-auth-github",
+            credential_type=CredentialType.github_token,
+            provider="github",
+            encrypted_secret="encrypted:test-token",
+        )
+        sp = _make_provider(
             id=11,
             label="Test Auth GitHub",
-            provider_type=ProviderType.github,
-            is_anon=False,
-            is_deleted=False,
+            subtype=ProviderSubtype.github,
+            credential=credential,
         )
 
         with pytest.raises(ValueError, match="no credential_secret provided"):
@@ -244,13 +289,11 @@ class TestCreateSourceProvider:
 
     @pytest.mark.asyncio
     async def test_create_anon_gitlab_provider(self):
-        """create_source_provider with is_anon GitLab passes None credential."""
-        sp = SourceProvider(
+        """create_source_provider with anon GitLab passes None credential."""
+        sp = _make_provider(
             id=12,
             label="Test Anon GitLab",
-            provider_type=ProviderType.gitlab,
-            is_anon=True,
-            is_deleted=False,
+            subtype=ProviderSubtype.gitlab,
         )
 
         with patch(
@@ -262,17 +305,19 @@ class TestCreateSourceProvider:
 
             await create_source_provider(sp, "ignored")
 
-        mock_gl_class.assert_called_once_with(sp, None)
+        mock_gl_class.assert_called_once()
+        adapter, secret = mock_gl_class.call_args[0]
+        assert adapter.provider_type == "gitlab"
+        assert adapter.is_anon is True
+        assert secret is None
 
     @pytest.mark.asyncio
     async def test_create_anon_generic_provider(self):
-        """create_source_provider with is_anon Generic passes None credential."""
-        sp = SourceProvider(
+        """create_source_provider with anon Generic passes None credential."""
+        sp = _make_provider(
             id=13,
             label="Test Anon Generic",
-            provider_type=ProviderType.generic,
-            is_anon=True,
-            is_deleted=False,
+            subtype=ProviderSubtype.generic_git,
         )
 
         with patch(
@@ -284,4 +329,8 @@ class TestCreateSourceProvider:
 
             await create_source_provider(sp, "ignored")
 
-        mock_gen_class.assert_called_once_with(sp, None)
+        mock_gen_class.assert_called_once()
+        adapter, secret = mock_gen_class.call_args[0]
+        assert adapter.provider_type == "generic"
+        assert adapter.is_anon is True
+        assert secret is None

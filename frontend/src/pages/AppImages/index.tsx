@@ -38,19 +38,22 @@ import {
   useTriggerAppBuildMutation,
   useScanAppImageVersionMutation,
   useListGoldImagesQuery,
-  useGetHarborInstancesQuery,
+  useGetProvidersQuery,
   useSignAppImageVersionMutation,
 } from '../../store/api';
 import { VulnerabilityBadge } from '../../components/VulnerabilityBadge';
 import { SignatureBadge } from '../../components/SignatureBadge';
 import { StatusChip } from '../../components/StatusChip';
-import type { AppImage, GoldImage, ImageVersion, HarborInstance } from '../../types';
+import type { AppImage, GoldImage, ImageVersion, ResourceProvider } from '../../types';
 
 export function AppImagesPage() {
   const { message } = App.useApp();
   const { data: images = [], isLoading } = useListAppImagesQuery();
   const { data: goldImages = [] } = useListGoldImagesQuery();
-  const { data: harborInstances = [] } = useGetHarborInstancesQuery();
+  const { data: harborProviders = [] } = useGetProvidersQuery({
+    domain: 'docker',
+    subtype: 'harbor',
+  });
   const [createImage] = useCreateAppImageMutation();
   const [triggerBuild] = useTriggerAppBuildMutation();
   const [scanVersion] = useScanAppImageVersionMutation();
@@ -311,9 +314,9 @@ export function AppImagesPage() {
     label: g.name,
   }));
 
-  const harborOptions = (harborInstances as HarborInstance[]).map((h) => ({
+  const harborOptions = (harborProviders as ResourceProvider[]).map((h) => ({
     value: String(h.id),
-    label: `${h.name} (${h.url})`,
+    label: `${h.label}${h.base_url ? ` (${h.base_url})` : ''}`,
   }));
 
   return (

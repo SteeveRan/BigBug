@@ -31,9 +31,14 @@ from app.core.secrets import decrypt_secret
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline as PipelineModel
+from app.models.resource_provider import (
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.role_scope import RoleScopeSourceGroup, RoleScopeSyncGroup
 from app.models.source_group import SourceGroup
-from app.models.source_provider import SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.models.user import User
@@ -45,6 +50,7 @@ from app.schemas.mirror import (
 from app.services.audit import AuditService
 from app.services.pipeline import trigger_pipeline  # standalone async function
 from app.services.source_providers import create_source_provider
+from app.services.source_repository import resolve_repo_provider
 
 logger = logging.getLogger(__name__)
 
@@ -73,17 +79,22 @@ def _source_url_from_repo(repo: SourceRepository) -> str:
 
 
 async def _get_mirror_or_404(db: AsyncSession, mirror_id: int) -> Mirror:
-    """Fetch a non-deleted Mirror by id or raise NotFoundError."""
+    """Fetch a non-deleted Mirror by id or raise NotFoundError.
+
+    Eager-loads the provider path (SourceRepository.provider,
+    Pipeline.provider).
+    """
     result = await db.execute(
         select(Mirror)
         .options(
             selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
             selectinload(Mirror.source_repository)
-            .selectinload(SourceRepository.source_provider)
-            .selectinload(SourceProvider.credential),
+            .selectinload(SourceRepository.provider)
+            .selectinload(ResourceProvider.credential),
             selectinload(Mirror.sync_group)
             .selectinload(SyncGroup.pipeline)
-            .selectinload(PipelineModel.gitlab_instance),
+            .selectinload(PipelineModel.provider)
+            .selectinload(ResourceProvider.credential),
             selectinload(Mirror.mirror_logs),
         )
         .where(Mirror.id == mirror_id, ~Mirror.is_deleted)
@@ -94,20 +105,45 @@ async def _get_mirror_or_404(db: AsyncSession, mirror_id: int) -> Mirror:
     return mirror
 
 
+def _resolve_pipeline_trigger_args(pipeline: PipelineModel) -> dict[str, int]:
+    """Build the trigger_pipeline connection kwargs for a Pipeline config.
+
+    Providers V3 (phase 7A): only ``pipeline.provider_id`` is supported; the
+    legacy ``gitlab_instance`` path has been removed.
+    """
+    if pipeline.provider_id is not None:
+        return {"provider_id": pipeline.provider_id}
+    raise DomainError(
+        f"Pipeline '{pipeline.name}' has no GitLab provider configured",
+        status_code=400,
+    )
+
+
 async def _get_source_repo_or_404(db: AsyncSession, sr_id: int) -> SourceRepository:
     """Fetch a non-deleted SourceRepository by id or raise NotFoundError."""
     result = await db.execute(
         select(SourceRepository)
         .options(
             selectinload(SourceRepository.source_group),
-            selectinload(SourceRepository.source_provider).selectinload(SourceProvider.credential),
+            selectinload(SourceRepository.provider).selectinload(ResourceProvider.credential),
         )
         .where(SourceRepository.id == sr_id, ~SourceRepository.is_deleted)
     )
-    repo = result.scalar_one_or_none()
+    repo = result.unique().scalar_one_or_none()
     if repo is None:
         raise NotFoundError(f"SourceRepository with id={sr_id} not found")
     return repo
+
+
+async def _build_repo_provider(repo: SourceRepository) -> Any:
+    """Build the V2 provider client for a repo from its ResourceProvider."""
+    provider_obj, secret = await resolve_repo_provider(repo)
+    if provider_obj is None:
+        raise DomainError(
+            f"SourceRepository {repo.id} has no linked provider",
+            status_code=400,
+        )
+    return await create_source_provider(provider_obj, secret)
 
 
 async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
@@ -121,6 +157,32 @@ async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
     if sg is None:
         raise NotFoundError(f"SyncGroup with id={sg_id} not found")
     return sg
+
+
+def _target_gitlab_client(pipeline: PipelineModel) -> _gitlab_module.Gitlab:
+    """Build a python-gitlab client for a Pipeline's target.
+
+    Providers V3 (phase 7A): the target is ``pipeline.provider``
+    (gitlab/system/internal ResourceProvider). Credential must be eager-loaded
+    by the caller.
+    """
+    provider = pipeline.provider
+    if provider is None:
+        raise DomainError(
+            f"Pipeline '{pipeline.name}' has no GitLab provider configured",
+            status_code=400,
+        )
+    token = (
+        decrypt_secret(provider.credential.encrypted_secret)
+        if provider.credential is not None and provider.credential.encrypted_secret
+        else None
+    )
+    return _gitlab_module.Gitlab(
+        url=provider.base_url,
+        private_token=token,
+        ssl_verify=provider.verify_ssl,
+        user_agent="BigBug/1.0",
+    )
 
 
 # ===================================================================
@@ -557,16 +619,21 @@ class MirrorService:
             target_namespace = ""
             target_project_name = parts[0] if parts else target_path
 
-        # Find a SourceProvider that can handle this URL
-        source_providers_result = await db.execute(
-            select(SourceProvider).where(
-                SourceProvider.provider_type == "github",
-                ~SourceProvider.is_deleted,
+        # Find a git provider that can handle this URL (phase 7E:
+        # ResourceProvider github/external only)
+        rp_result = await db.execute(
+            select(ResourceProvider)
+            .options(selectinload(ResourceProvider.credential))
+            .where(
+                ResourceProvider.domain == ProviderDomain.git,
+                ResourceProvider.subtype == ProviderSubtype.github,
+                ResourceProvider.direction == ProviderDirection.external,
+                ~ResourceProvider.is_deleted,
             )
         )
-        source_providers = list(source_providers_result.scalars().all())
+        provider_objects: list[Any] = list(rp_result.scalars().all())
 
-        if not source_providers:
+        if not provider_objects:
             raise DomainError(
                 "No source provider configured for verification",
                 status_code=400,
@@ -575,17 +642,15 @@ class MirrorService:
         # Try each provider to verify the source commit
         latest_commit: dict | None = None
         repo_external_id: str | None = None
-        used_provider: SourceProvider | None = None
+        used_provider: Any = None
 
-        for sp in source_providers:
-            # Skip non-anonymous providers without credentials
-            if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
-                continue
+        for provider_obj in provider_objects:
             try:
                 credential_secret: str | None = None
-                if sp.credential and sp.credential.encrypted_secret:
-                    credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-                gh_provider = await create_source_provider(sp, credential_secret)
+                credential = getattr(provider_obj, "credential", None)
+                if credential is not None and credential.encrypted_secret:
+                    credential_secret = decrypt_secret(credential.encrypted_secret)
+                gh_provider = await create_source_provider(provider_obj, credential_secret)
 
                 # Extract owner/repo from source_url
                 # source_url examples: https://github.com/owner/repo.git
@@ -600,12 +665,12 @@ class MirrorService:
 
                 commit_info = await gh_provider.get_commit_info(repo_external_id)
                 latest_commit = commit_info
-                used_provider = sp
+                used_provider = provider_obj
                 break
             except DomainError:
                 logger.debug(
-                    "Provider %d failed to verify source_url '%s'",
-                    sp.id,
+                    "Provider %s failed to verify source_url '%s'",
+                    getattr(provider_obj, "id", "?"),
                     source_url,
                     exc_info=True,
                 )
@@ -640,7 +705,7 @@ class MirrorService:
 
             source_repo = SourceRepository(
                 source_group_id=source_group.id if source_group else None,
-                source_provider_id=used_provider.id,
+                provider_id=used_provider.id,
                 external_id=repo_external_id or source_url,
                 name=repo_external_id.split("/")[-1] if repo_external_id else source_url,
                 full_name=repo_external_id or source_url,
@@ -762,7 +827,8 @@ class MirrorService:
                 selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
                 selectinload(Mirror.sync_group)
                 .selectinload(SyncGroup.pipeline)
-                .selectinload(PipelineModel.gitlab_instance),
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
             )
             .where(~Mirror.is_deleted)
         )
@@ -901,7 +967,8 @@ class MirrorService:
                 selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
                 selectinload(Mirror.sync_group)
                 .selectinload(SyncGroup.pipeline)
-                .selectinload(PipelineModel.gitlab_instance),
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
                 selectinload(Mirror.mirror_logs),
             )
             .where(Mirror.id == mirror_id, ~Mirror.is_deleted)
@@ -1096,7 +1163,8 @@ class MirrorService:
                 selectinload(Mirror.source_repository).selectinload(SourceRepository.source_group),
                 selectinload(Mirror.sync_group)
                 .selectinload(SyncGroup.pipeline)
-                .selectinload(PipelineModel.gitlab_instance),
+                .selectinload(PipelineModel.provider)
+                .selectinload(ResourceProvider.credential),
             )
             .where(Mirror.id == mirror_id)
         )
@@ -1206,12 +1274,7 @@ class MirrorService:
             return mirror_log
 
         pipeline = mirror.sync_group.pipeline
-        gitlab_instance = pipeline.gitlab_instance
-        if gitlab_instance is None:
-            raise DomainError(
-                f"Pipeline '{pipeline.name}' has no GitLab instance configured",
-                status_code=400,
-            )
+        trigger_args = _resolve_pipeline_trigger_args(pipeline)
 
         # Build pipeline variables
         source_url = (
@@ -1249,11 +1312,11 @@ class MirrorService:
 
         pipeline_run = await trigger_pipeline(
             db=db,
-            gitlab_instance_id=gitlab_instance.id,
             gitlab_project_id=gitlab_project_id,
             ref=pipeline.ref,
             variables=variables,
             user_id=user_id,
+            **trigger_args,
         )
 
         # Create MirrorLog
@@ -1337,19 +1400,12 @@ class MirrorService:
             )
 
         sr = mirror.source_repository
-        sp = sr.source_provider
-        if sp is None:
+        # Phase 7E: ResourceProvider only.
+        # Raises DomainError when the provider is missing or has no credential.
+        provider_obj, credential_secret = await resolve_repo_provider(sr)
+        if provider_obj is None:
             raise DomainError(
-                f"SourceRepository {sr.id} has no linked SourceProvider",
-                status_code=400,
-            )
-
-        # Accept any provider type that supports commit info
-
-        # Anonymous providers don't need a credential
-        if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
-            raise DomainError(
-                f"SourceProvider {sp.id} has no credential configured",
+                f"SourceRepository {sr.id} has no linked provider",
                 status_code=400,
             )
 
@@ -1360,10 +1416,7 @@ class MirrorService:
         error_message: str | None = None
 
         try:
-            credential_secret: str | None = None
-            if sp.credential and sp.credential.encrypted_secret:
-                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-            gh_provider = await create_source_provider(sp, credential_secret)
+            gh_provider = await create_source_provider(provider_obj, credential_secret)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await gh_provider.get_commit_info(repo_external_id)
 
@@ -1510,12 +1563,7 @@ class MirrorService:
             )
 
         pipeline = mirror.sync_group.pipeline
-        gitlab_instance = pipeline.gitlab_instance
-        if gitlab_instance is None:
-            raise DomainError(
-                f"Pipeline '{pipeline.name}' has no GitLab instance configured",
-                status_code=400,
-            )
+        trigger_args = _resolve_pipeline_trigger_args(pipeline)
 
         # Validate target_project_id
         if not mirror.target_project_id or not mirror.target_project_id.isdigit():
@@ -1538,11 +1586,11 @@ class MirrorService:
 
         pipeline_run = await trigger_pipeline(
             db=db,
-            gitlab_instance_id=gitlab_instance.id,
             gitlab_project_id=gitlab_project_id,
             ref=pipeline.ref,
             variables=variables,
             user_id=user_id,
+            **trigger_args,
         )
 
         # Create MirrorLog
@@ -1642,10 +1690,11 @@ class MirrorService:
                 status_code=400,
             )
         sr = mirror.source_repository
-        sp = sr.source_provider
-        if sp is None:
+        # Phase 7E: ResourceProvider only
+        src_provider_obj, src_secret = await resolve_repo_provider(sr)
+        if src_provider_obj is None:
             raise DomainError(
-                f"SourceRepository {sr.id} has no linked SourceProvider",
+                f"SourceRepository {sr.id} has no linked provider",
                 status_code=400,
             )
 
@@ -1653,16 +1702,7 @@ class MirrorService:
         source_sha: str | None = None
 
         try:
-            # Anonymous providers don't need a credential
-            if not sp.is_anon and (sp.credential is None or not sp.credential.encrypted_secret):
-                raise DomainError(
-                    f"SourceProvider {sp.id} has no credential configured",
-                    status_code=400,
-                )
-            credential_secret: str | None = None
-            if sp.credential and sp.credential.encrypted_secret:
-                credential_secret = decrypt_secret(sp.credential.encrypted_secret)
-            provider = await create_source_provider(sp, credential_secret)
+            provider = await create_source_provider(src_provider_obj, src_secret)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await provider.get_commit_info(repo_external_id)
             source_sha = commit_info.get("sha")
@@ -1700,23 +1740,17 @@ class MirrorService:
                 status_code=400,
             )
         pipeline_cfg = mirror.sync_group.pipeline
-        instance = pipeline_cfg.gitlab_instance
-        if instance is None:
-            raise DomainError(
-                f"Pipeline '{pipeline_cfg.name}' has no GitLab instance configured",
-                status_code=400,
-            )
+        gl = _target_gitlab_client(pipeline_cfg)
 
         # ── Fetch target HEAD commit via python-gitlab ──────────────
         target_sha: str | None = None
         try:
-            token = decrypt_secret(instance.token)
-            gl = _gitlab_module.Gitlab(
-                url=instance.url,
-                private_token=token,
-                ssl_verify=instance.verify_ssl,
-                user_agent="BigBug/1.0",
-            )
+            if not mirror.target_project_id or not mirror.target_project_id.isdigit():
+                raise DomainError(
+                    f"Mirror {mirror_id} has no valid target_project_id",
+                    status_code=400,
+                )
+            project = gl.projects.get(int(mirror.target_project_id))
             if not mirror.target_project_id or not mirror.target_project_id.isdigit():
                 raise DomainError(
                     f"Mirror {mirror_id} has no valid target_project_id",

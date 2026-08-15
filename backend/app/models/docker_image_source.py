@@ -12,8 +12,8 @@ class DockerImageSource(Base):
     Represents an external Docker registry (Docker Hub, Harbor, etc.) from
     which images and their tags are tracked and synced.
 
-    Links back to the configured DockerRegistryInstance that provides credentials
-    and connection details for the source registry.
+    Links back to a unified ``ResourceProvider`` (docker domain) that provides
+    credentials and connection details for the source registry (Providers V3).
     """
 
     __tablename__ = "docker_image_sources"
@@ -23,12 +23,20 @@ class DockerImageSource(Base):
     registry_url = Column(String(500), nullable=False)  # e.g., https://registry-1.docker.io
     description = Column(Text, nullable=True)
 
-    # Link to the configured registry instance that provides credentials
-    registry_instance_id = Column(
+    # Providers V3: unified link to resource_providers.
+    # target_provider_id must be an internal (harbor|generic_registry) provider (11.3.4).
+    # The legacy registry_instance_id column was dropped in phase 7C.
+    provider_id = Column(
         Integer,
-        ForeignKey("docker_registry_instances.id", ondelete="SET NULL"),
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
         nullable=True,
-        comment="Configured registry instance used as source for this image",
+        index=True,
+    )
+    target_provider_id = Column(
+        Integer,
+        ForeignKey("resource_providers.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     # GitLab mirror project for Docker sync pipelines
@@ -59,8 +67,7 @@ class DockerImageSource(Base):
     sync_schedules = relationship(
         "SyncSchedule", back_populates="docker_image_source", cascade="all, delete-orphan"
     )
-    registry_instance = relationship(
-        "DockerRegistryInstance",
-        foreign_keys=[registry_instance_id],
-        lazy="selectin",
+    provider = relationship("ResourceProvider", foreign_keys=[provider_id], lazy="selectin")
+    target_provider = relationship(
+        "ResourceProvider", foreign_keys=[target_provider_id], lazy="selectin"
     )

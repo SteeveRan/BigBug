@@ -8,6 +8,7 @@
               ../../app/core/exceptions.py
 """
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from gitlab.exceptions import GitlabAuthenticationError, GitlabError
 
 from app.core.exceptions import DomainError
 from app.models.credential import Credential, CredentialType
-from app.models.source_provider import ProviderType, SourceProvider
+from app.models.provider_type import ProviderType
 from app.services.source_providers.gitlab import (
     GitLabSourceProvider,
     _map_gitlab_exception,
@@ -41,8 +42,12 @@ def _make_credential(**overrides) -> Credential:
     return Credential(**defaults)
 
 
-def _make_provider(**overrides) -> SourceProvider:
-    """Build a SourceProvider ORM model for GitLab (no DB session needed)."""
+def _make_provider(**overrides) -> SimpleNamespace:
+    """Build a provider-shaped object for GitLab (no DB session needed).
+
+    GitLabSourceProvider reads ``id``, ``base_url`` and ``credential.base_url``;
+    a plain namespace replaces the removed SourceProvider model.
+    """
     credential = overrides.pop("credential", _make_credential())
     defaults = {
         "id": 1,
@@ -52,7 +57,7 @@ def _make_provider(**overrides) -> SourceProvider:
         "is_deleted": False,
     }
     defaults.update(overrides)
-    sp = SourceProvider(**defaults)
+    sp = SimpleNamespace(**defaults)
     sp.credential = credential
     return sp
 
@@ -148,7 +153,7 @@ class TestInit:
             "app.services.source_providers.gitlab.gitlab.Gitlab",
             mock_gitlab_cls,
         ):
-            sp = SourceProvider(
+            sp = SimpleNamespace(
                 id=1,
                 credential_id=None,
                 provider_type=ProviderType.gitlab,
@@ -1093,7 +1098,7 @@ class TestAnonymousMode:
             "app.services.source_providers.gitlab.gitlab.Gitlab",
             mock_gitlab_cls,
         ):
-            sp = SourceProvider(
+            sp = SimpleNamespace(
                 id=1,
                 credential_id=None,
                 provider_type=ProviderType.gitlab,
@@ -1101,6 +1106,7 @@ class TestAnonymousMode:
                 is_deleted=False,
                 is_anon=True,
             )
+            sp.credential = None
             GitLabSourceProvider(sp, credential_secret=None)
 
         mock_gitlab_cls.assert_called_once_with(

@@ -4,8 +4,7 @@
              and GitLabComponent CRUD operations.
 @dependencies pydantic
 @relatedFiles ../models/pipeline.py, ../models/pipeline_run.py,
-              ../models/gitlab_component.py, ../models/gitlab_instance.py,
-              ../../services/pipeline.py
+              ../models/gitlab_component.py, ../../services/pipeline.py
 """
 
 from datetime import datetime
@@ -13,7 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.schemas.integrations import GitlabInstanceOut
+from app.schemas.provider import ProviderOut
 
 # ──────────────────────────────────────────────────────────────────────
 # Pipeline Component Ref (for Pipeline Create/Update)
@@ -36,11 +35,15 @@ class PipelineComponentRef(BaseModel):
 
 
 class PipelineCreate(BaseModel):
-    """Payload to create a new Pipeline configuration."""
+    """Payload to create a new Pipeline configuration.
+
+    ``provider_id`` (Providers V3, phase 7A) references a resource_providers
+    row with subtype=gitlab, category=system, direction=internal (11.3.4).
+    """
 
     name: str = Field(..., max_length=255, description="Unique pipeline name")
     description: str | None = Field(None)
-    gitlab_instance_id: int | None = Field(None)
+    provider_id: int | None = Field(None, description="system/internal gitlab provider")
     ref: str | None = Field(None, max_length=255, description="Default branch or tag")
     default_variables: dict[str, Any] | None = Field(None)
     is_default: bool | None = Field(None)
@@ -54,7 +57,7 @@ class PipelineUpdate(BaseModel):
     """Partial update for a Pipeline configuration."""
 
     description: str | None = Field(None)
-    gitlab_instance_id: int | None = Field(None)
+    provider_id: int | None = Field(None, description="system/internal gitlab provider")
     ref: str | None = Field(None, max_length=255)
     default_variables: dict[str, Any] | None = Field(None)
     is_default: bool | None = Field(None)
@@ -92,7 +95,7 @@ class PipelineOut(BaseModel):
     id: int
     name: str
     description: str | None = None
-    gitlab_instance_id: int | None = None
+    provider_id: int | None = None
     ref: str | None = None
     default_variables: dict[str, Any] | None = None
     is_default: bool
@@ -102,7 +105,7 @@ class PipelineOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     components: list[PipelineComponentOut] = []
-    gitlab_instance: GitlabInstanceOut | None = None
+    provider: ProviderOut | None = None
 
     model_config = {"from_attributes": True}
 
@@ -113,9 +116,13 @@ class PipelineOut(BaseModel):
 
 
 class PipelineRunCreate(BaseModel):
-    """Payload for triggering a new pipeline run."""
+    """Payload for triggering a new pipeline run.
 
-    gitlab_instance_id: int
+    Providers V3 (phase 7A): pass ``provider_id`` (system/internal gitlab
+    ResourceProvider).
+    """
+
+    provider_id: int | None = Field(None, description="system/internal gitlab provider")
     gitlab_project_id: int
     ref: str = Field(..., description="Branch, tag, or commit SHA")
     variables: dict[str, str] = Field(default_factory=dict)
@@ -125,7 +132,7 @@ class PipelineRunOut(BaseModel):
     """Response schema for a pipeline run."""
 
     id: int
-    gitlab_instance_id: int
+    provider_id: int | None = None
     gitlab_project_id: int
     gitlab_pipeline_id: int | None
     component_id: int | None  # Added for component runs
@@ -163,7 +170,7 @@ class GitLabComponentCreate(BaseModel):
 
     name: str = Field(..., max_length=255)
     description: str | None = None
-    gitlab_instance_id: int
+    provider_id: int
     project_path: str = Field(..., max_length=512)
     component_path: str = Field(..., max_length=512)
     version: str | None = Field(None, max_length=64)
@@ -175,7 +182,7 @@ class GitLabComponentUpdate(BaseModel):
 
     name: str | None = Field(None, max_length=255)
     description: str | None = None
-    gitlab_instance_id: int | None = None
+    provider_id: int | None = None
     project_path: str | None = Field(None, max_length=512)
     component_path: str | None = Field(None, max_length=512)
     version: str | None = Field(None, max_length=64)
@@ -189,7 +196,7 @@ class GitLabComponentOut(BaseModel):
     id: int
     name: str
     description: str | None
-    gitlab_instance_id: int
+    provider_id: int
     project_path: str
     component_path: str
     version: str | None

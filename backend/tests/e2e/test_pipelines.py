@@ -25,7 +25,7 @@ class TestPipelineRunsAPI:
     async def sample_run(self, db_session: AsyncSession) -> PipelineRun:
         """Create a sample pipeline run for GET / detail tests."""
         run = PipelineRun(
-            gitlab_instance_id=1,
+            provider_id=1,
             gitlab_project_id=42,
             gitlab_pipeline_id=100,
             ref="main",
@@ -82,7 +82,7 @@ class TestPipelineRunsAPI:
         response = await client.post(
             "/api/pipelines",
             json={
-                "gitlab_instance_id": 1,
+                "provider_id": 1,
                 "gitlab_project_id": 1,
                 "ref": "main",
             },
@@ -132,7 +132,7 @@ class TestGitLabComponentsAPI:
             "/api/components",
             json={
                 "name": "test-component",
-                "gitlab_instance_id": 1,
+                "provider_id": 1,
                 "project_path": "group/project",
                 "component_path": ".gitlab/components/test.yml",
             },

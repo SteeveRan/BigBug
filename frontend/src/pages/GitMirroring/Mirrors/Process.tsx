@@ -482,8 +482,8 @@ const MirrorProcessPage = () => {
       <Card title="Pipeline" size="small">
         <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
           <Descriptions.Item label="Name">{pipeline?.name ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="GitLab Instance">
-            {pipeline?.gitlab_instance?.name ?? '—'}
+          <Descriptions.Item label="GitLab Provider">
+            {pipeline?.provider?.label ?? '—'}
           </Descriptions.Item>
           <Descriptions.Item label="Ref">
             {pipeline?.ref ? <Typography.Text code>{pipeline.ref}</Typography.Text> : '—'}

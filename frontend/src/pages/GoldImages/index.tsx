@@ -38,18 +38,21 @@ import {
   useTriggerGoldBuildMutation,
   useScanGoldImageVersionMutation,
   useGetGoldImageScanResultsMutation,
-  useGetHarborInstancesQuery,
+  useGetProvidersQuery,
   useSignGoldImageVersionMutation,
 } from '../../store/api';
 import { VulnerabilityBadge } from '../../components/VulnerabilityBadge';
 import { SignatureBadge } from '../../components/SignatureBadge';
 import { StatusChip } from '../../components/StatusChip';
-import type { GoldImage, ImageVersion, HarborInstance } from '../../types';
+import type { GoldImage, ImageVersion, ResourceProvider } from '../../types';
 
 export function GoldImagesPage() {
   const { message } = App.useApp();
   const { data: images = [], isLoading } = useListGoldImagesQuery();
-  const { data: harborInstances = [] } = useGetHarborInstancesQuery();
+  const { data: harborProviders = [] } = useGetProvidersQuery({
+    domain: 'docker',
+    subtype: 'harbor',
+  });
   const [createImage] = useCreateGoldImageMutation();
   const [triggerBuild] = useTriggerGoldBuildMutation();
   const [scanVersion] = useScanGoldImageVersionMutation();
@@ -314,9 +317,9 @@ export function GoldImagesPage() {
     ];
   };
 
-  const harborOptions = (harborInstances as HarborInstance[]).map((h) => ({
+  const harborOptions = (harborProviders as ResourceProvider[]).map((h) => ({
     value: String(h.id),
-    label: `${h.name} (${h.url})`,
+    label: `${h.label}${h.base_url ? ` (${h.base_url})` : ''}`,
   }));
 
   return (

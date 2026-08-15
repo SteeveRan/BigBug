@@ -103,10 +103,10 @@ const PipelineConfigsPage = () => {
       ),
     },
     {
-      title: 'GitLab Instance',
-      key: 'gitlab_instance',
+      title: 'GitLab Provider',
+      key: 'provider',
       render: (_: unknown, record: PipelineConfig) => (
-        <Typography.Text>{record.gitlab_instance?.name ?? '—'}</Typography.Text>
+        <Typography.Text>{record.provider?.label ?? '—'}</Typography.Text>
       ),
     },
     {

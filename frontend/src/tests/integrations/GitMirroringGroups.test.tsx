@@ -21,7 +21,7 @@ vi.mock('../../store/api', async () => {
   const actual = await vi.importActual('../../store/api');
   return {
     ...(actual as object),
-    useGetSourceProvidersQuery: vi.fn(),
+    useGetProvidersQuery: vi.fn(),
     useGetSourceGroupsQuery: vi.fn(),
     useGetSourceRepositoriesQuery: vi.fn(),
     useRefreshSourceGroupMutation: vi.fn(),
@@ -43,7 +43,7 @@ vi.mock('../../hooks/usePermissions', () => ({
 
 import { api } from '../../store/api';
 import {
-  useGetSourceProvidersQuery,
+  useGetProvidersQuery,
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
   useRefreshSourceGroupMutation,
@@ -55,45 +55,60 @@ import {
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import SourcesPage from '../../pages/GitMirroring/Sources';
-import type { SourceGroup, SourceProvider } from '../../types';
+import type { SourceGroup, ResourceProvider } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const mockGenericProvider: SourceProvider = {
+const providerBase = {
+  domain: 'git' as const,
+  category: 'public' as const,
+  direction: 'external' as const,
+  name: '',
+  description: null,
+  base_url: null,
+  config: {},
+  credential_id: null,
+  owner_user_id: null,
+  visibility: 'public' as const,
+  team_id: null,
+  team_name: null,
+  is_active: true,
+  is_default: false,
+  is_protected: false,
+  verify_ssl: true,
+  priority: 0,
+  status_flag: 0,
+  status_text: 'OK',
+  last_checked_at: null,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  has_credential: false,
+};
+
+const mockGenericProvider: ResourceProvider = {
+  ...providerBase,
   id: 3,
+  subtype: 'generic_git',
   label: 'Generic Git Server',
-  provider_type: 'generic',
   credential_id: 30,
-  status_flag: 0,
-  status_text: 'OK',
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
 };
 
-const mockGithubProvider: SourceProvider = {
+const mockGithubProvider: ResourceProvider = {
+  ...providerBase,
   id: 1,
+  subtype: 'github',
   label: 'GitHub',
-  provider_type: 'github',
   credential_id: 10,
-  status_flag: 0,
-  status_text: 'OK',
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
 };
 
-const mockGitlabProvider: SourceProvider = {
+const mockGitlabProvider: ResourceProvider = {
+  ...providerBase,
   id: 2,
+  subtype: 'gitlab',
   label: 'GitLab Instance',
-  provider_type: 'gitlab',
   credential_id: 20,
-  config_json: { api_url: 'https://gitlab.example.com' },
-  status_flag: 0,
-  status_text: 'OK',
-  groups_count: 5,
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-01T00:00:00Z',
 };
 
 const mockGroup: SourceGroup = {
@@ -149,7 +164,7 @@ describe('SourcesPage — Groups tab', () => {
       isLoading: false,
     });
 
-    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockGithubProvider],
       isLoading: false,
       isError: false,
@@ -256,7 +271,7 @@ describe('SourcesPage — Groups tab', () => {
   // Test 6: All provider types (including Generic Git) shown in selector
   // -----------------------------------------------------------------------
   it('shows Generic Git provider alongside GitHub and GitLab in the provider selector', () => {
-    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockGithubProvider, mockGitlabProvider, mockGenericProvider],
       isLoading: false,
       isError: false,
@@ -274,7 +289,7 @@ describe('SourcesPage — Groups tab', () => {
   // Test 7: Import Group modal opens and shows providers (including Generic Git)
   // -----------------------------------------------------------------------
   it('opens Import Group modal when clicking Import Group button', async () => {
-    (useGetSourceProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+    (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [mockGitlabProvider, mockGenericProvider],
       isLoading: false,
       isError: false,

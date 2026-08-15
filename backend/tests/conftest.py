@@ -1,18 +1,31 @@
 import asyncio
 
+import bcrypt
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
+from app.config import settings
 from app.core.security import get_password_hash
 from app.database import Base, get_db
 from app.main import app
 from app.models.permission import Permission, role_permissions
 from app.models.role import Role, UserRole
 from app.models.user import User
+
+# Disable environment-dependent behaviour (rate limiting) for the whole test
+# run. The app is imported above; rate_limit() checks this value lazily at
+# request time, so setting it here is sufficient regardless of how pytest was
+# invoked.
+settings.environment = "test"
 
 # Use in-memory SQLite for tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -25,8 +38,31 @@ def event_loop():
     loop.close()
 
 
-@pytest_asyncio.fixture(scope="function")
+@pytest.fixture(scope="session", autouse=True)
+def _fast_bcrypt():
+    """Lower bcrypt cost factor for tests while keeping the real algorithm.
+
+    Production uses rounds=12 (~250ms per hash); tests only need a valid,
+    verifiable hash, so rounds=4 (~60x faster) is enough and still exercises
+    the real bcrypt code path.
+    """
+    original_gensalt = bcrypt.gensalt
+
+    def fast_gensalt(rounds=None, prefix=None):
+        return original_gensalt(rounds=4, prefix=prefix)
+
+    bcrypt.gensalt = fast_gensalt
+    yield
+    bcrypt.gensalt = original_gensalt
+
+
+@pytest_asyncio.fixture(scope="session")
 async def test_engine():
+    """Single engine for the whole session: the schema is created once.
+
+    In-memory SQLite lives and dies with this engine, so no ``drop_all`` is
+    needed. Per-test isolation is provided by ``db_transaction`` below.
+    """
     engine = create_async_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
@@ -35,15 +71,34 @@ async def test_engine():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
 
+@pytest_asyncio.fixture(scope="function")
+async def db_transaction(test_engine) -> AsyncConnection:
+    """Wrap each test in an outer transaction that is rolled back afterwards.
+
+    ``db_session`` and ``client`` join this transaction via SAVEPOINTs, so an
+    endpoint's ``commit()`` becomes a savepoint release rather than a real
+    commit. Rolling back the outer transaction restores an empty DB per test.
+
+    Uses ``begin_nested()`` instead of ``begin()``: SQLite issues deferred
+    BEGINs, which would leak committed savepoints past a plain ``rollback()``.
+    A nested transaction forces a real BEGIN up front, making the rollback
+    actually discard everything emitted by the test.
+    """
+    connection = await test_engine.connect()
+    trans = await connection.begin_nested()
+    yield connection
+    await trans.rollback()
+    await connection.close()
+
+
 @pytest_asyncio.fixture
-async def db_session(test_engine):
+async def db_session(db_transaction: AsyncConnection):
     session_factory = async_sessionmaker(
-        bind=test_engine,
+        bind=db_transaction,
+        join_transaction_mode="create_savepoint",
         class_=AsyncSession,
         expire_on_commit=False,
         autocommit=False,
@@ -51,18 +106,18 @@ async def db_session(test_engine):
     )
     async with session_factory() as session:
         yield session
-        await session.rollback()
 
 
 @pytest_asyncio.fixture
-async def client(test_engine):
+async def client(db_transaction: AsyncConnection):
     """HTTP client with a fresh DB session per request.
 
     Each FastAPI request gets its own AsyncSession so that ``commit()``
     inside one endpoint handler never interferes with the next request.
     """
     session_factory = async_sessionmaker(
-        bind=test_engine,
+        bind=db_transaction,
+        join_transaction_mode="create_savepoint",
         class_=AsyncSession,
         expire_on_commit=False,
         autocommit=False,
@@ -101,8 +156,9 @@ _ALL_PERMISSIONS = [
     "sync_groups:read",
     "sync_groups:write",
     "sync_groups:delete",
-    # Credentials (used by integrations API)
+    # Credentials (read for list/get; write for create/update/delete/test)
     "credentials:read",
+    "credentials:write",
     "credentials:use",
     # Pipelines
     "pipelines:read",
@@ -152,26 +208,43 @@ _ALL_PERMISSIONS = [
 
 
 async def _seed_all_test_permissions(db: AsyncSession, role) -> None:
-    """Insert all known permissions and assign them to *role*."""
-    # Get already-assigned permission IDs for this role
-    existing_result = await db.execute(
-        select(role_permissions.c.permission_id).where(role_permissions.c.role_id == role.id)
-    )
-    existing_ids: set[int] = {row[0] for row in existing_result}
+    """Insert all known permissions and assign them to *role*.
 
-    for perm_name in _ALL_PERMISSIONS:
-        result = await db.execute(select(Permission).where(Permission.name == perm_name))
-        perm = result.scalar_one_or_none()
-        if perm is None:
-            perm = Permission(name=perm_name, description=f"Auto-seeded: {perm_name}")
-            db.add(perm)
-            await db.flush()
-        # Assign to role via the association table (idempotent)
-        if perm.id not in existing_ids:
+    Set-based: two SELECTs (existing permissions + existing role links) and one
+    bulk INSERT for anything missing, instead of per-permission SELECT/flush.
+    """
+    existing = (await db.execute(select(Permission))).scalars().all()
+    by_name: dict[str, Permission] = {p.name: p for p in existing}
+
+    new_perms = [
+        Permission(name=name, description=f"Auto-seeded: {name}")
+        for name in _ALL_PERMISSIONS
+        if name not in by_name
+    ]
+    if new_perms:
+        db.add_all(new_perms)
+        await db.flush()
+        for p in new_perms:
+            by_name[p.name] = p
+
+    assigned = {
+        row[0]
+        for row in (
             await db.execute(
-                role_permissions.insert().values(role_id=role.id, permission_id=perm.id)
+                select(role_permissions.c.permission_id).where(
+                    role_permissions.c.role_id == role.id
+                )
             )
-            existing_ids.add(perm.id)
+        ).all()
+    }
+    missing = [
+        {"role_id": role.id, "permission_id": by_name[name].id}
+        for name in _ALL_PERMISSIONS
+        if by_name[name].id not in assigned
+    ]
+    if missing:
+        await db.execute(role_permissions.insert().values(missing))
+
     await db.commit()
 
 

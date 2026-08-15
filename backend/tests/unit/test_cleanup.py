@@ -19,8 +19,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.cleanup import CleanupResult, CleanupService
@@ -31,8 +37,15 @@ from app.services.cleanup import CleanupResult, CleanupService
 
 async def _seed_source_provider(
     db_session: AsyncSession, label: str = "test-github"
-) -> SourceProvider:
-    sp = SourceProvider(provider_type=ProviderType.github, label=label)
+) -> ResourceProvider:
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=label,
+        label=label,
+    )
     db_session.add(sp)
     await db_session.commit()
     await db_session.refresh(sp)

@@ -7,10 +7,16 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.core.exceptions import BadRequestError, ExternalServiceError, NotFoundError
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
+from app.models.resource_provider import (
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 
 # ──── Registry Parsing Utilities ────────────────────────────────────────────
 
@@ -28,6 +34,19 @@ _REGISTRY_HOST_TO_PROVIDER: dict[str, str] = {
     "public.ecr.aws": "ecr",
     "mcr.microsoft.com": "acr",
     "ghcr.io": "ghcr",
+}
+
+# Map legacy detection strings (RegistryProvider enum / _REGISTRY_HOST_TO_PROVIDER)
+# to the unified ProviderSubtype used by ResourceProvider.
+_PROVIDER_TO_SUBTYPE: dict[str, ProviderSubtype] = {
+    "docker_hub": ProviderSubtype.docker_hub,
+    "quay_io": ProviderSubtype.quay,
+    "gcr": ProviderSubtype.gcr,
+    "ecr": ProviderSubtype.ecr,
+    "acr": ProviderSubtype.acr,
+    "ghcr": ProviderSubtype.ghcr,
+    "harbor": ProviderSubtype.harbor,
+    "generic": ProviderSubtype.generic_registry,
 }
 
 
@@ -128,6 +147,139 @@ def _validate_registry_url(url: str) -> None:
         raise BadRequestError(f"Docker registry URL must start with http:// or https://: {url}")
 
 
+async def _get_docker_provider_or_404(
+    db: AsyncSession,
+    provider_id: int,
+    *,
+    internal_only: bool = False,
+) -> ResourceProvider:
+    """Fetch and validate a docker resource provider.
+
+    Providers V3 rule (plans/features/providers-unified.md 11.3.4):
+    ``docker_image_sources.target_provider_id`` must reference an internal
+    provider with subtype harbor or generic_registry. Source providers
+    (``provider_id``) must be docker-domain external rows.
+    """
+    result = await db.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.id == provider_id,
+            ~ResourceProvider.is_deleted,
+        )
+    )
+    provider = result.scalar_one_or_none()
+    if provider is None:
+        raise NotFoundError(f"Provider with id={provider_id} not found")
+    if provider.domain != ProviderDomain.docker:
+        raise BadRequestError(
+            f"Provider {provider_id} is domain '{provider.domain}', expected 'docker'"
+        )
+    if internal_only:
+        allowed = (ProviderSubtype.harbor, ProviderSubtype.generic_registry)
+        if provider.subtype not in allowed or provider.direction != ProviderDirection.internal:
+            raise BadRequestError(
+                f"Provider {provider_id} ({provider.subtype}/{provider.direction}) cannot "
+                "be a mirror target: target_provider_id requires an internal provider "
+                "with subtype harbor or generic_registry"
+            )
+    return provider
+
+
+def _provider_host(base_url: str | None) -> str:
+    """Return the normalized host of a provider ``base_url`` (no scheme/path)."""
+    if not base_url:
+        return ""
+    value = base_url.strip().lower()
+    for prefix in ("https://", "http://"):
+        if value.startswith(prefix):
+            value = value[len(prefix) :]
+    return value.split("/", 1)[0].rstrip("/")
+
+
+def _subtype_for_provider(provider: str | None) -> ProviderSubtype | None:
+    """Map a legacy detection string to a unified ProviderSubtype, if known."""
+    if not provider:
+        return None
+    return _PROVIDER_TO_SUBTYPE.get(provider)
+
+
+async def find_matching_docker_provider(
+    db: AsyncSession,
+    registry_host: str,
+    provider: str | None = None,
+) -> ResourceProvider | None:
+    """Find the best matching external docker ResourceProvider for a registry host.
+
+    Replaces the legacy ``DockerRegistryInstanceService.find_matching_registry``
+    (phase 7C). Match priority mirrors the old logic:
+      1. exact ``base_url`` host match;
+      2. subtype match (from the detected provider);
+      3. the highest-priority active external docker provider.
+    """
+    result = await db.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.domain == ProviderDomain.docker,
+            ResourceProvider.is_active.is_(True),
+            ResourceProvider.is_deleted.is_(False),
+        )
+    )
+    active = list(result.scalars().all())
+    if not active:
+        return None
+
+    # 1. Exact host match.
+    for r in active:
+        if _provider_host(r.base_url) == registry_host:
+            return r
+
+    # 2. Subtype match.
+    subtype = _subtype_for_provider(provider)
+    if subtype is not None:
+        for r in active:
+            if r.subtype == subtype:
+                return r
+
+    # 3. Default by priority (external first, highest priority wins).
+    external = [r for r in active if r.direction == ProviderDirection.external]
+    if external:
+        return sorted(
+            external,
+            key=lambda r: (-r.priority, -int(r.is_default), r.name),
+        )[0]
+
+    return None
+
+
+async def get_compatible_docker_providers(
+    db: AsyncSession,
+    registry_host: str,
+    provider: str | None = None,
+) -> list[ResourceProvider]:
+    """Return active docker providers that could serve the given host/provider."""
+    result = await db.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.domain == ProviderDomain.docker,
+            ResourceProvider.is_active.is_(True),
+            ResourceProvider.is_deleted.is_(False),
+        )
+    )
+    active = list(result.scalars().all())
+    if not active:
+        return []
+
+    subtype = _subtype_for_provider(provider)
+    compatible = [
+        r
+        for r in active
+        if _provider_host(r.base_url) == registry_host
+        or (subtype is not None and r.subtype == subtype)
+    ]
+
+    if not compatible:
+        compatible = [r for r in active if r.direction == ProviderDirection.external]
+
+    return sorted(compatible, key=lambda r: (-r.priority, r.name))
+
+
 class DockerRegistryService:
     """Service for indexing Docker image tags from a container registry.
 
@@ -143,12 +295,17 @@ class DockerRegistryService:
         db: AsyncSession,
         target_registry_url: str | None = None,
         target_project: str | None = None,
-        registry_instance_id: int | None = None,
+        provider_id: int | None = None,
+        target_provider_id: int | None = None,
     ) -> DockerImageSource:
         """Create a new DockerImageSource from a registry URL and index it.
 
-        If registry_instance_id is provided, links the image source to the
-        configured registry instance. Otherwise, attempts auto-detection.
+        Providers V3: ``provider_id`` links an external docker ResourceProvider;
+        ``target_provider_id`` links the internal (harbor/generic_registry)
+        target provider (11.3.4) and replaces the free-form
+        ``target_registry_url`` string. Phase 7C drops the legacy
+        ``registry_instance_id`` link and the DockerRegistryInstanceService
+        auto-detection fallback.
         """
         _validate_registry_url(registry_url)
         normalized_url = _normalize_registry_url(registry_url)
@@ -160,16 +317,25 @@ class DockerRegistryService:
         if existing_result.scalar_one_or_none() is not None:
             raise BadRequestError(f"Docker image source with name '{name}' already exists")
 
-        # Auto-detect registry instance if not explicitly provided
-        if registry_instance_id is None:
-            from app.services.integrations import DockerRegistryInstanceService
+        # Providers V3: validate both links up-front (11.3.4).
+        if provider_id is not None:
+            await _get_docker_provider_or_404(db, provider_id)
+        if target_provider_id is not None:
+            await _get_docker_provider_or_404(db, target_provider_id, internal_only=True)
+            # Keep the legacy URL column in sync so the crane mirror path
+            # keeps working until it is switched to the provider (phase 6/7).
+            if not target_registry_url:
+                tp = await db.get(ResourceProvider, target_provider_id)
+                target_registry_url = tp.base_url
 
-            inst_service = DockerRegistryInstanceService(db)
+        # Providers V3 (phase 7C): auto-resolve an external docker provider when
+        # no explicit provider_id is supplied.
+        if provider_id is None:
             provider = detect_provider_from_url(registry_url)
             registry_host, _ = parse_registry_from_image(image_name or name)
-            matched = await inst_service.find_matching_registry(registry_host, provider)
-            if matched:
-                registry_instance_id = matched.id
+            matched = await find_matching_docker_provider(db, registry_host, provider)
+            if matched is not None:
+                provider_id = matched.id
 
         source = DockerImageSource(
             name=name,
@@ -177,7 +343,8 @@ class DockerRegistryService:
             status_flag=4,
             target_registry_url=target_registry_url,
             target_project=target_project,
-            registry_instance_id=registry_instance_id,
+            provider_id=provider_id,
+            target_provider_id=target_provider_id,
         )
         db.add(source)
         await db.flush()
@@ -377,8 +544,17 @@ class DockerRegistryService:
 
         Uses crane CLI tool for copying images between registries.
         Creates a DockerSyncLog entry to track the operation.
+
+        Providers V3 (phase 4): the target registry is resolved from
+        ``target_provider_id`` (internal harbor/generic_registry provider,
+        11.3.4); the legacy ``target_registry_url`` string is the fallback.
         """
-        if not source.target_registry_url:
+        target_registry_url = source.target_registry_url
+        if source.target_provider_id is not None:
+            tp = await db.get(ResourceProvider, source.target_provider_id)
+            if tp is not None and tp.base_url:
+                target_registry_url = tp.base_url
+        if not target_registry_url:
             raise ValueError("Source has no target registry configured")
 
         # Create log entry
@@ -402,9 +578,7 @@ class DockerRegistryService:
             # Build source and target references
             source_ref = f"{source.registry_url}/{image_name}:{tag}"
             target_ref = (
-                f"{source.target_registry_url}/"
-                f"{source.target_project or 'library'}/"
-                f"{image_name}:{tag}"
+                f"{target_registry_url}/{source.target_project or 'library'}/{image_name}:{tag}"
             )
 
             # Use crane copy for mirroring

@@ -15,10 +15,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BadRequestError, ExternalServiceError
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.services.docker import (
     DockerRegistryService,
     _normalize_registry_url,
     _validate_registry_url,
+    find_matching_docker_provider,
+    get_compatible_docker_providers,
 )
 
 FAKE_TAGS_RESPONSE = {
@@ -299,3 +308,123 @@ async def test_import_source_duplicate_name(docker_service, db_session: AsyncSes
             image_name=None,
             db=db_session,
         )
+
+
+# ─── Registry provider matching (phase 7C) ──────────────────────────────────
+
+
+async def _docker_provider(
+    db_session: AsyncSession,
+    *,
+    name: str,
+    subtype: ProviderSubtype,
+    base_url: str | None,
+    priority: int = 0,
+    direction: ProviderDirection = ProviderDirection.external,
+    is_default: bool = False,
+) -> ResourceProvider:
+    provider = ResourceProvider(
+        domain=ProviderDomain.docker,
+        subtype=subtype,
+        category=ProviderCategory.public,
+        direction=direction,
+        name=name,
+        label=name,
+        base_url=base_url,
+        priority=priority,
+        is_default=is_default,
+    )
+    db_session.add(provider)
+    await db_session.commit()
+    await db_session.refresh(provider)
+    return provider
+
+
+class TestRegistryProviderMatching:
+    @pytest.mark.asyncio
+    async def test_matches_exact_host_first(self, db_session: AsyncSession):
+        """Exact base_url host match wins over subtype/priority matches."""
+        await _docker_provider(
+            db_session,
+            name="quay-default",
+            subtype=ProviderSubtype.quay,
+            base_url="https://quay.io",
+            priority=100,
+        )
+        exact = await _docker_provider(
+            db_session,
+            name="my-registry",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://myregistry.example.com",
+            priority=0,
+        )
+
+        matched = await find_matching_docker_provider(
+            db_session, "myregistry.example.com", "generic"
+        )
+        assert matched is not None
+        assert matched.id == exact.id
+
+    @pytest.mark.asyncio
+    async def test_matches_subtype_when_no_host_match(self, db_session: AsyncSession):
+        """When no host matches, a provider with the detected subtype is returned."""
+        provider = await _docker_provider(
+            db_session,
+            name="quay",
+            subtype=ProviderSubtype.quay,
+            base_url="https://quay.io",
+            priority=0,
+        )
+
+        matched = await find_matching_docker_provider(
+            db_session, "some.unknown.registry", "quay_io"
+        )
+        assert matched is not None
+        assert matched.id == provider.id
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_highest_priority_external(self, db_session: AsyncSession):
+        """With no host/subtype match, the highest-priority external provider wins."""
+        low = await _docker_provider(
+            db_session,
+            name="generic-low",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://low.example.com",
+            priority=1,
+        )
+        high = await _docker_provider(
+            db_session,
+            name="generic-high",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://high.example.com",
+            priority=50,
+        )
+
+        matched = await find_matching_docker_provider(db_session, "unknown.example.com", None)
+        assert matched is not None
+        assert matched.id == high.id
+        assert matched.id != low.id
+
+    @pytest.mark.asyncio
+    async def test_get_compatible_returns_subtype_and_host_matches(self, db_session: AsyncSession):
+        """Compatible list includes exact host and subtype matches, sorted by priority."""
+        await _docker_provider(
+            db_session,
+            name="quay",
+            subtype=ProviderSubtype.quay,
+            base_url="https://quay.io",
+            priority=0,
+        )
+        exact = await _docker_provider(
+            db_session,
+            name="generic",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://myregistry.example.com",
+            priority=0,
+        )
+
+        compatible = await get_compatible_docker_providers(
+            db_session, "myregistry.example.com", "generic"
+        )
+        ids = [p.id for p in compatible]
+        assert exact.id in ids

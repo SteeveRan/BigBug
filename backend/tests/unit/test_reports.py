@@ -13,13 +13,17 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.credential import Credential, CredentialType
-from app.models.gitlab_instance import GitlabInstance
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.pipeline import Pipeline as PipelineModel
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.schemas.reports import (
@@ -57,24 +61,6 @@ async def _seed_mirror_chain(
     global _seed_counter
     _seed_counter += 1
 
-    cred = Credential(
-        name=f"test-cred-{_seed_counter}",
-        credential_type=CredentialType.github_token,
-        provider="github",
-        encrypted_secret="gAAAAAB...",
-        status_flag=0,
-    )
-    db.add(cred)
-    await db.flush()
-
-    sp = SourceProvider(
-        credential_id=cred.id,
-        provider_type=ProviderType.github,
-        label=f"test-provider-{_seed_counter}",
-    )
-    db.add(sp)
-    await db.flush()
-
     sg = SourceGroup(
         external_id=f"testorg-{_seed_counter}",
         name=f"Test Org {_seed_counter}",
@@ -93,20 +79,26 @@ async def _seed_mirror_chain(
     db.add(sr)
     await db.flush()
 
-    # Reuse existing GitlabInstance by name to avoid UNIQUE constraint on url
-    existing_instance = (
-        await db.execute(select(GitlabInstance).where(GitlabInstance.name == gl_instance_name))
-    ).scalar_one_or_none()
-    if existing_instance is not None:
-        instance = existing_instance
-    else:
-        instance = GitlabInstance(
-            url=gl_url,
-            token="gAAAAAB...",
-            verify_ssl=True,
-            name=gl_instance_name,
+    # Reuse existing ResourceProvider by name to avoid UNIQUE constraint on name
+    existing_provider = (
+        await db.execute(
+            select(ResourceProvider).where(ResourceProvider.name == f"legacy-{gl_instance_name}")
         )
-        db.add(instance)
+    ).scalar_one_or_none()
+    if existing_provider is not None:
+        provider = existing_provider
+    else:
+        provider = ResourceProvider(
+            domain=ProviderDomain.git,
+            subtype=ProviderSubtype.gitlab,
+            category=ProviderCategory.system,
+            direction=ProviderDirection.internal,
+            name=f"legacy-{gl_instance_name}",
+            label=gl_instance_name,
+            base_url=gl_url,
+            verify_ssl=True,
+        )
+        db.add(provider)
         await db.flush()
 
     # Reuse existing Pipeline by name
@@ -118,7 +110,7 @@ async def _seed_mirror_chain(
     else:
         pipeline = PipelineModel(
             name="test-pipeline",
-            gitlab_instance_id=instance.id,
+            provider_id=provider.id,
             ref="main",
         )
         db.add(pipeline)

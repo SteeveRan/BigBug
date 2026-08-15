@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.integrations import DockerRegistryInstanceOut
+from app.schemas.provider import ProviderOut
 
 # ──── DockerImageTag────────────────────────────────────────────────────────
 
@@ -53,8 +53,10 @@ class DockerImageSourceOut(BaseModel):
     name: str
     registry_url: str
     description: str | None
-    registry_instance_id: int | None = None
-    registry_instance: DockerRegistryInstanceOut | None = None
+    provider_id: int | None = None
+    target_provider_id: int | None = None
+    provider: ProviderOut | None = None
+    target_provider: ProviderOut | None = None
     gitlab_project_id: str | None
     gitlab_project_url: str | None
     target_registry_url: str | None = None
@@ -82,7 +84,8 @@ class CreateDockerImageSourceRequest(BaseModel):
     registry_url: str
     description: str | None = None
     image_name: str | None = None  # Optional: pre-filter to a specific image
-    registry_instance_id: int | None = None  # Link to configured registry instance
+    provider_id: int | None = None  # External docker provider (V3)
+    target_provider_id: int | None = None  # Internal harbor/generic_registry provider (V3)
     target_registry_url: str | None = None
     target_project: str | None = None
 
@@ -91,7 +94,8 @@ class UpdateDockerImageSourceRequest(BaseModel):
     name: str | None = None
     registry_url: str | None = None
     description: str | None = None
-    registry_instance_id: int | None = None  # Allow changing linked registry instance
+    provider_id: int | None = None
+    target_provider_id: int | None = None
     target_registry_url: str | None = None
     target_project: str | None = None
 

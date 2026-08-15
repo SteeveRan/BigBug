@@ -18,7 +18,6 @@ from app.models.source_repository import DiscoveryStatus
 V2_TABLES = frozenset(
     {
         "credentials",
-        "source_providers",
         "source_groups",
         "source_repositories",
         "pipelines",
@@ -84,14 +83,6 @@ class TestMigrationV2Tables:
         }
         assert cols >= expected
 
-    def test_source_providers_table(self):
-        """source_providers has FK to credentials."""
-        table = Base.metadata.tables["source_providers"]
-        cols = {c.name for c in table.columns}
-        assert "credential_id" in cols
-        assert "provider_type" in cols
-        assert "label" in cols
-
     def test_source_groups_table(self):
         """source_groups no longer has FK to source_providers."""
         table = Base.metadata.tables["source_groups"]
@@ -101,18 +92,19 @@ class TestMigrationV2Tables:
         assert "name" in cols
 
     def test_source_repositories_table(self):
-        """source_repositories has FK to source_groups and source_providers."""
+        """source_repositories has FK to source_groups and provider_id."""
         table = Base.metadata.tables["source_repositories"]
         cols = {c.name for c in table.columns}
-        assert "source_provider_id" in cols
+        assert "source_provider_id" not in cols
+        assert "provider_id" in cols
         assert "source_group_id" in cols
         assert "discovery_status" in cols
 
     def test_pipelines_table(self):
-        """pipelines has FK to gitlab_instances and is_default unique."""
+        """pipelines has provider_id and is_default unique."""
         table = Base.metadata.tables["pipelines"]
         cols = {c.name for c in table.columns}
-        assert "gitlab_instance_id" in cols
+        assert "provider_id" in cols
         assert "is_default" in cols
 
     def test_pipeline_components_table(self):
@@ -287,13 +279,6 @@ class TestMigrationV2ModelDefaults:
         assert d is not None, "status_flag has no declared default"
         arg = d.arg if hasattr(d, "arg") else d
         assert arg == 0
-
-    def test_source_provider_is_deleted_default(self):
-        """source_providers.is_deleted defaults to False."""
-        d = _col_default("source_providers", "is_deleted")
-        assert d is not None, "is_deleted has no declared default"
-        arg = d.arg if hasattr(d, "arg") else d
-        assert arg is False
 
     def test_source_group_total_repos_default(self):
         """source_groups.total_repos defaults to 0."""

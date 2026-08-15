@@ -29,16 +29,16 @@ import {
   useCreateComponentMutation,
   useUpdateComponentMutation,
   useDeleteComponentMutation,
-  useGetGitlabInstancesQuery,
+  useGetProvidersQuery,
   useRunComponentMutation,
 } from '../../../store/api';
-import { GitLabComponent, GitLabComponentCreate, GitlabInstance } from '../../../types';
+import { GitLabComponent, GitLabComponentCreate, ResourceProvider } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
 
 const emptyForm: GitLabComponentCreate = {
   name: '',
   description: '',
-  gitlab_instance_id: 0,
+  provider_id: 0,
   project_path: '',
   component_path: '',
   version: '',
@@ -48,7 +48,11 @@ const emptyForm: GitLabComponentCreate = {
 export function GitLabComponentsPage() {
   const { message } = App.useApp();
   const { data: components = [], isLoading } = useGetComponentsQuery();
-  const { data: instances = [] } = useGetGitlabInstancesQuery();
+  const { data: providers = [] } = useGetProvidersQuery({
+    subtype: 'gitlab',
+    category: 'system',
+    direction: 'internal',
+  });
   const [createComponent] = useCreateComponentMutation();
   const [updateComponent] = useUpdateComponentMutation();
   const [deleteComponent] = useDeleteComponentMutation();
@@ -75,7 +79,7 @@ export function GitLabComponentsPage() {
     setForm({
       name: component.name,
       description: component.description ?? '',
-      gitlab_instance_id: component.gitlab_instance_id,
+      provider_id: component.provider_id,
       project_path: component.project_path,
       component_path: component.component_path,
       version: component.version ?? '',
@@ -282,7 +286,7 @@ export function GitLabComponentsPage() {
             disabled={
               submitting ||
               !form.name ||
-              !form.gitlab_instance_id ||
+              !form.provider_id ||
               !form.project_path ||
               !form.component_path
             }
@@ -304,12 +308,12 @@ export function GitLabComponentsPage() {
             rows={2}
           />
           <Select
-            placeholder="GitLab Instance"
-            value={form.gitlab_instance_id || undefined}
-            onChange={(v) => setForm({ ...form, gitlab_instance_id: v })}
-            options={instances.map((inst: GitlabInstance) => ({
-              label: inst.name,
-              value: inst.id,
+            placeholder="GitLab Provider"
+            value={form.provider_id || undefined}
+            onChange={(v) => setForm({ ...form, provider_id: v })}
+            options={providers.map((p: ResourceProvider) => ({
+              label: p.label,
+              value: p.id,
             }))}
             style={{ width: '100%' }}
           />
@@ -376,8 +380,11 @@ export function GitLabComponentsPage() {
                   // Type assertion to handle the unknown type
                   const inputSchema = schema as {
                     type?: string;
+                    title?: string;
                     default?: unknown;
                     description?: string;
+                    enum?: string[];
+                    required?: boolean;
                   };
 
                   // Determine input type based on schema properties

@@ -10,11 +10,11 @@
 
 | Аспект | Решение |
 |--------|---------|
-| **Credentials** | Settings → Integrations, отдельно от Mirroring |
+| **Credentials** | Settings → Providers (credentials), отдельно от Mirroring |
 | **Типы источников** | GitHub, GitLab, Generic git. Архитектура под расширение (Bitbucket, Azure DevOps позже) |
 | **Аутентификация** | GitHub/GitLab: HTTPS (user/pass) + SSH (key) + token. Generic: HTTPS (user/pass) + SSH (key), без токенов |
-| **Механизм зеркалирования** | CI/CD пайплайны (в отдельной инфраструктурной GitLab-группе), BigBug — оркестратор через GitLab API. Цепочка разрешения: Mirror → SyncGroup → Pipeline → GitlabInstance + Components |
-| **Pipeline (сущность)** | Самостоятельная сущность: конфигурация CI/CD пайплайна (gitlab_instance_id, ref, default_variables, components M2M). Дефолтный пайплайн для git sync, возможность кастомных пайплайнов. Pipeline имеет запуски (PipelineRun), MirrorLog — обёртка вокруг PipelineRun |
+| **Механизм зеркалирования** | CI/CD пайплайны (в отдельной инфраструктурной GitLab-группе), BigBug — оркестратор через GitLab API. Цепочка разрешения: Mirror → SyncGroup → Pipeline → ResourceProvider(gitlab/system/internal) + Components |
+| **Pipeline (сущность)** | Самостоятельная сущность: конфигурация CI/CD пайплайна (provider_id, ref, default_variables, components M2M). Дефолтный пайплайн для git sync, возможность кастомных пайплайнов. Pipeline имеет запуски (PipelineRun), MirrorLog — обёртка вокруг PipelineRun |
 | **Релизы и лицензии** | SourceRepository хранит информацию о релизах (latest_release_tag, latest_release_date), лицензии (license_spdx, license_name) и README. MirrorReleaseLog ведёт историю обнаруженных релизов. Доступен просмотр README через систему (без открытия target-репозитория) |
 | **Sync Groups** | Независимые от организаций, many-to-one к зеркалам. Группа по умолчанию — без операций |
 | **Целевой GitLab** | Индивидуально на зеркало, массовое назначение через bulk |
@@ -34,7 +34,7 @@
 
 ### US-1: Управление учётными данными источников (Credentials)
 
-**Как** DevOps-инженер, **я хочу** управлять учётными данными для внешних git-источников в разделе **Settings → Integrations**, **чтобы** централизованно контролировать доступы и переиспользовать их при настройке зеркалирования.
+**Как** DevOps-инженер, **я хочу** управлять учётными данными для внешних git-источников в разделе **Settings → Providers** (credentials), **чтобы** централизованно контролировать доступы и переиспользовать их при настройке зеркалирования.
 
 **Детали:**
 - Один и тот же хостинг может быть добавлен несколько раз (разные токены с разными правами)
@@ -236,7 +236,7 @@
 
 ### UC-1: Первичная настройка зеркалирования для GitHub-организации
 
-1. Админ добавляет GitHub-токен в **Settings → Integrations → GitHub**
+1. Админ добавляет GitHub-токен в **Settings → Providers → GitHub**
 2. Переходит в **Git Mirroring → Source Groups**, нажимает «Import Group»
 3. Выбирает тип «GitHub», инстанс (credentials), вводит имя организации
 4. Система импортирует организацию и все репозитории (метаданные подтягиваются через GitHub API)
@@ -258,7 +258,7 @@
 
 ### UC-3: Настройка зеркалирования из self-hosted GitLab
 
-1. Админ добавляет self-hosted GitLab в **Settings → Integrations → GitLab** (URL + токен)
+1. Админ добавляет self-hosted GitLab в **Settings → Providers → GitLab** (URL + токен)
 2. Проверяет соединение (test connection)
 3. Переходит в **Git Mirroring → Source Groups**, нажимает «Import Group»
 4. Выбирает тип «GitLab», инстанс, вводит путь к группе (например, `my-group/subgroup`)
@@ -282,7 +282,7 @@
 2. Видит сводку: 45 OK, 3 Failed, 2 Warning
 3. Фильтрует по статусу «Failed» + «Warning»
 4. Видит:
-   - Зеркало A: «Sync failed — authentication error» → проверяет токен в Integrations
+   - Зеркало A: «Sync failed — authentication error» → проверяет токен в Providers (credentials)
    - Зеркало B: «Source repository archived» → принимает решение оставить или удалить
    - Зеркало C: «Source repository not found» → удаляет зеркало
 5. Для зеркала A обновляет токен и запускает «Sync Now» вручную
@@ -298,7 +298,7 @@
 ### UC-7: Восстановление зеркала после сбоя системы (Import Existing)
 
 1. Система BigBug была переустановлена, но зеркала в GitLab остались
-2. Админ добавляет GitHub-токен в **Settings → Integrations → GitHub**
+2. Админ добавляет GitHub-токен в **Settings → Providers → GitHub**
 3. Переходит в **Git Mirroring → Mirrors**, нажимает «Import Existing Mirror»
 4. Выбирает тип источника «GitHub», credentials (токен)
 5. Вводит URL source-репозитория (`github.com/org/repo`) и URL GitLab-проекта (`gitlab.internal.com/group/mirror-repo`)
@@ -349,7 +349,7 @@
 7. Понимает, что проблема уже почти решена (коллега починил ночью)
 8. Смотрит «Топ-5 проблемных зеркал»: лидирует `github.com/team/old-service` (8 failed за неделю)
 9. Кликает по нему → переходит на Mirror Process, видит ошибку аутентификации
-10. Идёт в Integrations обновлять токен
+10. Идёт в Providers обновлять токен
 11. Возвращается на Dashboard, нажимает Refresh — статистика обновлена
 12. Смотрит сводку по Sync Groups: «Production Sync» — 85 зеркал, 98% успешных; «Archive» — 40 зеркал, 100% успешных
 13. Переключает график на 30 дней — видит позитивный тренд: количество failed снижается

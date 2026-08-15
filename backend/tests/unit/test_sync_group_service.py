@@ -21,8 +21,14 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import DomainError
 from app.models.mirror import Mirror
 from app.models.pipeline import Pipeline
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import DiscoveryStatus, SourceRepository
 from app.models.sync_group import SyncGroup
 from app.schemas.sync_group import SyncGroupCreate
@@ -35,10 +41,14 @@ from app.services.sync_group import SyncGroupService
 
 async def _seed_source_provider(
     db_session: AsyncSession, label: str = "github-test"
-) -> SourceProvider:
-    """Create a minimal SourceProvider in the DB."""
-    sp = SourceProvider(
-        provider_type=ProviderType.github,
+) -> ResourceProvider:
+    """Create a minimal github/external ResourceProvider in the DB."""
+    sp = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=label,
         label=label,
     )
     db_session.add(sp)
@@ -50,7 +60,7 @@ async def _seed_source_provider(
 async def _seed_source_group(
     db_session: AsyncSession, sp_id: int, external_id: str = "test-org"
 ) -> SourceGroup:
-    """Create a minimal SourceGroup linked to *sp*."""
+    """Create a minimal SourceGroup (provider linked via repositories)."""
     sg = SourceGroup(
         external_id=external_id,
         name=external_id,
@@ -71,7 +81,7 @@ async def _seed_source_repository(
     """Create a minimal SourceRepository linked to *sg* and optionally *sp*."""
     sr = SourceRepository(
         source_group_id=sg_id,
-        source_provider_id=sp_id,
+        provider_id=sp_id,
         external_id=f"{name}-ext",
         name=name,
         full_name=f"owner/{name}",

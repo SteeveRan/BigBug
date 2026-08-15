@@ -13,8 +13,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.resource_provider import (
+    ProviderCategory,
+    ProviderDirection,
+    ProviderDomain,
+    ProviderSubtype,
+    ResourceProvider,
+)
 from app.models.source_group import SourceGroup
-from app.models.source_provider import ProviderType, SourceProvider
 from app.models.source_repository import SourceRepository
 from app.services.release import ReleaseService
 
@@ -24,13 +30,20 @@ from app.services.release import ReleaseService
 
 
 async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
-    """Create a minimal SourceRepository with SourceGroup and SourceProvider."""
-    sp = SourceProvider(
-        credential_id=1,
-        provider_type=ProviderType.github,
+    """Create a minimal SourceRepository with SourceGroup and ResourceProvider."""
+    import uuid
+
+    provider = ResourceProvider(
+        domain=ProviderDomain.git,
+        subtype=ProviderSubtype.github,
+        category=ProviderCategory.public,
+        direction=ProviderDirection.external,
+        name=f"test-provider-{uuid.uuid4().hex[:8]}",
         label="test-provider",
+        credential_id=1,
+        verify_ssl=True,
     )
-    db.add(sp)
+    db.add(provider)
     await db.flush()
 
     sg = SourceGroup(
@@ -42,7 +55,7 @@ async def _seed_source_repo(db: AsyncSession, **overrides) -> SourceRepository:
     await db.flush()
 
     defaults = {
-        "source_provider_id": sp.id,
+        "provider_id": provider.id,
         "source_group_id": sg.id,
         "external_id": "12345",
         "name": "test-repo",
