@@ -1,8 +1,8 @@
 import { ReactNode, useEffect } from 'react';
 import { Navigate } from 'react-router';
 import { useAppSelector, useAppDispatch } from '../store';
-import { setUser, logout } from '../store/authSlice';
-import { useGetMeQuery } from '../store/api';
+import { setUser, setPermissions, logout } from '../store/authSlice';
+import { useGetMeQuery, useGetUserPermissionsQuery } from '../store/api';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,15 +13,21 @@ export function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps)
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   const { data: me, error } = useGetMeQuery(undefined, { skip: !isAuthenticated });
+  const { data: permissionsData } = useGetUserPermissionsQuery(undefined, {
+    skip: !isAuthenticated,
+  });
 
   useEffect(() => {
     if (me) {
       dispatch(setUser(me));
     }
+    if (permissionsData) {
+      dispatch(setPermissions(permissionsData.permissions));
+    }
     if (error) {
       dispatch(logout());
     }
-  }, [me, error, dispatch]);
+  }, [me, permissionsData, error, dispatch]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

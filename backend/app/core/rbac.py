@@ -104,13 +104,13 @@ def require_permission(permission: str) -> Callable:
     ):
         # Phase 4 optimisation: use cached permissions from JWT payload
         # (set by get_current_user) to avoid a DB round-trip on every
-        # permission check. Old tokens that predate this feature have an
-        # empty list, which triggers the fallback DB query.
+        # permission check.
         cached: list[str] = getattr(current_user, "_cached_permissions", [])
 
-        if not cached:
-            # Fallback: token was issued before Phase 4 or caching is disabled.
-            # Perform the full DB lookup via RBACService.
+        if permission not in cached:
+            # Fallback: the cached list is either empty (token issued before
+            # Phase 4) or is a stale non-empty list that predates a permission
+            # added later by a migration. Re-sync from the DB and re-check.
             from app.services.rbac_service import RBACService
 
             rbac_service = RBACService(db)
@@ -183,7 +183,10 @@ def require_scope_permission(
         # ------------------------------------------------------------------
         cached: list[str] = getattr(current_user, "_cached_permissions", [])
 
-        if not cached:
+        if permission not in cached:
+            # Fallback: re-sync permissions from the DB when the cached list is
+            # either empty (pre-Phase 4 token) or stale (non-empty list missing
+            # a permission added later by a migration).
             from app.services.rbac_service import RBACService
 
             rbac_service = RBACService(db)

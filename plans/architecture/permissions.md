@@ -2,7 +2,7 @@
 
 > Единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 > 
-> **Последняя сверка:** 2026-08-15 — фаза 5 рефакторинга Providers V3: добавлены `providers:*`/`providers_system:*`/`teams:*`/`credentials:write`, удалены легаси-права (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`), `credentials:read` начат реально проверяться.
+> **Последняя сверка:** 2026-08-15 — фаза 5 рефакторинга Providers V3: добавлены `providers:*`/`providers_system:*`/`teams:*`/`credentials:write`, удалены легаси-права (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`), `credentials:read` начат реально проверяться. Дополнительно добавлена миграция [`20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py`](backend/alembic/versions/20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py), реально вставляющая `providers:*`/`teams:*`/`credentials:write` в БД и назначающая их ролям (root-cause fix RBAC).
 
 ## Сводная таблица
 
@@ -138,7 +138,7 @@
 | `teams:write` | ✅ | | |
 | `teams:manage_members` | ✅ | | |
 
-Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS`.
+Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS`. С 2026-08-15 фактический сидинг в БД выполняет миграция [`20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py`](backend/alembic/versions/20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py) (вставляет `providers:*`/`teams:*`/`credentials:write` и назначает ролям). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
 
 ## Легаси-права (удалены в фазе 5)
 
@@ -174,6 +174,7 @@
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-08-15 | Root-cause fix RBAC: добавлена миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions`, реально сидящая `providers:*`/`teams:*`/`credentials:write` в `permissions` + `role_permissions` (ранее были только в `seed_admin.py`, но не в БД). |
 | 2026-08-15 | Фаза 7F Providers V3: выпил legacy-таблиц/роутеров (`api/integrations/`, `services/integrations.py`, instance-модели, `source_providers`). Роутеры `/settings/providers`, `/admin/credentials`, `/settings/teams`, `/admin/teams` — окончательные. `source_groups:read` привязан к `/git-mirroring/sources`. |
 | 2026-08-15 | Фаза 5 Providers V3: добавлены `providers:read/write/delete/use/read_all`, `providers_system:write`, `providers:share`, `teams:read/write/manage_members`, `credentials:write`; `credentials:read` начат реально проверяться; удалены `integrations:read/write/manage`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use` |
 | 2026-06-14 | Глобальная сверка и исправление: заменены `require_admin()` → `require_permission()` в `admin.py` и `auth.py`; исправлены `PermissionGate` в роутере для git-mirroring; интеграции переведены с легаси-прав на `integrations:read`/`integrations:write`; `audit.py`: `users:read` → `audit:read`; `seed_admin.py`: добавлено 6 прав оператору; все `require_operator()`/`require_viewer()` заменены на `require_permission()` в domain API |

@@ -67,6 +67,9 @@ const authSlice = createSlice({
       state.user = action.payload;
       state.isAuthenticated = true;
     },
+    setPermissions: (state, action: PayloadAction<string[]>) => {
+      state.permissions = action.payload;
+    },
     logout: (state) => {
       state.user = null;
       state.accessToken = null;
@@ -82,7 +85,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, setUser, logout, setLoading } = authSlice.actions;
+export const { setCredentials, setUser, setPermissions, logout, setLoading } = authSlice.actions;
 export default authSlice.reducer;
 
 /** Selector: returns the RBAC permissions string[] from auth state */

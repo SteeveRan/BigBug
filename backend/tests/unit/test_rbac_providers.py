@@ -34,6 +34,11 @@ SEED_ADMIN_PATH = BACKEND_DIR / "docker" / "seed_admin.py"
 MIGRATION_PATH = next(
     (BACKEND_DIR / "alembic" / "versions").glob("20260815_0000_*_remove_legacy_permissions.py")
 )
+SEED_PERMISSIONS_MIGRATION_PATH = next(
+    (BACKEND_DIR / "alembic" / "versions").glob(
+        "20260815_1108_*_seed_providers_teams_permissions.py"
+    )
+)
 
 # Legacy permissions that phase 5 removes (section 6.2).
 LEGACY_PERMISSIONS = {
@@ -56,6 +61,15 @@ def _load_seed_admin():
 
 def _load_migration_module():
     spec = importlib.util.spec_from_file_location("migration_phase5", MIGRATION_PATH)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_seed_permissions_migration_module():
+    spec = importlib.util.spec_from_file_location(
+        "migration_seed_providers_teams", SEED_PERMISSIONS_MIGRATION_PATH
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -145,6 +159,44 @@ class TestSeedAdminDistribution:
             set(mod.ADMIN_PERMISSIONS) | set(mod.OPERATOR_PERMISSIONS) | set(mod.VIEWER_PERMISSIONS)
         )
         assert all_assigned.isdisjoint(LEGACY_PERMISSIONS)
+
+    def test_provider_team_permissions_are_seeded_by_migration(self):
+        """Every providers/teams/credentials:write permission declared in
+        seed_admin.py must actually be inserted by the seeding migration
+        (20260815_1108_0cce18c6c867). This catches the root-cause bug: the
+        lists existed in seed_admin.py but were never written to the DB."""
+        mod = _load_seed_admin()
+        migration = _load_seed_permissions_migration_module()
+
+        seeded_by_migration = {p["name"] for p in migration.NEW_PERMISSIONS}
+
+        expected = {
+            "providers:read",
+            "providers:write",
+            "providers:delete",
+            "providers:use",
+            "providers:read_all",
+            "providers_system:write",
+            "providers:share",
+            "teams:read",
+            "teams:write",
+            "teams:manage_members",
+            "credentials:write",
+        }
+        assert seeded_by_migration == expected
+
+        # Admin must receive every one of them.
+        assert expected <= set(mod.ADMIN_PERMISSIONS)
+
+    def test_migration_role_assignments_match_seed_admin(self):
+        """The migration's per-role assignment lists are subsets of the
+        corresponding seed_admin.py role lists (no phantom permissions)."""
+        mod = _load_seed_admin()
+        migration = _load_seed_permissions_migration_module()
+
+        assert set(migration.ADMIN_NEW_PERMISSIONS) <= set(mod.ADMIN_PERMISSIONS)
+        assert set(migration.OPERATOR_NEW_PERMISSIONS) <= set(mod.OPERATOR_PERMISSIONS)
+        assert set(migration.VIEWER_NEW_PERMISSIONS) <= set(mod.VIEWER_PERMISSIONS)
 
 
 # ========================================================================

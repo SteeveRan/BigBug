@@ -120,6 +120,16 @@ vi.mock('../../store/api', async () => {
     useCreateSourceRepositoryMutation: vi.fn(),
     useDeleteSourceRepositoryMutation: vi.fn(),
     useBulkCreateMirrorsMutation: vi.fn(),
+    // Providers (Settings/Providers) + Teams (Settings/Teams)
+    useGetProviderTypesQuery: vi.fn(),
+    useGetProviderUsageQuery: vi.fn(),
+    useGetCredentialsQuery: vi.fn(),
+    useGetTeamsQuery: vi.fn(),
+    useUpdateProviderMutation: vi.fn(),
+    useCreateProviderMutation: vi.fn(),
+    useTestProviderMutation: vi.fn(),
+    useDeleteProviderMutation: vi.fn(),
+    useShareProviderMutation: vi.fn(),
     // Audit Log
     useGetAuditLogsQuery: vi.fn(),
     // Auth
@@ -148,6 +158,15 @@ import {
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
   useGetSyncGroupsQuery,
+  useGetProviderTypesQuery,
+  useGetProviderUsageQuery,
+  useGetCredentialsQuery,
+  useGetTeamsQuery,
+  useUpdateProviderMutation,
+  useCreateProviderMutation,
+  useTestProviderMutation,
+  useDeleteProviderMutation,
+  useShareProviderMutation,
   useGetGoldImageScanResultsMutation,
   useCreateProjectMutation,
   useImportProjectMutation,
@@ -194,6 +213,8 @@ import { GoldImagesPage } from '../../pages/GoldImages';
 import { AppImagesPage } from '../../pages/AppImages';
 import { PipelinesPage } from '../../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../../pages/Pipelines/Components';
+import { ProvidersPage } from '../../pages/Settings/Providers';
+import { SettingsTeams } from '../../pages/Settings/Teams';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -287,6 +308,18 @@ const MENU_PAGES: MenuPageConfig[] = [
     permission: 'pipelines:manage',
     contentMarker: 'GitLab Components',
   },
+  {
+    label: 'Settings / Providers',
+    page: <ProvidersPage />,
+    permission: 'providers:read',
+    contentMarker: 'Providers',
+  },
+  {
+    label: 'Settings / Teams',
+    page: <SettingsTeams />,
+    permission: 'teams:read',
+    contentMarker: 'My teams',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -326,6 +359,10 @@ function setupDefaultApiMocks() {
   (useGetSourceGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetSourceRepositoriesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetSyncGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetProviderTypesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetProviderUsageQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetCredentialsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetTeamsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetGoldImageScanResultsMutation as ReturnType<typeof vi.fn>).mockReturnValue(mockMutation());
 
   // Mutations → [fn, { isLoading: false }]
@@ -358,6 +395,11 @@ function setupDefaultApiMocks() {
     useCreateComponentMutation,
     useUpdateComponentMutation,
     useDeleteComponentMutation,
+    useUpdateProviderMutation,
+    useCreateProviderMutation,
+    useTestProviderMutation,
+    useDeleteProviderMutation,
+    useShareProviderMutation,
   ];
   // Source-related mutations used by SourcesPage (RepositoriesTab / GroupsTab)
   const sourceMutations = [
@@ -405,6 +447,8 @@ describe('NavigationMenu — все пункты меню', () => {
           'app_images:read',
           'pipelines:manage',
           'admin:panel:access',
+          'providers:read',
+          'teams:read',
         ]);
 
         const pageElement = cfg.permission ? (
@@ -447,6 +491,8 @@ describe('NavigationMenu — все пункты меню', () => {
           'app_images:read',
           'pipelines:manage',
           'admin:panel:access',
+          'providers:read',
+          'teams:read',
         ].filter((p) => p !== cfg.permission);
 
         setPermissions(otherPermissions);
@@ -509,6 +555,8 @@ describe('NavigationMenu — все пункты меню', () => {
         'system:oidc_config',
         'pipelines:manage',
         'admin:panel:access',
+        'providers:read',
+        'teams:read',
       ];
 
       // Все permission-строки из роутера (MENU_PAGES)
