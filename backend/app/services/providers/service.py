@@ -329,6 +329,12 @@ class ProviderService:
         )
         for other in others:
             other.is_default = False
+        if others:
+            # Flush the reset before setting the new default so the two UPDATEs
+            # are issued separately; otherwise SQLAlchemy batches them into one
+            # executemany and the partial unique index ``uq_default_per_scope``
+            # is violated while the new default is set before the old one clears.
+            await self.db.flush()
         provider.is_default = True
 
     async def share_provider(self, provider_id: int, team_id: int, user: User) -> ResourceProvider:
