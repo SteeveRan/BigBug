@@ -204,8 +204,10 @@ See: [`/plans/development/infrastructure.md`](plans/development/infrastructure.m
 **Migrations**: Alembic with naming convention:
 ```bash
 alembic revision -m "add_user_keycloak_sub"
-# Creates: 20260605_1234_<hash>_add_user_keycloak_sub.py
+# Creates: YYYYMMDD_HHMM_<hash>_add_user_keycloak_sub.py
 ```
+
+> Текущая цепочка — две миграции после сброса 2026-08-16: `initial_schema` → `seed_initial_data` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `seed_initial_data`, см. [`/plans/development/database.md`](plans/development/database.md).
 
 **Naming conventions**:
 - Tables: `users`, `roles`, `gitlab_mirrors` (plural, snake_case)
@@ -345,7 +347,7 @@ cd frontend && yarn dev
 # Backend unit tests (+ format + lint)
 ./backend/scripts/test-unit.sh -v
 
-# Backend e2e tests
+# Backend e2e tests (требует запущенного dev-стека: backend на localhost:8000)
 ./backend/scripts/test-e2e.sh -v
 
 # Frontend tests (все: unit + integrations)

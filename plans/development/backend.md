@@ -94,6 +94,77 @@ gunicorn app.main:app \
 
 API документация (Swagger UI): http://localhost:8000/docs
 
+## OpenAPI-контракт (источник истины фронт-бэк)
+
+Фиксированная OpenAPI-схема лежит в [`backend/openapi.json`](../../backend/openapi.json) и
+является **источником истины контракта** между frontend и backend.
+
+- **Генерация**: схема строится импортом FastAPI-приложения (`from app.main import app`)
+  и вызовом `app.openapi()` — без подключения к БД/Redis и без запуска lifespan.
+- **Регенерация** (после изменения любого роутера/Pydantic-схемы):
+
+  ```bash
+  ./backend/scripts/export-openapi.sh
+  ```
+
+  Прямой вызов Python-скрипта (из каталога `backend/`):
+
+  ```bash
+  python -m scripts.export_openapi            # -> backend/openapi.json
+  python -m scripts.export_openapi -o /tmp/schema.json
+  ```
+
+- **Guard актуальности**: тест [`test_openapi_contract.py`](../../backend/tests/unit/test_openapi_contract.py)
+  генерирует схему заново и сравнивает её с зафиксированным файлом как объекты
+  Python. При расхождении тест падает с подсказкой запустить
+  `backend/scripts/export-openapi.sh` — это не даёт схеме устареть незаметно.
+
+Файл детерминирован (сортировка ключей + отступы), поэтому повторный запуск
+даёт идентичный результат — его можно безопасно коммитить и ревьюить в diff.
+
+## Поиск мёртвого кода (vulture)
+
+Для обнаружения кандидатов в мёртвый код используется [`vulture`](../../backend/pyproject.toml)
+(dev-зависимость). Обёртка — [`backend/scripts/vulture.sh`](../../backend/scripts/vulture.sh).
+
+```bash
+./backend/scripts/vulture.sh                  # app/ scripts/ docker/
+./backend/scripts/vulture.sh tests/           # + тесты отдельным прогоном
+./backend/scripts/vulture.sh --min-confidence 80
+```
+
+Полный вывод сохраняется в [`backend/reports/vulture-report.txt`](../../backend/reports/vulture-report.txt),
+в stdout печатается сводка (количество находок и разбивка по confidence).
+Скрипт всегда завершается с кодом 0, даже при наличии находок.
+
+### Что считаем ложными срабатываниями
+
+Vulture не видит использование кода через механизмы фреймворков, поэтому в
+`vulture-whitelist.py` вынесены подтверждённые ложные срабатывания:
+
+- **FastAPI-роутеры/эндпоинты** — вызываются фреймворком через декораторы
+  (`@router.get(...)`), а не явно.
+- **Pydantic-схемы/поля** — читаются сериализацией (`response_model`,
+  `model_validate`, `from_attributes`).
+- **SQLAlchemy-модели/колонки/relationship** — маппятся ORM.
+- **pydantic-settings поля** — наполняются из env-переменных.
+- **entrypoint-функции** (`if __name__ == "__main__":`), фикстуры pytest,
+  миграции Alembic.
+
+### Политика whitelist
+
+Каждая запись в [`backend/vulture-whitelist.py`](../../backend/vulture-whitelist.py)
+должна сопровождаться комментарием-обоснованием, почему это ложное
+срабатывание. Добавлять запись можно только после ручной проверки, что код
+действительно используется фреймворком, а не реально мёртв.
+
+### Находки — кандидаты, а не приговор
+
+Вывод vulture — это **кандидаты** в мёртвый код, а не факт удаления. Перед
+удалением каждой находки нужно проверить: динамические вызовы, рефлексию,
+строковые ссылки (например, имена методов в `getattr`/конфигурации) и вызовы
+из тестов. Ничего не удалять только на основании отчёта.
+
 ## Работа с базой данных
 
 ### Создание модели

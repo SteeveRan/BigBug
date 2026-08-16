@@ -150,6 +150,19 @@ class StatusFlag:
 
 ## Миграции Alembic
 
+### Текущая цепочка миграций (после сброса 2026-08-16)
+
+История миграций была сброшена 16 августа 2026: 40 старых ревизий вынесены в бэкап [`backend/alembic/versions_backup_20260816/`](../../backend/alembic/versions_backup_20260816/) (для истории/аудита, Alembic их не читает). Актуальная цепочка состоит из двух миграций:
+
+1. [`20260816_1159_37590bb4a2ec_initial_schema.py`](../../backend/alembic/versions/20260816_1159_37590bb4a2ec_initial_schema.py) — **`initial_schema`** (revision `37590bb4a2ec`, `down_revision = None`). Создаёт все таблицы, которые объявлены в моделях `app/models/` (единый актуальный снапшот схемы).
+2. [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) — **`seed_initial_data`** (revision `a1b2c3d4e5f6`, `down_revision = 37590bb4a2ec`). Идемпотентно сидирует 3 дефолтные роли (`admin`, `operator`, `viewer`), 61 право и 110 связей `role_permissions` (admin=61, operator=34, viewer=15). Легаси-права (`integrations:*` и т.п.) намеренно не вставляются.
+
+#### Политика внесения изменений схемы
+
+- **Любое новое изменение схемы** (новая таблица/колонка/индекс/ограничение) оформляется **новой миграцией поверх `seed_initial_data`** (`down_revision = a1b2c3d4e5f6`), а НЕ правкой `initial_schema`/`seed_initial_data`.
+- **Данные сидятся в миграции `seed_initial_data`** (роли/права/связи). Админ-пользователь создаётся скриптом [`backend/docker/seed_admin.py`](../../backend/docker/seed_admin.py), анонимные/встроенные провайдеры — [`backend/scripts/seed_providers.py`](../../backend/scripts/seed_providers.py); оба выполняются entrypoint'ом после `alembic upgrade head`, их логика не дублируется в миграциях.
+- Идемпотентность сид-миграции: вставляются только отсутствующие `permissions` и отсутствующие пары `role_permissions`; `downgrade()` удаляет только те строки, которыми владеет миграция (канонический набор прав + дефолтные роли), не трогая пользовательские роли/права.
+
 ### Создание миграции
 
 ```bash

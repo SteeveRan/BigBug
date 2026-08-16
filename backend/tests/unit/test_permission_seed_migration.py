@@ -1,9 +1,9 @@
 """
 @file test_permission_seed_migration.py
-@description Verifies that the RBAC permission seeding migration
-             (20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py)
-             actually writes the providers/teams/credentials permission rows into
-             the ``permissions`` table and links them to the default ``admin`` role.
+@description Verifies that the consolidated RBAC seeding migration
+             (``seed_initial_data``) actually writes the providers/teams/
+             credentials permission rows into the ``permissions`` table and
+             links them to the default roles.
 
              This is the regression test for the root-cause RBAC bug: those
              permission strings only existed in ``docker/seed_admin.py`` (Python
@@ -11,15 +11,12 @@
              admin's JWT never contained them and ``GET /api/providers`` returned
              403 while the Settings pages rendered empty (PermissionGate → null).
 
-             The test runs the REAL Alembic chain (``alembic upgrade head``) against
-             a throwaway PostgreSQL database — the same pattern as
-             ``test_providers_migration.py`` — and then reads ``permissions`` /
-             ``role_permissions`` directly. It is skipped when PostgreSQL is
-             unavailable. Because it inspects the actual migrated database (not
-             ``seed_admin.py`` lists, not ``Base.metadata``, and not the e2e
-             ``seeded_permissions`` autouse fixture), it fails on the old code
-             where the migration was missing.
-@dependencies alembic, asyncpg, backend/alembic/versions/20260815_1108_0cce18c6c867_*.py
+             After the Alembic reset the entire chain is two revisions
+             (``initial schema`` → ``seed initial data``), so the test simply runs
+             ``alembic upgrade head`` against a throwaway PostgreSQL database and
+             then reads ``permissions`` / ``role_permissions`` directly. It is
+             skipped when PostgreSQL is unavailable.
+@dependencies alembic, asyncpg, backend/alembic/versions/*_seed_initial_data.py
 """
 
 import asyncio
@@ -43,16 +40,8 @@ TEST_DB = "bigbug_perms_test_pytest"
 ADMIN_URL = f"postgresql://{PG_HOST_DSN}/postgres"
 TEST_URL = f"postgresql+asyncpg://{PG_HOST_DSN}/{TEST_DB}"
 
-# Alembic runs one command in a single transaction; e5f6a7b8c9d0 ALTERs the enum
-# via a separate connection and cannot see the enum created earlier in the same
-# uncommitted transaction (same limitation as a fresh ``upgrade head`` from
-# scratch — see test_providers_migration.py). Splitting the chain here commits
-# the enum first, then the rest runs to head in a second step.
-PRE_ENUM_SPLIT = "dc0ef2cfb148"
-
-# ── Canonical permission set expected to exist after the seeding migration ──
-# (source: 20260815_1108_0cce18c6c867 NEW_PERMISSIONS / permissions.md section
-#  "Распределение по ролям").
+# ── Canonical providers/teams/credentials permission subset expected after ──
+# the consolidated seed (source: permissions.md section "Распределение по ролям").
 EXPECTED_PERMISSIONS = frozenset(
     {
         "providers:read",
@@ -124,7 +113,6 @@ def perm_env():
     mp.setattr(settings, "database_url", TEST_URL, raising=True)
     try:
         cfg = _alembic_config()
-        command.upgrade(cfg, PRE_ENUM_SPLIT)
         command.upgrade(cfg, "head")
         yield cfg
     finally:
@@ -137,13 +125,13 @@ def perm_env():
 
 class TestPermissionSeedMigration:
     def test_permissions_table_contains_providers_teams_credentials(self, perm_env):
-        """The migration inserts every providers/teams/credentials permission row."""
+        """The consolidated seed inserts every providers/teams/credentials permission row."""
         rows = _fetch_all("SELECT name FROM permissions")
         existing = {r["name"] for r in rows}
         missing = EXPECTED_PERMISSIONS - existing
         assert not missing, (
             f"Permissions missing from the migrated DB: {sorted(missing)}. "
-            "The seeding migration (20260815_1108_0cce18c6c867) did not insert them."
+            "The seeding migration (seed_initial_data) did not insert them."
         )
 
     def test_admin_role_linked_to_all_new_permissions(self, perm_env):

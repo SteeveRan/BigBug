@@ -2,7 +2,7 @@
 
 > Единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 > 
-> **Последняя сверка:** 2026-08-15 — фаза 5 рефакторинга Providers V3: добавлены `providers:*`/`providers_system:*`/`teams:*`/`credentials:write`, удалены легаси-права (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`), `credentials:read` начат реально проверяться. Дополнительно добавлена миграция [`20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py`](backend/alembic/versions/20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py), реально вставляющая `providers:*`/`teams:*`/`credentials:write` в БД и назначающая их ролям (root-cause fix RBAC).
+> **Последняя сверка:** 2026-08-16 — сброс миграций Alembic. Единый канонический сид RBAC теперь находится в миграции [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (61 право, 110 связей `role_permissions`: admin=61, operator=34, viewer=15). Ранее права `providers:*`/`providers_system:*`/`teams:*`/`credentials:write` вставляла миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions` — она удалена в составе сброса вместе с легаси-правами (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`).
 
 ## Сводная таблица
 
@@ -138,7 +138,7 @@
 | `teams:write` | ✅ | | |
 | `teams:manage_members` | ✅ | | |
 
-Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS`. С 2026-08-15 фактический сидинг в БД выполняет миграция [`20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py`](backend/alembic/versions/20260815_1108_0cce18c6c867_seed_providers_teams_permissions.py) (вставляет `providers:*`/`teams:*`/`credentials:write` и назначает ролям). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
+Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
 
 ## Легаси-права (удалены в фазе 5)
 

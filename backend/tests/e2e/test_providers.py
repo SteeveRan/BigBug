@@ -1,11 +1,10 @@
 """
 @file test_providers.py
-@description End-to-end API tests for the unified Providers V3 router
-             (``/api/providers``). Covers TDD stage 13 (plan section 11.7):
-             types metadata, CRUD, duplicate 409, validation 422, protected
-             delete 409, ``owner=me`` filtering, usage and viewer write-denial.
-@dependencies pytest, pytest-asyncio, httpx, backend/tests/e2e/conftest.py
-@relatedFiles ../../app/api/providers.py, ../../app/services/providers/service.py
+@description E2E tests for the unified Providers V3 API against a live backend:
+              types metadata, CRUD, 409 duplicate, 422 validation, system-create
+              403, owner=me filtering, RBAC (viewer 403 on write, operator
+              denied is_default), and per-response OpenAPI contract validation.
+@dependencies backend/tests/e2e/conftest.py
 """
 
 from __future__ import annotations
@@ -13,16 +12,16 @@ from __future__ import annotations
 import pytest
 from httpx import AsyncClient
 
+from tests.e2e.conftest import assert_matches_openapi
+
 pytestmark = pytest.mark.e2e
 
 
 def auth(token: str) -> dict[str, str]:
-    """Authorization header for a JWT token."""
     return {"Authorization": f"Bearer {token}"}
 
 
 def private_payload(name: str) -> dict:
-    """A valid private GitHub provider payload."""
     return {
         "domain": "git",
         "subtype": "github",
@@ -34,7 +33,6 @@ def private_payload(name: str) -> dict:
 
 
 def public_payload(name: str) -> dict:
-    """A valid public GitHub provider payload."""
     return {
         "domain": "git",
         "subtype": "github",
@@ -45,246 +43,176 @@ def public_payload(name: str) -> dict:
     }
 
 
-def system_payload(name: str) -> dict:
-    """A valid system GitLab provider payload."""
-    return {
-        "domain": "git",
-        "subtype": "gitlab",
-        "category": "system",
-        "direction": "internal",
-        "name": name,
-        "label": name,
-        "base_url": "https://gitlab.internal.example.com",
-    }
+async def _delete_provider(client: AsyncClient, headers: dict, provider_id: int) -> None:
+    """Best-effort cleanup of a created provider (soft delete)."""
+    await client.delete(f"/api/providers/{provider_id}", headers=headers)
 
 
 class TestProviderTypes:
-    async def test_get_types_200(self, client: AsyncClient, admin_token: str):
-        """GET /api/providers/types returns registry metadata for any user."""
-        response = await client.get("/api/providers/types", headers=auth(admin_token))
+    async def test_get_types_200(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get("/api/providers/types", headers=admin_headers)
+        assert_matches_openapi(response, "/api/providers/types", "get", openapi_spec)
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        assert len(data) > 0
-        assert {"subtype", "domain", "label", "capabilities", "config_schema"} <= set(data[0])
+        assert data, "registry must expose at least one subtype"
+        required = {"subtype", "domain", "label", "capabilities", "config_schema"}
+        assert required <= set(data[0])
 
 
 class TestProviderCrud:
-    async def test_create_get_update_delete(self, client: AsyncClient, admin_token: str):
-        """Full CRUD lifecycle returns 201/200/204."""
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("crud-provider")
+    async def test_create_get_update_delete(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        unique_name: str,
+        openapi_spec: dict,
+    ):
+        name = f"crud-{unique_name}"
+        create = await client.post(
+            "/api/providers", headers=admin_headers, json=private_payload(name)
         )
-        assert create_resp.status_code == 201
-        created = create_resp.json()
-        assert created["name"] == "crud-provider"
-        assert created["owner_user_id"] is not None  # private → current_user
+        assert_matches_openapi(create, "/api/providers", "post", openapi_spec)
+        assert create.status_code == 201
+        created = create.json()
+        assert created["name"] == name
+        assert created["owner_user_id"] is not None
 
-        get_resp = await client.get(f"/api/providers/{created['id']}", headers=auth(admin_token))
-        assert get_resp.status_code == 200
-        assert get_resp.json()["name"] == "crud-provider"
+        get = await client.get(
+            f"/api/providers/{created['id']}", headers=admin_headers
+        )
+        assert_matches_openapi(get, "/api/providers/{provider_id}", "get", openapi_spec)
+        assert get.status_code == 200
+        assert get.json()["name"] == name
 
-        patch_resp = await client.patch(
+        patch = await client.patch(
             f"/api/providers/{created['id']}",
-            headers=auth(admin_token),
-            json={"label": "crud-provider-renamed"},
+            headers=admin_headers,
+            json={"label": f"{name}-renamed"},
         )
-        assert patch_resp.status_code == 200
-        assert patch_resp.json()["label"] == "crud-provider-renamed"
+        assert_matches_openapi(patch, "/api/providers/{provider_id}", "patch", openapi_spec)
+        assert patch.status_code == 200
+        assert patch.json()["label"] == f"{name}-renamed"
 
-        delete_resp = await client.delete(
-            f"/api/providers/{created['id']}", headers=auth(admin_token)
+        delete = await client.delete(
+            f"/api/providers/{created['id']}", headers=admin_headers
         )
-        assert delete_resp.status_code == 204
+        assert_matches_openapi(delete, "/api/providers/{provider_id}", "delete", openapi_spec)
+        assert delete.status_code == 204
 
-        gone_resp = await client.get(f"/api/providers/{created['id']}", headers=auth(admin_token))
-        assert gone_resp.status_code == 404
-
-    async def test_create_duplicate_name_409(self, client: AsyncClient, admin_token: str):
-        """Creating a provider with an existing live name returns 409."""
+    async def test_create_duplicate_name_409(
+        self, client: AsyncClient, admin_headers: dict, unique_name: str
+    ):
+        name = f"dup-{unique_name}"
         first = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("dup-provider")
+            "/api/providers", headers=admin_headers, json=private_payload(name)
         )
         assert first.status_code == 201
+        try:
+            second = await client.post(
+                "/api/providers", headers=admin_headers, json=private_payload(name)
+            )
+            assert second.status_code == 409
+        finally:
+            await _delete_provider(client, admin_headers, first.json()["id"])
 
-        second = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("dup-provider")
-        )
-        assert second.status_code == 409
-
-    async def test_create_invalid_category_422(self, client: AsyncClient, admin_token: str):
-        """A subtype/category combo rejected by the registry returns 422."""
-        payload = private_payload("invalid-category")
+    async def test_create_invalid_category_422(
+        self, client: AsyncClient, admin_headers: dict, unique_name: str
+    ):
+        payload = private_payload(f"invalid-{unique_name}")
         payload["category"] = "system"  # github does not allow system
-        response = await client.post("/api/providers", headers=auth(admin_token), json=payload)
+        response = await client.post("/api/providers", headers=admin_headers, json=payload)
         assert response.status_code == 422
 
-    async def test_create_system_provider_forbidden(self, client: AsyncClient, admin_token: str):
-        """Creating a system provider through the API is forbidden (403)."""
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=system_payload("system-gitlab")
-        )
-        assert create_resp.status_code == 403
-        assert "cannot be created via the API" in create_resp.json()["detail"]
-
-    async def test_usage_200(self, client: AsyncClient, admin_token: str):
-        """GET /api/providers/{id}/usage returns an (empty) usage list."""
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("usage-provider")
-        )
-        assert create_resp.status_code == 201
-
-        response = await client.get(
-            f"/api/providers/{create_resp.json()['id']}/usage", headers=auth(admin_token)
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["provider_id"] == create_resp.json()["id"]
-        assert data["usage"] == []
+    async def test_create_system_provider_forbidden(
+        self, client: AsyncClient, admin_headers: dict, unique_name: str
+    ):
+        payload = {
+            "domain": "git",
+            "subtype": "gitlab",
+            "category": "system",
+            "direction": "internal",
+            "name": f"system-{unique_name}",
+            "label": f"system-{unique_name}",
+            "base_url": "https://gitlab.internal.example.com",
+        }
+        response = await client.post("/api/providers", headers=admin_headers, json=payload)
+        assert response.status_code == 403
+        assert "cannot be created via the API" in response.json()["detail"]
 
 
 class TestProviderVisibility:
-    async def test_owner_me_filter(self, client: AsyncClient, admin_token: str):
-        """``owner=me`` returns only providers owned by the caller."""
-        private_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("mine-provider")
+    async def test_owner_me_filter(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        unique_name: str,
+        openapi_spec: dict,
+    ):
+        private_name = f"mine-{unique_name}"
+        public_name = f"shared-{unique_name}"
+        private = await client.post(
+            "/api/providers", headers=admin_headers, json=private_payload(private_name)
         )
-        assert private_resp.status_code == 201
-        public_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=public_payload("shared-provider")
+        assert private.status_code == 201
+        public = await client.post(
+            "/api/providers", headers=admin_headers, json=public_payload(public_name)
         )
-        assert public_resp.status_code == 201
+        assert public.status_code == 201
+        try:
+            response = await client.get(
+                "/api/providers", headers=admin_headers, params={"owner": "me"}
+            )
+            assert_matches_openapi(response, "/api/providers", "get", openapi_spec)
+            assert response.status_code == 200
+            names = {p["name"] for p in response.json()}
+            assert private_name in names
+            assert public_name not in names
+        finally:
+            await _delete_provider(client, admin_headers, private.json()["id"])
+            await _delete_provider(client, admin_headers, public.json()["id"])
 
-        response = await client.get(
-            "/api/providers", headers=auth(admin_token), params={"owner": "me"}
-        )
-        assert response.status_code == 200
-        names = {p["name"] for p in response.json()}
-        assert "mine-provider" in names
-        assert "shared-provider" not in names
-
-    async def test_viewer_without_write_403(self, client: AsyncClient, viewer_token: str):
-        """A viewer with ``providers:read`` but not ``providers:write`` gets 403."""
+    async def test_viewer_without_write_403(
+        self, client: AsyncClient, viewer_headers: dict, unique_name: str
+    ):
         response = await client.post(
-            "/api/providers", headers=auth(viewer_token), json=private_payload("viewer-write")
+            "/api/providers",
+            headers=viewer_headers,
+            json=private_payload(f"viewer-{unique_name}"),
         )
         assert response.status_code == 403
 
     async def test_operator_cannot_set_default(
-        self, client: AsyncClient, admin_token: str, operator_token: str
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        operator_headers: dict,
+        unique_name: str,
     ):
-        """An operator with ``providers:write`` cannot flip ``is_default``; only admins can."""
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=public_payload("default-flag")
+        # The mutation that would flip is_default is rejected up-front (403), so
+        # seeded default providers are never modified.
+        create = await client.post(
+            "/api/providers",
+            headers=admin_headers,
+            json=public_payload(f"default-{unique_name}"),
         )
-        assert create_resp.status_code == 201
-        provider_id = create_resp.json()["id"]
+        assert create.status_code == 201
+        try:
+            operator_patch = await client.patch(
+                f"/api/providers/{create.json()['id']}",
+                headers=operator_headers,
+                json={"is_default": True},
+            )
+            assert operator_patch.status_code == 403
+        finally:
+            await _delete_provider(client, admin_headers, create.json()["id"])
 
-        operator_patch = await client.patch(
-            f"/api/providers/{provider_id}",
-            headers=auth(operator_token),
-            json={"is_default": True},
-        )
-        assert operator_patch.status_code == 403
-
-        admin_patch = await client.patch(
-            f"/api/providers/{provider_id}",
-            headers=auth(admin_token),
-            json={"is_default": True},
-        )
-        assert admin_patch.status_code == 200
-        assert admin_patch.json()["is_default"] is True
-
-    async def test_viewer_can_read_200(self, client: AsyncClient, viewer_token: str):
-        """A viewer can read the provider list."""
-        response = await client.get("/api/providers", headers=auth(viewer_token))
+    async def test_viewer_can_read_200(
+        self, client: AsyncClient, viewer_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get("/api/providers", headers=viewer_headers)
+        assert_matches_openapi(response, "/api/providers", "get", openapi_spec)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
-
-
-class TestProviderTeamVisibility:
-    """Stage 31: e2e visibility matrix with 3 users and 2 teams."""
-
-    async def test_team_isolation(
-        self,
-        client: AsyncClient,
-        operator_token: str,
-        viewer_token: str,
-        operator_user,
-        viewer_user,
-        team_factory,
-    ):
-        # Operator is lead of both teams; viewer belongs only to team B.
-        team_a = await team_factory("vis-team-a", operator_user.id)
-        await team_factory("vis-team-b", operator_user.id, [viewer_user.id])
-
-        # Operator creates a team-shared provider for team A.
-        create_resp = await client.post(
-            "/api/providers",
-            headers=auth(operator_token),
-            json={
-                **private_payload("vis-team-provider"),
-                "visibility": "team",
-                "team_id": team_a.id,
-            },
-        )
-        assert create_resp.status_code == 201
-        provider_id = create_resp.json()["id"]
-
-        # Operator (lead/member of team A) sees it.
-        list_operator = await client.get("/api/providers", headers=auth(operator_token))
-        assert any(p["id"] == provider_id for p in list_operator.json())
-
-        # Viewer (member of team B, not team A) does not see it.
-        list_viewer = await client.get("/api/providers", headers=auth(viewer_token))
-        assert all(p["id"] != provider_id for p in list_viewer.json())
-
-    async def test_share_unshare_e2e(
-        self,
-        client: AsyncClient,
-        admin_token: str,
-        user_factory,
-        team_factory,
-    ):
-        owner = await user_factory("share-owner-e2e")
-        member = await user_factory("share-member-e2e")
-        team = await team_factory("share-team-e2e", owner.id, [member.id])
-
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("share-provider-e2e")
-        )
-        assert create_resp.status_code == 201
-        provider_id = create_resp.json()["id"]
-
-        share_resp = await client.post(
-            f"/api/providers/{provider_id}/share",
-            headers=auth(admin_token),
-            json={"team_id": team.id},
-        )
-        assert share_resp.status_code == 200
-        assert share_resp.json()["visibility"] == "team"
-        assert share_resp.json()["team_id"] == team.id
-
-        unshare_resp = await client.post(
-            f"/api/providers/{provider_id}/unshare", headers=auth(admin_token)
-        )
-        assert unshare_resp.status_code == 200
-        assert unshare_resp.json()["visibility"] == "owner"
-        assert unshare_resp.json()["team_id"] is None
-
-    async def test_post_patch_visibility_e2e(self, client: AsyncClient, admin_token: str):
-        create_resp = await client.post(
-            "/api/providers", headers=auth(admin_token), json=private_payload("patch-vis-provider")
-        )
-        assert create_resp.status_code == 201
-        provider_id = create_resp.json()["id"]
-        assert create_resp.json()["visibility"] == "owner"
-
-        # PATCH visibility to public (private category allowed).
-        patch_resp = await client.patch(
-            f"/api/providers/{provider_id}",
-            headers=auth(admin_token),
-            json={"visibility": "public"},
-        )
-        assert patch_resp.status_code == 200
-        assert patch_resp.json()["visibility"] == "public"

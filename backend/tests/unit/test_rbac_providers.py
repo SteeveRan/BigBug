@@ -5,7 +5,7 @@
               to another user's private provider, and the phase-5 legacy-permission
               cleanup (seed_admin.py distribution + migration removal list).
 @dependencies backend/app/services/rbac_service.py, backend/app/services/providers/service.py,
-             backend/docker/seed_admin.py, backend/alembic/versions/20260815_0000_*.py
+             backend/docker/seed_admin.py, backend/alembic/versions/*_seed_initial_data.py
 """
 
 import importlib.util
@@ -31,13 +31,8 @@ from app.services.rbac_service import RBACService
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 SEED_ADMIN_PATH = BACKEND_DIR / "docker" / "seed_admin.py"
-MIGRATION_PATH = next(
-    (BACKEND_DIR / "alembic" / "versions").glob("20260815_0000_*_remove_legacy_permissions.py")
-)
-SEED_PERMISSIONS_MIGRATION_PATH = next(
-    (BACKEND_DIR / "alembic" / "versions").glob(
-        "20260815_1108_*_seed_providers_teams_permissions.py"
-    )
+SEED_MIGRATION_PATH = next(
+    (BACKEND_DIR / "alembic" / "versions").glob("*_seed_initial_data.py")
 )
 
 # Legacy permissions that phase 5 removes (section 6.2).
@@ -59,16 +54,9 @@ def _load_seed_admin():
     return mod
 
 
-def _load_migration_module():
-    spec = importlib.util.spec_from_file_location("migration_phase5", MIGRATION_PATH)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def _load_seed_permissions_migration_module():
+def _load_seed_migration_module():
     spec = importlib.util.spec_from_file_location(
-        "migration_seed_providers_teams", SEED_PERMISSIONS_MIGRATION_PATH
+        "migration_seed_initial_data", SEED_MIGRATION_PATH
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -163,12 +151,12 @@ class TestSeedAdminDistribution:
     def test_provider_team_permissions_are_seeded_by_migration(self):
         """Every providers/teams/credentials:write permission declared in
         seed_admin.py must actually be inserted by the seeding migration
-        (20260815_1108_0cce18c6c867). This catches the root-cause bug: the
-        lists existed in seed_admin.py but were never written to the DB."""
+        (seed_initial_data). This catches the root-cause bug: the lists existed
+        in seed_admin.py but were never written to the DB."""
         mod = _load_seed_admin()
-        migration = _load_seed_permissions_migration_module()
+        migration = _load_seed_migration_module()
 
-        seeded_by_migration = {p["name"] for p in migration.NEW_PERMISSIONS}
+        seeded_by_migration = {p["name"] for p in migration.PERMISSIONS}
 
         expected = {
             "providers:read",
@@ -183,7 +171,7 @@ class TestSeedAdminDistribution:
             "teams:manage_members",
             "credentials:write",
         }
-        assert seeded_by_migration == expected
+        assert expected <= seeded_by_migration
 
         # Admin must receive every one of them.
         assert expected <= set(mod.ADMIN_PERMISSIONS)
@@ -192,11 +180,11 @@ class TestSeedAdminDistribution:
         """The migration's per-role assignment lists are subsets of the
         corresponding seed_admin.py role lists (no phantom permissions)."""
         mod = _load_seed_admin()
-        migration = _load_seed_permissions_migration_module()
+        migration = _load_seed_migration_module()
 
-        assert set(migration.ADMIN_NEW_PERMISSIONS) <= set(mod.ADMIN_PERMISSIONS)
-        assert set(migration.OPERATOR_NEW_PERMISSIONS) <= set(mod.OPERATOR_PERMISSIONS)
-        assert set(migration.VIEWER_NEW_PERMISSIONS) <= set(mod.VIEWER_PERMISSIONS)
+        assert set(migration.ADMIN_PERMISSIONS) == set(mod.ADMIN_PERMISSIONS)
+        assert set(migration.OPERATOR_PERMISSIONS) == set(mod.OPERATOR_PERMISSIONS)
+        assert set(migration.VIEWER_PERMISSIONS) == set(mod.VIEWER_PERMISSIONS)
 
 
 # ========================================================================
@@ -338,10 +326,20 @@ class TestProviderCategoryMatrix:
 
 
 class TestLegacyPermissionMigration:
-    def test_migration_removes_exactly_expected_legacy_permissions(self):
-        mod = _load_migration_module()
-        assert set(mod._LEGACY_PERMISSIONS.keys()) == LEGACY_PERMISSIONS
+    """After the Alembic reset the legacy permissions must not be re-seeded.
+
+    The consolidation seed (``seed_initial_data``) contains only the canonical
+    permission set; the phase-5 legacy permissions are absent and therefore
+    never re-created from scratch.
+    """
+
+    def test_seed_migration_does_not_reintroduce_legacy_permissions(self):
+        mod = _load_seed_migration_module()
+        seeded_names = {p["name"] for p in mod.PERMISSIONS}
+        assert seeded_names.isdisjoint(LEGACY_PERMISSIONS)
 
     def test_credentials_read_is_kept(self):
-        mod = _load_migration_module()
-        assert "credentials:read" not in mod._LEGACY_PERMISSIONS
+        mod = _load_seed_migration_module()
+        seeded_names = {p["name"] for p in mod.PERMISSIONS}
+        assert "credentials:read" in seeded_names
+        assert "credentials:use" not in seeded_names

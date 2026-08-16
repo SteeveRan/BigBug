@@ -174,10 +174,12 @@ async def delete_user(
     await db.delete(user)
     await db.commit()
 
-    # Audit log: user deleted
+    # Audit log: user deleted. The user row no longer exists, so ``user_id``
+    # must be NULL — otherwise the audit insert violates ``audit_logs_user_id_fkey``
+    # and poisons the session (PendingRollbackError) for subsequent requests.
     await AuditService.log_event(
         db,
-        user_id=user_id,
+        user_id=None,
         username=username,
         action="delete",
         resource_type="user",

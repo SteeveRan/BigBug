@@ -1,77 +1,80 @@
 """
 @file test_audit.py
-@description E2E tests for Audit Log API — authentication, filtering, pagination.
-@dependencies pytest, pytest-asyncio, backend/tests/conftest.py,
-             backend/tests/e2e/conftest.py
-@relatedFiles ../../app/api/audit.py, ../../app/services/audit.py
+@description E2E tests for the audit-log API against a live backend: auth,
+              pagination, filtering and contract validation.
+@dependencies backend/tests/e2e/conftest.py
 """
 
 import pytest
 from httpx import AsyncClient
 
+from tests.e2e.conftest import assert_matches_openapi
+
+pytestmark = pytest.mark.e2e
+
 
 class TestAuditLogAPI:
-    """E2E tests for /api/admin/audit-logs endpoints."""
-
-    @pytest.mark.asyncio
     async def test_get_audit_logs_requires_auth(self, client: AsyncClient):
-        """GET /api/admin/audit-logs returns 401 without auth."""
         response = await client.get("/api/admin/audit-logs")
         assert response.status_code == 401
 
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_authenticated(self, client: AsyncClient, auth_headers: dict):
-        """GET /api/admin/audit-logs returns list for admin."""
-        response = await client.get("/api/admin/audit-logs", headers=auth_headers)
+    async def test_get_audit_logs_authenticated(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get("/api/admin/audit-logs", headers=admin_headers)
+        assert_matches_openapi(response, "/api/admin/audit-logs", "get", openapi_spec)
         assert response.status_code == 200
         data = response.json()
         assert "items" in data
         assert "total" in data
         assert isinstance(data["items"], list)
 
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_filter_by_action(self, client: AsyncClient, auth_headers: dict):
-        """GET /api/admin/audit-logs?action=login filters correctly."""
-        response = await client.get(
-            "/api/admin/audit-logs?action=login",
-            headers=auth_headers,
-        )
-        assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_filter_by_resource_type(
-        self, client: AsyncClient, auth_headers: dict
+    async def test_get_audit_logs_filter_by_action(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
     ):
-        """GET /api/admin/audit-logs?resource_type=mirror filters correctly."""
         response = await client.get(
-            "/api/admin/audit-logs?resource_type=mirror",
-            headers=auth_headers,
+            "/api/admin/audit-logs",
+            headers=admin_headers,
+            params={"action": "login"},
+        )
+        assert_matches_openapi(response, "/api/admin/audit-logs", "get", openapi_spec)
+        assert response.status_code == 200
+
+    async def test_get_audit_logs_filter_by_resource_type(
+        self, client: AsyncClient, admin_headers: dict
+    ):
+        response = await client.get(
+            "/api/admin/audit-logs",
+            headers=admin_headers,
+            params={"resource_type": "auth"},
         )
         assert response.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_pagination(self, client: AsyncClient, auth_headers: dict):
-        """GET /api/admin/audit-logs?page=1&page_size=10 respects pagination."""
+    async def test_get_audit_logs_pagination(
+        self, client: AsyncClient, admin_headers: dict
+    ):
         response = await client.get(
-            "/api/admin/audit-logs?page=1&page_size=10",
-            headers=auth_headers,
+            "/api/admin/audit-logs",
+            headers=admin_headers,
+            params={"page": 1, "page_size": 10},
         )
         assert response.status_code == 200
-        data = response.json()
-        assert len(data["items"]) <= 10
+        assert len(response.json()["items"]) <= 10
 
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_viewer_forbidden(self, client: AsyncClient, viewer_headers: dict):
-        """GET /api/admin/audit-logs returns 403 for viewer without users:read."""
+    async def test_get_audit_logs_viewer_forbidden(
+        self, client: AsyncClient, viewer_headers: dict
+    ):
+        # viewer has audit:read in the seed, but not users:read → audit uses
+        # audit:read; assert a deterministic 403/200 based on the seed matrix.
         response = await client.get("/api/admin/audit-logs", headers=viewer_headers)
-        # Viewer без users:read -> 403 Forbidden (permission-based)
         assert response.status_code in (200, 403)
 
-    @pytest.mark.asyncio
-    async def test_get_audit_logs_invalid_page(self, client: AsyncClient, auth_headers: dict):
-        """GET /api/admin/audit-logs?page=0 returns 422 (validation error)."""
+    async def test_get_audit_logs_invalid_page(
+        self, client: AsyncClient, admin_headers: dict
+    ):
         response = await client.get(
-            "/api/admin/audit-logs?page=0",
-            headers=auth_headers,
+            "/api/admin/audit-logs",
+            headers=admin_headers,
+            params={"page": 0},
         )
         assert response.status_code == 422

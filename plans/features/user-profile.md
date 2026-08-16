@@ -258,7 +258,7 @@ const userMenuItems: MenuProps['items'] = [
 
 | # | Файл | Изменение |
 |---|---|---|
-| 1 | `backend/alembic/versions/XXXX_add_user_full_name.py` (новая миграция) | `ALTER TABLE users ADD COLUMN full_name VARCHAR(255) NULL` |
+| 1 | (миграция не требуется) | `full_name` уже входит в [`initial_schema`](../../backend/alembic/versions/20260816_1159_37590bb4a2ec_initial_schema.py) (колонка `users.full_name VARCHAR(255) NULL` создаётся при сбросе схемы) |
 | 2 | [`backend/app/models/user.py`](../../backend/app/models/user.py) | `full_name = Column(String(255), nullable=True)` |
 | 3 | [`backend/app/schemas/auth.py:36-43`](../../backend/app/schemas/auth.py) | `UserOut.full_name: str \| None = None` (backward-compatible) |
 | 4 | [`backend/app/api/auth.py:124-132`](../../backend/app/api/auth.py) | `get_me` передаёт `full_name=current_user.full_name` |

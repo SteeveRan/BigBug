@@ -334,6 +334,68 @@ pytest --cov=app --cov-report=term-missing
 pytest --cov=app --cov-fail-under=80
 ```
 
+## Backend E2E Testing (реальный HTTP, без моков)
+
+Отдельный набор e2e-тестов в [`backend/tests/e2e/`](../../backend/tests/e2e/) прогоняется
+против **живого** dev-стека (не `ASGITransport`, не SQLite, не `dependency_overrides`).
+
+### Ключевые принципы
+
+- Реальный HTTP на `http://localhost:8000` (переопределяется через `BIGBUG_E2E_BASE_URL`).
+- Аутентификация через настоящий `POST /api/auth/login` (admin из env `E2E_ADMIN_USERNAME`/`E2E_ADMIN_PASSWORD`).
+- Изоляция данных: уникальные имена + teardown через API (никаких прямых записей в БД).
+- Валидация ответов по замороженному [`backend/openapi.json`](../../backend/openapi.json) через
+  [`openapi_utils.assert_matches_openapi`](../../backend/tests/e2e/openapi_utils.py).
+- Внешние интеграции (GitHub/GitLab/Harbor/Helm/Docker) **не дёргают реальные внешние API** —
+  тестируются только endpoints без внешних вызовов либо ожидаемые 4xx/401/403.
+
+### Запуск
+
+```bash
+# dev-стек должен быть поднят
+docker compose up -d
+
+# Сам e2e-прогон
+cd backend && ./scripts/test-e2e.sh -v
+
+# Фильтр по имени
+./scripts/test-e2e.sh -k "test_login"
+
+# Против другого URL
+BIGBUG_E2E_BASE_URL=http://localhost:8011 ./scripts/test-e2e.sh
+```
+
+### Rate limiting на dev-стенде
+
+Лимитер нужен только на продакшене. На dev/test стендах он отключается переменной
+`RATE_LIMIT_ENABLED=false` (см. [`docker-compose.yml`](../../docker-compose.yml) и
+[`.env.example`](../../.env.example)); иначе e2e-прогон упирается в лимит логина
+(`5/minute`) и логины начинают таймаутиться.
+
+### Endpoint-coverage отчёт
+
+В teardown сессии автоматически генерируется отчёт, какие операции из
+`openapi.json` были покрыты:
+
+- [`backend/reports/endpoint-coverage.json`](../../backend/reports/endpoint-coverage.json)
+- [`backend/reports/endpoint-coverage.md`](../../backend/reports/endpoint-coverage.md)
+
+Тест [`test_endpoint_coverage.py`](../../backend/tests/e2e/test_endpoint_coverage.py)
+мягко предупреждает (не падает), если покрытие ниже `MIN_COVERAGE_PERCENT` (30%).
+
+### Code coverage (code coverage e2e)
+
+Отдельный скрипт поднимает backend под `coverage run` на отдельном порту, прогоняет
+e2e-тесты и снимает покрытие кода:
+
+```bash
+cd backend && ./scripts/test-e2e-coverage.sh
+# порт можно переопределить: COVERAGE_PORT=8011
+```
+
+Отчёты: текстовый (`coverage report`), HTML (`backend/htmlcov/index.html`) и
+endpoint-coverage (см. выше).
+
 ## Frontend Testing (Vitest + React Testing Library)
 
 ### Технологии

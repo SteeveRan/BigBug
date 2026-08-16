@@ -1,266 +1,255 @@
 """
 @file e2e/conftest.py
-@description E2E-test specific fixtures: ENCRYPTION_KEY mock + permission seeding
-             for the admin role so that require_permission() checks pass.
-@dependencies pytest, sqlalchemy, app.core.secrets, app.models
-@relatedFiles ../conftest.py (root fixtures: client, admin_token, admin_role)
+@description E2E fixtures against a live dev backend over real HTTP. No sqlite,
+              no ``Base.metadata.create_all``, no dependency overrides and no
+              monkeypatching of ``app.core.secrets`` — every interaction goes
+              through the running dev stack (``docker compose up -d``).
+@dependencies httpx, pytest, pytest-asyncio, backend/tests/e2e/openapi_utils.py
+@relatedFiles ./openapi_utils.py, ../../scripts/test-e2e.sh
 """
 
-from unittest.mock import patch
+from __future__ import annotations
 
+import os
+import uuid
+from collections.abc import AsyncIterator, Iterator
+from typing import Any
+
+import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from httpx import AsyncHTTPTransport
 
-from app.core.rbac import RoleName
-from app.models.permission import Permission, role_permissions
-from app.models.role import Role
-from app.models.team import Team, TeamRole
-from app.models.team_member import TeamMember
-from app.models.user import User
+from tests.e2e.openapi_utils import (
+    CALLED_OPERATIONS,
+    assert_matches_openapi,
+    load_openapi_spec,
+    write_endpoint_report,
+)
 
-# Valid Fernet key for tests (same as unit/conftest.py)
-_VALID_FERNET_KEY = "Z0lZSjZpc3gyMDI1Y29vbHByb2plY3RmZXJuZXRrZXk="
-
-# Permissions required by integration endpoints
-REQUIRED_PERMISSIONS = [
-    {"name": "integrations:manage", "description": "Manage GitLab, Harbor, GitHub instances"},
-    {"name": "docker_registry:manage", "description": "Manage Docker Registry instances"},
-    {"name": "helm_repository:manage", "description": "Manage Helm Repository instances"},
-    {"name": "pipelines:read", "description": "Read pipeline runs"},
-    {"name": "pipelines:write", "description": "Create and trigger pipelines"},
-    {"name": "pipelines:delete", "description": "Cancel and delete pipelines"},
-    {"name": "users:read", "description": "Read users and audit logs"},
+__all__ = [
+    "BASE_URL",
+    "assert_matches_openapi",
+    "admin_headers",
+    "viewer_headers",
+    "unique_prefix",
+    "unique_name",
+    "openapi_spec",
 ]
 
-# Providers V3 permissions, distributed per role (phase 2 RBAC, section 6.1).
-# Admin: everything; Operator: read/write/use; Viewer: read only.
-PROVIDER_PERMISSIONS_BY_ROLE = {
-    RoleName.ADMIN.value: [
-        "providers:read",
-        "providers:write",
-        "providers:delete",
-        "providers:use",
-        "providers:read_all",
-        "providers_system:write",
-        "providers:share",
-    ],
-    RoleName.OPERATOR.value: [
-        "providers:read",
-        "providers:write",
-        "providers:use",
-        "providers:share",
-    ],
-    RoleName.VIEWER.value: [
-        "providers:read",
-    ],
-}
+# ──────────────────────────────────────────────────────────────────────────
+# Base URL / environment
+# ──────────────────────────────────────────────────────────────────────────
 
-# Teams / sharing permissions (12.2.3), distributed per role.
-TEAM_PERMISSIONS_BY_ROLE = {
-    RoleName.ADMIN.value: [
-        "teams:read",
-        "teams:write",
-        "teams:manage_members",
-    ],
-    RoleName.OPERATOR.value: [
-        "teams:read",
-    ],
-    RoleName.VIEWER.value: [
-        "teams:read",
-    ],
-}
+BASE_URL = os.environ.get("BIGBUG_E2E_BASE_URL", "http://localhost:8000").rstrip("/")
 
-# Domain resource permissions (docker/helm/images/projects) mirroring
-# seed_admin.py so the operator/viewer e2e fixtures align with production roles.
-# Admin is already fully seeded by root conftest's ``_ALL_PERMISSIONS``.
-RESOURCE_PERMISSIONS_BY_ROLE = {
-    RoleName.OPERATOR.value: [
-        "mirrors:read",
-        "mirrors:write",
-        "mirrors:sync",
-        "mirrors:import",
-        "mirrors:integrity_check",
-        "projects:read",
-        "projects:write",
-        "helm:read",
-        "helm:write",
-        "helm:sync",
-        "helm:index",
-        "docker:read",
-        "docker:write",
-        "docker:sync",
-        "docker:index",
-        "gold_images:read",
-        "gold_images:write",
-        "gold_images:build",
-        "app_images:read",
-        "app_images:write",
-        "app_images:build",
-        "pipelines:read",
-        "pipelines:write",
-        "source_groups:read",
-        "source_groups:write",
-        "source_groups:refresh",
-        "sync_groups:read",
-        "sync_groups:write",
-        "audit:read",
-    ],
-    RoleName.VIEWER.value: [
-        "mirrors:read",
-        "projects:read",
-        "helm:read",
-        "docker:read",
-        "gold_images:read",
-        "app_images:read",
-        "pipelines:read",
-        "source_groups:read",
-        "sync_groups:read",
-        "audit:read",
-    ],
-}
+ADMIN_USERNAME = os.environ.get("E2E_ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "admin")
 
 
-@pytest.fixture(autouse=True)
-def _patch_encryption_key():
-    """Make encrypt_secret/decrypt_secret work in the e2e test environment."""
-    with patch("app.core.secrets.settings") as mock_settings:
-        mock_settings.encryption_key = _VALID_FERNET_KEY
-        from app.core.secrets import get_cipher
-
-        get_cipher.cache_clear()
-        yield
-        get_cipher.cache_clear()
+def _auth(token: str) -> dict[str, str]:
+    """Authorization header for a JWT access token."""
+    return {"Authorization": f"Bearer {token}"}
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def seeded_permissions(db_session: AsyncSession):
-    """Ensure the three standard roles and their permissions exist.
+# ──────────────────────────────────────────────────────────────────────────
+# Server availability (session-scoped, fail-fast with a useful message)
+# ──────────────────────────────────────────────────────────────────────────
 
-    *Autouse* so permissions are present regardless of which fixtures a
-    particular test happens to request — this is critical when tests that
-    don't need ``admin_token`` run before tests that do, because the
-    root conftest creates the roles *without* the extra e2e permissions.
 
-    Set-based: build the full role→permission map once, then issue a handful
-    of bulk queries instead of per-permission SELECT/flush/refresh round trips.
+@pytest.fixture(scope="session", autouse=True)
+def _server_available() -> Iterator[None]:
+    """Fail fast with a clear message when the dev backend is not reachable."""
+    try:
+        resp = httpx.get(f"{BASE_URL}/api/health", timeout=5.0)
+        resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001 — wrap any connectivity failure
+        pytest.exit(
+            f"E2E backend is not reachable at {BASE_URL} ({exc}). "
+            "Start the dev stack first: docker compose up -d",
+            returncode=1,
+        )
+    yield
+
+
+@pytest.fixture(scope="session")
+def openapi_spec() -> dict[str, Any]:
+    """The frozen OpenAPI contract, loaded once for the whole e2e session."""
+    return load_openapi_spec()
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# HTTP client (real network I/O)
+# ──────────────────────────────────────────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def client() -> AsyncIterator[httpx.AsyncClient]:
+    """Async HTTP client pointed at the live backend (no ASGITransport).
+
+    The transport is created *per test*: pytest-asyncio runs every test in its
+    own event loop, and a module-level shared ``AsyncHTTPTransport`` would pin
+    its connection pool to the first loop, hanging later tests' requests.
+    ``retries=3`` also makes the suite robust against ``uvicorn --reload``
+    restarts that drop in-flight requests during development.
     """
-    role_names = [RoleName.ADMIN.value, RoleName.OPERATOR.value, RoleName.VIEWER.value]
+    transport = AsyncHTTPTransport(retries=3)
+    async with httpx.AsyncClient(
+        base_url=BASE_URL, timeout=30.0, transport=transport
+    ) as ac:
+        yield ac
 
-    # ── build the desired role→permission map ────────────────────────────
-    permissions_by_role: dict[str, set[str]] = {name: set() for name in role_names}
-    descriptions: dict[str, str] = {}
 
-    for perm_data in REQUIRED_PERMISSIONS:
-        permissions_by_role[RoleName.ADMIN.value].add(perm_data["name"])
-        descriptions[perm_data["name"]] = perm_data["description"]
+# ──────────────────────────────────────────────────────────────────────────
+# Authentication fixtures
+#
+# Tokens are session-scoped SYNC fixtures (only 3 logins per run, well under
+# the 5/min rate limit). A sync ``httpx.Client`` is used so the token fixtures
+# do not depend on pytest-asyncio's per-test event loop, which would break
+# session-scoped async fixtures.
+# ──────────────────────────────────────────────────────────────────────────
 
-    for mapping in (
-        PROVIDER_PERMISSIONS_BY_ROLE,
-        TEAM_PERMISSIONS_BY_ROLE,
-        RESOURCE_PERMISSIONS_BY_ROLE,
-    ):
-        for role_name, permission_names in mapping.items():
-            permissions_by_role[role_name].update(permission_names)
 
-    # ── ensure the three standard roles exist ──────────────────────────
-    existing_roles = (
-        (await db_session.execute(select(Role).where(Role.name.in_(role_names)))).scalars().all()
+def _login_sync(username: str, password: str) -> str:
+    """Perform a synchronous login and return the access token.
+
+    Uses a unique ``X-Forwarded-For`` so the login rate limit (5/min per
+    client identity) never trips across the few logins in an e2e session.
+    """
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        resp = c.post(
+            "/api/auth/login",
+            json={"username": username, "password": password},
+            headers={"X-Forwarded-For": f"10.0.0.{uuid.uuid4().hex[:6]}"},
+        )
+        assert resp.status_code == 200, (
+            f"Login failed for '{username}' ({resp.status_code}): {resp.text}"
+        )
+        return resp.json()["access_token"]
+
+
+def _create_user_sync(
+    admin_token: str,
+    *,
+    username: str,
+    password: str,
+    role: str,
+) -> tuple[int, str]:
+    """Create an ephemeral user via the admin API and return ``(id, token)``."""
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        resp = c.post(
+            "/api/admin/users",
+            headers=_auth(admin_token),
+            json={
+                "username": username,
+                "email": f"{username}@example.com",
+                "password": password,
+                "roles": [role],
+            },
+        )
+        assert resp.status_code == 201, f"Failed to create user '{username}': {resp.text}"
+        user_id = resp.json()["id"]
+        return user_id, _login_sync(username, password)
+
+
+@pytest.fixture(scope="session")
+def admin_token() -> str:
+    """Access token for the seeded admin (default ``admin/admin``)."""
+    return _login_sync(ADMIN_USERNAME, ADMIN_PASSWORD)
+
+
+@pytest.fixture
+def admin_headers(admin_token: str) -> dict[str, str]:
+    """Authorization headers for the admin user."""
+    return _auth(admin_token)
+
+
+@pytest.fixture(scope="session")
+def viewer_token(admin_token: str) -> str:
+    """Access token for a seeded viewer user created via the real API.
+
+    The seeded DB has only the admin user; a viewer is provisioned here and
+    torn down at the end of the session (soft data isolation).
+    """
+    username = f"e2e-viewer-{uuid.uuid4().hex[:8]}"
+    user_id, token = _create_user_sync(
+        admin_token, username=username, password="e2e-viewer-password", role="viewer"
     )
-    roles: dict[str, Role] = {r.name: r for r in existing_roles}
-    for name in role_names:
-        if name not in roles:
-            role = Role(name=name, description=f"{name.capitalize()} role")
-            db_session.add(role)
-            await db_session.flush()
-            roles[name] = role
+    yield token
 
-    # ── ensure all referenced permissions exist (bulk create) ───────────
-    all_permission_names = set().union(*permissions_by_role.values())
-    existing_perms = (await db_session.execute(select(Permission))).scalars().all()
-    perms_by_name: dict[str, Permission] = {p.name: p for p in existing_perms}
-
-    new_perms = [
-        Permission(name=name, description=descriptions.get(name, f"Auto-seeded: {name}"))
-        for name in all_permission_names
-        if name not in perms_by_name
-    ]
-    if new_perms:
-        db_session.add_all(new_perms)
-        await db_session.flush()
-        for perm in new_perms:
-            perms_by_name[perm.name] = perm
-
-    # ── assign missing role→permission links (bulk insert) ──────────────
-    role_ids = [roles[name].id for name in role_names]
-    existing_links = (
-        await db_session.execute(
-            select(role_permissions.c.role_id, role_permissions.c.permission_id).where(
-                role_permissions.c.role_id.in_(role_ids)
-            )
-        )
-    ).all()
-    existing_link_set = {(role_id, perm_id) for role_id, perm_id in existing_links}
-
-    links_to_insert = [
-        {"role_id": roles[role_name].id, "permission_id": perms_by_name[perm_name].id}
-        for role_name in role_names
-        for perm_name in permissions_by_role[role_name]
-        if (roles[role_name].id, perms_by_name[perm_name].id) not in existing_link_set
-    ]
-    if links_to_insert:
-        await db_session.execute(role_permissions.insert().values(links_to_insert))
-
-    await db_session.commit()
+    # Cleanup: remove the ephemeral viewer user.
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        c.delete(f"/api/admin/users/{user_id}", headers=_auth(admin_token))
 
 
-@pytest_asyncio.fixture
-async def auth_headers(admin_token: str) -> dict[str, str]:
-    """Authorization headers for admin user."""
-    return {"Authorization": f"Bearer {admin_token}"}
+@pytest.fixture
+def viewer_headers(viewer_token: str) -> dict[str, str]:
+    """Authorization headers for the least-privileged viewer user."""
+    return _auth(viewer_token)
 
 
-@pytest_asyncio.fixture
-async def viewer_headers(viewer_token: str) -> dict[str, str]:
-    """Authorization headers for viewer user (least-privileged)."""
-    return {"Authorization": f"Bearer {viewer_token}"}
+@pytest.fixture(scope="session")
+def operator_token(admin_token: str) -> str:
+    """Access token for a seeded operator user created via the real API."""
+    username = f"e2e-operator-{uuid.uuid4().hex[:8]}"
+    user_id, token = _create_user_sync(
+        admin_token, username=username, password="e2e-operator-password", role="operator"
+    )
+    yield token
+
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        c.delete(f"/api/admin/users/{user_id}", headers=_auth(admin_token))
 
 
-@pytest_asyncio.fixture
-async def team_factory(db_session: AsyncSession):
-    """Factory creating a team with an owner and (optionally) extra members."""
-
-    async def _create(name: str, owner_user_id: int, member_ids: list[int] | None = None) -> Team:
-        team = Team(name=name, owner_user_id=owner_user_id)
-        db_session.add(team)
-        await db_session.flush()
-        db_session.add(TeamMember(team_id=team.id, user_id=owner_user_id, role=TeamRole.lead))
-        for member_id in member_ids or []:
-            db_session.add(TeamMember(team_id=team.id, user_id=member_id, role=TeamRole.member))
-        await db_session.commit()
-        await db_session.refresh(team)
-        return team
-
-    return _create
+@pytest.fixture
+def operator_headers(operator_token: str) -> dict[str, str]:
+    """Authorization headers for the operator user."""
+    return _auth(operator_token)
 
 
-@pytest_asyncio.fixture
-async def user_factory(db_session: AsyncSession):
-    """Factory creating a bare active user (for multi-user visibility tests)."""
+# ──────────────────────────────────────────────────────────────────────────
+# Data-isolation helper: unique names + teardown
+# ──────────────────────────────────────────────────────────────────────────
 
-    async def _create(username: str) -> User:
-        from app.core.security import get_password_hash
 
-        user = User(
-            username=username,
-            email=f"{username}@test.com",
-            hashed_password=get_password_hash("testpassword"),
-            is_active=True,
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-        return user
+@pytest.fixture
+def unique_prefix() -> str:
+    """A short unique prefix for entity names so e2e runs never collide."""
+    return f"e2e-{uuid.uuid4().hex[:8]}"
 
-    return _create
+
+@pytest.fixture
+def unique_name(unique_prefix: str) -> str:
+    """A single unique name for a test entity."""
+    return unique_prefix
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Endpoint-coverage report (session teardown)
+# ──────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _endpoint_report(openapi_spec: dict[str, Any]) -> Iterator[None]:
+    """Reset the collector and write the endpoint-coverage report at teardown."""
+    CALLED_OPERATIONS.clear()
+    yield
+    write_endpoint_report(openapi_spec)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _warm_tokens(
+    admin_token: str,
+    viewer_token: str,
+    operator_token: str,
+) -> None:
+    """Eagerly resolve all session-scoped auth tokens before any test runs.
+
+    The session-scoped token fixtures are *sync* (they use ``httpx.Client``).
+    If left lazy, their first use happens inside an async test — interleaving a
+    synchronous network call with pytest-asyncio's running loop, which can
+    corrupt the loop and deadlock later requests (surfacing as a 30s
+    ``httpx.ReadTimeout``). Resolving them up-front keeps every sync login
+    before the first per-test event loop exists.
+    """
+    del admin_token, viewer_token, operator_token

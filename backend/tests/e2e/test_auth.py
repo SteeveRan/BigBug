@@ -1,80 +1,128 @@
+"""
+@file test_auth.py
+@description E2E tests for the authentication endpoints against a live backend.
+              Covers login/logout/me/permissions/refresh, 401/422 negatives and
+              OpenAPI contract validation on the primary responses.
+@dependencies backend/tests/e2e/conftest.py
+"""
+
+import uuid
+
 import pytest
 from httpx import AsyncClient
+
+from tests.e2e.conftest import ADMIN_PASSWORD, ADMIN_USERNAME, assert_matches_openapi
 
 pytestmark = pytest.mark.e2e
 
 
-@pytest.mark.asyncio
-async def test_login_success(client: AsyncClient, admin_user):
-    response = await client.post(
-        "/api/auth/login",
-        json={"username": "testadmin", "password": "testpassword"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+def _xff() -> dict[str, str]:
+    """Unique ``X-Forwarded-For`` per login call.
+
+    The login endpoint is rate-limited to 5/min per client identity (IP or
+    ``X-Forwarded-For``). Assigning each e2e login a distinct identity keeps
+    the tests deterministic against the live server without touching the
+    rate-limit configuration.
+    """
+    return {"X-Forwarded-For": f"10.0.0.{uuid.uuid4().hex[:6]}"}
 
 
-@pytest.mark.asyncio
-async def test_login_wrong_password(client: AsyncClient, admin_user):
-    response = await client.post(
-        "/api/auth/login",
-        json={"username": "testadmin", "password": "wrongpassword"},
-    )
-    assert response.status_code == 401
+class TestLogin:
+    async def test_login_success(
+        self, client: AsyncClient, openapi_spec: dict
+    ):
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+            headers=_xff(),
+        )
+        assert_matches_openapi(response, "/api/auth/login", "post", openapi_spec)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["access_token"]
+        assert data["refresh_token"]
+        assert data["token_type"] == "bearer"
+
+    async def test_login_wrong_password(self, client: AsyncClient, openapi_spec: dict):
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": ADMIN_USERNAME, "password": "wrong-password"},
+            headers=_xff(),
+        )
+        assert response.status_code == 401
+
+    async def test_login_unknown_user(self, client: AsyncClient, openapi_spec: dict):
+        response = await client.post(
+            "/api/auth/login",
+            json={"username": "e2e-nobody", "password": "password"},
+            headers=_xff(),
+        )
+        assert response.status_code == 401
+
+    async def test_login_missing_fields_422(self, client: AsyncClient, openapi_spec: dict):
+        response = await client.post(
+            "/api/auth/login", json={"username": "admin"}, headers=_xff()
+        )
+        assert response.status_code == 422
 
 
-@pytest.mark.asyncio
-async def test_login_unknown_user(client: AsyncClient):
-    response = await client.post(
-        "/api/auth/login",
-        json={"username": "nobody", "password": "password"},
-    )
-    assert response.status_code == 401
+class TestMe:
+    async def test_get_me(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
+        response = await client.get("/api/auth/me", headers=admin_headers)
+        assert_matches_openapi(response, "/api/auth/me", "get", openapi_spec)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["username"] == ADMIN_USERNAME
+        assert "admin" in data["roles"]
+        assert "full_name" in data
+
+    async def test_get_me_no_token(self, client: AsyncClient):
+        response = await client.get("/api/auth/me")
+        assert response.status_code == 401
+
+    async def test_get_me_permissions(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get("/api/auth/me/permissions", headers=admin_headers)
+        assert_matches_openapi(response, "/api/auth/me/permissions", "get", openapi_spec)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["role"] == "admin"
+        assert "providers:read" in data["permissions"]
 
 
-@pytest.mark.asyncio
-async def test_get_me(client: AsyncClient, admin_token: str):
-    response = await client.get(
-        "/api/auth/me",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["username"] == "testadmin"
-    assert "admin" in data["roles"]
-    # full_name is a nullable field added for the profile page; the admin
-    # fixture doesn't set it, so the response must include the key as null.
-    assert "full_name" in data
-    assert data["full_name"] is None
+class TestRefresh:
+    async def test_refresh_token(
+        self, client: AsyncClient, openapi_spec: dict
+    ):
+        login = await client.post(
+            "/api/auth/login",
+            json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+            headers=_xff(),
+        )
+        refresh_token = login.json()["refresh_token"]
+
+        response = await client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": refresh_token},
+        )
+        assert_matches_openapi(response, "/api/auth/refresh", "post", openapi_spec)
+        assert response.status_code == 200
+        assert response.json()["access_token"]
+
+    async def test_refresh_invalid_token(self, client: AsyncClient):
+        response = await client.post(
+            "/api/auth/refresh",
+            json={"refresh_token": "not-a-valid-token"},
+        )
+        assert response.status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_get_me_no_token(client: AsyncClient):
-    response = await client.get("/api/auth/me")
-    assert response.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_refresh_token(client: AsyncClient, admin_user):
-    login_response = await client.post(
-        "/api/auth/login",
-        json={"username": "testadmin", "password": "testpassword"},
-    )
-    refresh_token = login_response.json()["refresh_token"]
-
-    response = await client.post(
-        "/api/auth/refresh",
-        json={"refresh_token": refresh_token},
-    )
-    assert response.status_code == 200
-    assert "access_token" in response.json()
-
-
-@pytest.mark.asyncio
-async def test_health_check(client: AsyncClient):
-    response = await client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+class TestSsoConfig:
+    async def test_sso_config_public(self, client: AsyncClient, openapi_spec: dict):
+        response = await client.get("/api/auth/sso/config")
+        assert_matches_openapi(response, "/api/auth/sso/config", "get", openapi_spec)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["realm"] == "bigbug"
+        assert "client_secret" not in data

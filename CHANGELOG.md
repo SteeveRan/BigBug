@@ -9,17 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Финальная зачистка и сквозная проверка (2026-08-16):**
+  - Сброс миграций Alembic: 40 старых ревизий забэкаплены в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/), новая цепочка — [`initial_schema`](backend/alembic/versions/20260816_1159_37590bb4a2ec_initial_schema.py) → [`seed_initial_data`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py)
+  - Dev-БД пересоздана на новой цепочке миграций
+  - OpenAPI-контракт: [`backend/openapi.json`](backend/openapi.json) (137 paths / 195 operations), экспорт через [`backend/scripts/export-openapi.sh`](backend/scripts/export-openapi.sh) + [`export_openapi.py`](backend/scripts/export_openapi.py), guard-тест [`test_openapi_contract.py`](backend/tests/unit/test_openapi_contract.py)
+  - E2E переписаны на живой HTTP к `localhost:8000` (без sqlite/моков), валидация ответов по `openapi.json` ([`openapi_utils.py`](backend/tests/e2e/openapi_utils.py)), endpoint-coverage отчёт ([`backend/reports/endpoint-coverage.md`](backend/reports/endpoint-coverage.md), мягкий порог 30%)
+  - Покрытие кода e2e-тестами: [`backend/scripts/test-e2e-coverage.sh`](backend/scripts/test-e2e-coverage.sh)
+  - Vulture: [`backend/scripts/vulture.sh`](backend/scripts/vulture.sh) + whitelist [`backend/vulture-whitelist.py`](backend/vulture-whitelist.py), отчёт [`backend/reports/vulture-report.txt`](backend/reports/vulture-report.txt), `vulture>=2.11` в dev-deps
+
 - **Providers V3 — миграция на единую сущность `resource_providers`:**
   - Единый реестр провайдеров (таблица `resource_providers` + реестр подтипов в коде + `/api/providers`) вместо 5 legacy-таблиц инстансов (`gitlab_instances`, `harbor_instances`, `github_instances`, `docker_registry_instances`, `helm_repository_instances`) и V2-системы `source_providers`
   - Подтипы `github`/`gitlab`/`generic_git`/`docker_hub`/`quay`/`gcr`/`ecr`/`acr`/`ghcr`/`harbor`/`generic_registry`/`helm_repo`; категории `system`/`public`/`private`; направления `external`/`internal`
   - Расширенная RBAC: `providers:read/write/delete/use/read_all/share`, `providers_system:write`, `teams:read/write/manage_members`, `credentials:write`; scope-providers
   - Команды (`teams`) и шаринг провайдеров (`visibility`, `team_id`, `/api/teams`, `/api/providers/{id}/share|unshare`)
-
-### Removed
-
-- Удалены legacy-роутеры `api/integrations/`, `services/integrations.py`, 5 instance-моделей, модель `SourceProvider` + таблица `source_providers` (enum `ProviderType` перенесён в нейтральное место)
-- Удалены legacy-сторы (`integrations.ts`, `git-mirroring/providers.ts`, `mirrors-legacy.ts`) и страницы (`Settings/Integrations`, `GitMirroring/Providers`, `Admin/Integrations`, `Mirrors`, `Projects`)
-- Удалены legacy-права (`integrations:*`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use`)
 
 - **Git Mirroring V2 Finalization — Этап 9:**
   - Reports: 4 типа отчётов по зеркалам (Summary, Sync History, Failures, Performance) с экспортом в CSV/JSON
@@ -31,7 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - HealthCheck + Integrity Check + Orphaned API: проверка целостности target-репозиториев и обнаружение осиротевших зеркал
   - Orphaned Mirrors страница + RelinkModal: UI для управления осиротевшими зеркалами
 
+### Removed
+
+- Удалены legacy-роутеры `api/integrations/`, `services/integrations.py`, 5 instance-моделей, модель `SourceProvider` + таблица `source_providers` (enum `ProviderType` перенесён в нейтральное место)
+- Удалены legacy-сторы (`integrations.ts`, `git-mirroring/providers.ts`, `mirrors-legacy.ts`) и страницы (`Settings/Integrations`, `GitMirroring/Providers`, `Admin/Integrations`, `Mirrors`, `Projects`)
+- Удалены legacy-права (`integrations:*`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use`)
+
 ### Changed
+
+- **Багфиксы (2026-08-16):**
+  - Rate-limiter: настройка через env-переменные `RATE_LIMIT_*`, отключён на dev
+  - FK `audit_logs` при удалении пользователя (`ondelete=SET NULL`)
+  - Rollback в [`audit.py`](backend/app/services/audit.py)
 - Updated Material UI from v6 to v9 (`@mui/material ^9.0.1`, `@mui/icons-material ^9.0.1`)
 - Updated `@emotion/react` to `^11.14.0`, `@emotion/styled` to `^11.14.1`
 - **Реструктуризация инфраструктуры:**

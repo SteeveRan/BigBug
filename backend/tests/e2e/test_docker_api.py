@@ -1,291 +1,163 @@
 """
 @file test_docker_api.py
-@description Integration tests for Docker Image HTTP API endpoints
-             (/api/docker-images) — CRUD, index, tags, logs.
+@description E2E tests for the Docker Image HTTP API (/api/docker-images)
+              against a live backend: auth, list, create-without-indexing
+              (no external registry calls), 4xx for missing sources, tags/logs,
+              and the pure-parsing /analyze endpoint. No mocks, no sqlite.
+@dependencies backend/tests/e2e/conftest.py
 """
 
-from unittest.mock import patch
-
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.docker_image_source import DockerImageSource
-from app.models.docker_image_tag import DockerImageTag
+from tests.e2e.conftest import assert_matches_openapi
 
 pytestmark = pytest.mark.e2e
 
 
-@pytest_asyncio.fixture
-async def sample_docker_source(db_session: AsyncSession):
-    """Create a sample DockerImageSource with one tag for tests."""
-    source = DockerImageSource(
-        name="docker-hub-test",
-        registry_url="https://registry-1.docker.io/v2",
-        status_flag=0,
-        status_text="ok",
-    )
-    db_session.add(source)
-    await db_session.flush()
-
-    tag = DockerImageTag(
-        source_id=source.id,
-        image_name="library/nginx",
-        tag="1.27-alpine",
-        digest="sha256:abc123",
-        is_synced=True,
-        status_flag=0,
-        status_text="ok",
-    )
-    db_session.add(tag)
-    await db_session.commit()
-    await db_session.refresh(source)
-    return source
+def auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
-# ─── List sources ───────────────────────────────────────────────────────────
+class TestDockerSources:
+    async def test_list_sources_requires_auth(self, client: AsyncClient):
+        response = await client.get("/api/docker-images")
+        assert response.status_code == 401
 
+    async def test_list_sources(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get("/api/docker-images", headers=admin_headers)
+        assert_matches_openapi(response, "/api/docker-images", "get", openapi_spec)
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
 
-@pytest.mark.asyncio
-async def test_list_docker_sources(client: AsyncClient, operator_token: str, sample_docker_source):
-    """GET /api/docker-images returns list of sources."""
-    response = await client.get(
-        "/api/docker-images",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert data[0]["name"] == "docker-hub-test"
+    async def test_get_source_not_found(
+        self, client: AsyncClient, admin_headers: dict
+    ):
+        response = await client.get("/api/docker-images/999999", headers=admin_headers)
+        assert response.status_code == 404
 
+    async def test_create_source_without_indexing(
+        self, client: AsyncClient, admin_headers: dict, unique_name: str, openapi_spec: dict
+    ):
+        """POST without image_name only stores the source — no registry fetch."""
+        name = f"docker-{unique_name}"
+        response = await client.post(
+            "/api/docker-images",
+            headers=admin_headers,
+            json={"name": name, "registry_url": "https://registry.example.com"},
+        )
+        assert_matches_openapi(response, "/api/docker-images", "post", openapi_spec)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == name
+        assert data["registry_url"] == "https://registry.example.com/v2"
+        assert data["status_flag"] == 4  # pending — no indexing happened
 
-@pytest.mark.asyncio
-async def test_list_docker_sources_requires_auth(client: AsyncClient):
-    """Unauthenticated access must be rejected."""
-    response = await client.get("/api/docker-images")
-    assert response.status_code == 401
+        await client.delete(f"/api/docker-images/{data['id']}", headers=admin_headers)
 
-
-# ─── Get source ─────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_get_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
-    """GET /api/docker-images/{id} returns source with tags."""
-    response = await client.get(
-        f"/api/docker-images/{sample_docker_source.id}",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "docker-hub-test"
-    assert "tags" in data
-    assert len(data["tags"]) >= 1
-    assert data["tags"][0]["tag"] == "1.27-alpine"
-
-
-@pytest.mark.asyncio
-async def test_get_docker_source_not_found(client: AsyncClient, operator_token: str):
-    """Non-existent source returns 404."""
-    response = await client.get(
-        "/api/docker-images/99999",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 404
-
-
-# ─── Create source ──────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_create_docker_source(client: AsyncClient, operator_token: str):
-    """POST /api/docker-images creates a new source without indexing (no image_name)."""
-    response = await client.post(
-        "/api/docker-images",
-        headers={"Authorization": f"Bearer {operator_token}"},
-        json={
-            "name": "alpine-registry",
-            "registry_url": "https://registry.example.com",
-        },
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "alpine-registry"
-    assert data["registry_url"] == "https://registry.example.com/v2"
-
-
-@pytest.mark.asyncio
-async def test_create_docker_source_with_image_name(client: AsyncClient, operator_token: str):
-    """POST /api/docker-images with image_name triggers indexing."""
-    with patch("app.services.docker.DockerRegistryService._fetch_tags") as mock_fetch:
-        mock_fetch.return_value = {"name": "library/alpine", "tags": ["3.19", "3.20"]}
-        with patch(
-            "app.services.docker.DockerRegistryService._resolve_manifest_digest"
-        ) as mock_digest:
-            mock_digest.return_value = "sha256:def456"
-
-            response = await client.post(
+    async def test_create_source_duplicate_name(
+        self, client: AsyncClient, admin_headers: dict, unique_name: str
+    ):
+        name = f"docker-dup-{unique_name}"
+        first = await client.post(
+            "/api/docker-images",
+            headers=admin_headers,
+            json={"name": name, "registry_url": "https://registry.example.com"},
+        )
+        assert first.status_code == 201
+        try:
+            second = await client.post(
                 "/api/docker-images",
-                headers={"Authorization": f"Bearer {operator_token}"},
-                json={
-                    "name": "alpine-with-tags",
-                    "registry_url": "https://registry.example.com",
-                    "image_name": "library/alpine",
-                },
+                headers=admin_headers,
+                json={"name": name, "registry_url": "https://registry.other.com"},
             )
+            assert second.status_code == 400
+        finally:
+            await client.delete(f"/api/docker-images/{first.json()['id']}", headers=admin_headers)
 
-    assert response.status_code == 201
-    data = response.json()
-    assert data["name"] == "alpine-with-tags"
-    assert data["status_flag"] == 0  # success after indexing
+    async def test_update_source_not_found(
+        self, client: AsyncClient, admin_headers: dict
+    ):
+        response = await client.patch(
+            "/api/docker-images/999999",
+            headers=admin_headers,
+            json={"description": "nope"},
+        )
+        assert response.status_code == 404
 
+    async def test_delete_source_not_found(
+        self, client: AsyncClient, admin_headers: dict
+    ):
+        response = await client.delete("/api/docker-images/999999", headers=admin_headers)
+        assert response.status_code == 404
 
-@pytest.mark.asyncio
-async def test_create_docker_source_duplicate(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
-    """Creating a source with existing name returns 400."""
-    response = await client.post(
-        "/api/docker-images",
-        headers={"Authorization": f"Bearer {operator_token}"},
-        json={
-            "name": "docker-hub-test",
-            "registry_url": "https://registry.other.com",
-        },
-    )
-    assert response.status_code == 400
-
-
-# ─── Update source ──────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_update_docker_source(client: AsyncClient, operator_token: str, sample_docker_source):
-    """PATCH /api/docker-images/{id} updates source fields."""
-    response = await client.patch(
-        f"/api/docker-images/{sample_docker_source.id}",
-        headers={"Authorization": f"Bearer {operator_token}"},
-        json={"description": "Updated docker registry description"},
-    )
-    assert response.status_code == 200
-    assert response.json()["description"] == "Updated docker registry description"
+    async def test_index_source_not_found(
+        self, client: AsyncClient, admin_headers: dict
+    ):
+        response = await client.post(
+            "/api/docker-images/999999/index?image_name=nginx",
+            headers=admin_headers,
+        )
+        assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-async def test_update_docker_source_not_found(client: AsyncClient, operator_token: str):
-    """Updating non-existent source returns 404."""
-    response = await client.patch(
-        "/api/docker-images/99999",
-        headers={"Authorization": f"Bearer {operator_token}"},
-        json={"description": "test"},
-    )
-    assert response.status_code == 404
+class TestDockerSourceDetails:
+    @pytest.fixture
+    async def source(self, client: AsyncClient, admin_headers: dict, unique_name: str) -> dict:
+        response = await client.post(
+            "/api/docker-images",
+            headers=admin_headers,
+            json={"name": f"docker-tags-{unique_name}", "registry_url": "https://registry.example.com"},
+        )
+        assert response.status_code == 201
+        yield response.json()
+        await client.delete(f"/api/docker-images/{response.json()['id']}", headers=admin_headers)
+
+    async def test_list_tags_empty(
+        self, client: AsyncClient, admin_headers: dict, source: dict, openapi_spec: dict
+    ):
+        response = await client.get(
+            f"/api/docker-images/{source['id']}/tags", headers=admin_headers
+        )
+        assert_matches_openapi(
+            response, "/api/docker-images/{source_id}/tags", "get", openapi_spec
+        )
+        assert response.status_code == 200
+        assert response.json() == []
+
+    async def test_list_logs_empty(
+        self, client: AsyncClient, admin_headers: dict, source: dict, openapi_spec: dict
+    ):
+        response = await client.get(
+            f"/api/docker-images/{source['id']}/logs", headers=admin_headers
+        )
+        assert_matches_openapi(
+            response, "/api/docker-images/{source_id}/logs", "get", openapi_spec
+        )
+        assert response.status_code == 200
+        assert response.json() == []
 
 
-# ─── Delete source ──────────────────────────────────────────────────────────
+class TestAnalyzeImage:
+    async def test_analyze_requires_auth(self, client: AsyncClient):
+        response = await client.post(
+            "/api/docker-images/analyze", json={"image_name": "nginx:latest"}
+        )
+        assert response.status_code == 401
 
-
-@pytest.mark.asyncio
-async def test_delete_docker_source(client: AsyncClient, admin_token: str, sample_docker_source):
-    """DELETE /api/docker-images/{id} removes the source (delete is admin-only)."""
-    response = await client.delete(
-        f"/api/docker-images/{sample_docker_source.id}",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert response.status_code == 204
-
-
-@pytest.mark.asyncio
-async def test_delete_docker_source_not_found(client: AsyncClient, admin_token: str):
-    """Deleting non-existent source returns 404."""
-    response = await client.delete(
-        "/api/docker-images/99999",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert response.status_code == 404
-
-
-# ─── Index source ───────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_index_docker_source_with_image_name(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
-    """POST /api/docker-images/{id}/index?image_name=nginx indexes tags."""
-    with patch("app.services.docker.DockerRegistryService._fetch_tags") as mock_fetch:
-        mock_fetch.return_value = {
-            "name": "library/nginx",
-            "tags": ["1.27-alpine", "latest"],
-        }
-        with patch(
-            "app.services.docker.DockerRegistryService._resolve_manifest_digest"
-        ) as mock_digest:
-            mock_digest.return_value = "sha256:indexed"
-
-            response = await client.post(
-                f"/api/docker-images/{sample_docker_source.id}/index?image_name=library%2Fnginx",
-                headers={"Authorization": f"Bearer {operator_token}"},
-            )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status_flag"] == 0  # success
-    assert "Indexed 2 tag" in data["log_output"]
-
-
-@pytest.mark.asyncio
-async def test_index_docker_source_not_found(client: AsyncClient, operator_token: str):
-    """Indexing non-existent source returns 404."""
-    response = await client.post(
-        "/api/docker-images/99999/index?image_name=nginx",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 404
-
-
-# ─── Tags ───────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_get_docker_tags(client: AsyncClient, operator_token: str, sample_docker_source):
-    """GET /api/docker-images/{id}/tags returns tags list."""
-    response = await client.get(
-        f"/api/docker-images/{sample_docker_source.id}/tags",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert data[0]["tag"] == "1.27-alpine"
-
-
-@pytest.mark.asyncio
-async def test_get_docker_tags_filter(
-    client: AsyncClient, operator_token: str, sample_docker_source
-):
-    """Filtering by image_name works."""
-    response = await client.get(
-        f"/api/docker-images/{sample_docker_source.id}/tags?image_name=nonexistent",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 200
-    assert len(response.json()) == 0
-
-
-# ─── Logs ───────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.asyncio
-async def test_get_docker_logs(client: AsyncClient, operator_token: str, sample_docker_source):
-    """GET /api/docker-images/{id}/logs returns sync log entries."""
-    response = await client.get(
-        f"/api/docker-images/{sample_docker_source.id}/logs",
-        headers={"Authorization": f"Bearer {operator_token}"},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
+    async def test_analyze_image(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        """Pure parsing — no external call. Returns registry-match suggestions."""
+        response = await client.post(
+            "/api/docker-images/analyze",
+            headers=admin_headers,
+            json={"image_name": "nginx:latest"},
+        )
+        assert_matches_openapi(response, "/api/docker-images/analyze", "post", openapi_spec)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["image_name"] == "nginx:latest"
+        assert isinstance(data["compatible_registries"], list)

@@ -80,6 +80,12 @@ services:
       GITLAB_URL: http://gitlab.local:8080
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DB_WAIT_TIMEOUT: ${DB_WAIT_TIMEOUT:-60}
+      # Rate limiting is production-only. On the dev stack it is disabled so
+      # e2e tests and local debugging never hit login/oidc rate limits.
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-5/minute}
+      RATE_LIMIT_OIDC_EXCHANGE: ${RATE_LIMIT_OIDC_EXCHANGE:-3/minute}
+      RATE_LIMIT_GLOBAL: ${RATE_LIMIT_GLOBAL:-1000/minute}
     env_file:
       - .env
     ports:

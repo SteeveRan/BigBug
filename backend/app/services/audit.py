@@ -41,6 +41,10 @@ class AuditService:
             db.add(log_entry)
             await db.commit()
         except Exception as e:
+            # Roll back the failed transaction so the shared session/connection
+            # is not left in ``PendingRollbackError`` state, which otherwise
+            # poisons the asyncpg connection and hangs subsequent requests.
+            await db.rollback()
             logger.error(f"Failed to write audit log: {e}")
 
     @staticmethod

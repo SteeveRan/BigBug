@@ -46,5 +46,5 @@ class UserRole(Base):
     assigned_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # Relationships
-    user = relationship("User", back_populates="user_roles")
-    role = relationship("Role", back_populates="user_roles")
+    user = relationship("User", back_populates="user_roles", lazy="selectin")
+    role = relationship("Role", back_populates="user_roles", lazy="selectin")

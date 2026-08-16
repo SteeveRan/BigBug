@@ -1,20 +1,23 @@
 """
 @file test_migration_v2.py
-@description Tests for the git-mirroring v2 migration, verifying that all 14 new
-             tables exist, pipeline_id column is present, enum helpers return
-             correct values, and models can be instantiated with declared defaults.
-@dependencies backend/alembic/versions/20260613_1307_139d156bc39b_add_git_mirroring_v2_tables.py
+@description Tests for the git-mirroring v2 schema and its enum types. After the
+             Alembic reset these assertions run against the ORM models and
+             ``Base.metadata`` (the source of truth) rather than a specific
+             historical migration file: the v2 tables, their columns and enum
+             values must all be present in the current models so that the new
+             ``initial schema`` migration reproduces them.
+@dependencies backend/app/models/*
 """
-
-import importlib.util
-import os
 
 import sqlalchemy as sa
 
 from app.database import Base
+from app.models.credential import CredentialType
+from app.models.mirror_log import MirrorLogType
+from app.models.provider_type import ProviderType
 from app.models.source_repository import DiscoveryStatus
 
-# ── Tables expected to exist after v2 migration ───────────────────────────
+# ── Tables expected to exist in the current schema ─────────────────────────
 V2_TABLES = frozenset(
     {
         "credentials",
@@ -32,30 +35,12 @@ V2_TABLES = frozenset(
     }
 )
 
-# ── Path to the migration module ──────────────────────────────────────────
-_MIGRATION_PATH = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "alembic",
-    "versions",
-    "20260613_1307_139d156bc39b_add_git_mirroring_v2_tables.py",
-)
-
-
-def _load_migration_module():
-    """Load the migration module by file path (not importlib — not a package)."""
-    spec = importlib.util.spec_from_file_location("migration_v2_tables", _MIGRATION_PATH)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
 
 class TestMigrationV2Tables:
     """Verify that Base.metadata includes all v2 tables."""
 
     def test_all_v2_tables_in_metadata(self):
-        """All 14 new tables are present in SQLAlchemy metadata."""
+        """All v2 tables are present in SQLAlchemy metadata."""
         registered = frozenset(Base.metadata.tables.keys())
         missing = V2_TABLES - registered
         assert not missing, f"Tables missing from metadata: {missing}"
@@ -167,88 +152,34 @@ class TestMigrationV2Tables:
         assert col.nullable is True
 
 
-class TestMigrationEnumHelpers:
-    """Verify enum helper functions used in the migration."""
-
-    @classmethod
-    def setup_class(cls):
-        migration_mod = _load_migration_module()
-        cls._get_credential_type_enum = staticmethod(migration_mod._get_credential_type_enum)
-        cls._get_provider_type_enum = staticmethod(migration_mod._get_provider_type_enum)
-        cls._get_discovery_status_enum = staticmethod(migration_mod._get_discovery_status_enum)
-        cls._get_mirror_log_type_enum = staticmethod(migration_mod._get_mirror_log_type_enum)
+class TestEnumModels:
+    """Verify the enum values that the schema enums are built from."""
 
     def test_credential_type_enum_values(self):
         """credential_type_enum has all 4 values."""
-        enum = self._get_credential_type_enum()
-        values = set(enum.enums)
-        assert values == {"github_token", "gitlab_token", "https_basic", "ssh_key"}
-
-    def test_credential_type_enum_is_enum_instance(self):
-        """credential_type_enum returns a sa.Enum instance."""
-        enum = self._get_credential_type_enum()
-        assert isinstance(enum, sa.Enum)
+        assert {e.value for e in CredentialType} == {
+            "github_token",
+            "gitlab_token",
+            "https_basic",
+            "ssh_key",
+        }
 
     def test_provider_type_enum_values(self):
         """provider_type_enum has all 3 values."""
-        enum = self._get_provider_type_enum()
-        values = set(enum.enums)
-        assert values == {"github", "gitlab", "generic"}
-
-    def test_provider_type_enum_is_enum_instance(self):
-        """provider_type_enum returns a sa.Enum instance."""
-        enum = self._get_provider_type_enum()
-        assert isinstance(enum, sa.Enum)
+        assert {e.value for e in ProviderType} == {"github", "gitlab", "generic"}
 
     def test_discovery_status_enum_values(self):
         """discovery_status_enum has all 3 values."""
-        enum = self._get_discovery_status_enum()
-        values = set(enum.enums)
-        assert values == {"new", "existing", "removed"}
-
-    def test_discovery_status_enum_is_enum_instance(self):
-        """discovery_status_enum returns a sa.Enum instance."""
-        enum = self._get_discovery_status_enum()
-        assert isinstance(enum, sa.Enum)
+        assert {e.value for e in DiscoveryStatus} == {"new", "existing", "removed"}
 
     def test_mirror_log_type_enum_values(self):
         """mirror_log_type_enum has all 4 values."""
-        enum = self._get_mirror_log_type_enum()
-        values = set(enum.enums)
-        assert values == {"sync", "freshness", "import", "integrity"}
-
-    def test_mirror_log_type_enum_is_enum_instance(self):
-        """mirror_log_type_enum returns a sa.Enum instance."""
-        enum = self._get_mirror_log_type_enum()
-        assert isinstance(enum, sa.Enum)
-
-
-class TestMigrationDataSQL:
-    """Verify data migration SQL helpers are callable."""
-
-    @classmethod
-    def setup_class(cls):
-        migration_mod = _load_migration_module()
-        cls._migrate_data = staticmethod(migration_mod._migrate_data)
-        cls._revert_data = staticmethod(migration_mod._revert_data)
-        cls.upgrade = staticmethod(migration_mod.upgrade)
-        cls.downgrade = staticmethod(migration_mod.downgrade)
-
-    def test_migrate_data_callable(self):
-        """_migrate_data is a callable function."""
-        assert callable(self._migrate_data)
-
-    def test_revert_data_callable(self):
-        """_revert_data is a callable function."""
-        assert callable(self._revert_data)
-
-    def test_upgrade_callable(self):
-        """upgrade is a callable function."""
-        assert callable(self.upgrade)
-
-    def test_downgrade_callable(self):
-        """downgrade is a callable function."""
-        assert callable(self.downgrade)
+        assert {e.value for e in MirrorLogType} == {
+            "sync",
+            "freshness",
+            "import",
+            "integrity",
+        }
 
 
 def _col_default(table_name: str, col_name: str):
