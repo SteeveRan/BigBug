@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import validators
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT202012
 
 # Resolved against this module: backend/tests/e2e/openapi_utils.py → backend/
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -46,47 +48,20 @@ def load_openapi_spec() -> dict[str, Any]:
         return json.load(fh)
 
 
-def resolve_ref(spec: dict[str, Any], ref: str) -> dict[str, Any]:
-    """Resolve a ``#/components/schemas/...`` JSON pointer against ``spec``.
-
-    Only local refs are supported (the frozen spec has no external refs).
-    """
-    if not ref.startswith("#/"):
-        raise ValueError(f"Unsupported external $ref: {ref}")
-    node: Any = spec
-    for part in ref[2:].split("/"):
-        part = part.replace("~1", "/").replace("~0", "~")
-        node = node[part]
-    return node
-
-
-def dereference_schema(spec: dict[str, Any], schema: dict[str, Any]) -> dict[str, Any]:
-    """Deeply inline ``$ref`` pointers so ``jsonschema`` validates standalone.
-
-    Kept deliberately small: the backend schemas only use ``$ref`` at the
-    top level or inside ``items``/``properties``, so a recursive inlining of the
-    schema tree is sufficient.
-    """
-    if isinstance(schema, dict):
-        if "$ref" in schema:
-            ref = schema["$ref"]
-            return dereference_schema(spec, resolve_ref(spec, ref))
-        return {k: dereference_schema(spec, v) for k, v in schema.items()}
-    if isinstance(schema, list):
-        return [dereference_schema(spec, item) for item in schema]
-    return schema
-
-
 def build_validator(spec: dict[str, Any], schema: dict[str, Any]) -> Any:
     """Build a ``jsonschema`` validator able to follow remaining local refs.
 
-    Uses ``extend`` with the spec's component schemas as a resolver store so
-    nested ``$ref``/``$defs`` (rare but present) still resolve correctly.
+    Resolves local ``#/components/schemas/...`` refs via the modern
+    ``referencing`` library instead of the deprecated ``RefResolver``. The
+    registry maps the spec onto the empty base URI so local refs resolve
+    against the spec root (the frozen document uses no external refs).
     """
-    resolver = validators.RefResolver.from_schema(spec)
     cls = validators.validator_for(schema)
     cls.check_schema(schema)
-    return cls(schema, resolver=resolver)
+    resource = Resource.from_contents(spec, default_specification=DRAFT202012)
+    registry = Registry().with_resource("", resource)
+    resolver = registry.resolver_with_root(resource)
+    return cls(schema, _resolver=resolver)
 
 
 # ──────────────────────────────────────────────────────────────────────────
