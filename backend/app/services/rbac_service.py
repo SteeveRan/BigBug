@@ -174,8 +174,6 @@ class RBACService:
             created_by_user_id=created_by_user_id,
         )
         self.db.add(role)
-        await self.db.flush()
-
         role.permissions = permissions
         await self.db.commit()
         await self.db.refresh(role)

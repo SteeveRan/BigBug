@@ -29,7 +29,7 @@ _REPORTS_DIR = _BACKEND_DIR / "reports"
 
 # Soft threshold for endpoint coverage. The infrastructure test fails only when
 # coverage drops below this floor, so a silently-degraded run is still caught.
-MIN_COVERAGE_PERCENT = 30
+MIN_COVERAGE_PERCENT = 60
 
 
 # ──────────────────────────────────────────────────────────────────────────
