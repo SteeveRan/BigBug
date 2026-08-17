@@ -676,7 +676,7 @@ class SyncGroupService:
                 ~Mirror.is_deleted,
             )
         )
-        mirrors_map: dict[int, Mirror] = {m.id: m for m in result.scalars().all()}
+        mirrors_map: dict[int, Mirror] = {int(m.id): m for m in result.scalars().all()}
 
         # ── Validate all mirror IDs exist ───────────────────────────────
         missing = set(mirror_ids) - set(mirrors_map.keys())

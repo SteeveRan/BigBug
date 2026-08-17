@@ -407,7 +407,7 @@ class MirrorService:
                 ~SourceRepository.is_deleted,
             )
         )
-        sr_map: dict[int, SourceRepository] = {sr.id: sr for sr in sr_result.scalars().all()}
+        sr_map: dict[int, SourceRepository] = {int(sr.id): sr for sr in sr_result.scalars().all()}
 
         # Validate all source repos exist
         missing = sr_ids - set(sr_map.keys())
