@@ -142,6 +142,8 @@ describe('DockerImagesPage', () => {
       base_url: 'https://registry-1.docker.io',
     },
     is_new_registry_needed: false,
+    available_targets: [],
+    repository_path: 'library/nginx',
   };
 
   it('opens dialog with two-step Add Image flow', async () => {
@@ -199,7 +201,7 @@ describe('DockerImagesPage', () => {
       expect.objectContaining({
         name: 'library/nginx',
         registry_url: 'https://registry-1.docker.io',
-        image_name: 'library/nginx:latest',
+        image_name: 'library/nginx',
         provider_id: 1,
       })
     );

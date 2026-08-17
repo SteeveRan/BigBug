@@ -2,16 +2,19 @@
 @file docker_registry.py
 @description Thin OCI/Docker Registry V2 client + per-subtype helpers (docker_hub,
              quay, gcr, ecr, acr, ghcr, generic_registry). Lists repositories via
-             ``/v2/_catalog`` and tags via ``/v2/<name>/tags/list``.
-@dependencies httpx, ./_http
-@relatedFiles ./docker_harbor.py, ./helm_repo.py
+             ``/v2/_catalog`` and tags via ``/v2/<name>/tags/list``. Auth uses the
+             bearer-challenge handshake from :mod:`docker_auth` so both Harbor
+             (Basic-first) and Docker Hub (401 + challenge) work through one path.
+@dependencies httpx, ./_http, ./docker_auth
+@relatedFiles ./docker_harbor.py, ./helm_repo.py, ./docker_auth.py
 """
 
 from __future__ import annotations
 
 import httpx
 
-from app.services.providers.clients._http import ProviderClientError, build_auth, make_client
+from app.services.providers.clients._http import ProviderClientError, make_client
+from app.services.providers.clients.docker_auth import oci_request
 
 # Canonical registry endpoints per subtype. Custom ``base_url`` overrides these.
 _DEFAULT_ENDPOINTS: dict[str, str] = {
@@ -48,29 +51,40 @@ class DockerRegistryClient:
         return make_client(
             verify_ssl=self._verify_ssl,
             transport=self._transport,
-            auth=build_auth(self._secret, self._username),
         )
+
+    def _basic(self) -> tuple[str, str] | None:
+        """Return ``(username, secret)`` when both are present, else ``None``."""
+        if self._secret and self._username:
+            return (self._username, self._secret)
+        return None
+
+    async def _request(self, method: str, url: str) -> httpx.Response:
+        async with self._client() as client:
+            return await oci_request(client, method, url, basic=self._basic())
 
     async def test_connection(self) -> dict:
         try:
-            async with self._client() as client:
-                resp = await client.get(f"{self.base_url}/v2/")
+            resp = await self._request("GET", f"{self.base_url}/v2/")
         except httpx.RequestError as exc:
             raise ProviderClientError(f"Registry request failed: {exc}") from exc
         if resp.is_success:
             return {"ok": True}
         if resp.status_code == 401:
+            # Honest handshake result: anonymous and no bearer challenge (or an
+            # exhausted challenge) — still reachable, just not authenticated.
             return {"ok": True, "authenticated": False}
-        raise ProviderClientError(f"Registry returned HTTP {resp.status_code}")
+        raise ProviderClientError(f"Registry returned HTTP {resp.status_code}", resp.status_code)
 
     async def list_repositories(self, namespace: str | None = None) -> list[dict]:
         try:
-            async with self._client() as client:
-                resp = await client.get(f"{self.base_url}/v2/_catalog")
+            resp = await self._request("GET", f"{self.base_url}/v2/_catalog")
         except httpx.RequestError as exc:
             raise ProviderClientError(f"Registry request failed: {exc}") from exc
         if not resp.is_success:
-            raise ProviderClientError(f"Registry returned HTTP {resp.status_code}")
+            raise ProviderClientError(
+                f"Registry returned HTTP {resp.status_code}", resp.status_code
+            )
         repos = resp.json().get("repositories", [])
         if namespace:
             repos = [r for r in repos if r.startswith(f"{namespace}/")]
@@ -78,12 +92,13 @@ class DockerRegistryClient:
 
     async def list_tags(self, repository: str) -> list[str]:
         try:
-            async with self._client() as client:
-                resp = await client.get(f"{self.base_url}/v2/{repository}/tags/list")
+            resp = await self._request("GET", f"{self.base_url}/v2/{repository}/tags/list")
         except httpx.RequestError as exc:
             raise ProviderClientError(f"Registry request failed: {exc}") from exc
         if not resp.is_success:
-            raise ProviderClientError(f"Registry returned HTTP {resp.status_code}")
+            raise ProviderClientError(
+                f"Registry returned HTTP {resp.status_code}", resp.status_code
+            )
         return resp.json().get("tags") or []
 
 

@@ -527,6 +527,8 @@ class AnalyzeImageResponse(BaseModel):
     suggested_registry: ProviderOut | None = None
     compatible_registries: list[ProviderOut] = []
     is_new_registry_needed: bool = False
+    available_targets: list[ProviderOut] = []
+    repository_path: str  # clean repo path without host/tag
 
 
 @router.post("/analyze", response_model=AnalyzeImageResponse)
@@ -544,8 +546,10 @@ async def analyze_image(
     from app.services.docker import (
         find_matching_docker_provider,
         get_compatible_docker_providers,
+        get_internal_docker_targets,
         normalize_registry_image_ref,
         parse_registry_from_image,
+        repository_path_from_ref,
     )
 
     image_name = data.image_name.strip()
@@ -554,6 +558,7 @@ async def analyze_image(
 
     suggested = await find_matching_docker_provider(db, registry_host, provider)
     compatible = await get_compatible_docker_providers(db, registry_host, provider)
+    targets = await get_internal_docker_targets(db)
 
     return AnalyzeImageResponse(
         image_name=image_name,
@@ -563,4 +568,6 @@ async def analyze_image(
         suggested_registry=ProviderOut.model_validate(suggested) if suggested else None,
         compatible_registries=[ProviderOut.model_validate(r) for r in compatible],
         is_new_registry_needed=suggested is None,
+        available_targets=[ProviderOut.model_validate(r) for r in targets],
+        repository_path=repository_path_from_ref(image_name),
     )

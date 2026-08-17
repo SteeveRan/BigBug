@@ -69,6 +69,10 @@ infra-up: ## Запустить инфраструктурные сервисы 
 infra-init: ## Полная инициализация: compose → harbor (kind) → OpenTofu → .env
 	./infrastructure/init.sh
 
+.PHONY: infra-provision-gitlab
+infra-provision-gitlab: ## Provision GitLab components project + runner (без OpenTofu)
+	bash ./infrastructure/provision-gitlab.sh
+
 .PHONY: infra-down
 infra-down: ## Остановить инфраструктурные сервисы (контейнеры сохраняются)
 	$(COMPOSE_INFRA) down

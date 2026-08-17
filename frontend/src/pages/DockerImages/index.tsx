@@ -43,6 +43,8 @@ export function DockerImagesPage() {
   const [step, setStep] = useState<'input' | 'analyze'>('input');
   const [analysis, setAnalysis] = useState<AnalyzeImageResponse | null>(null);
   const [selectedRegistryId, setSelectedRegistryId] = useState<number | null>(null);
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+  const [targetProject, setTargetProject] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -54,6 +56,8 @@ export function DockerImagesPage() {
     setStep('input');
     setAnalysis(null);
     setSelectedRegistryId(null);
+    setSelectedTargetId(null);
+    setTargetProject('');
     setAnalysisError(null);
   };
 
@@ -73,6 +77,14 @@ export function DockerImagesPage() {
       const result = await analyzeDockerImage({ image_name: trimmed }).unwrap();
       setAnalysis(result);
       setSelectedRegistryId(result.suggested_registry?.id ?? null);
+      const defaultTarget =
+        result.available_targets.length === 1
+          ? result.available_targets[0]
+          : result.available_targets.find((t) => t.is_default) ?? result.available_targets[0];
+      setSelectedTargetId(defaultTarget?.id ?? null);
+      setTargetProject(
+        (defaultTarget?.config?.default_project as string | undefined) ?? ''
+      );
       setStep('analyze');
     } catch (err: unknown) {
       const detail =
@@ -94,11 +106,17 @@ export function DockerImagesPage() {
       const selectedRegistry = analysis.compatible_registries.find(
         (r) => r.id === selectedRegistryId
       );
+      const selectedTarget = analysis.available_targets.find(
+        (r) => r.id === selectedTargetId
+      );
       await createSource({
         name: analysis.image_name,
         registry_url: selectedRegistry?.base_url || analysis.detected_registry_host,
-        image_name: analysis.normalized_image,
+        image_name: analysis.repository_path,
         provider_id: selectedRegistryId ?? undefined,
+        target_provider_id: selectedTargetId ?? undefined,
+        target_registry_url: selectedTarget?.base_url ?? undefined,
+        target_project: targetProject || undefined,
       }).unwrap();
       message.success('Docker image added successfully');
       setDialogOpen(false);
@@ -247,6 +265,11 @@ export function DockerImagesPage() {
     value: r.id,
   }));
 
+  const targetOptions = (analysis?.available_targets || []).map((r: ResourceProvider) => ({
+    label: `${r.label} (${r.subtype})`,
+    value: r.id,
+  }));
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -361,9 +384,9 @@ export function DockerImagesPage() {
               </Space>
             </Flex>
 
-            {/* Registry selection */}
+            {/* Source registry selection */}
             <Flex vertical gap={4}>
-              <Typography.Text strong>Target Registry</Typography.Text>
+              <Typography.Text strong>Source Registry</Typography.Text>
               <Select
                 style={{ width: '100%' }}
                 options={registryOptions}
@@ -372,9 +395,47 @@ export function DockerImagesPage() {
                 placeholder="Select a registry..."
               />
               <Typography.Text type="secondary">
-                The registry that will be used to pull this image
+                Registry to pull tags from
               </Typography.Text>
             </Flex>
+
+            {/* Mirror target selection */}
+            <Flex vertical gap={4}>
+              <Typography.Text strong>Mirror Target</Typography.Text>
+              <Select
+                style={{ width: '100%' }}
+                options={targetOptions}
+                value={selectedTargetId}
+                onChange={(val) => {
+                  setSelectedTargetId(val);
+                  const target = analysis.available_targets.find((t) => t.id === val);
+                  setTargetProject(
+                    (target?.config?.default_project as string | undefined) ?? ''
+                  );
+                }}
+                placeholder="Select a mirror target..."
+                notFoundContent="No internal Harbor target configured"
+              />
+            </Flex>
+
+            {selectedTargetId && (
+              <Flex vertical gap={4}>
+                <Typography.Text strong>Target Project</Typography.Text>
+                <Input
+                  placeholder="e.g. library"
+                  value={targetProject}
+                  onChange={(e) => setTargetProject(e.target.value)}
+                />
+              </Flex>
+            )}
+
+            {analysis.available_targets.length === 0 && (
+              <Alert
+                type="warning"
+                showIcon
+                title="No internal Harbor target configured — mirroring will be unavailable"
+              />
+            )}
 
             {/* New registry needed warning */}
             {analysis.is_new_registry_needed && (

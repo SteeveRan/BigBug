@@ -102,6 +102,7 @@ export {
   useUpdateDockerImageMutation,
   useDeleteDockerImageMutation,
   useIndexDockerImageMutation,
+  useMirrorDockerImageMutation,
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useBatchDeleteDockerTagsMutation,

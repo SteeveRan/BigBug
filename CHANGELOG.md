@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Docker-импорт (Docker Hub → Harbor) — починка сквозного потока:**
+  - `repository_path_from_ref()` + `ref_tag()` в [`docker.py`](backend/app/services/docker.py) — нормализация canonical-ссылок (`nginx:latest`, `registry-1.docker.io/library/nginx`, digest-ref) в чистый repository path; применяется в `_fetch_tags`, `_resolve_manifest_digest`, `mirror_image` и `import_source_from_url`
+  - OCI/Docker Hub bearer-token handshake в новом [`docker_auth.py`](backend/app/services/providers/clients/docker_auth.py): `oci_request()` (Basic → 401 → `WWW-Authenticate: Bearer` → token → один retry), `TokenCache` (TTL 300s), `parse_bearer_challenge`, `scope_for_url`; интегрирован в [`docker_registry.py`](backend/app/services/providers/clients/docker_registry.py) и `_fetch_tags`
+  - `get_internal_docker_targets()` + поля `available_targets`/`repository_path` в `AnalyzeImageResponse` ([`docker_images.py`](backend/app/api/docker_images.py))
+  - Harbor system-провайдер в [`seed_providers.py`](backend/scripts/seed_providers.py) (env-гейт на `HARBOR_URL`, idempotent upsert credential + provider)
+  - `crane` в [`backend/docker/Dockerfile`](backend/docker/Dockerfile) и переработка `mirror_image()` (refs без `/v2`, отрезание `library/`, секреты через временный `config.json` 0600 + `DOCKER_CONFIG`, `--insecure` при `verify_ssl=False`, `FileNotFoundError` → `ExternalServiceError`)
+  - Frontend: mutation `mirrorDockerImage`, два селекта (Source Registry / Mirror Target + Target Project) в [`DockerImages/index.tsx`](frontend/src/pages/DockerImages/index.tsx), кнопка Mirror за `PermissionGate docker:sync` в [`DockerImageDetail.tsx`](frontend/src/pages/DockerImages/DockerImageDetail.tsx)
+
 - **Makefile — единая точка входа для запуска всех скриптов:**
   - Корневой [`Makefile`](Makefile) с 6 группами команд: `dev-*` (build/up/init/down/clean), `infra-*` (up/init/down/clean + чистка compose/harbor/tofu), `test-*` (unit/integrations/e2e/all по стеку), `lint-*`/`format-*`/`typecheck-*`, `coverage-*` (код + эндпоинты), `dead-code-*`
   - Self-documenting help (`make help`), проброс аргументов в тесты через `TEST_ARGS`

@@ -88,6 +88,12 @@ services:
       RATE_LIMIT_GLOBAL: ${RATE_LIMIT_GLOBAL:-1000/minute}
     env_file:
       - .env
+    # WHY: harbor.local is published on the docker host (see
+    # infrastructure/harbor/README.md: host :443 → kind NodePort 30443). Inside
+    # the container /etc/hosts resolves harbor.local to 127.0.0.1, so the
+    # host-gateway alias is required for crane/httpx to reach the registry.
+    extra_hosts:
+      - "harbor.local:host-gateway"
     ports:
       - "8000:8000"
     volumes:

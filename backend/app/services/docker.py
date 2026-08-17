@@ -1,5 +1,10 @@
 import asyncio
+import base64
+import json
+import os
 import re
+import shutil
+import tempfile
 from datetime import UTC, datetime
 from typing import Any
 
@@ -8,6 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ExternalServiceError, NotFoundError
+from app.core.secrets import decrypt_secret
+from app.models.credential import Credential
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.docker_sync_log import DockerSyncLog
@@ -17,6 +24,7 @@ from app.models.resource_provider import (
     ProviderSubtype,
     ResourceProvider,
 )
+from app.services.providers.clients.docker_auth import oci_request
 
 # ──── Registry Parsing Utilities ────────────────────────────────────────────
 
@@ -35,6 +43,8 @@ _REGISTRY_HOST_TO_PROVIDER: dict[str, str] = {
     "mcr.microsoft.com": "acr",
     "ghcr.io": "ghcr",
 }
+
+_DOCKER_HUB_HOSTS = {"registry-1.docker.io", "docker.io", "index.docker.io"}
 
 # Map legacy detection strings (RegistryProvider enum / _REGISTRY_HOST_TO_PROVIDER)
 # to the unified ProviderSubtype used by ResourceProvider.
@@ -90,6 +100,86 @@ def parse_registry_from_image(image_name: str) -> tuple[str, str]:
     # Two-part reference without dots: likely Docker Hub user/image
     # e.g., node:latest (single segment already handled), prom/node-exporter
     return ("registry-1.docker.io", "docker_hub")
+
+
+def repository_path_from_ref(image_name: str) -> str:
+    """Return the registry repository path (no host, no tag) for an image ref.
+
+    Rules (deficit 2):
+      1. ``strip()``; drop ``@digest``; drop ``:tag`` only from the last path
+         segment (a ``host:port`` first segment is dropped together with the host).
+      2. Drop a leading registry host (first segment containing ``.`` or ``:``,
+         or ``localhost``).
+      3. A single remaining segment on Docker Hub becomes ``library/<name>``.
+      4. Return the remaining path.
+
+    Examples:
+        nginx                                 -> library/nginx
+        library/nginx                         -> library/nginx
+        nginx:1.25                            -> library/nginx
+        docker.io/library/nginx:1.25          -> library/nginx
+        registry-1.docker.io/library/nginx    -> library/nginx
+        quay.io/prom/node-exporter:v1.0       -> prom/node-exporter
+        harbor.local:443/bigbug/nginx         -> bigbug/nginx
+        ghcr.io/org/img@sha256:abc            -> org/img
+    """
+    ref = image_name.strip()
+    if not ref:
+        return ""
+
+    # Digest is not part of the repository path.
+    ref = ref.split("@", 1)[0]
+
+    # Strip the tag from the last path segment only.
+    parts = ref.split("/")
+    tail = parts[-1]
+    if ":" in tail:
+        parts[-1], _ = tail.rsplit(":", 1)
+        ref = "/".join(parts)
+
+    parts = ref.split("/")
+    first = parts[0]
+    # A registry host carries a dot, a port colon, or is literally localhost.
+    if "." in first or ":" in first or first == "localhost":
+        parts = parts[1:]
+
+    is_docker_hub = parse_registry_from_image(image_name)[0] in _DOCKER_HUB_HOSTS
+
+    if len(parts) == 1 and is_docker_hub:
+        return f"library/{parts[0]}"
+    return "/".join(parts)
+
+
+def ref_tag(image_name: str) -> str:
+    """Extract the tag from an image ref (default ``latest``).
+
+    A digest ref (``@sha256:…``) has no meaningful tag for a tag-based mirror,
+    so ``latest`` is returned. ponytail: mirror-by-digest is intentionally not
+    supported — this is the documented fallback, not a full digest copy.
+    """
+    ref = image_name.strip()
+    if "@" in ref:
+        return "latest"
+    tail = ref.split("/")[-1]
+    if ":" in tail:
+        _, tag = tail.rsplit(":", 1)
+        return tag or "latest"
+    return "latest"
+
+
+def _registry_root(url: str) -> str:
+    """Return a registry ``host[:port]`` without scheme or trailing ``/v2``.
+
+    crane parses references with the OCI distribution spec, which does not
+    accept an ``https://`` scheme prefix. The stored registry URLs carry a
+    scheme (``https://harbor.local:443``), so we strip it before composing
+    ``source_ref``/``target_ref`` for ``crane copy``.
+    """
+    url = url.strip().rstrip("/")
+    url = re.sub(r"^https?://", "", url)
+    if url.endswith("/v2"):
+        url = url[:-3].rstrip("/")
+    return url
 
 
 def detect_provider_from_url(url: str) -> str:
@@ -254,7 +344,7 @@ async def get_compatible_docker_providers(
     registry_host: str,
     provider: str | None = None,
 ) -> list[ResourceProvider]:
-    """Return active docker providers that could serve the given host/provider."""
+    """Return active docker providers that can serve as the **source** for a host."""
     result = await db.execute(
         select(ResourceProvider).where(
             ResourceProvider.domain == ProviderDomain.docker,
@@ -278,6 +368,27 @@ async def get_compatible_docker_providers(
         compatible = [r for r in active if r.direction == ProviderDirection.external]
 
     return sorted(compatible, key=lambda r: (-r.priority, r.name))
+
+
+async def get_internal_docker_targets(db: AsyncSession) -> list[ResourceProvider]:
+    """Return active internal docker providers usable as mirror targets.
+
+    Filter: domain == docker, active, not deleted, direction == internal,
+    subtype in (harbor, generic_registry). Sorted by ``(-priority, name)``.
+    """
+    result = await db.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.domain == ProviderDomain.docker,
+            ResourceProvider.is_active.is_(True),
+            ResourceProvider.is_deleted.is_(False),
+            ResourceProvider.direction == ProviderDirection.internal,
+            ResourceProvider.subtype.in_(
+                (ProviderSubtype.harbor, ProviderSubtype.generic_registry)
+            ),
+        )
+    )
+    providers = list(result.scalars().all())
+    return sorted(providers, key=lambda r: (-r.priority, r.name))
 
 
 class DockerRegistryService:
@@ -349,9 +460,10 @@ class DockerRegistryService:
         db.add(source)
         await db.flush()
 
-        # Index the registry if an image name was provided
+        # Index the registry if an image name was provided. Normalize to the pure
+        # repository path so old clients sending a canonical ref stay supported.
         if image_name:
-            await self.index_source(source, image_name, db)
+            await self.index_source(source, repository_path_from_ref(image_name), db)
 
         await db.commit()
         await db.refresh(source)
@@ -379,7 +491,10 @@ class DockerRegistryService:
         source.status_text = "indexing"  # type: ignore[assignment]
 
         try:
-            tags_data = await self._fetch_tags(source.registry_url, image_name)
+            basic, verify_ssl = await self._resolve_auth(db, source.provider_id)
+            tags_data = await self._fetch_tags(
+                source.registry_url, image_name, basic=basic, verify_ssl=verify_ssl
+            )
         except Exception as e:
             sync_log.status_flag = 1  # type: ignore[assignment]
             sync_log.status_text = "failed"  # type: ignore[assignment]
@@ -416,19 +531,30 @@ class DockerRegistryService:
         await db.flush()
         return sync_log
 
-    async def _fetch_tags(self, registry_url: str, image_name: str) -> dict[str, Any]:
+    async def _fetch_tags(
+        self,
+        registry_url: str,
+        image_name: str,
+        *,
+        basic: tuple[str, str] | None = None,
+        verify_ssl: bool = True,
+    ) -> dict[str, Any]:
         """Fetch tags list and metadata from Docker Registry API v2.
 
-        Uses two endpoints:
-        1. GET /v2/<image>/tags/list — list of tags
-        2. GET /v2/<image>/manifests/<tag> — per-tag digest + metadata (HEAD)
+        The repository path is normalized via :func:`repository_path_from_ref`
+        so a canonical ref (host + tag) still hits ``/v2/<repo>/tags/list``.
         """
         base_url = registry_url.rstrip("/")
-        tags_url = f"{base_url}/{image_name}/tags/list"
+        repo = repository_path_from_ref(image_name)
+        if not repo:
+            raise BadRequestError("Image reference does not contain a repository path")
+        tags_url = f"{base_url}/{repo}/tags/list"
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0, follow_redirects=True, verify=verify_ssl
+        ) as client:
             try:
-                response = await client.get(tags_url)
+                response = await oci_request(client, "GET", tags_url, basic=basic)
                 response.raise_for_status()
             except httpx.HTTPError as e:
                 raise ExternalServiceError("Docker registry", f"HTTP error: {e}") from e
@@ -447,11 +573,18 @@ class DockerRegistryService:
         return data
 
     async def _resolve_manifest_digest(
-        self, client: httpx.AsyncClient, registry_url: str, image_name: str, tag: str
+        self,
+        client: httpx.AsyncClient,
+        registry_url: str,
+        image_name: str,
+        tag: str,
+        *,
+        basic: tuple[str, str] | None = None,
     ) -> str | None:
         """Fetch the manifest digest for a specific image:tag (HEAD request)."""
         base_url = registry_url.rstrip("/")
-        manifest_url = f"{base_url}/{image_name}/manifests/{tag}"
+        repo = repository_path_from_ref(image_name)
+        manifest_url = f"{base_url}/{repo}/manifests/{tag}"
         headers = {
             "Accept": (
                 "application/vnd.docker.distribution.manifest.v2+json, "
@@ -461,7 +594,9 @@ class DockerRegistryService:
         }
 
         try:
-            response = await client.head(manifest_url, headers=headers)
+            response = await oci_request(
+                client, "HEAD", manifest_url, basic=basic, headers=headers
+            )
             if response.status_code == 404:
                 return None
             response.raise_for_status()
@@ -484,11 +619,16 @@ class DockerRegistryService:
 
         # For each tag, resolve the manifest digest
         base_url = source.registry_url  # type: ignore[assignment]
+        basic, verify_ssl = await self._resolve_auth(db, source.provider_id)
         tag_count = 0
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0, follow_redirects=True, verify=verify_ssl
+        ) as client:
             for tag in tags:
-                digest = await self._resolve_manifest_digest(client, str(base_url), image_name, tag)
+                digest = await self._resolve_manifest_digest(
+                    client, str(base_url), image_name, tag, basic=basic
+                )
 
                 # Check if this exact tag already exists
                 existing_result = await db.execute(
@@ -532,6 +672,68 @@ class DockerRegistryService:
         """Re-index tags for an existing Docker image source."""
         return await self.index_source(source, image_name, db)
 
+    async def _resolve_auth(
+        self,
+        db: AsyncSession,
+        provider_id: int | None,
+    ) -> tuple[tuple[str, str] | None, bool]:
+        """Resolve ``(basic, verify_ssl)`` for a docker provider id.
+
+        Returns ``(None, True)`` when there is no provider or credential so the
+        registry is queried anonymously with TLS verification enabled.
+        """
+        verify_ssl = True
+        if provider_id is None:
+            return None, True
+        provider = await db.get(ResourceProvider, provider_id)
+        if provider is None:
+            return None, True
+        verify_ssl = provider.verify_ssl
+        if provider.credential_id is None:
+            return None, verify_ssl
+        credential = await db.get(Credential, provider.credential_id)
+        if credential is None:
+            return None, verify_ssl
+        secret = decrypt_secret(credential.encrypted_secret)
+        if secret and credential.username:
+            return (credential.username, secret), verify_ssl
+        return None, verify_ssl
+
+    async def _build_docker_auths(
+        self,
+        db: AsyncSession,
+        source: DockerImageSource,
+        target_provider: ResourceProvider | None,
+        target_registry_url: str,
+    ) -> dict[str, dict[str, str]]:
+        """Build ``{"auths": {host: {"auth": base64(user:pass)}}}`` for crane.
+
+        Source (Docker Hub) is anonymous by default; if a source credential exists
+        it is added under the source host so crane picks it up. The target
+        credential lives under the target host. Secrets are never passed via argv.
+        """
+        auths: dict[str, dict[str, str]] = {}
+
+        async def _add(provider_id: int | None, host: str) -> None:
+            if provider_id is None:
+                return
+            provider = await db.get(ResourceProvider, provider_id)
+            if provider is None or provider.credential_id is None:
+                return
+            credential = await db.get(Credential, provider.credential_id)
+            if credential is None:
+                return
+            secret = decrypt_secret(credential.encrypted_secret)
+            if not secret or not credential.username:
+                return
+            raw = f"{credential.username}:{secret}".encode()
+            auths[host] = {"auth": base64.b64encode(raw).decode("ascii")}
+
+        if target_provider is not None:
+            await _add(target_provider.id, _provider_host(target_registry_url))
+        await _add(source.provider_id, _provider_host(source.registry_url))
+        return auths
+
     async def mirror_image(
         self,
         source: DockerImageSource,
@@ -543,19 +745,24 @@ class DockerRegistryService:
         """Mirror a Docker image from the external source registry to the target registry.
 
         Uses crane CLI tool for copying images between registries.
-        Creates a DockerSyncLog entry to track the operation.
 
         Providers V3 (phase 4): the target registry is resolved from
         ``target_provider_id`` (internal harbor/generic_registry provider,
         11.3.4); the legacy ``target_registry_url`` string is the fallback.
         """
         target_registry_url = source.target_registry_url
+        target_provider: ResourceProvider | None = None
         if source.target_provider_id is not None:
             tp = await db.get(ResourceProvider, source.target_provider_id)
             if tp is not None and tp.base_url:
+                target_provider = tp
                 target_registry_url = tp.base_url
         if not target_registry_url:
             raise ValueError("Source has no target registry configured")
+
+        repo = repository_path_from_ref(image_name)
+        tag = tag or ref_tag(image_name)
+        target_repo = repo.removeprefix("library/")
 
         # Create log entry
         log = DockerSyncLog(
@@ -569,28 +776,61 @@ class DockerRegistryService:
         await db.commit()
         await db.refresh(log)
 
+        docker_config_dir: str | None = None
+
         try:
             # Update status to In Progress
             log.status_flag = 3  # type: ignore[assignment]
             log.status_text = "In Progress"  # type: ignore[assignment]
             await db.commit()
 
-            # Build source and target references
-            source_ref = f"{source.registry_url}/{image_name}:{tag}"
+            # Build source and target references (no /v2 suffix for crane).
+            source_ref = f"{_registry_root(source.registry_url)}/{repo}:{tag}"
             target_ref = (
-                f"{target_registry_url}/{source.target_project or 'library'}/{image_name}:{tag}"
+                f"{_registry_root(target_registry_url)}/"
+                f"{source.target_project or 'library'}/{target_repo}:{tag}"
             )
 
-            # Use crane copy for mirroring
-            process = await asyncio.create_subprocess_exec(
-                "crane",
-                "copy",
-                source_ref,
-                target_ref,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            # Build the temporary docker config.json (0600) so secrets never land
+            # in argv. crane selects the right entry by registry host.
+            auths = await self._build_docker_auths(
+                db, source, target_provider, target_registry_url
             )
-            stdout, stderr = await process.communicate()
+            env = os.environ.copy()
+            if auths:
+                docker_config_dir = tempfile.mkdtemp(prefix="bigbug-docker-config-")
+                config_path = os.path.join(docker_config_dir, "config.json")
+                with open(config_path, "w", encoding="utf-8") as handle:
+                    json.dump({"auths": auths}, handle)
+                os.chmod(config_path, 0o600)
+                env["DOCKER_CONFIG"] = docker_config_dir
+
+            cmd = ["crane", "copy"]
+            if target_provider is not None and target_provider.verify_ssl is False:
+                cmd.append("--insecure")
+            cmd += [source_ref, target_ref]
+
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=env,
+                )
+                # ponytail: single-image mirror is awaited inline; upgrade to a
+                # task queue when mirroring becomes bulk/parallel.
+                stdout, stderr = await asyncio.wait_for(
+                    process.communicate(), timeout=1800
+                )
+            except FileNotFoundError as exc:
+                raise ExternalServiceError(
+                    "crane",
+                    "crane binary is not installed in the backend image; "
+                    "rebuild backend/docker/Dockerfile",
+                ) from exc
+            finally:
+                if docker_config_dir:
+                    shutil.rmtree(docker_config_dir, ignore_errors=True)
 
             if process.returncode == 0:
                 log.status_flag = 0  # type: ignore[assignment]
@@ -600,7 +840,7 @@ class DockerRegistryService:
                 )
 
                 # Update or create the tag entry with sync status
-                await self._mark_tag_synced(db, source.id, image_name, tag)
+                await self._mark_tag_synced(db, source.id, repo, tag)
                 await db.commit()
             else:
                 log.status_flag = 1  # type: ignore[assignment]
@@ -610,6 +850,8 @@ class DockerRegistryService:
                 )
                 await db.commit()
 
+        except ExternalServiceError:
+            raise
         except Exception as e:
             log.status_flag = 1  # type: ignore[assignment]
             log.status_text = "Failed"  # type: ignore[assignment]

@@ -22,6 +22,8 @@ import {
   Popconfirm,
   Form,
   Tag,
+  Select,
+  Alert,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -31,6 +33,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
+  CloudUploadOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import {
@@ -38,6 +41,7 @@ import {
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useIndexDockerImageMutation,
+  useMirrorDockerImageMutation,
   useUpdateDockerImageMutation,
   useGetDockerSyncSchedulesQuery,
   useCreateDockerSyncScheduleMutation,
@@ -52,6 +56,7 @@ import {
   DockerSyncSchedule,
 } from '../../types';
 import { StatusChip } from '../../components/StatusChip';
+import { PermissionGate } from '../../components/PermissionGate';
 
 export function DockerImageDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -64,6 +69,7 @@ export function DockerImageDetailPage() {
   const { data: logs = [] } = useGetDockerImageLogsQuery(sourceId);
   const { data: schedules = [] } = useGetDockerSyncSchedulesQuery(sourceId);
   const [indexImage, { isLoading: indexing }] = useIndexDockerImageMutation();
+  const [mirrorImage, { isLoading: mirroring }] = useMirrorDockerImageMutation();
 
   // Batch tag deletion
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
@@ -75,6 +81,9 @@ export function DockerImageDetailPage() {
 
   const [updateSource] = useUpdateDockerImageMutation();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [mirrorDialogOpen, setMirrorDialogOpen] = useState(false);
+  const [mirrorTag, setMirrorTag] = useState('');
+  const [mirrorError, setMirrorError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     target_registry_url: '',
     target_project: '',
@@ -128,6 +137,36 @@ export function DockerImageDetailPage() {
       // error handled by RTK Query
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenMirror = () => {
+    setMirrorError(null);
+    setMirrorTag((tags as DockerImageTag[])[0]?.tag ?? 'latest');
+    setMirrorDialogOpen(true);
+  };
+
+  const handleMirror = async () => {
+    if (!s) return;
+    setMirrorError(null);
+    try {
+      const repo = (tags as DockerImageTag[])[0]?.image_name ?? s.name;
+      const result = await mirrorImage({
+        id: sourceId,
+        image_name: repo,
+        tag: mirrorTag || 'latest',
+      }).unwrap();
+      message.success('Mirror started');
+      setMirrorDialogOpen(false);
+      if (result.status_flag === 1) {
+        message.error('Mirror failed');
+      }
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === 'object' && 'data' in err
+          ? (err as { data?: { detail?: string } }).data?.detail
+          : undefined;
+      setMirrorError(detail || 'Failed to start mirror');
     }
   };
 
@@ -446,6 +485,24 @@ export function DockerImageDetailPage() {
             Index Image
           </Button>
         </Tooltip>
+        <PermissionGate permission="docker:sync">
+          <Tooltip
+            title={
+              s.target_registry_url
+                ? 'Mirror a tag to the target registry'
+                : 'No mirror target configured on this source'
+            }
+          >
+            <Button
+              icon={<CloudUploadOutlined />}
+              onClick={handleOpenMirror}
+              loading={mirroring}
+              disabled={!s.target_registry_url}
+            >
+              Mirror
+            </Button>
+          </Tooltip>
+        </PermissionGate>
         <Button
           icon={<LinkOutlined />}
           href={s.registry_url}
@@ -725,6 +782,41 @@ export function DockerImageDetailPage() {
         <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
           Full image name to index (e.g., library/nginx, bitnami/postgresql)
         </Typography.Text>
+      </Modal>
+
+      {/* ── Mirror Modal ────────────────────────────────────────────────────── */}
+      <Modal
+        title="Mirror Image"
+        open={mirrorDialogOpen}
+        onOk={handleMirror}
+        onCancel={() => setMirrorDialogOpen(false)}
+        confirmLoading={mirroring}
+        okText="Mirror"
+        cancelText="Cancel"
+      >
+        <Flex vertical gap={8}>
+          <Typography.Text>
+            Mirror{' '}
+            <Typography.Text code>
+              {(tags as DockerImageTag[])[0]?.image_name ?? s.name}:{mirrorTag || 'latest'}
+            </Typography.Text>{' '}
+            →{' '}
+            <Typography.Text code>
+              {s.target_registry_url}/{s.target_project}
+            </Typography.Text>
+          </Typography.Text>
+          <Select
+            style={{ width: '100%' }}
+            placeholder="Select tag"
+            value={mirrorTag || undefined}
+            onChange={(val) => setMirrorTag(val)}
+            options={(tags as DockerImageTag[]).map((t) => ({
+              label: t.tag,
+              value: t.tag,
+            }))}
+          />
+          {mirrorError && <Alert type="error" title={mirrorError} showIcon />}
+        </Flex>
       </Modal>
     </Flex>
   );

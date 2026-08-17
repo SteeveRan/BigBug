@@ -1,0 +1,135 @@
+# GitLab CI/CD Component: Docker Hub → Harbor image copy (crane)
+#
+# Copies one or more tags of a Docker Hub image into a local Harbor project.
+# Uses go-containerregistry/crane, mirroring the exact mechanics of the BigBug
+# backend `DockerRegistryService.mirror_image()` (backend/app/services/docker.py):
+#   - references are scheme-less (`registry-1.docker.io/...`, `harbor.local:443/...`);
+#   - credentials live only in a 0600 `$DOCKER_CONFIG/config.json` (never argv);
+#   - `--insecure` is added when the target uses HTTP / a self-signed cert.
+#
+# Usage in a GitLab project `.gitlab-ci.yml`:
+#
+#     include:
+#       - component: $CI_SERVER_FQDN/bigbug-mirrors/components/docker-hub-to-harbor@1.0.0
+#         inputs:
+#           source_image: library/nginx
+#           target_registry: harbor.local:443
+#           target_repo: bigbug/nginx
+#           tags: 1.31.3 1.31.2 1.31.1 1.31 1.30.4
+#           target_user: robot$bigbug+bigbug-mirror
+#           target_password: "$HARBOR_ROBOT_SECRET"
+#           insecure: "true"
+
+spec:
+  inputs:
+    source_image:
+      description: "Full source repository path on Docker Hub (e.g. library/nginx)."
+      default: "library/nginx"
+    source_registry:
+      description: "Source registry host, scheme-less (default Docker Hub)."
+      default: "registry-1.docker.io"
+    source_user:
+      description: "Source registry username (empty = anonymous pull)."
+      default: ""
+    source_password:
+      description: "Source registry password/token (secret)."
+      default: ""
+    target_registry:
+      description: "Target Harbor host[:port], scheme-less (e.g. harbor.local:443)."
+    target_repo:
+      description: "Target repository path in Harbor (e.g. bigbug/nginx)."
+    target_user:
+      description: "Target Harbor username (e.g. robot account)."
+      default: ""
+    target_password:
+      description: "Target Harbor password/token (secret)."
+      default: ""
+    tags:
+      description: "Space/comma separated image tags to copy."
+      default: "latest"
+    insecure:
+      description: "Set to 'true' when the target uses HTTP or a self-signed cert."
+      default: "false"
+
+---
+
+# ─────────────────────────────────────────────────────────────
+# Copy job (single job: sequential tag copies keep it simple)
+# ─────────────────────────────────────────────────────────────
+docker-hub-to-harbor:
+  stage: sync
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    # crane:debug's entrypoint is `/ko-app/crane`. If left intact, GitLab
+    # Runner runs the job script as `crane sh -c "<script>"` → "unknown
+    # command sh". Clearing the entrypoint lets the default shell (`/busybox/sh`,
+    # on PATH) execute the script while `crane` remains on PATH.
+    entrypoint: [""]
+  script:
+    - |
+      set -eu
+      [ -n "$target_registry" ] || { echo "ERROR: target_registry input is required"; exit 1; }
+      [ -n "$target_repo" ]    || { echo "ERROR: target_repo input is required"; exit 1; }
+
+      # Optional inputs default to empty so `set -u` never trips when the
+      # backend omits them from the pipeline variables (e.g. anonymous pull).
+      source_user="${source_user:-}"
+      source_password="${source_password:-}"
+      target_user="${target_user:-}"
+      target_password="${target_password:-}"
+      source_registry="${source_registry:-registry-1.docker.io}"
+      source_image="${source_image:-library/nginx}"
+      tags="${tags:-latest}"
+      insecure="${insecure:-false}"
+
+      # Normalize tag list (accept spaces or commas).
+      TAGS=$(printf '%s' "$tags" | tr ',' ' ')
+
+      # Build a 0600 config.json so secrets never appear in argv (crane reads
+      # auth by registry host from $DOCKER_CONFIG/config.json).
+      DOCKER_CONFIG_DIR=$(mktemp -d)
+      trap 'rm -rf "$DOCKER_CONFIG_DIR"' EXIT
+      export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
+
+      encode() { printf '%s:%s' "$1" "$2" | base64 | tr -d '\n'; }
+
+      {
+        printf '{"auths":{'
+        FIRST=1
+        if [ -n "$target_user" ] && [ -n "$target_password" ]; then
+          printf '"%s":{"auth":"%s"}' "$target_registry" "$(encode "$target_user" "$target_password")"
+          FIRST=0
+        fi
+        if [ -n "$source_user" ] && [ -n "$source_password" ]; then
+          [ "$FIRST" -eq 1 ] || printf ','
+          printf '"%s":{"auth":"%s"}' "$source_registry" "$(encode "$source_user" "$source_password")"
+        fi
+        printf '}}'
+      } > "$DOCKER_CONFIG_DIR/config.json"
+      chmod 600 "$DOCKER_CONFIG_DIR/config.json"
+
+      INSECURE_FLAG=""
+      if [ "$insecure" = "true" ]; then
+        INSECURE_FLAG="--insecure"
+      fi
+
+      SYNCED=0
+      FAILED=0
+      for TAG in $TAGS; do
+        SRC="${source_registry}/${source_image}:${TAG}"
+        DST="${target_registry}/${target_repo}:${TAG}"
+        echo "==> crane copy ${SRC} -> ${DST}"
+        if crane copy $INSECURE_FLAG "$SRC" "$DST"; then
+          SYNCED=$((SYNCED + 1))
+        else
+          FAILED=$((FAILED + 1))
+        fi
+      done
+
+      echo "==> copy complete: ${SYNCED} succeeded, ${FAILED} failed"
+      [ "$FAILED" -eq 0 ] || exit 1
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "api"'
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'

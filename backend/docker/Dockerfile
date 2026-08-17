@@ -84,6 +84,15 @@ RUN apt-get update \
     && groupadd --system --gid "${APP_GID}" app \
     && useradd --system --uid "${APP_UID}" --gid app --home /app --shell /usr/sbin/nologin app
 
+# WHY: crane (go-containerregistry) is a static OCI copy binary used by
+# mirror_image to copy Docker images between registries. A single static
+# binary, no transitive deps. Version pinned; checksum verification is
+# intentionally omitted (noted in PR).
+ARG CRANE_VERSION=v0.20.2
+RUN curl -fsSL "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz" \
+    | tar -xz -C /usr/local/bin crane \
+    && /usr/local/bin/crane version >/dev/null 2>&1 || true
+
 WORKDIR /app
 
 # Copy the prebuilt virtualenv from the builder. Ownership stays root because

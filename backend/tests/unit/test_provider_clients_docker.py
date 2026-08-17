@@ -55,6 +55,68 @@ class TestDockerRegistryClient:
         tags = asyncio.run(run())
         assert tags == ["latest", "1.0"]
 
+    def test_list_tags_anonymous_bearer_handshake(self):
+        """A 401 + bearer challenge is completed transparently (Docker Hub)."""
+        calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request)
+            if "/token" in str(request.url):
+                return httpx.Response(200, json={"token": "tok-123"})
+            if "Authorization" not in request.headers:
+                return httpx.Response(
+                    401,
+                    headers={
+                        "WWW-Authenticate": (
+                            'Bearer realm="https://auth.docker.io/token",'
+                            'service="registry.docker.io"'
+                        )
+                    },
+                )
+            return httpx.Response(200, json={"tags": ["latest"]})
+
+        client = DockerRegistryClient(
+            subtype="docker_hub",
+            base_url="https://registry-1.docker.io",
+            transport=httpx.MockTransport(handler),
+        )
+
+        async def run():
+            return await client.list_tags("library/nginx")
+
+        import asyncio
+
+        tags = asyncio.run(run())
+        assert tags == ["latest"]
+        # First call is anonymous, then the token fetch, then the Bearer retry.
+        assert len(calls) == 3
+        assert calls[-1].headers["Authorization"] == "Bearer tok-123"
+
+    def test_test_connection_harbor_basic(self):
+        """Harbor answers 200 on the first Basic-authenticated call."""
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request.headers.get("Authorization", ""))
+            return httpx.Response(200)
+
+        client = DockerRegistryClient(
+            subtype="harbor",
+            base_url="https://harbor.example.com",
+            username="robot$bigbug",
+            secret="sekret",
+            transport=httpx.MockTransport(handler),
+        )
+
+        async def run():
+            return await client.test_connection()
+
+        import asyncio
+
+        result = asyncio.run(run())
+        assert result == {"ok": True}
+        assert seen and seen[0].startswith("Basic ")
+
     def test_requires_base_url_for_generic(self):
         with pytest.raises(ProviderClientError):
             DockerRegistryClient(subtype="generic_registry", base_url=None)

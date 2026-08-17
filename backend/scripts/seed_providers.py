@@ -7,8 +7,10 @@ section 5.2 and is safe to run repeatedly: it upserts by ``name`` (UNIQUE among 
 only touching the *seeded* fields (``label``, ``is_default``, ``is_protected``) so that any
 operator/owner customisations on the other columns are preserved.
 
-System providers (the platform GitLab, Harbor) are intentionally NOT created here — they
-carry secrets / environment-specific URLs and are configured manually by an administrator.
+Additionally seeds a Harbor *system* provider when ``HARBOR_URL`` is set. System providers
+carry secrets and environment-specific URLs, so they are gated behind that env var and
+created idempotently (upsert by ``name``), rotating the credential from the environment on
+every run.
 
 Run (from ``backend/``)::
 
@@ -19,12 +21,15 @@ Run (from ``backend/``)::
 import argparse
 import asyncio
 import logging
+import os
 import sys
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.secrets import decrypt_secret, encrypt_secret
 from app.database import AsyncSessionLocal
+from app.models.credential import Credential, CredentialType
 from app.models.resource_provider import (
     ProviderCategory,
     ProviderDirection,
@@ -84,6 +89,12 @@ DEFAULT_PROVIDERS: tuple[dict, ...] = (
     },
 )
 
+HARBOR_SYSTEM_CREDENTIAL_NAME = "harbor-system-credential"
+HARBOR_SYSTEM_PROVIDER_NAME = "harbor-system"
+
+GITLAB_SYSTEM_CREDENTIAL_NAME = "gitlab-system-credential"
+GITLAB_SYSTEM_PROVIDER_NAME = "gitlab-system"
+
 
 def _seeded_updates(spec: dict, existing: ResourceProvider) -> dict:
     """Return the seeded-field values that differ from *existing*.
@@ -99,6 +110,278 @@ def _seeded_updates(spec: dict, existing: ResourceProvider) -> dict:
     if existing.is_protected is not True:
         updates["is_protected"] = True
     return updates
+
+
+def _harbor_env() -> dict | None:
+    """Return the Harbor system-provider env config, or ``None`` when not set."""
+    harbor_url = os.environ.get("HARBOR_URL", "").strip()
+    if not harbor_url:
+        return None
+    projects = os.environ.get("HARBOR_PROJECTS_ALLOWLIST", "").strip()
+    return {
+        "base_url": harbor_url.rstrip("/"),
+        "username": os.environ.get("HARBOR_USERNAME", ""),
+        "password": os.environ.get("HARBOR_PASSWORD", ""),
+        "default_project": os.environ.get("HARBOR_DEFAULT_PROJECT", "library"),
+        "verify_ssl": os.environ.get("HARBOR_VERIFY_SSL", "true").lower()
+        not in ("false", "0", "no", "off"),
+        "projects_allowlist": [p.strip() for p in projects.split(",") if p.strip()],
+    }
+
+
+def _gitlab_env() -> dict | None:
+    """Return the GitLab system-provider env config, or ``None`` when not set."""
+    gitlab_url = os.environ.get("GITLAB_URL", "").strip()
+    token = os.environ.get("GITLAB_TOKEN", "").strip()
+    if not gitlab_url or not token:
+        return None
+    return {
+        "base_url": gitlab_url.rstrip("/"),
+        "username": os.environ.get("GITLAB_USERNAME", "root").strip() or "root",
+        "token": token,
+    }
+
+
+async def _seed_system_gitlab(session: AsyncSession, *, dry_run: bool) -> list[dict]:
+    """Upsert the GitLab system credential + provider (env-gated).
+
+    The platform's own GitLab is the only provider allowed to trigger pipelines
+    (providers-unified 11.3.4): domain=git, subtype=gitlab, category=system,
+    direction=internal. Like the Harbor system provider, it is created
+    idempotently (upsert by name) and rotates the credential from env.
+    """
+    env = _gitlab_env()
+    if env is None:
+        logger.info("GITLAB_URL/GITLAB_TOKEN not set — skipping system GitLab provider")
+        return []
+
+    actions: list[dict] = []
+
+    # ── Credential (upsert by name) ──────────────────────────────────────
+    cred_result = await session.execute(
+        select(Credential).where(Credential.name == GITLAB_SYSTEM_CREDENTIAL_NAME)
+    )
+    credential = cred_result.scalar_one_or_none()
+    encrypted = encrypt_secret(env["token"])
+
+    if credential is None:
+        actions.append({"action": "create", "name": GITLAB_SYSTEM_CREDENTIAL_NAME})
+        if not dry_run:
+            credential = Credential(
+                name=GITLAB_SYSTEM_CREDENTIAL_NAME,
+                credential_type=CredentialType.gitlab_token,
+                provider="gitlab",
+                username=env["username"],
+                encrypted_secret=encrypted,
+                base_url=env["base_url"],
+            )
+            session.add(credential)
+            await session.flush()
+    else:
+        changed = []
+        if credential.username != env["username"]:
+            credential.username = env["username"]
+            changed.append("username")
+        if credential.base_url != env["base_url"]:
+            credential.base_url = env["base_url"]
+            changed.append("base_url")
+        # Compare plaintext (Fernet tokens embed a timestamp, so ciphertext
+        # differs per call even for identical secrets).
+        current_plain = decrypt_secret(credential.encrypted_secret)
+        if current_plain != env["token"]:
+            credential.encrypted_secret = encrypted
+            changed.append("encrypted_secret")
+        if changed:
+            actions.append(
+                {
+                    "action": "update",
+                    "name": GITLAB_SYSTEM_CREDENTIAL_NAME,
+                    "fields": sorted(changed),
+                }
+            )
+
+    # ── Provider (upsert by name) ────────────────────────────────────────
+    prov_result = await session.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.name == GITLAB_SYSTEM_PROVIDER_NAME,
+            ResourceProvider.is_deleted.is_(False),
+        )
+    )
+    provider = prov_result.scalar_one_or_none()
+
+    if provider is None:
+        actions.append({"action": "create", "name": GITLAB_SYSTEM_PROVIDER_NAME})
+        if not dry_run:
+            session.add(
+                ResourceProvider(
+                    domain=ProviderDomain.git,
+                    subtype=ProviderSubtype.gitlab,
+                    category=ProviderCategory.system,
+                    visibility=ProviderVisibility.owner,
+                    direction=ProviderDirection.internal,
+                    name=GITLAB_SYSTEM_PROVIDER_NAME,
+                    label="GitLab (system)",
+                    base_url=env["base_url"],
+                    credential_id=credential.id,
+                    config={"api_version": "v4"},
+                    is_protected=True,
+                    is_default=True,
+                    verify_ssl=True,
+                )
+            )
+    else:
+        changed = []
+        if provider.label != "GitLab (system)":
+            provider.label = "GitLab (system)"
+            changed.append("label")
+        if provider.base_url != env["base_url"]:
+            provider.base_url = env["base_url"]
+            changed.append("base_url")
+        if provider.credential_id != credential.id:
+            provider.credential_id = credential.id
+            changed.append("credential_id")
+        if provider.is_protected is not True:
+            provider.is_protected = True
+            changed.append("is_protected")
+        if provider.is_default is not True:
+            provider.is_default = True
+            changed.append("is_default")
+        if changed:
+            actions.append(
+                {
+                    "action": "update",
+                    "name": GITLAB_SYSTEM_PROVIDER_NAME,
+                    "fields": sorted(changed),
+                }
+            )
+
+    if not actions:
+        logger.info("System GitLab provider is up to date — nothing to do.")
+    return actions
+
+
+async def _seed_system_harbor(session: AsyncSession, *, dry_run: bool) -> list[dict]:
+    """Upsert the Harbor system credential + provider (env-gated).
+
+    The seed owns ``label/is_default/is_protected/base_url/config/verify_ssl/
+    credential_id`` for the system provider and rotates the credential from env
+    on every run, unlike the public section which only touches label/default/
+    protected.
+    """
+    env = _harbor_env()
+    if env is None:
+        logger.info("HARBOR_URL not set — skipping system Harbor provider")
+        return []
+
+    actions: list[dict] = []
+
+    # ── Credential (upsert by name) ──────────────────────────────────────
+    cred_result = await session.execute(
+        select(Credential).where(Credential.name == HARBOR_SYSTEM_CREDENTIAL_NAME)
+    )
+    credential = cred_result.scalar_one_or_none()
+    encrypted = encrypt_secret(env["password"]) if env["password"] else None
+
+    if credential is None:
+        actions.append({"action": "create", "name": HARBOR_SYSTEM_CREDENTIAL_NAME})
+        if not dry_run:
+            credential = Credential(
+                name=HARBOR_SYSTEM_CREDENTIAL_NAME,
+                credential_type=CredentialType.https_basic,
+                provider="harbor",
+                username=env["username"],
+                encrypted_secret=encrypted,
+                base_url=env["base_url"],
+            )
+            session.add(credential)
+            await session.flush()
+    else:
+        changed = []
+        if credential.username != env["username"]:
+            credential.username = env["username"]
+            changed.append("username")
+        if credential.base_url != env["base_url"]:
+            credential.base_url = env["base_url"]
+            changed.append("base_url")
+        # Compare plaintext, not ciphertext: Fernet tokens embed a timestamp so
+        # encrypt_secret() returns a different token on every call. Comparing
+        # ciphertext would force a spurious credential rotation each run.
+        current_plain = decrypt_secret(credential.encrypted_secret)
+        new_plain = env["password"] or None
+        if current_plain != new_plain:
+            credential.encrypted_secret = encrypted
+            changed.append("encrypted_secret")
+        if changed:
+            actions.append(
+                {"action": "update", "name": HARBOR_SYSTEM_CREDENTIAL_NAME, "fields": sorted(changed)}
+            )
+
+    # ── Provider (upsert by name) ────────────────────────────────────────
+    prov_result = await session.execute(
+        select(ResourceProvider).where(
+            ResourceProvider.name == HARBOR_SYSTEM_PROVIDER_NAME,
+            ResourceProvider.is_deleted.is_(False),
+        )
+    )
+    provider = prov_result.scalar_one_or_none()
+
+    config = {
+        "default_project": env["default_project"],
+        "robot_prefix": "robot$",
+        "projects_allowlist": env["projects_allowlist"],
+    }
+
+    if provider is None:
+        actions.append({"action": "create", "name": HARBOR_SYSTEM_PROVIDER_NAME})
+        if not dry_run:
+            session.add(
+                ResourceProvider(
+                    domain=ProviderDomain.docker,
+                    subtype=ProviderSubtype.harbor,
+                    category=ProviderCategory.system,
+                    visibility=ProviderVisibility.public,
+                    direction=ProviderDirection.internal,
+                    name=HARBOR_SYSTEM_PROVIDER_NAME,
+                    label="Harbor (system)",
+                    base_url=env["base_url"],
+                    credential_id=credential.id,
+                    config=config,
+                    is_protected=True,
+                    is_default=True,
+                    verify_ssl=env["verify_ssl"],
+                )
+            )
+    else:
+        changed = []
+        if provider.label != "Harbor (system)":
+            provider.label = "Harbor (system)"
+            changed.append("label")
+        if provider.base_url != env["base_url"]:
+            provider.base_url = env["base_url"]
+            changed.append("base_url")
+        if provider.config != config:
+            provider.config = config
+            changed.append("config")
+        if provider.credential_id != credential.id:
+            provider.credential_id = credential.id
+            changed.append("credential_id")
+        if provider.verify_ssl is not env["verify_ssl"]:
+            provider.verify_ssl = env["verify_ssl"]
+            changed.append("verify_ssl")
+        if provider.is_protected is not True:
+            provider.is_protected = True
+            changed.append("is_protected")
+        if provider.is_default is not True:
+            provider.is_default = True
+            changed.append("is_default")
+        if changed:
+            actions.append(
+                {"action": "update", "name": HARBOR_SYSTEM_PROVIDER_NAME, "fields": sorted(changed)}
+            )
+
+    if not actions:
+        logger.info("System Harbor provider is up to date — nothing to do.")
+    return actions
 
 
 async def seed_providers(session: AsyncSession, *, dry_run: bool = False) -> list[dict]:
@@ -147,6 +430,9 @@ async def seed_providers(session: AsyncSession, *, dry_run: bool = False) -> lis
                 for field, value in updates.items():
                     setattr(existing, field, value)
 
+    actions.extend(await _seed_system_harbor(session, dry_run=dry_run))
+    actions.extend(await _seed_system_gitlab(session, dry_run=dry_run))
+
     if dry_run:
         await session.rollback()
     else:
@@ -156,7 +442,7 @@ async def seed_providers(session: AsyncSession, *, dry_run: bool = False) -> lis
 
 def _log_actions(actions: list[dict], *, dry_run: bool) -> None:
     if not actions:
-        logger.info("Default providers are up to date — nothing to do.")
+        logger.info("Providers are up to date — nothing to do.")
         return
 
     for action in actions:

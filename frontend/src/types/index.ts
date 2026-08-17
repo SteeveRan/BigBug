@@ -552,6 +552,8 @@ export interface AnalyzeImageResponse {
   suggested_registry: ResourceProvider | null;
   compatible_registries: ResourceProvider[];
   is_new_registry_needed: boolean;
+  available_targets: ResourceProvider[];
+  repository_path: string;
 }
 
 // ============================================================

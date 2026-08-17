@@ -21,6 +21,14 @@
       "AnalyzeImageResponse": {
         "description": "Result of image analysis with registry matching suggestions.",
         "properties": {
+          "available_targets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ProviderOut"
+            },
+            "title": "Available Targets",
+            "type": "array"
+          },
           "compatible_registries": {
             "default": [],
             "items": {
@@ -50,6 +58,10 @@
             "title": "Normalized Image",
             "type": "string"
           },
+          "repository_path": {
+            "title": "Repository Path",
+            "type": "string"
+          },
           "suggested_registry": {
             "anyOf": [
               {
@@ -65,7 +77,8 @@
           "image_name",
           "normalized_image",
           "detected_registry_host",
-          "detected_provider"
+          "detected_provider",
+          "repository_path"
         ],
         "title": "AnalyzeImageResponse",
         "type": "object"
@@ -13815,7 +13828,7 @@
     },
     "/api/health": {
       "get": {
-        "operationId": "health_check_api_health_get",
+        "operationId": "health_root_api_health_get",
         "responses": {
           "200": {
             "content": {
@@ -13826,7 +13839,7 @@
             "description": "Successful Response"
           }
         },
-        "summary": "Health Check",
+        "summary": "Health Root",
         "tags": [
           "health"
         ]

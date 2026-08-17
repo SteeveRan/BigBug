@@ -5,7 +5,9 @@
              _normalize_registry_url.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+import os
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -13,6 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ExternalServiceError
+from app.core.secrets import encrypt_secret
+from app.models.credential import Credential, CredentialType
 from app.models.docker_image_source import DockerImageSource
 from app.models.docker_image_tag import DockerImageTag
 from app.models.resource_provider import (
@@ -28,6 +32,7 @@ from app.services.docker import (
     _validate_registry_url,
     find_matching_docker_provider,
     get_compatible_docker_providers,
+    get_internal_docker_targets,
 )
 
 FAKE_TAGS_RESPONSE = {
@@ -72,36 +77,75 @@ class TestValidateRegistryUrl:
             _validate_registry_url("ftp://registry.local")
 
 
+# ─── repository_path_from_ref ───────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("image_name", "expected"),
+    [
+        ("nginx", "library/nginx"),
+        ("library/nginx", "library/nginx"),
+        ("nginx:1.25", "library/nginx"),
+        ("docker.io/library/nginx:1.25", "library/nginx"),
+        ("registry-1.docker.io/library/nginx:latest", "library/nginx"),
+        ("quay.io/prom/node-exporter:v1.0", "prom/node-exporter"),
+        ("harbor.local:443/bigbug/nginx", "bigbug/nginx"),
+        ("ghcr.io/org/img@sha256:abc", "org/img"),
+        ("", ""),
+        ("Docker.io/Library/Nginx", "Library/Nginx"),
+    ],
+)
+def test_repository_path_from_ref(image_name, expected):
+    from app.services.docker import repository_path_from_ref
+
+    assert repository_path_from_ref(image_name) == expected
+
+
+@pytest.mark.parametrize(
+    ("image_name", "expected"),
+    [
+        ("nginx:1.25", "1.25"),
+        ("library/nginx", "latest"),
+        ("nginx@sha256:abc", "latest"),
+        ("nginx", "latest"),
+    ],
+)
+def test_ref_tag(image_name, expected):
+    from app.services.docker import ref_tag
+
+    assert ref_tag(image_name) == expected
+
+
 # ─── _resolve_manifest_digest ───────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_resolve_manifest_digest(docker_service):
     """A 200 HEAD response with docker-content-digest returns the digest."""
-    mock_client = MagicMock(spec=httpx.AsyncClient)
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.headers = {"docker-content-digest": "sha256:abc123"}
-    mock_response.raise_for_status = MagicMock()
-    mock_client.head = AsyncMock(return_value=mock_response)
 
-    digest = await docker_service._resolve_manifest_digest(
-        mock_client, "https://registry.local/v2", "library/nginx", "latest"
-    )
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, headers={"docker-content-digest": "sha256:abc123"}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        digest = await docker_service._resolve_manifest_digest(
+            client, "https://registry.local/v2", "library/nginx", "latest"
+        )
     assert digest == "sha256:abc123"
 
 
 @pytest.mark.asyncio
 async def test_resolve_manifest_digest_404(docker_service):
     """A 404 response returns None."""
-    mock_client = MagicMock(spec=httpx.AsyncClient)
-    mock_response = MagicMock()
-    mock_response.status_code = 404
-    mock_client.head = AsyncMock(return_value=mock_response)
 
-    digest = await docker_service._resolve_manifest_digest(
-        mock_client, "https://registry.local/v2", "missing/image", "latest"
-    )
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        digest = await docker_service._resolve_manifest_digest(
+            client, "https://registry.local/v2", "missing/image", "latest"
+        )
     assert digest is None
 
 
@@ -109,65 +153,46 @@ async def test_resolve_manifest_digest_404(docker_service):
 
 
 @pytest.mark.asyncio
-async def test_fetch_tags_success(docker_service):
-    """_fetch_tags returns the parsed JSON response."""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = FAKE_TAGS_RESPONSE
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("httpx.AsyncClient") as mock_client_cls:
-        mock_client = MagicMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client_cls.return_value = mock_client
-
-        tags_data = await docker_service._fetch_tags("https://registry.local/v2", "library/nginx")
-
-    assert tags_data == FAKE_TAGS_RESPONSE
-    assert "tags" in tags_data
-
-
-@pytest.mark.asyncio
-async def test_fetch_tags_404(docker_service):
-    """A non-200 response raises ExternalServiceError."""
-    mock_response = MagicMock()
-    mock_response.status_code = 404
-    mock_response.raise_for_status = MagicMock(
-        side_effect=httpx.HTTPStatusError(
-            "Not Found", request=MagicMock(), response=MagicMock(status_code=404)
-        )
+@patch("app.services.docker.oci_request")
+async def test_fetch_tags_success(mock_oci, docker_service):
+    """_fetch_tags normalizes the ref and returns the parsed JSON response."""
+    url = "https://registry.local/v2/library/nginx/tags/list"
+    mock_oci.return_value = httpx.Response(
+        200, json=FAKE_TAGS_RESPONSE, request=httpx.Request("GET", url)
     )
 
-    with patch("httpx.AsyncClient") as mock_client_cls:
-        mock_client = MagicMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client_cls.return_value = mock_client
+    tags_data = await docker_service._fetch_tags(
+        "https://registry.local/v2", "nginx:latest"
+    )
 
-        with pytest.raises(ExternalServiceError, match="Docker registry"):
-            await docker_service._fetch_tags("https://registry.local/v2", "nonexistent")
+    assert tags_data == FAKE_TAGS_RESPONSE
+    assert url in mock_oci.call_args.args[2]
 
 
 @pytest.mark.asyncio
-async def test_fetch_tags_no_tags_key(docker_service):
+@patch("app.services.docker.oci_request")
+async def test_fetch_tags_404(mock_oci, docker_service):
+    """A non-200 response raises ExternalServiceError."""
+    url = "https://registry.local/v2/nonexistent/tags/list"
+    mock_oci.return_value = httpx.Response(
+        404, request=httpx.Request("GET", url)
+    )
+
+    with pytest.raises(ExternalServiceError, match="Docker registry"):
+        await docker_service._fetch_tags("https://registry.local/v2", "nonexistent")
+
+
+@pytest.mark.asyncio
+@patch("app.services.docker.oci_request")
+async def test_fetch_tags_no_tags_key(mock_oci, docker_service):
     """A response without 'tags' raises ExternalServiceError."""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"other": "data"}
-    mock_response.raise_for_status = MagicMock()
+    url = "https://registry.local/v2/no-tags-image/tags/list"
+    mock_oci.return_value = httpx.Response(
+        200, json={"other": "data"}, request=httpx.Request("GET", url)
+    )
 
-    with patch("httpx.AsyncClient") as mock_client_cls:
-        mock_client = MagicMock()
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client_cls.return_value = mock_client
-
-        with pytest.raises(ExternalServiceError, match="tags"):
-            await docker_service._fetch_tags("https://registry.local/v2", "no-tags-image")
+    with pytest.raises(ExternalServiceError, match="tags"):
+        await docker_service._fetch_tags("https://registry.local/v2", "no-tags-image")
 
 
 # ─── index_source ───────────────────────────────────────────────────────────
@@ -428,3 +453,247 @@ class TestRegistryProviderMatching:
         )
         ids = [p.id for p in compatible]
         assert exact.id in ids
+
+
+# ─── get_internal_docker_targets ─────────────────────────────────────────────
+
+
+class TestGetInternalDockerTargets:
+    @pytest.mark.asyncio
+    async def test_filters_internal_harbor_and_generic_only(self, db_session: AsyncSession):
+        """Only active, non-deleted, internal harbor/generic_registry rows match."""
+        harbor = await _docker_provider(
+            db_session,
+            name="harbor-target",
+            subtype=ProviderSubtype.harbor,
+            base_url="https://harbor.local",
+            direction=ProviderDirection.internal,
+        )
+        generic = await _docker_provider(
+            db_session,
+            name="generic-target",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://mirror.local",
+            direction=ProviderDirection.internal,
+        )
+        external_hub = await _docker_provider(
+            db_session,
+            name="dockerhub-source",
+            subtype=ProviderSubtype.docker_hub,
+            base_url="https://registry-1.docker.io",
+            direction=ProviderDirection.external,
+        )
+        internal_quay = await _docker_provider(
+            db_session,
+            name="quay-internal",
+            subtype=ProviderSubtype.quay,
+            base_url="https://quay.io",
+            direction=ProviderDirection.internal,
+        )
+
+        targets = await get_internal_docker_targets(db_session)
+        ids = {t.id for t in targets}
+
+        assert harbor.id in ids
+        assert generic.id in ids
+        assert external_hub.id not in ids
+        assert internal_quay.id not in ids
+
+    @pytest.mark.asyncio
+    async def test_sorted_by_priority_desc_then_name(self, db_session: AsyncSession):
+        """Targets are sorted by ``(-priority, name)``."""
+        low = await _docker_provider(
+            db_session,
+            name="a-low",
+            subtype=ProviderSubtype.harbor,
+            base_url="https://low.local",
+            direction=ProviderDirection.internal,
+            priority=1,
+        )
+        high = await _docker_provider(
+            db_session,
+            name="z-high",
+            subtype=ProviderSubtype.harbor,
+            base_url="https://high.local",
+            direction=ProviderDirection.internal,
+            priority=100,
+        )
+        # Same priority as high, but sorts before by name.
+        high_same_priority = await _docker_provider(
+            db_session,
+            name="a-high",
+            subtype=ProviderSubtype.generic_registry,
+            base_url="https://high2.local",
+            direction=ProviderDirection.internal,
+            priority=100,
+        )
+
+        targets = await get_internal_docker_targets(db_session)
+        names = [t.name for t in targets]
+
+        assert names.index(high_same_priority.name) < names.index(high.name)
+        assert names.index(high.name) < names.index(low.name)
+
+
+# ─── mirror_image ────────────────────────────────────────────────────────────
+
+
+class _FakeProcess:
+    def __init__(self, returncode: int, stdout: bytes, stderr: bytes) -> None:
+        self.returncode = returncode
+        self._stdout = stdout
+        self._stderr = stderr
+
+    async def communicate(self) -> tuple[bytes, bytes]:
+        return self._stdout, self._stderr
+
+
+class TestMirrorImage:
+    async def _make_source(
+        self,
+        db_session: AsyncSession,
+        *,
+        name: str,
+        target_registry_url: str | None = "https://harbor.local",
+        target_provider_id: int | None = None,
+    ) -> DockerImageSource:
+        source = DockerImageSource(
+            name=name,
+            registry_url="https://registry-1.docker.io/v2",
+            target_registry_url=target_registry_url,
+            target_provider_id=target_provider_id,
+        )
+        db_session.add(source)
+        await db_session.commit()
+        await db_session.refresh(source)
+        return source
+
+    @pytest.mark.asyncio
+    async def test_success_builds_refs_without_v2(
+        self, docker_service, db_session: AsyncSession, monkeypatch
+    ):
+        """crane argv uses refs without the /v2 suffix; rc=0 marks success."""
+        source = await self._make_source(db_session, name="mirror-ok")
+        captured: dict = {}
+
+        async def fake_exec(*args, **kwargs):
+            captured["args"] = args
+            return _FakeProcess(0, b"", b"")
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+        log = await docker_service.mirror_image(source, "library/nginx", "latest", db_session)
+
+        assert log.status_flag == 0
+        assert captured["args"] == (
+            "crane",
+            "copy",
+            "registry-1.docker.io/library/nginx:latest",
+            "harbor.local/library/nginx:latest",
+        )
+        assert all("/v2" not in arg for arg in captured["args"])
+        assert all("://" not in arg for arg in captured["args"])
+
+    @pytest.mark.asyncio
+    async def test_failure_marks_log_failed(
+        self, docker_service, db_session: AsyncSession, monkeypatch
+    ):
+        """A non-zero crane exit records the stderr output and marks failed."""
+        source = await self._make_source(db_session, name="mirror-fail")
+
+        async def fake_exec(*args, **kwargs):
+            return _FakeProcess(1, b"", b"manifest unknown")
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+        log = await docker_service.mirror_image(source, "nginx", "1.25", db_session)
+
+        assert log.status_flag == 1
+        assert log.log_output == "manifest unknown"
+
+    @pytest.mark.asyncio
+    async def test_missing_crane_raises_external_service_error(
+        self, docker_service, db_session: AsyncSession, monkeypatch
+    ):
+        """FileNotFoundError from subprocess maps to ExternalServiceError."""
+        source = await self._make_source(db_session, name="mirror-no-crane")
+
+        async def fake_exec(*args, **kwargs):
+            raise FileNotFoundError("crane")
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+        with pytest.raises(ExternalServiceError, match="crane"):
+            await docker_service.mirror_image(source, "nginx", "latest", db_session)
+
+    @pytest.mark.asyncio
+    async def test_insecure_flag_when_target_verify_ssl_false(
+        self, docker_service, db_session: AsyncSession, monkeypatch
+    ):
+        """``--insecure`` is appended when the target provider disables TLS."""
+        target = await _docker_provider(
+            db_session,
+            name="harbor-insecure",
+            subtype=ProviderSubtype.harbor,
+            base_url="https://harbor.local",
+            direction=ProviderDirection.internal,
+        )
+        target.verify_ssl = False
+        await db_session.commit()
+
+        source = await self._make_source(
+            db_session, name="mirror-insecure", target_provider_id=target.id
+        )
+        captured: dict = {}
+
+        async def fake_exec(*args, **kwargs):
+            captured["args"] = args
+            return _FakeProcess(0, b"", b"")
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+        await docker_service.mirror_image(source, "nginx", "1.25", db_session)
+        assert "--insecure" in captured["args"]
+
+    @pytest.mark.asyncio
+    async def test_writes_docker_config_and_removes_it(
+        self, docker_service, db_session: AsyncSession, monkeypatch
+    ):
+        """Secrets land in a 0600 config.json via DOCKER_CONFIG, then are removed."""
+        credential = Credential(
+            name="harbor-robot",
+            credential_type=CredentialType.https_basic,
+            provider="harbor",
+            username="robot$bigbug",
+            encrypted_secret=encrypt_secret("sekret"),
+        )
+        db_session.add(credential)
+        await db_session.commit()
+        await db_session.refresh(credential)
+
+        target = await _docker_provider(
+            db_session,
+            name="harbor-cred",
+            subtype=ProviderSubtype.harbor,
+            base_url="https://harbor.local",
+            direction=ProviderDirection.internal,
+        )
+        target.credential_id = credential.id
+        await db_session.commit()
+
+        source = await self._make_source(
+            db_session, name="mirror-creds", target_provider_id=target.id
+        )
+        captured: dict = {}
+
+        async def fake_exec(*args, **kwargs):
+            captured["kwargs"] = kwargs
+            return _FakeProcess(0, b"", b"")
+
+        monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+        await docker_service.mirror_image(source, "nginx", "latest", db_session)
+
+        env = captured["kwargs"]["env"]
+        assert "DOCKER_CONFIG" in env
+        assert not os.path.isdir(env["DOCKER_CONFIG"])
