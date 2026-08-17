@@ -1,25 +1,75 @@
 {
-  "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
-      "env": {
-        "DEFAULT_MINIMUM_TOKENS": ""
-      },
-      "alwaysAllow": [
-        "resolve-library-id",
-        "query-docs"
-      ]
-    },
-    "memory": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ]
-    }
-  }
+	"mcpServers": {
+		"context7": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@upstash/context7-mcp"
+			],
+			"env": {
+				"DEFAULT_MINIMUM_TOKENS": ""
+			},
+			"alwaysAllow": [
+				"resolve-library-id",
+				"query-docs"
+			]
+		},
+		"memory": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"@modelcontextprotocol/server-memory"
+			],
+			"alwaysAllow": [
+				"create_entities",
+				"create_relations",
+				"add_observations",
+				"delete_entities",
+				"delete_observations",
+				"read_graph",
+				"search_nodes",
+				"open_nodes"
+			]
+		},
+		"chrome-devtools": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"chrome-devtools-mcp@latest",
+				"--headless=true",
+				"--isolated=true"
+			],
+			"alwaysAllow": [
+				"list_pages",
+				"navigate_page",
+				"take_snapshot",
+				"fill_form",
+				"click",
+				"wait_for",
+				"close_page",
+				"drag",
+				"emulate",
+				"evaluate_script",
+				"fill",
+				"get_console_message",
+				"get_network_request",
+				"handle_dialog",
+				"hover",
+				"lighthouse_audit",
+				"list_console_messages",
+				"list_network_requests",
+				"new_page",
+				"performance_analyze_insight",
+				"upload_file",
+				"type_text",
+				"take_screenshot",
+				"take_heapsnapshot",
+				"select_page",
+				"resize_page",
+				"press_key",
+				"performance_stop_trace",
+				"performance_start_trace"
+			]
+		}
+	}
 }
