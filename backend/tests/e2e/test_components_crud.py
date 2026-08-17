@@ -49,8 +49,15 @@ class TestComponentsCrud:
         assert patch.status_code == 200
         assert patch.json()["description"] == "updated"
 
-        delete = await client.delete(
-            f"/api/components/{created['id']}", headers=admin_headers
-        )
+        delete = await client.delete(f"/api/components/{created['id']}", headers=admin_headers)
         assert_matches_openapi(delete, "/api/components/{component_id}", "delete", openapi_spec)
         assert delete.status_code == 204
+
+
+class TestComponentRunValidation:
+    async def test_run_invalid_path_param_422(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.post("/api/components/abc/run", headers=admin_headers, json={})
+        assert_matches_openapi(response, "/api/components/{component_id}/run", "post", openapi_spec)
+        assert response.status_code == 422

@@ -31,9 +31,7 @@ class TestPipelineRunsAPI:
         assert "items" in data
         assert "total" in data
 
-    async def test_get_pipeline_not_found(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_pipeline_not_found(self, client: AsyncClient, admin_headers: dict):
         response = await client.get("/api/pipelines/999999", headers=admin_headers)
         assert response.status_code == 404
 
@@ -68,6 +66,39 @@ class TestPipelineRunsAPI:
         assert isinstance(response.json(), list)
 
 
+class TestPipelineRunsValidation:
+    """Documented 422 validation paths (invalid path params / empty body)."""
+
+    @pytest.mark.parametrize(
+        ("method", "url", "template"),
+        [
+            ("get", "/api/pipelines/abc", "/api/pipelines/{run_id}"),
+            ("post", "/api/pipelines/abc/cancel", "/api/pipelines/{run_id}/cancel"),
+            ("post", "/api/pipelines/abc/retry", "/api/pipelines/{run_id}/retry"),
+        ],
+    )
+    async def test_invalid_path_param_422(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        openapi_spec: dict,
+        method: str,
+        url: str,
+        template: str,
+    ):
+        body = {} if method == "post" else None
+        response = await client.request(method, url, headers=admin_headers, json=body)
+        assert_matches_openapi(response, template, method, openapi_spec)
+        assert response.status_code == 422
+
+    async def test_create_empty_body_422(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.post("/api/pipelines", headers=admin_headers, json={})
+        assert_matches_openapi(response, "/api/pipelines", "post", openapi_spec)
+        assert response.status_code == 422
+
+
 class TestGitLabComponentsAPI:
     async def test_list_components(
         self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
@@ -92,9 +123,7 @@ class TestGitLabComponentsAPI:
         )
         assert response.status_code == 403
 
-    async def test_get_component_not_found(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_component_not_found(self, client: AsyncClient, admin_headers: dict):
         response = await client.get("/api/components/999999", headers=admin_headers)
         assert response.status_code == 404
 

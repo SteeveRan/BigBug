@@ -189,6 +189,7 @@ class TestMembership:
         user_factory,
         team_factory,
         unique_name: str,
+        openapi_spec: dict,
     ):
         owner = await user_factory(f"rmowner-{unique_name}")
         member = await user_factory(f"rmmember-{unique_name}")
@@ -202,6 +203,9 @@ class TestMembership:
 
         remove = await client.delete(
             f"/api/teams/{team_id}/members/{member['id']}", headers=admin_headers
+        )
+        assert_matches_openapi(
+            remove, "/api/teams/{team_id}/members/{user_id}", "delete", openapi_spec
         )
         assert remove.status_code == 204
 

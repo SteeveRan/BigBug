@@ -28,9 +28,7 @@ def _xff() -> dict[str, str]:
 
 
 class TestLogin:
-    async def test_login_success(
-        self, client: AsyncClient, openapi_spec: dict
-    ):
+    async def test_login_success(self, client: AsyncClient, openapi_spec: dict):
         response = await client.post(
             "/api/auth/login",
             json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
@@ -60,9 +58,7 @@ class TestLogin:
         assert response.status_code == 401
 
     async def test_login_missing_fields_422(self, client: AsyncClient, openapi_spec: dict):
-        response = await client.post(
-            "/api/auth/login", json={"username": "admin"}, headers=_xff()
-        )
+        response = await client.post("/api/auth/login", json={"username": "admin"}, headers=_xff())
         assert response.status_code == 422
 
 
@@ -92,9 +88,7 @@ class TestMe:
 
 
 class TestRefresh:
-    async def test_refresh_token(
-        self, client: AsyncClient, openapi_spec: dict
-    ):
+    async def test_refresh_token(self, client: AsyncClient, openapi_spec: dict):
         login = await client.post(
             "/api/auth/login",
             json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
@@ -126,3 +120,10 @@ class TestSsoConfig:
         data = response.json()
         assert data["realm"] == "bigbug"
         assert "client_secret" not in data
+
+
+class TestOidcExchange:
+    async def test_oidc_exchange_empty_body_422(self, client: AsyncClient, openapi_spec: dict):
+        response = await client.post("/api/auth/oidc/exchange", json={})
+        assert_matches_openapi(response, "/api/auth/oidc/exchange", "post", openapi_spec)
+        assert response.status_code == 422

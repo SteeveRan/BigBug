@@ -31,16 +31,12 @@ class TestAdminReadOnly:
         assert_matches_openapi(response, "/api/admin/permissions", "get", openapi_spec)
         assert response.status_code == 200
 
-    async def test_list_roles(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_list_roles(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/admin/roles", headers=admin_headers)
         assert_matches_openapi(response, "/api/admin/roles", "get", openapi_spec)
         assert response.status_code == 200
 
-    async def test_list_users(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_list_users(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/admin/users", headers=admin_headers)
         assert_matches_openapi(response, "/api/admin/users", "get", openapi_spec)
         assert response.status_code == 200
@@ -77,9 +73,7 @@ class TestReportsReadOnly:
         assert_matches_openapi(response, "/api/reports/storage", "get", openapi_spec)
         assert response.status_code == 200
 
-    async def test_report_syncs(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_report_syncs(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/reports/syncs", headers=admin_headers)
         assert_matches_openapi(response, "/api/reports/syncs", "get", openapi_spec)
         assert response.status_code == 200
@@ -102,9 +96,7 @@ class TestSchedulesReadOnly:
 
 
 class TestSystemReadOnly:
-    async def test_system(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_system(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/system", headers=admin_headers)
         assert_matches_openapi(response, "/api/system", "get", openapi_spec)
         assert response.status_code == 200
@@ -118,9 +110,7 @@ class TestMirroringReadOnly:
         assert_matches_openapi(response, "/api/mirroring/groups", "get", openapi_spec)
         assert response.status_code == 200
 
-    async def test_list_mirrors(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_list_mirrors(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/mirroring/mirrors", headers=admin_headers)
         assert_matches_openapi(response, "/api/mirroring/mirrors", "get", openapi_spec)
         assert response.status_code == 200
@@ -129,9 +119,7 @@ class TestMirroringReadOnly:
         self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
     ):
         response = await client.get("/api/mirroring/sync-groups", headers=admin_headers)
-        assert_matches_openapi(
-            response, "/api/mirroring/sync-groups", "get", openapi_spec
-        )
+        assert_matches_openapi(response, "/api/mirroring/sync-groups", "get", openapi_spec)
         assert response.status_code == 200
 
 
@@ -142,3 +130,39 @@ class TestImagesReadOnly:
         response = await client.get("/api/app-images", headers=admin_headers)
         assert_matches_openapi(response, "/api/app-images", "get", openapi_spec)
         assert response.status_code == 200
+
+
+class TestHealthCheckValidation:
+    """Documented 422 validation paths (invalid integer path params)."""
+
+    @pytest.mark.parametrize(
+        ("url", "template"),
+        [
+            ("/api/sync-group/abc", "/api/sync-group/{sync_group_id}"),
+            ("/api/mirror/abc", "/api/mirror/{mirror_id}"),
+        ],
+    )
+    async def test_invalid_path_param_422(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        openapi_spec: dict,
+        url: str,
+        template: str,
+    ):
+        response = await client.get(url, headers=admin_headers)
+        assert_matches_openapi(response, template, "get", openapi_spec)
+        assert response.status_code == 422
+
+
+class TestOrphanedMirrorsValidation:
+    async def test_orphaned_mirrors_invalid_query_422(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.get(
+            "/api/mirroring/orphaned-mirrors",
+            headers=admin_headers,
+            params={"gitlab_instance_id": "abc"},
+        )
+        assert_matches_openapi(response, "/api/mirroring/orphaned-mirrors", "get", openapi_spec)
+        assert response.status_code == 422

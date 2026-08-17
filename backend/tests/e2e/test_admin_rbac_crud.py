@@ -184,7 +184,12 @@ class TestAdminRoleScopes:
         assert add.json()["provider_ids"] == [1]
 
     async def test_add_scope_credential(
-        self, client: AsyncClient, admin_headers: dict, role: dict, openapi_spec: dict, unique_name: str
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        role: dict,
+        openapi_spec: dict,
+        unique_name: str,
     ):
         cred = await client.post(
             "/api/credentials/",
@@ -210,7 +215,12 @@ class TestAdminRoleScopes:
             await client.delete(f"/api/credentials/{credential_id}", headers=admin_headers)
 
     async def test_add_scope_sync_group(
-        self, client: AsyncClient, admin_headers: dict, role: dict, openapi_spec: dict, unique_name: str
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        role: dict,
+        openapi_spec: dict,
+        unique_name: str,
     ):
         sg = await client.post(
             "/api/mirroring/sync-groups",
@@ -228,6 +238,36 @@ class TestAdminRoleScopes:
         finally:
             await client.delete(f"/api/mirroring/sync-groups/{sg_id}", headers=admin_headers)
 
+    async def test_add_scope_source_group(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        role: dict,
+        openapi_spec: dict,
+        unique_name: str,
+    ):
+        # A github-typed source repository auto-creates its SourceGroup.
+        repo = await client.post(
+            "/api/mirroring/repositories",
+            headers=admin_headers,
+            json={
+                "provider_type": "github",
+                "clone_url": f"https://github.com/e2e-scope-{unique_name}/repo.git",
+            },
+        )
+        assert repo.status_code == 201, repo.text
+        repo_id = repo.json()["id"]
+        group_id = repo.json()["source_group"]["id"]
+        try:
+            base = f"/api/admin/roles/{role['id']}/scopes/source-groups"
+            add = await client.post(base, headers=admin_headers, json={"source_group_id": group_id})
+            assert_matches_openapi(add, base, "post", openapi_spec)
+            assert add.status_code == 201
+            assert add.json()["source_group_ids"] == [group_id]
+        finally:
+            await client.delete(f"/api/mirroring/repositories/{repo_id}", headers=admin_headers)
+            await client.delete(f"/api/mirroring/groups/{group_id}", headers=admin_headers)
+
     async def test_add_scope_requires_field(
         self, client: AsyncClient, admin_headers: dict, role: dict
     ):
@@ -237,3 +277,12 @@ class TestAdminRoleScopes:
             json={},
         )
         assert resp.status_code == 400
+
+
+class TestAdminMaintenance:
+    async def test_admin_cleanup_200(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        response = await client.post("/api/admin/cleanup", headers=admin_headers)
+        assert_matches_openapi(response, "/api/admin/cleanup", "post", openapi_spec)
+        assert response.status_code == 200

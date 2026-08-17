@@ -80,9 +80,7 @@ class TestProviderCrud:
         assert created["name"] == name
         assert created["owner_user_id"] is not None
 
-        get = await client.get(
-            f"/api/providers/{created['id']}", headers=admin_headers
-        )
+        get = await client.get(f"/api/providers/{created['id']}", headers=admin_headers)
         assert_matches_openapi(get, "/api/providers/{provider_id}", "get", openapi_spec)
         assert get.status_code == 200
         assert get.json()["name"] == name
@@ -96,9 +94,7 @@ class TestProviderCrud:
         assert patch.status_code == 200
         assert patch.json()["label"] == f"{name}-renamed"
 
-        delete = await client.delete(
-            f"/api/providers/{created['id']}", headers=admin_headers
-        )
+        delete = await client.delete(f"/api/providers/{created['id']}", headers=admin_headers)
         assert_matches_openapi(delete, "/api/providers/{provider_id}", "delete", openapi_spec)
         assert delete.status_code == 204
 
@@ -216,3 +212,32 @@ class TestProviderVisibility:
         assert_matches_openapi(response, "/api/providers", "get", openapi_spec)
         assert response.status_code == 200
         assert isinstance(response.json(), list)
+
+
+class TestProviderActions:
+    async def test_provider_test_connection_200(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        providers = await client.get("/api/providers", headers=admin_headers)
+        assert providers.status_code == 200
+        data = providers.json()
+        assert data, "at least one seeded provider is expected"
+        provider_id = data[0]["id"]
+
+        response = await client.post(f"/api/providers/{provider_id}/test", headers=admin_headers)
+        assert_matches_openapi(response, "/api/providers/{provider_id}/test", "post", openapi_spec)
+        assert response.status_code == 200
+
+    async def test_provider_invalid_action_422(
+        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
+    ):
+        providers = await client.get("/api/providers", headers=admin_headers)
+        provider_id = providers.json()[0]["id"]
+
+        response = await client.post(
+            f"/api/providers/{provider_id}/actions/bogus", headers=admin_headers
+        )
+        assert_matches_openapi(
+            response, "/api/providers/{provider_id}/actions/{action}", "post", openapi_spec
+        )
+        assert response.status_code == 422

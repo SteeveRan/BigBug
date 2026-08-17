@@ -58,15 +58,11 @@ class TestGoldImages:
         assert patch.status_code == 200
         assert patch.json()["description"] == "updated"
 
-        delete = await client.delete(
-            f"/api/gold-images/{created['id']}", headers=admin_headers
-        )
+        delete = await client.delete(f"/api/gold-images/{created['id']}", headers=admin_headers)
         assert_matches_openapi(delete, "/api/gold-images/{image_id}", "delete", openapi_spec)
         assert delete.status_code == 204
 
-    async def test_list_200(
-        self, client: AsyncClient, admin_headers: dict, openapi_spec: dict
-    ):
+    async def test_list_200(self, client: AsyncClient, admin_headers: dict, openapi_spec: dict):
         response = await client.get("/api/gold-images", headers=admin_headers)
         assert_matches_openapi(response, "/api/gold-images", "get", openapi_spec)
         assert response.status_code == 200
@@ -104,9 +100,7 @@ class TestAppImages:
         assert_matches_openapi(get, "/api/app-images/{image_id}", "get", openapi_spec)
         assert get.status_code == 200
 
-        delete = await client.delete(
-            f"/api/app-images/{created['id']}", headers=admin_headers
-        )
+        delete = await client.delete(f"/api/app-images/{created['id']}", headers=admin_headers)
         assert_matches_openapi(delete, "/api/app-images/{image_id}", "delete", openapi_spec)
         assert delete.status_code == 204
 
@@ -117,3 +111,91 @@ class TestAppImages:
     async def test_get_not_found(self, client: AsyncClient, admin_headers: dict):
         response = await client.get("/api/app-images/999999", headers=admin_headers)
         assert response.status_code == 404
+
+
+class TestGoldImageValidation:
+    """Documented 422 validation paths (invalid integer path params)."""
+
+    @pytest.mark.parametrize(
+        ("method", "url", "template"),
+        [
+            ("post", "/api/gold-images/abc/build", "/api/gold-images/{image_id}/build"),
+            (
+                "post",
+                "/api/gold-images/abc/versions/999/scan",
+                "/api/gold-images/{image_id}/versions/{version_id}/scan",
+            ),
+            (
+                "post",
+                "/api/gold-images/abc/versions/999/scan/results",
+                "/api/gold-images/{image_id}/versions/{version_id}/scan/results",
+            ),
+            (
+                "post",
+                "/api/gold-images/abc/versions/999/sign",
+                "/api/gold-images/{image_id}/versions/{version_id}/sign",
+            ),
+            (
+                "post",
+                "/api/gold-images/abc/versions/999/verify",
+                "/api/gold-images/{image_id}/versions/{version_id}/verify",
+            ),
+        ],
+    )
+    async def test_invalid_path_param_422(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        openapi_spec: dict,
+        method: str,
+        url: str,
+        template: str,
+    ):
+        response = await client.post(url, headers=admin_headers, json={})
+        assert_matches_openapi(response, template, method, openapi_spec)
+        assert response.status_code == 422
+
+
+class TestAppImageValidation:
+    """Documented 422 validation paths (invalid integer path params)."""
+
+    @pytest.mark.parametrize(
+        ("method", "url", "template"),
+        [
+            ("patch", "/api/app-images/abc", "/api/app-images/{image_id}"),
+            ("post", "/api/app-images/abc/build", "/api/app-images/{image_id}/build"),
+            (
+                "post",
+                "/api/app-images/abc/versions/999/scan",
+                "/api/app-images/{image_id}/versions/{version_id}/scan",
+            ),
+            (
+                "post",
+                "/api/app-images/abc/versions/999/scan/results",
+                "/api/app-images/{image_id}/versions/{version_id}/scan/results",
+            ),
+            (
+                "post",
+                "/api/app-images/abc/versions/999/sign",
+                "/api/app-images/{image_id}/versions/{version_id}/sign",
+            ),
+            (
+                "post",
+                "/api/app-images/abc/versions/999/verify",
+                "/api/app-images/{image_id}/versions/{version_id}/verify",
+            ),
+        ],
+    )
+    async def test_invalid_path_param_422(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        openapi_spec: dict,
+        method: str,
+        url: str,
+        template: str,
+    ):
+        body = {} if method in ("post", "patch") else None
+        response = await client.request(method, url, headers=admin_headers, json=body)
+        assert_matches_openapi(response, template, method, openapi_spec)
+        assert response.status_code == 422
