@@ -100,5 +100,5 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 @app.get("/api/health", tags=["health"])
-async def health_check():
+async def health_root():
     return {"status": "ok", "service": settings.app_name}

@@ -14,8 +14,9 @@ The API layer is responsible for mapping those exceptions to HTTP responses.
 """
 
 import logging
+from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -93,7 +94,7 @@ class RBACService:
     # Role queries
     # ------------------------------------------------------------------
 
-    async def _get_roles_with_users_count(self, role_query: select) -> list[Role]:
+    async def _get_roles_with_users_count(self, role_query: Select[Any]) -> list[Role]:
         """Execute a role query and annotate each result with users_count."""
         result = await self.db.execute(role_query)
         roles = list(result.scalars().all())

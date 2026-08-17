@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -730,7 +731,7 @@ class ReportsService:
         db: AsyncSession,
         operation: str,
         mirror_ids: list[int],
-        apply_fn: callable,
+        apply_fn: Callable[[Mirror], Any],
     ) -> BulkOperationResponse:
         """Generic bulk operation: fetch mirrors, apply change, collect results."""
         results: list[BulkOperationResultItem] = []
