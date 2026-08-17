@@ -29,6 +29,15 @@ The fastest way to get everything running:
 
 ```bash
 # From the project root
+make infra-init       # equivalent to ./infrastructure/init.sh
+```
+
+> Все infra-команды доступны через корневой [`Makefile`](../Makefile): `make infra-up`, `make infra-init`, `make infra-down`, `make infra-clean`. Справка: `make help`.
+
+Direct invocation:
+
+```bash
+# From the project root
 ./infrastructure/init.sh
 ```
 

@@ -32,6 +32,17 @@
 
 ### Запуск инфраструктуры
 
+Короткий путь — через корневой [`Makefile`](../../Makefile) (справка: `make help`):
+
+```bash
+make infra-up      # keycloak + gitlab + postgres (compose up -d)
+make infra-init    # полная инициализация (compose → harbor → OpenTofu → .env)
+make infra-down    # остановить сервисы (контейнеры сохраняются)
+make infra-clean   # полная чистка: compose -v + harbor teardown + tofu clean
+```
+
+Полный ручной путь:
+
 ```bash
 # 1. Запустить инфраструктурные сервисы
 docker compose -f infrastructure/docker-compose.yml up -d

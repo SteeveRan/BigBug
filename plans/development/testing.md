@@ -22,6 +22,20 @@
 
 ### Запуск тестов
 
+Единая точка входа — корневой [`Makefile`](../../Makefile) (справка: `make help`):
+
+```bash
+make test-unit-backend   # unit-тесты backend
+make test-e2e-backend    # e2e-тесты backend (нужен dev-стек)
+make test-all-backend    # unit + e2e
+
+# Конкретный тест — через TEST_ARGS:
+make test-unit-backend TEST_ARGS="-k test_login"
+make test-e2e-backend TEST_ARGS="tests/e2e/test_auth.py -v"
+```
+
+Ручной запуск (полный контроль флагов):
+
 ```bash
 cd backend
 

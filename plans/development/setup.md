@@ -14,6 +14,20 @@
 
 ## Initial Setup
 
+### Quick start (через Makefile)
+
+Для быстрого подъёма окружения используйте корневой [`Makefile`](../../Makefile):
+
+```bash
+make infra-init    # keycloak → harbor → gitlab + OpenTofu (первый раз)
+make dev-up        # postgres, redis, backend, frontend
+
+# Остальное — по мере необходимости:
+make help          # полный список команд
+make test-all      # все тесты
+make lint          # линт обоих стеков
+```
+
 ### 1. Clone Repository
 
 ```bash

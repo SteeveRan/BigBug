@@ -72,6 +72,8 @@ BigBug/
 - **authlib** - OIDC/OAuth2 (Keycloak SSO)
 - **cryptography** - Fernet encryption for secrets
 - **pytest** + **pytest-asyncio** + **httpx** - testing
+- **vulture** - dead code detection
+- **mypy** - static type checking
 
 ### Frontend (Node.js 24.16.0 LTS)
 - **React 19** + **TypeScript**
@@ -81,6 +83,7 @@ BigBug/
 - **Ant Design 6** - component library
 - **React Router v7** - routing
 - **ESLint** + `@typescript-eslint` - linting
+- **knip** - dead code detection
 - **Vitest** + `@testing-library/react` + `jsdom` — unit и integration тесты
 - **Cypress** — e2e тесты (planned, [`src/tests/e2e/`](frontend/src/tests/e2e/))
 - **keycloak-js** - SSO adapter
@@ -134,23 +137,18 @@ src/tests/
 
 See: [`/plans/development/frontend.md`](plans/development/frontend.md)
 
-### Docker Compose
+### Make-команды (единая точка входа)
 
-**Infrastructure services** (start once):
-```bash
-docker compose -f infrastructure/docker-compose.yml up -d
-```
+Все скрипты запускаются через корневой [`Makefile`](Makefile). Справка: `make help`.
 
-**Application services** (rebuild often):
-```bash
-docker compose up -d
-```
-
-**Full environment**:
-```bash
-# Use init.sh for complete setup
-./infrastructure/init.sh
-```
+| Группа | Примеры |
+|---|---|
+| `dev-*` | `make dev-up`, `make dev-init`, `make dev-down`, `make dev-clean` |
+| `infra-*` | `make infra-up`, `make infra-init`, `make infra-clean` |
+| `test-*` | `make test-unit-backend`, `make test-e2e-backend`, `make test-all` |
+| `lint-*`/`format-*`/`typecheck-*` | `make lint`, `make format`, `make typecheck` |
+| `coverage-*` | `make coverage-all` |
+| `dead-code-*` | `make dead-code` |
 
 See: [`/plans/development/infrastructure.md`](plans/development/infrastructure.md)
 
@@ -237,17 +235,19 @@ test('renders component', () => {
 });
 ```
 
-**Run tests**:
+**Run tests** (через [`Makefile`](Makefile), полный список — `make help`):
 ```bash
-# Backend
-cd backend && pytest
+make test-unit-backend          # backend unit
+make test-e2e-backend           # backend e2e (нужен dev-стек)
+make test-unit-frontend         # frontend unit
+make test-integrations-frontend # frontend integrations
+make test-all                   # unit + integrations + e2e
+make coverage-all               # покрытие обоих стеков
 
-# Frontend (через единый скрипт)
-./frontend/scripts/test.sh                  # Все тесты
-./frontend/scripts/test.sh --unit           # Только unit
-./frontend/scripts/test.sh --integrations   # Только integration
-./frontend/scripts/test.sh --coverage       # С покрытием
-./frontend/scripts/test.sh -f Admin -t "should render"  # Отладка конкретного теста
+# Конкретные тесты — через TEST_ARGS (проброс в скрипты):
+make test-unit-backend TEST_ARGS="-k test_login"
+make test-e2e-backend TEST_ARGS="tests/e2e/test_auth.py -v"
+make test-unit-frontend TEST_ARGS="-f Admin -t 'should render'"
 ```
 
 See: [`/plans/development/testing.md`](plans/development/testing.md)
@@ -320,67 +320,26 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 ### Start Development Environment
 
 ```bash
-# 1. Start infrastructure
-docker compose -f infrastructure/docker-compose.yml up -d
-
-# 2. Wait for services (check http://localhost:8180, http://localhost:8080)
-
-# 3. Initialize infrastructure (Keycloak → Harbor → GitLab)
-./infrastructure/init.sh
-
-# 4. Start application
-docker compose up -d
-
-# Or run locally:
-# Backend
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
-
-# Frontend
-cd frontend && yarn dev
+make infra-init    # 1. Keycloak → Harbor → GitLab (infrastructure/init.sh)
+make dev-up        # 2. postgres, redis, backend, frontend (docker compose up -d)
 ```
 
 ### Run Tests
 
-**Агентам**: Всегда запускать тесты через скрипты:
-
+**Агентам**: Всегда запускать тесты через `make` (см. таблицу выше). Конкретный тест — через `TEST_ARGS`:
 ```bash
-# Backend unit tests (+ format + lint)
-./backend/scripts/test-unit.sh -v
-
-# Backend e2e tests (требует запущенного dev-стека: backend на localhost:8000)
-./backend/scripts/test-e2e.sh -v
-
-# Frontend tests (все: unit + integrations)
-./frontend/scripts/test.sh
-
-# Frontend — только unit
-./frontend/scripts/test.sh --unit
-
-# Frontend — только integrations
-./frontend/scripts/test.sh --integrations
-
-# Frontend — с покрытием
-./frontend/scripts/test.sh --coverage
-
-# Frontend — отладка конкретного теста
-./frontend/scripts/test.sh -f Pipelines -t "should trigger"
+make test-unit-backend TEST_ARGS="-k test_login"
+make test-unit-frontend TEST_ARGS="-f Pipelines -t 'should trigger'"
 ```
 
 ### Code Quality Checks
 
-**Агентам**: использовать скрипты (они загружают правильное окружение):
-
+**Агентам**: использовать `make` (скрипты загружают правильное окружение):
 ```bash
-# Backend
-./backend/scripts/format.sh
-./backend/scripts/lint.sh
-./backend/scripts/test-unit.sh
-
-# Frontend
-./frontend/scripts/format.sh
-./frontend/scripts/lint.sh
-./frontend/scripts/type-check.sh
-./frontend/scripts/test.sh
+make format      # ruff format + prettier
+make lint        # ruff check + eslint
+make typecheck   # mypy + tsc --noEmit
+make dead-code   # vulture + knip
 ```
 
 ### Adding New API Endpoint

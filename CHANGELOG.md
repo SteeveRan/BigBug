@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Makefile — единая точка входа для запуска всех скриптов:**
+  - Корневой [`Makefile`](Makefile) с 6 группами команд: `dev-*` (build/up/init/down/clean), `infra-*` (up/init/down/clean + чистка compose/harbor/tofu), `test-*` (unit/integrations/e2e/all по стеку), `lint-*`/`format-*`/`typecheck-*`, `coverage-*` (код + эндпоинты), `dead-code-*`
+  - Self-documenting help (`make help`), проброс аргументов в тесты через `TEST_ARGS`
+  - Backend typecheck: [`backend/scripts/type-check.sh`](backend/scripts/type-check.sh) + `[tool.mypy]` в [`pyproject.toml`](backend/pyproject.toml) (зелёный прогон на 132 файлах)
+  - Frontend dead-code: `knip` devDependency + [`frontend/knip.json`](frontend/knip.json) + [`frontend/scripts/dead-code.sh`](frontend/scripts/dead-code.sh)
+
 - **Финальная зачистка и сквозная проверка (2026-08-16):**
   - Сброс миграций Alembic: 40 старых ревизий забэкаплены в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/), новая цепочка — [`initial_schema`](backend/alembic/versions/20260816_1159_37590bb4a2ec_initial_schema.py) → [`seed_initial_data`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py)
   - Dev-БД пересоздана на новой цепочке миграций
