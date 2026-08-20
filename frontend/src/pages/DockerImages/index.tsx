@@ -355,7 +355,7 @@ export function DockerImagesPage() {
             />
             {analyzing && (
               <Flex justify="center">
-                <Spin tip="Analyzing image..." />
+                <Spin description="Analyzing image..." />
               </Flex>
             )}
             {analysisError && <Alert type="error" title={analysisError} closable />}

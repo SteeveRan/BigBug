@@ -227,6 +227,33 @@ async def test_index_source_creates_tags(docker_service, db_session: AsyncSessio
 
 
 @pytest.mark.asyncio
+async def test_index_source_does_not_mark_tags_synced(docker_service, db_session: AsyncSession):
+    """Indexing records tags as pending; is_synced stays False (mirror-only)."""
+    source = DockerImageSource(
+        name="pending-docker",
+        registry_url="https://registry.local/v2",
+    )
+    db_session.add(source)
+    await db_session.commit()
+
+    with (
+        patch.object(docker_service, "_fetch_tags") as mock_fetch,
+        patch.object(docker_service, "_resolve_manifest_digest") as mock_digest,
+    ):
+        mock_fetch.return_value = {"name": "library/nginx", "tags": ["1.27-alpine"]}
+        mock_digest.return_value = "sha256:test-digest"
+        await docker_service.index_source(source, "library/nginx", db_session)
+
+    result = await db_session.execute(
+        select(DockerImageTag).where(DockerImageTag.source_id == source.id)
+    )
+    tag = result.scalar_one()
+    assert tag.is_synced is False
+    assert tag.status_flag == 4  # pending
+    assert tag.status_text == "pending"
+
+
+@pytest.mark.asyncio
 async def test_sync_tags_idempotent(docker_service, db_session: AsyncSession):
     """Re-indexing the same image updates existing tags instead of duplicating."""
     source = DockerImageSource(

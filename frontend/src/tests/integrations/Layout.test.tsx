@@ -6,7 +6,7 @@
  * @relatedFiles ../../components/Layout/index.tsx, ../../router/index.tsx
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
@@ -193,7 +193,9 @@ describe('Layout sidebar', () => {
     it('opens avatar dropdown with My Profile and Sign Out items', () => {
       renderLayout();
       // Открываем dropdown кликом по аватару (username).
-      fireEvent.click(screen.getByText('testuser'));
+      act(() => {
+        fireEvent.click(screen.getByText('testuser'));
+      });
       expect(screen.getByText('My Profile')).toBeInTheDocument();
       expect(screen.getByText('Sign Out')).toBeInTheDocument();
     });

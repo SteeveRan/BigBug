@@ -639,20 +639,19 @@ class DockerRegistryService:
                 existing = existing_result.scalar_one_or_none()
 
                 if existing:
+                    # Indexing only refreshes metadata; it never marks a tag
+                    # as synced. Synced is set solely by mirror_image after a
+                    # real crane copy (or its webhook path).
                     existing.digest = digest  # type: ignore[assignment]
-                    existing.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
-                    if not existing.is_synced:  # type: ignore[comparison-overlap]
-                        existing.is_synced = True  # type: ignore[assignment]
                 else:
                     image_tag = DockerImageTag(
                         source_id=source.id,
                         image_name=image_name,
                         tag=tag,
                         digest=digest,
-                        status_flag=0,  # ok — newly indexed
-                        status_text="ok",
-                        is_synced=True,
-                        last_synced_at=datetime.now(UTC),
+                        status_flag=4,  # pending — indexed but not mirrored yet
+                        status_text="pending",
+                        is_synced=False,
                     )
                     db.add(image_tag)
 

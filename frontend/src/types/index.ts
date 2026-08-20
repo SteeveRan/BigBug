@@ -169,8 +169,10 @@ export interface HelmChartSource {
   name: string;
   repo_url: string;
   description: string | null;
+  provider_id: number | null;
   gitlab_project_id: string | null;
   gitlab_project_url: string | null;
+  target_repo_url: string | null;
   last_synced_at: string | null;
   status_flag: number;
   status_text: string | null;
@@ -203,6 +205,8 @@ export interface HelmSyncLog {
   source_id: number;
   pipeline_id: string | null;
   pipeline_url: string | null;
+  chart_name: string | null;
+  chart_version: string | null;
   status_flag: number;
   status_text: string | null;
   log_output: string | null;
@@ -210,6 +214,19 @@ export interface HelmSyncLog {
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+}
+
+export interface HelmSyncSchedule {
+  id: number;
+  sync_type: string;
+  helm_chart_source_id: number;
+  cron_expression: string | null;
+  is_enabled: boolean;
+  use_default_schedule: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ──── Docker Image Types ───────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
@@ -300,7 +300,9 @@ describe('SourcesPage — Groups tab', () => {
 
     // Click the Import Group button
     const importButton = screen.getByText('Import Group');
-    importButton.click();
+    act(() => {
+      importButton.click();
+    });
 
     // Modal should appear in a portal; use document, not container
     await waitFor(() => {

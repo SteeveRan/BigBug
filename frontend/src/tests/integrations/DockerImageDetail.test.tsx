@@ -35,6 +35,7 @@ vi.mock('../../store/api', async () => {
     useGetDockerImageQuery: vi.fn(),
     useGetDockerImageTagsQuery: vi.fn(),
     useGetDockerImageLogsQuery: vi.fn(),
+    useGetDockerSyncSchedulesQuery: vi.fn(),
     useIndexDockerImageMutation: vi.fn(),
   };
 });
@@ -43,6 +44,7 @@ import {
   useGetDockerImageQuery,
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
+  useGetDockerSyncSchedulesQuery,
   useIndexDockerImageMutation,
 } from '../../store/api';
 
@@ -152,6 +154,11 @@ describe('DockerImageDetailPage', () => {
     });
     (useGetDockerImageLogsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockLogs,
+      isLoading: false,
+      isError: false,
+    });
+    (useGetDockerSyncSchedulesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
       isLoading: false,
       isError: false,
     });

@@ -24,7 +24,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${BASE_URL}/api`,
   prepareHeaders: (headers, { getState }) => {
-    const token = (getState() as RootState).auth.accessToken;
+    const token = (getState() as RootState).auth?.accessToken;
     if (token) {
       headers.set('Authorization', `Bearer ${token}`);
     }
@@ -63,6 +63,7 @@ export const api = createApi({
     'SyncLog',
     'BuildLog',
     'HelmChart',
+    'HelmSyncSchedule',
     'DockerImage',
     'DockerSyncSchedule',
     'Permissions',

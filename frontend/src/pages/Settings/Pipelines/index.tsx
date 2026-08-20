@@ -534,7 +534,7 @@ export function GitLabComponentsPage() {
 
           {selectedComponent?.inputs_schema && (
             <Form.Item label="Component Inputs">
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 {Object.entries(selectedComponent.inputs_schema).map(([key, schema]) => {
                   const inputSchema = schema as {
                     type?: string;

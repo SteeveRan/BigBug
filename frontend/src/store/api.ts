@@ -91,8 +91,13 @@ export {
   useUpdateHelmChartMutation,
   useDeleteHelmChartMutation,
   useIndexHelmChartMutation,
+  useMirrorHelmChartMutation,
   useGetHelmChartVersionsQuery,
   useGetHelmChartLogsQuery,
+  useGetHelmSyncSchedulesQuery,
+  useCreateHelmSyncScheduleMutation,
+  useUpdateHelmSyncScheduleMutation,
+  useDeleteHelmSyncScheduleMutation,
 } from './api/helm-charts';
 
 // Docker Images

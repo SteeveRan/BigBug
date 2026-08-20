@@ -27,8 +27,9 @@ def upgrade() -> None:
     gitlab_project_visibility_enum = sa.Enum(
         "owner", "team", "public", name="gitlab_project_visibility_enum"
     )
-    gitlab_project_type_enum.create(op.get_bind(), checkfirst=True)
-    gitlab_project_visibility_enum.create(op.get_bind(), checkfirst=True)
+    # NOTE: do not call .create() here — op.create_table() auto-emits CREATE TYPE
+    # for named sa.Enum columns (same pattern as initial_schema.py). The explicit
+    # .create() caused a DuplicateObjectError on upgrade.
 
     op.create_table(
         "gitlab_projects",

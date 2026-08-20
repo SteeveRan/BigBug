@@ -99,6 +99,22 @@ async def gitlab_webhook(
                 if pipeline_status == "success":
                     source.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
 
+            # Mark the exact mirrored version as synced (mirror action only —
+            # index runs leave chart_name/chart_version empty here).
+            if (
+                pipeline_status == "success"
+                and helm_sync_log.chart_name
+                and helm_sync_log.chart_version
+            ):
+                from app.services.helm import mark_helm_version_synced
+
+                await mark_helm_version_synced(
+                    db,
+                    helm_sync_log.source_id,
+                    helm_sync_log.chart_name,
+                    helm_sync_log.chart_version,
+                )
+
         await db.commit()
         return {"status": "ok", "type": "helm_sync_log", "id": helm_sync_log.id}
 

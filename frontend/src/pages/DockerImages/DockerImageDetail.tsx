@@ -808,6 +808,8 @@ export function DockerImageDetailPage() {
           <Select
             style={{ width: '100%' }}
             placeholder="Select tag"
+            showSearch
+            optionFilterProp="label"
             value={mirrorTag || undefined}
             onChange={(val) => setMirrorTag(val)}
             options={(tags as DockerImageTag[]).map((t) => ({

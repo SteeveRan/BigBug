@@ -21,6 +21,8 @@ vi.mock('../../store/api', async () => {
     useUpdateProviderMutation: vi.fn(),
     useTestProviderMutation: vi.fn(),
     useListUsersQuery: vi.fn(),
+    useGetCredentialsQuery: vi.fn(),
+    useGetTeamsQuery: vi.fn(),
   };
 });
 
@@ -35,6 +37,8 @@ import {
   useUpdateProviderMutation,
   useTestProviderMutation,
   useListUsersQuery,
+  useGetCredentialsQuery,
+  useGetTeamsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import ProvidersPage from '../../pages/Settings/Providers';
@@ -116,6 +120,16 @@ describe('ProvidersPage', () => {
     ]);
     (useListUsersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [{ id: 1, username: 'admin', email: 'admin@bigbug.dev', is_active: true, roles: [] }],
+      isLoading: false,
+      isError: false,
+    });
+    (useGetCredentialsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+    (useGetTeamsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
       isLoading: false,
       isError: false,
     });

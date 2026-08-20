@@ -22,6 +22,11 @@ class HelmSyncLog(Base):
     pipeline_id = Column(String(255), nullable=True)
     pipeline_url = Column(String(500), nullable=True)
 
+    # Chart identity being mirrored (set by the mirror action; empty for
+    # pure index runs). Lets the webhook mark the exact version as synced.
+    chart_name = Column(String(255), nullable=True)
+    chart_version = Column(String(100), nullable=True)
+
     # 0=ok, 1=failed, 2=warn, 3=in_progress, 4=pending
     status_flag = Column(Integer, nullable=False, default=4)
     status_text = Column(String(500), nullable=True)

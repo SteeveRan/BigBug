@@ -29,6 +29,10 @@ class HelmChartSource(Base):
     gitlab_project_id = Column(String(255), nullable=True)
     gitlab_project_url = Column(String(500), nullable=True)
 
+    # Target Helm repository where charts are mirrored to
+    # (e.g. https://harbor.local/chartrepo/bigbug or oci://harbor.local/bigbug)
+    target_repo_url = Column(String(500), nullable=True)
+
     # Sync tracking
     last_synced_at = Column(DateTime(timezone=True), nullable=True)
 

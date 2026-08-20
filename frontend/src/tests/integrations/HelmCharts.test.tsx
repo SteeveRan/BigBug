@@ -150,6 +150,7 @@ describe('HelmChartsPage', () => {
       name: 'bitnami',
       repo_url: 'https://charts.bitnami.com/bitnami',
       description: '',
+      target_repo_url: '',
     });
   });
 

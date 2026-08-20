@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
@@ -384,11 +384,15 @@ describe('MirrorsPage', () => {
 
     // Click "Import Existing Mirror" button
     const importButton = screen.getByText('Import Existing Mirror');
-    importButton.click();
+    act(() => {
+      importButton.click();
+    });
 
     // Modal should appear with "Import Existing Mirror" title
     await waitFor(() => {
-      expect(screen.getByText('Import Existing Mirror')).toBeInTheDocument();
+      expect(document.querySelector('.ant-modal-title')).toHaveTextContent(
+        'Import Existing Mirror'
+      );
     });
 
     // The info alert should be visible
@@ -418,11 +422,13 @@ describe('MirrorsPage', () => {
 
     // Click "Create Mirror" button
     const createButton = screen.getByText('Create Mirror');
-    createButton.click();
+    act(() => {
+      createButton.click();
+    });
 
     // Modal should appear with "Create Mirror" title
     await waitFor(() => {
-      expect(screen.getByText('Create Mirror')).toBeInTheDocument();
+      expect(document.querySelector('.ant-modal-title')).toHaveTextContent('Create Mirror');
     });
 
     // The helper text should be visible

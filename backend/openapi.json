@@ -1015,6 +1015,17 @@
           "repo_url": {
             "title": "Repo Url",
             "type": "string"
+          },
+          "target_repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Repo Url"
           }
         },
         "required": [
@@ -1022,6 +1033,34 @@
           "repo_url"
         ],
         "title": "CreateHelmChartSourceRequest",
+        "type": "object"
+      },
+      "CreateHelmSyncScheduleRequest": {
+        "description": "Schema for creating a sync schedule for a Helm chart source.",
+        "properties": {
+          "cron_expression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cron Expression"
+          },
+          "is_enabled": {
+            "default": true,
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "use_default_schedule": {
+            "default": true,
+            "title": "Use Default Schedule",
+            "type": "boolean"
+          }
+        },
+        "title": "CreateHelmSyncScheduleRequest",
         "type": "object"
       },
       "CreateImageVersionRequest": {
@@ -3935,6 +3974,17 @@
             ],
             "title": "Status Text"
           },
+          "target_repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Repo Url"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -4054,6 +4104,17 @@
               }
             ],
             "title": "Status Text"
+          },
+          "target_repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Repo Url"
           },
           "updated_at": {
             "format": "date-time",
@@ -4196,6 +4257,28 @@
       },
       "HelmSyncLogOut": {
         "properties": {
+          "chart_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Name"
+          },
+          "chart_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Version"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -4298,6 +4381,8 @@
           "source_id",
           "pipeline_id",
           "pipeline_url",
+          "chart_name",
+          "chart_version",
           "status_flag",
           "status_text",
           "log_output",
@@ -4307,6 +4392,90 @@
           "created_at"
         ],
         "title": "HelmSyncLogOut",
+        "type": "object"
+      },
+      "HelmSyncScheduleOut": {
+        "description": "Schema for sync schedule response.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cron_expression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cron Expression"
+          },
+          "helm_chart_source_id": {
+            "title": "Helm Chart Source Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_enabled": {
+            "title": "Is Enabled",
+            "type": "boolean"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "sync_type": {
+            "title": "Sync Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "use_default_schedule": {
+            "title": "Use Default Schedule",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sync_type",
+          "helm_chart_source_id",
+          "cron_expression",
+          "is_enabled",
+          "use_default_schedule",
+          "next_run_at",
+          "last_run_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "HelmSyncScheduleOut",
         "type": "object"
       },
       "ImageVersionOut": {
@@ -9749,6 +9918,17 @@
             ],
             "title": "Name"
           },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
           "repo_url": {
             "anyOf": [
               {
@@ -9759,9 +9939,60 @@
               }
             ],
             "title": "Repo Url"
+          },
+          "target_repo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Repo Url"
           }
         },
         "title": "UpdateHelmChartSourceRequest",
+        "type": "object"
+      },
+      "UpdateHelmSyncScheduleRequest": {
+        "description": "Schema for updating a sync schedule.",
+        "properties": {
+          "cron_expression": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cron Expression"
+          },
+          "is_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Enabled"
+          },
+          "use_default_schedule": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Default Schedule"
+          }
+        },
+        "title": "UpdateHelmSyncScheduleRequest",
         "type": "object"
       },
       "UpdateProjectRequest": {
@@ -16045,6 +16276,299 @@
           }
         ],
         "summary": "Get Sync Logs",
+        "tags": [
+          "helm-charts"
+        ]
+      }
+    },
+    "/api/helm-charts/{source_id}/mirror": {
+      "post": {
+        "description": "Mirror one Helm chart version into the target repository.\n\nTriggers a GitLab CI pipeline (helm-sync-template) which performs the\nactual copy. ``is_synced`` on the version is only set once the webhook\nreports the pipeline succeeded.",
+        "operationId": "mirror_chart_api_helm_charts__source_id__mirror_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Chart name to mirror",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "description": "Chart name to mirror",
+              "title": "Chart Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Chart version to mirror",
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "description": "Chart version to mirror",
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelmSyncLogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Mirror Chart",
+        "tags": [
+          "helm-charts"
+        ]
+      }
+    },
+    "/api/helm-charts/{source_id}/schedule": {
+      "get": {
+        "description": "Get all sync schedules for a Helm chart source.",
+        "operationId": "get_helm_sync_schedules_api_helm_charts__source_id__schedule_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HelmSyncScheduleOut"
+                  },
+                  "title": "Response Get Helm Sync Schedules Api Helm Charts  Source Id  Schedule Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Helm Sync Schedules",
+        "tags": [
+          "helm-charts"
+        ]
+      },
+      "post": {
+        "description": "Create a sync schedule for a Helm chart source.",
+        "operationId": "create_helm_sync_schedule_api_helm_charts__source_id__schedule_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateHelmSyncScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelmSyncScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Helm Sync Schedule",
+        "tags": [
+          "helm-charts"
+        ]
+      }
+    },
+    "/api/helm-charts/{source_id}/schedule/{schedule_id}": {
+      "delete": {
+        "description": "Delete a sync schedule.",
+        "operationId": "delete_helm_sync_schedule_api_helm_charts__source_id__schedule__schedule_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Helm Sync Schedule",
+        "tags": [
+          "helm-charts"
+        ]
+      },
+      "patch": {
+        "description": "Update a sync schedule.",
+        "operationId": "update_helm_sync_schedule_api_helm_charts__source_id__schedule__schedule_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "title": "Schedule Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHelmSyncScheduleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelmSyncScheduleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Helm Sync Schedule",
         "tags": [
           "helm-charts"
         ]

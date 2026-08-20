@@ -24,7 +24,12 @@ export function HelmChartsPage() {
   const [indexChart] = useIndexHelmChartMutation();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', repo_url: '', description: '' });
+  const [form, setForm] = useState({
+    name: '',
+    repo_url: '',
+    description: '',
+    target_repo_url: '',
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const handleCreate = async () => {
@@ -33,7 +38,7 @@ export function HelmChartsPage() {
       await createChart(form).unwrap();
       message.success('Helm chart source added successfully');
       setDialogOpen(false);
-      setForm({ name: '', repo_url: '', description: '' });
+      setForm({ name: '', repo_url: '', description: '', target_repo_url: '' });
     } catch {
       // error handled by RTK Query
     } finally {
@@ -42,7 +47,7 @@ export function HelmChartsPage() {
   };
 
   const handleOpenDialog = () => {
-    setForm({ name: '', repo_url: '', description: '' });
+    setForm({ name: '', repo_url: '', description: '', target_repo_url: '' });
     setDialogOpen(true);
   };
 
@@ -162,6 +167,11 @@ export function HelmChartsPage() {
             placeholder="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+          <Input
+            placeholder="Target repository URL (optional, e.g. oci://harbor.local/bigbug)"
+            value={form.target_repo_url}
+            onChange={(e) => setForm({ ...form, target_repo_url: e.target.value })}
           />
         </Space>
       </Modal>
