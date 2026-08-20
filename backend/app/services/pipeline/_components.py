@@ -12,6 +12,7 @@ from sqlalchemy.orm import joinedload
 from app.core.exceptions import BadRequestError, DomainError, NotFoundError
 from app.models.gitlab_component import GitLabComponent
 from app.models.gitlab_project import GitlabProject, GitlabProjectType
+from app.models.resource_provider import ResourceProvider
 from app.models.user import User
 from app.services.gitlab_projects._clients import get_provider_gitlab_client
 from app.services.gitlab_projects._service import GitlabProjectService
@@ -40,7 +41,9 @@ async def _get_component_with_project(db: AsyncSession, component_id: int) -> Gi
     result = await db.execute(
         select(GitLabComponent)
         .options(
-            joinedload(GitLabComponent.gitlab_project).joinedload(GitlabProject.provider),
+            joinedload(GitLabComponent.gitlab_project)
+            .joinedload(GitlabProject.provider)
+            .joinedload(ResourceProvider.credential),
         )
         .where(GitLabComponent.id == component_id)
     )

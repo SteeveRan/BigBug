@@ -29,7 +29,9 @@ def _pipeline_eagerload_stmt():
     return select(Pipeline).options(
         joinedload(Pipeline.components).joinedload(PipelineComponent.component),
         joinedload(Pipeline.provider).joinedload(ResourceProvider.credential),
-        joinedload(Pipeline.gitlab_project).joinedload(GitlabProject.provider),
+        joinedload(Pipeline.gitlab_project)
+        .joinedload(GitlabProject.provider)
+        .joinedload(ResourceProvider.credential),
     )
 
 
