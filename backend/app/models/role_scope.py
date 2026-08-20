@@ -1,9 +1,10 @@
 """
 @file role_scope.py
 @description Role-scope association models — link roles to specific resources
-             (source groups, credentials, sync groups) for fine-grained RBAC.
+             (source groups, credentials, sync groups, providers, gitlab projects)
+             for fine-grained RBAC.
 @dependencies app.database.Base, ./role.py, ./source_group.py, ./credential.py, ./sync_group.py
-@relatedFiles ./role.py, ./source_group.py, ./credential.py, ./sync_group.py
+@relatedFiles ./role.py, ./source_group.py, ./credential.py, ./sync_group.py, ./gitlab_project.py
 """
 
 from datetime import UTC, datetime
@@ -107,3 +108,29 @@ class RoleScopeProvider(Base):
 
     def __repr__(self) -> str:
         return f"<RoleScopeProvider(role_id={self.role_id}, provider_id={self.provider_id})>"
+
+
+class RoleScopeGitlabProject(Base):
+    __tablename__ = "role_scope_gitlab_projects"
+
+    role_id = Column(
+        Integer,
+        ForeignKey("roles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    gitlab_project_id = Column(
+        Integer,
+        ForeignKey("gitlab_projects.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    # Relationships
+    role = relationship("Role", back_populates="gitlab_project_scopes")
+    project = relationship("GitlabProject", back_populates="role_scopes")
+
+    def __repr__(self) -> str:
+        return (
+            f"<RoleScopeGitlabProject(role_id={self.role_id}, "
+            f"gitlab_project_id={self.gitlab_project_id})>"
+        )

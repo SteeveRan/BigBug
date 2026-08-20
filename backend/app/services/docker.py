@@ -594,9 +594,7 @@ class DockerRegistryService:
         }
 
         try:
-            response = await oci_request(
-                client, "HEAD", manifest_url, basic=basic, headers=headers
-            )
+            response = await oci_request(client, "HEAD", manifest_url, basic=basic, headers=headers)
             if response.status_code == 404:
                 return None
             response.raise_for_status()
@@ -793,9 +791,7 @@ class DockerRegistryService:
 
             # Build the temporary docker config.json (0600) so secrets never land
             # in argv. crane selects the right entry by registry host.
-            auths = await self._build_docker_auths(
-                db, source, target_provider, target_registry_url
-            )
+            auths = await self._build_docker_auths(db, source, target_provider, target_registry_url)
             env = os.environ.copy()
             if auths:
                 docker_config_dir = tempfile.mkdtemp(prefix="bigbug-docker-config-")
@@ -819,9 +815,7 @@ class DockerRegistryService:
                 )
                 # ponytail: single-image mirror is awaited inline; upgrade to a
                 # task queue when mirroring becomes bulk/parallel.
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=1800
-                )
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)
             except FileNotFoundError as exc:
                 raise ExternalServiceError(
                     "crane",

@@ -41,6 +41,12 @@ class Pipeline(Base):
     )
     ref = Column(String(255), nullable=False)
     default_variables = Column(JSON, default=dict, nullable=False)
+    gitlab_project_id = Column(
+        Integer,
+        ForeignKey("gitlab_projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_default = Column(Boolean, default=False, nullable=False)
     is_enabled = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
@@ -55,6 +61,7 @@ class Pipeline(Base):
 
     # Relationships
     provider = relationship("ResourceProvider", foreign_keys=[provider_id])
+    gitlab_project = relationship("GitlabProject", back_populates="pipelines")
     components = relationship(
         "PipelineComponent", back_populates="pipeline", cascade="all, delete-orphan"
     )

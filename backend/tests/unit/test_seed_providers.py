@@ -186,9 +186,7 @@ class TestSeedSystemHarbor:
 
         provider = (
             await db_session.execute(
-                select(ResourceProvider).where(
-                    ResourceProvider.name == HARBOR_SYSTEM_PROVIDER_NAME
-                )
+                select(ResourceProvider).where(ResourceProvider.name == HARBOR_SYSTEM_PROVIDER_NAME)
             )
         ).scalar_one()
         assert provider.domain.value == "docker"

@@ -35,15 +35,21 @@ BigBug предоставляет UI для:
 
 ## GitLab CI Templates
 
-CI/CD шаблоны в [`infrastructure/gitlab-components/`](../../infrastructure/gitlab-components/):
+Реальные (рабочие) шаблоны вшиты в код как **пресеты**:
+[`backend/app/services/gitlab_projects/presets.py`](../../backend/app/services/gitlab_projects/presets.py),
+отдаются через `GET /api/components/presets`.
+
+Исходные YAML-файлы сохранены как **примеры** в
+[`infrastructure/gitlab-components/examples/`](../../infrastructure/gitlab-components/examples/)
+(не используются приложением):
 
 | Файл | Назначение |
 |------|-----------|
-| [`mirror-template.yml`](../../infrastructure/gitlab-components/mirror-template.yml) | Синхронизация зеркал |
-| [`gold-image-template.yml`](../../infrastructure/gitlab-components/gold-image-template.yml) | Сборка Gold Images |
-| [`app-image-template.yml`](../../infrastructure/gitlab-components/app-image-template.yml) | Сборка App Images |
-| [`helm-sync-template.yml`](../../infrastructure/gitlab-components/helm-sync-template.yml) | Синхронизация Helm чартов |
-| [`docker-sync-template.yml`](../../infrastructure/gitlab-components/docker-sync-template.yml) | Синхронизация Docker образов |
+| [`mirror-template.yml`](../../infrastructure/gitlab-components/examples/mirror-template.yml) | Синхронизация зеркал |
+| [`gold-image-template.yml`](../../infrastructure/gitlab-components/examples/gold-image-template.yml) | Сборка Gold Images |
+| [`app-image-template.yml`](../../infrastructure/gitlab-components/examples/app-image-template.yml) | Сборка App Images |
+| [`helm-sync-template.yml`](../../infrastructure/gitlab-components/examples/helm-sync-template.yml) | Синхронизация Helm чартов |
+| [`docker-sync-template.yml`](../../infrastructure/gitlab-components/examples/docker-sync-template.yml) | Синхронизация Docker образов |
 
 ## Модели
 
@@ -150,7 +156,8 @@ GITLAB_WEBHOOK_SECRET=your-webhook-secret
 - [`backend/app/api/pipelines.py`](../../backend/app/api/pipelines.py)
 - [`backend/app/api/components.py`](../../backend/app/api/components.py)
 - [`backend/app/api/webhooks.py`](../../backend/app/api/webhooks.py)
-- [`infrastructure/gitlab-components/`](../../infrastructure/gitlab-components/) — CI/CD шаблоны
+- [`infrastructure/gitlab-components/examples/`](../../infrastructure/gitlab-components/examples/) — CI/CD шаблоны (примеры)
+- [`backend/app/services/gitlab_projects/presets.py`](../../backend/app/services/gitlab_projects/presets.py) — рабочие пресеты компонентов
 - [GitLab Pipeline API](https://docs.gitlab.com/ee/api/pipelines.html)
 - [GitLab Components](https://docs.gitlab.com/ee/ci/components/)
 - [GitLab Webhooks](https://docs.gitlab.com/ee/user/project/integrations/webhooks.html)

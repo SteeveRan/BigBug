@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import RoleNotFoundError
 from app.core.security import get_password_hash
 from app.models.credential import Credential, CredentialType
+from app.models.gitlab_project import GitlabProject, GitlabProjectType
 from app.models.resource_provider import (
     ProviderCategory,
     ProviderDirection,
@@ -26,6 +27,7 @@ from app.models.resource_provider import (
 from app.models.role import Role, UserRole
 from app.models.role_scope import (
     RoleScopeCredential,
+    RoleScopeGitlabProject,
     RoleScopeProvider,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
@@ -127,6 +129,24 @@ async def _seed_provider(db: AsyncSession, name: str = "test-provider-scope") ->
     await db.commit()
     await db.refresh(provider)
     return provider
+
+
+async def _seed_gitlab_project(
+    db: AsyncSession, provider: ResourceProvider, name: str = "test-gitlab-project"
+) -> GitlabProject:
+    """Create a minimal GitlabProject linked to *provider*."""
+    project = GitlabProject(
+        name=name,
+        path=name,
+        namespace_path="bigbug-mirrors",
+        full_path=f"bigbug-mirrors/{name}",
+        project_type=GitlabProjectType.components,
+        provider_id=provider.id,
+    )
+    db.add(project)
+    await db.commit()
+    await db.refresh(project)
+    return project
 
 
 async def _seed_user(
@@ -424,6 +444,22 @@ class TestEffectiveScope:
         assert scope["team_ids"] == set()
 
     @pytest.mark.asyncio
+    async def test_get_user_effective_scope_gitlab_projects(self, db_session: AsyncSession):
+        """User with a gitlab-project-scoped role gets the union of project ids."""
+        role = await _seed_role(db_session, "gitlab-project-role")
+        provider = await _seed_provider(db_session, "gitlab-project-provider")
+        project = await _seed_gitlab_project(db_session, provider, "scoped-components")
+
+        db_session.add(RoleScopeGitlabProject(role_id=role.id, gitlab_project_id=project.id))
+        await db_session.commit()
+
+        user = await _seed_user(db_session, "gitlab-project-user", role=role)
+        service = RBACService(db_session)
+
+        scope = await service.get_user_effective_scope(user.id)
+        assert scope["gitlab_project_ids"] == {project.id}
+
+    @pytest.mark.asyncio
     async def test_get_user_effective_scope_admin(self, db_session: AsyncSession):
         """Admin user gets None values (meaning all access)."""
         # Get existing admin role (from conftest fixtures), or create
@@ -530,6 +566,24 @@ class TestCheckScopeAccess:
         assert await service.check_scope_access(user.id, "source_group", sg.id + 999) is False
 
     @pytest.mark.asyncio
+    async def test_check_scope_access_gitlab_project(self, db_session: AsyncSession):
+        """check_scope_access works for the ``gitlab_project`` resource type."""
+        role = await _seed_role(db_session, "gitlab-project-access-role")
+        provider = await _seed_provider(db_session, "gitlab-project-access-provider")
+        project = await _seed_gitlab_project(db_session, provider, "access-components")
+
+        db_session.add(RoleScopeGitlabProject(role_id=role.id, gitlab_project_id=project.id))
+        await db_session.commit()
+
+        user = await _seed_user(db_session, "gitlab-project-access-user", role=role)
+        service = RBACService(db_session)
+
+        assert await service.check_scope_access(user.id, "gitlab_project", project.id) is True
+        assert (
+            await service.check_scope_access(user.id, "gitlab_project", project.id + 999) is False
+        )
+
+    @pytest.mark.asyncio
     async def test_check_scope_access_no_roles(self, db_session: AsyncSession):
         """User with no roles gets False."""
         user = await _seed_user(db_session, "noroles-access")
@@ -538,6 +592,7 @@ class TestCheckScopeAccess:
         assert await service.check_scope_access(user.id, "source_group", 1) is False
         assert await service.check_scope_access(user.id, "credential", 1) is False
         assert await service.check_scope_access(user.id, "sync_group", 1) is False
+        assert await service.check_scope_access(user.id, "gitlab_project", 1) is False
 
 
 # ========================================================================

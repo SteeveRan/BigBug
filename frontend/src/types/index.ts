@@ -413,6 +413,145 @@ export interface PipelineRunList {
   page_size: number;
 }
 
+// ──── GitLab Project Types ────────────────────────────────────────────────
+
+export type GitlabProjectType = 'components' | 'pipelines';
+export type ProjectVisibility = 'owner' | 'team' | 'public' | 'read_all';
+
+export interface GitlabProject {
+  id: number;
+  name: string;
+  path: string;
+  namespace_path: string;
+  full_path: string;
+  project_type: GitlabProjectType;
+  visibility: ProjectVisibility;
+  provider_id: number;
+  external_id: string | null;
+  web_url: string | null;
+  default_branch: string;
+  gitlab_visibility: string | null;
+  description: string | null;
+  owner_user_id: number | null;
+  team_id: number | null;
+  status_flag: number;
+  status_text: string | null;
+  last_synced_at: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+  provider?: ResourceProvider | null;
+}
+
+export interface GitlabProjectCreate {
+  name: string;
+  path: string;
+  namespace_path: string;
+  project_type: GitlabProjectType;
+  provider_id: number;
+  gitlab_visibility?: string;
+  default_branch?: string;
+  description?: string | null;
+  visibility?: ProjectVisibility;
+  team_id?: number | null;
+  initialize_with_readme?: boolean;
+  create_namespace?: boolean;
+}
+
+export interface GitlabProjectUpdate {
+  name?: string | null;
+  description?: string | null;
+  visibility?: ProjectVisibility | null;
+  team_id?: number | null;
+  gitlab_visibility?: string | null;
+  default_branch?: string | null;
+}
+
+export interface GitlabProjectImport {
+  provider_id: number;
+  full_path: string;
+  project_type: GitlabProjectType;
+  visibility?: ProjectVisibility;
+  team_id?: number | null;
+}
+
+export interface GitlabProjectsFilters {
+  project_type?: GitlabProjectType;
+  provider_id?: number;
+  owner?: 'me';
+  search?: string;
+}
+
+export interface GitlabProjectFile {
+  path: string;
+  type: 'blob' | 'tree' | null;
+  content?: string | null;
+  size?: number | null;
+  ref?: string | null;
+}
+
+export interface GitlabProjectFileIn {
+  file_path: string;
+  content: string;
+  branch?: string | null;
+  commit_message?: string | null;
+  encoding?: string;
+}
+
+export interface GitlabProjectTag {
+  name: string;
+  target?: string | null;
+  message?: string | null;
+  created_at?: string | null;
+}
+
+export interface GitlabProjectTagIn {
+  tag_name: string;
+  ref?: string | null;
+  message?: string | null;
+}
+
+export interface GitlabProjectSyncResult {
+  id: number;
+  status_flag: number;
+  status_text: string | null;
+  external_id: string | null;
+  web_url: string | null;
+  default_branch: string | null;
+  gitlab_visibility: string | null;
+  last_synced_at: string | null;
+}
+
+export interface GitlabProjectShareIn {
+  team_id: number;
+}
+
+export interface ComponentPreset {
+  key: string;
+  name: string;
+  description: string;
+  inputs_schema: Record<string, unknown>;
+}
+
+export interface ComponentPushIn {
+  content: string;
+  file_path?: string | null;
+  commit_message?: string | null;
+  tag_name?: string | null;
+}
+
+export interface ComponentPullOut {
+  file_path: string;
+  content: string;
+  ref: string | null;
+}
+
+export interface PipelinePushCiIn {
+  commit_message?: string | null;
+  extra_yaml?: string | null;
+}
+
 // ──── GitLab Component Types ──────────────────────────────────────────────
 
 export interface GitLabComponent {
@@ -427,23 +566,27 @@ export interface GitLabComponent {
   is_enabled: boolean;
   created_at: string;
   updated_at: string;
+  gitlab_project_id?: number | null;
+  gitlab_project?: GitlabProject | null;
 }
 
 export interface GitLabComponentCreate {
   name: string;
-  description?: string;
-  provider_id: number;
-  project_path: string;
+  description?: string | null;
+  provider_id?: number | null;
+  project_path?: string | null;
+  gitlab_project_id?: number | null;
   component_path: string;
-  version?: string;
-  inputs_schema?: Record<string, unknown>;
+  version?: string | null;
+  inputs_schema?: Record<string, unknown> | null;
 }
 
 export interface GitLabComponentUpdate {
   name?: string;
   description?: string | null;
-  provider_id?: number;
-  project_path?: string;
+  provider_id?: number | null;
+  project_path?: string | null;
+  gitlab_project_id?: number | null;
   component_path?: string;
   version?: string | null;
   inputs_schema?: Record<string, unknown> | null;
@@ -1037,6 +1180,7 @@ export interface PipelineConfig {
   name: string;
   description: string | null;
   provider_id: number | null;
+  gitlab_project_id?: number | null;
   ref: string | null;
   default_variables: Record<string, unknown> | null;
   is_default: boolean;
@@ -1045,12 +1189,14 @@ export interface PipelineConfig {
   updated_at: string;
   components: PipelineConfigComponent[];
   provider?: ResourceProvider | null;
+  gitlab_project?: GitlabProject | null;
 }
 
 export interface PipelineConfigCreate {
   name: string;
   description?: string | null;
   provider_id?: number | null;
+  gitlab_project_id?: number | null;
   ref?: string | null;
   default_variables?: Record<string, unknown> | null;
   is_default?: boolean | null;
@@ -1061,6 +1207,7 @@ export interface PipelineConfigCreate {
 export interface PipelineConfigUpdate {
   description?: string | null;
   provider_id?: number | null;
+  gitlab_project_id?: number | null;
   ref?: string | null;
   default_variables?: Record<string, unknown> | null;
   is_default?: boolean | null;

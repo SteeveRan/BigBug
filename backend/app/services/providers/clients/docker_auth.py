@@ -20,9 +20,7 @@ import httpx
 # TTL for cached bearer tokens, in seconds.
 _TOKEN_TTL_SECONDS = 300
 
-_CHALLENGE_PARAM_RE = re.compile(
-    r'(realm|service|scope)\s*=\s*"([^"]*)"', re.IGNORECASE
-)
+_CHALLENGE_PARAM_RE = re.compile(r'(realm|service|scope)\s*=\s*"([^"]*)"', re.IGNORECASE)
 
 
 class TokenCache:

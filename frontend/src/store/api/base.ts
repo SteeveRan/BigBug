@@ -72,6 +72,7 @@ export const api = createApi({
     'OIDCConfig',
     'Pipeline',
     'Component',
+    'GitlabProject',
     'AuditLog',
     'SourceGroup',
     'SourceRepository',

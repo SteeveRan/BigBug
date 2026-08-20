@@ -19,11 +19,20 @@ import {
   Popconfirm,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, EditOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined,
+  EditOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  CloudUploadOutlined,
+  PlayCircleOutlined,
+} from '@ant-design/icons';
 import {
   useGetPipelineConfigsQuery,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
+  usePushPipelineCiMutation,
+  useRunPipelineConfigMutation,
 } from '../../../store/api';
 import type { PipelineConfig } from '../../../types';
 import { PermissionGate } from '../../../components/PermissionGate';
@@ -41,6 +50,8 @@ const PipelineConfigsPage = () => {
   const { data: configs = [], isLoading, isError } = useGetPipelineConfigsQuery();
   const [deleteConfig] = useDeletePipelineConfigMutation();
   const [duplicateConfig] = useDuplicatePipelineConfigMutation();
+  const [pushCi] = usePushPipelineCiMutation();
+  const [runConfig] = useRunPipelineConfigMutation();
 
   // Filter by search
   const filteredConfigs = useMemo(() => {
@@ -67,6 +78,26 @@ const PipelineConfigsPage = () => {
       message.success(`Duplicated as "${newName}"`);
     } catch {
       message.error('Failed to duplicate pipeline configuration');
+    }
+  };
+
+  const handlePushCi = async (pipeline: PipelineConfig) => {
+    try {
+      await pushCi({ id: pipeline.id, data: {} }).unwrap();
+      message.success(`Pushed .gitlab-ci.yml for "${pipeline.name}"`);
+    } catch (err) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail;
+      message.error(detail ?? 'Failed to push .gitlab-ci.yml');
+    }
+  };
+
+  const handleRun = async (pipeline: PipelineConfig) => {
+    try {
+      await runConfig(pipeline.id).unwrap();
+      message.success(`Pipeline "${pipeline.name}" triggered`);
+    } catch (err) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail;
+      message.error(detail ?? 'Failed to run pipeline');
     }
   };
 
@@ -137,6 +168,22 @@ const PipelineConfigsPage = () => {
       render: (_: unknown, record: PipelineConfig) => (
         <Space size={4}>
           <PermissionGate permission="pipelines:write">
+            <Tooltip title="Push .gitlab-ci.yml">
+              <Button
+                size="small"
+                type="text"
+                icon={<CloudUploadOutlined />}
+                onClick={() => handlePushCi(record)}
+              />
+            </Tooltip>
+            <Tooltip title="Run">
+              <Button
+                size="small"
+                type="text"
+                icon={<PlayCircleOutlined />}
+                onClick={() => handleRun(record)}
+              />
+            </Tooltip>
             <Tooltip title="Edit">
               <Button
                 size="small"

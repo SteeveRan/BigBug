@@ -7,10 +7,17 @@
 This directory contains everything needed to spin up a complete BigBug development environment from scratch:
 
 - **Docker Compose** — infrastructure services (Keycloak, GitLab, GitLab Runner)
-- **OpenTofu modules** — declarative Keycloak, Harbor, and GitLab setup
+- **OpenTofu modules** — declarative Keycloak, Harbor, and GitLab **base setup** (groups, users, projects, tokens, memberships)
 - **Root OpenTofu config** — single `tofu apply` orchestrating all modules
 - **Harbor in kind** — local OCI registry for testing
 - **Automation scripts** — one-command environment initialization
+
+> **Provisioning GitLab CI/CD Components и пайплайнов теперь делает само приложение**
+> через API (`/api/gitlab-projects`, `/api/components/presets`, `/api/pipelines/configs/*/push-ci`),
+> а не bash/Terraform. Terraform остаётся только для **базовой настройки** GitLab
+> (groups, users, projects, tokens, memberships) + Harbor + Keycloak. Реальные пресеты
+> компонентов вшиты в [`backend/app/services/gitlab_projects/presets.py`](../../backend/app/services/gitlab_projects/presets.py),
+> а YAML-примеры лежат в [`infrastructure/gitlab-components/examples/`](gitlab-components/examples/).
 
 ## Prerequisites
 
@@ -64,9 +71,10 @@ After completion, access:
 
 ```
 infrastructure/
-├── terraform/           # Root OpenTofu module + sub-modules
+├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
 ├── harbor/              # Harbor deployment in kind
-├── gitlab-components/   # GitLab CI/CD component templates
+├── gitlab-components/
+│   └── examples/        # GitLab CI/CD component templates (examples only — not used by the app)
 ├── docker-compose.yml   # Infrastructure services (keycloak, gitlab, gitlab-runner)
 ├── init.sh              # Full initialization script
 └── update-env.sh        # Update .env from OpenTofu outputs

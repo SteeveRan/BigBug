@@ -140,6 +140,23 @@
 
 Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
 
+## Спроектированные права (gitlab-project-management, 2026-08-20)
+
+Спроектированы в [`plans/gitlab-project-management-spec.md`](../plans/gitlab-project-management-spec.md) §4. **Ещё не сидятся в БД и не проверяются в коде** — статус изменится на ✅ после реализации спеки (миграция №3 из её §8). Разделение владельцев: «проект компонентов» требует `components:push`, «проект пайплайнов» — `pipelines:write`; владение строкой — owner/team/`gitlab_projects:read_all`, гранулярно — scope `gitlab_project`.
+
+| Permission | Назначение | Admin | Operator | Viewer | Статус |
+|---|---|:--:|:--:|:--:|---|
+| `gitlab_projects:read` | list/get проектов (свои + team + public) | ✅ | ✅ | ✅ | спроектировано |
+| `gitlab_projects:write` | создание/обновление проектов и заливка файлов (плюс право типа) | ✅ | ✅ | | спроектировано |
+| `gitlab_projects:delete` | soft/hard delete | ✅ | | | спроектировано |
+| `gitlab_projects:read_all` | доступ ко всем private-проектам (админ-маркер) | ✅ | | | спроектировано |
+| `components:read` | list/get компонентов | ✅ | ✅ | ✅ | спроектировано |
+| `components:write` | создание/изменение регистрации компонента | ✅ | ✅ | | спроектировано |
+| `components:delete` | удаление регистрации | ✅ | | | спроектировано |
+| `components:push` | заливка содержимого компонента в GitLab-проект (files+tag) | ✅ | ✅ | | спроектировано |
+
+Новое scope-правило: `require_scope_permission(permission, "gitlab_project")` по таблице `role_scope_gitlab_projects` (планируемая миграция №1 спеки).
+
 ## Легаси-права (удалены в фазе 5)
 
 Эти permissions были созданы предыдущими миграциями и удалены чистящей миграцией фазы 5 ([`20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py`](backend/alembic/versions/20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py)). Физически отсутствуют в БД после `alembic upgrade head`.

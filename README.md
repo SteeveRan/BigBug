@@ -178,7 +178,7 @@ BigBug/
 │   ├── docker-compose.yml   # Infrastructure services (postgres-keycloak, Keycloak, GitLab)
 │   ├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
 │   ├── harbor/              # Harbor deployment in kind
-│   └── gitlab-components/   # GitLab CI/CD component templates
+│   └── gitlab-components/   # GitLab CI/CD component examples (see backend presets.py)
 ├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
 ├── gitlab-ci/               # CI/CD pipeline templates (legacy)
 ├── plans/                  # Architecture documentation

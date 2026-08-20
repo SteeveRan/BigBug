@@ -10,6 +10,7 @@ from app.models.github_org import GithubOrg
 from app.models.github_project import GithubProject
 from app.models.github_release import GithubRelease
 from app.models.gitlab_component import GitLabComponent
+from app.models.gitlab_project import GitlabProject, GitlabProjectType, ProjectVisibility
 from app.models.gold_image import GoldImage
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
@@ -35,6 +36,7 @@ from app.models.resource_provider import (
 from app.models.role import Role, UserRole
 from app.models.role_scope import (
     RoleScopeCredential,
+    RoleScopeGitlabProject,
     RoleScopeProvider,
     RoleScopeSourceGroup,
     RoleScopeSyncGroup,
@@ -61,6 +63,9 @@ __all__ = [
     "GithubProject",
     "GithubRelease",
     "GitLabComponent",
+    "GitlabProject",
+    "GitlabProjectType",
+    "ProjectVisibility",
     "Mirror",
     "MirrorLog",
     "MirrorLogType",
@@ -78,6 +83,7 @@ __all__ = [
     "ProviderVisibility",
     "ProviderCapability",
     "RoleScopeCredential",
+    "RoleScopeGitlabProject",
     "RoleScopeProvider",
     "RoleScopeSourceGroup",
     "RoleScopeSyncGroup",

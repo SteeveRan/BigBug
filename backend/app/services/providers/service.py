@@ -440,6 +440,7 @@ class ProviderService:
         docker_image_sources (source and target side) and helm_chart_sources.
         """
         from app.models.docker_image_source import DockerImageSource
+        from app.models.gitlab_project import GitlabProject
         from app.models.helm_chart_source import HelmChartSource
         from app.models.pipeline import Pipeline
         from app.models.source_repository import SourceRepository
@@ -447,7 +448,8 @@ class ProviderService:
         usage: list[dict[str, int]] = []
 
         # (resource, table, column) — soft-deleted rows are excluded where the
-        # model supports soft delete (pipelines, source_repositories).
+        # model supports soft delete (pipelines, source_repositories,
+        # gitlab_projects).
         checks: list[tuple[str, object, object]] = [
             ("pipelines", Pipeline, Pipeline.provider_id),
             ("source_repositories", SourceRepository, SourceRepository.provider_id),
@@ -458,6 +460,7 @@ class ProviderService:
                 DockerImageSource.target_provider_id,
             ),
             ("helm_chart_sources", HelmChartSource, HelmChartSource.provider_id),
+            ("gitlab_projects", GitlabProject, GitlabProject.provider_id),
         ]
 
         for resource, model, column in checks:

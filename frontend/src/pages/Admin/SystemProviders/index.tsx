@@ -95,21 +95,14 @@ export function SystemProvidersPage() {
     skip: !hasPermission('users:read'),
   });
 
-  const {
-    data: rawProviders = [],
-    isLoading,
-    isError,
-    refetch,
-  } = useGetProvidersQuery(undefined);
+  const { data: rawProviders = [], isLoading, isError, refetch } = useGetProvidersQuery(undefined);
 
   // Admin page surfaces both platform providers (category=system) and the
   // default providers (`is_default`) configured by the seed/admin. Ordinary
   // public/private providers stay on the general Settings→Providers grid.
   const providers = useMemo(
     () =>
-      (rawProviders as ResourceProvider[]).filter(
-        (p) => p.category === 'system' || p.is_default
-      ),
+      (rawProviders as ResourceProvider[]).filter((p) => p.category === 'system' || p.is_default),
     [rawProviders]
   );
 
@@ -352,7 +345,9 @@ export function SystemProvidersPage() {
             rowKey="id"
             pagination={{ pageSize: 10 }}
             scroll={{ x: scrollX }}
-            locale={{ emptyText: <Empty description="No system or default providers configured" /> }}
+            locale={{
+              emptyText: <Empty description="No system or default providers configured" />,
+            }}
           />
         </Card>
       )}

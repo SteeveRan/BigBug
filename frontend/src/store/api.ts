@@ -28,6 +28,7 @@ import './api/audit-logs';
 import './api/providers';
 import './api/teams';
 import './api/credentials';
+import './api/gitlab-projects';
 
 // ═════════════════════════════════════════════════════════════════════════
 // Реэкспорт ВСЕХ хуков — чтобы потребители (страницы, компоненты, тесты)
@@ -157,16 +158,39 @@ export {
   useUpdatePipelineConfigMutation,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
+  usePushPipelineCiMutation,
+  useRunPipelineConfigMutation,
 } from './api/pipeline-configs';
 
 // GitLab Components
 export {
   useGetComponentsQuery,
+  useGetComponentPresetsQuery,
   useCreateComponentMutation,
   useUpdateComponentMutation,
   useDeleteComponentMutation,
+  usePushComponentMutation,
+  usePullComponentMutation,
   useRunComponentMutation,
 } from './api/components';
+
+// GitLab Projects
+export {
+  useGetGitlabProjectsQuery,
+  useGetGitlabProjectQuery,
+  useCreateGitlabProjectMutation,
+  useUpdateGitlabProjectMutation,
+  useDeleteGitlabProjectMutation,
+  useImportGitlabProjectMutation,
+  useSyncGitlabProjectMutation,
+  useGetProjectFilesQuery,
+  usePushProjectFileMutation,
+  useDeleteProjectFileMutation,
+  useGetProjectTagsQuery,
+  useCreateProjectTagMutation,
+  useShareGitlabProjectMutation,
+  useUnshareGitlabProjectMutation,
+} from './api/gitlab-projects';
 
 // Git Mirroring V2 — Source Groups
 export {

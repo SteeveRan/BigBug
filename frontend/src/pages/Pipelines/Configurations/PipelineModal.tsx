@@ -11,8 +11,14 @@ import {
   useUpdatePipelineConfigMutation,
   useGetProvidersQuery,
   useGetComponentsQuery,
+  useGetGitlabProjectsQuery,
 } from '../../../store/api';
-import type { PipelineConfig, PipelineConfigCreate, PipelineConfigUpdate } from '../../../types';
+import type {
+  GitlabProject,
+  PipelineConfig,
+  PipelineConfigCreate,
+  PipelineConfigUpdate,
+} from '../../../types';
 
 interface PipelineModalProps {
   open: boolean;
@@ -24,6 +30,7 @@ interface FormValues {
   name: string;
   description?: string;
   provider_id?: number | null;
+  gitlab_project_id?: number | null;
   ref?: string;
   is_default: boolean;
   is_enabled: boolean;
@@ -44,6 +51,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
     direction: 'internal',
   });
   const { data: components = [] } = useGetComponentsQuery();
+  const { data: projects = [] } = useGetGitlabProjectsQuery({ project_type: 'pipelines' });
   const isLoading = isCreating || isUpdating;
 
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -55,6 +63,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           name: pipeline.name,
           description: pipeline.description ?? undefined,
           provider_id: pipeline.provider_id ?? undefined,
+          gitlab_project_id: pipeline.gitlab_project_id ?? undefined,
           ref: pipeline.ref ?? 'main',
           is_default: pipeline.is_default,
           is_enabled: pipeline.is_enabled,
@@ -106,6 +115,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
         const data: PipelineConfigUpdate = {
           description: values.description ?? null,
           provider_id: values.provider_id ?? null,
+          gitlab_project_id: values.gitlab_project_id ?? null,
           ref: values.ref ?? null,
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
@@ -123,6 +133,7 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
           name: values.name,
           description: values.description ?? null,
           provider_id: values.provider_id ?? null,
+          gitlab_project_id: values.gitlab_project_id ?? null,
           ref: values.ref ?? 'main',
           default_variables: defaultVariables ?? null,
           is_default: values.is_default ?? null,
@@ -144,6 +155,11 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
 
   const providerOptions = providers.map((p) => ({
     label: p.label,
+    value: p.id,
+  }));
+
+  const projectOptions = (projects as GitlabProject[]).map((p) => ({
+    label: p.full_path,
     value: p.id,
   }));
 
@@ -178,6 +194,10 @@ export function PipelineModal({ open, onClose, pipeline }: PipelineModalProps) {
             placeholder="Optional description of this pipeline configuration"
             rows={2}
           />
+        </Form.Item>
+
+        <Form.Item name="gitlab_project_id" label="GitLab Project (pipelines)">
+          <Select placeholder="Select pipelines project" allowClear options={projectOptions} />
         </Form.Item>
 
         <Form.Item name="provider_id" label="GitLab Provider">

@@ -43,6 +43,7 @@ ignore = []
 "alembic/**" = ["INP001"]           # alembic файлы без __init__.py
 "app/api/**" = ["B008"]             # FastAPI Depends() в аргументах — стандартный паттерн DI
 "app/core/rbac.py" = ["B008"]      # FastAPI Depends() в зависимостях RBAC
+"app/services/gitlab_projects/presets.py" = ["E501"]  # встроенные YAML-константы
 
 [format]
 # Настройки форматирования (используется ruff format)

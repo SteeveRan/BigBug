@@ -36,6 +36,9 @@ class Role(Base):
     provider_scopes = relationship(
         "RoleScopeProvider", back_populates="role", cascade="all, delete-orphan"
     )
+    gitlab_project_scopes = relationship(
+        "RoleScopeGitlabProject", back_populates="role", cascade="all, delete-orphan"
+    )
 
 
 class UserRole(Base):

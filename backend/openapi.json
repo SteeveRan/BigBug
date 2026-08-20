@@ -604,6 +604,112 @@
         "title": "CheckDuplicatesRequest",
         "type": "object"
       },
+      "ComponentPresetOut": {
+        "description": "Serialised component template metadata for the UI preset selector.",
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "inputs_schema": {
+            "additionalProperties": true,
+            "title": "Inputs Schema",
+            "type": "object"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "description"
+        ],
+        "title": "ComponentPresetOut",
+        "type": "object"
+      },
+      "ComponentPullOut": {
+        "description": "Result of pulling a component's current content from GitLab.",
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          }
+        },
+        "required": [
+          "file_path",
+          "content"
+        ],
+        "title": "ComponentPullOut",
+        "type": "object"
+      },
+      "ComponentPushIn": {
+        "description": "Body for pushing/updating a component's content in GitLab.",
+        "properties": {
+          "commit_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Message"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "file_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Path"
+          },
+          "tag_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tag Name"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ComponentPushIn",
+        "type": "object"
+      },
       "ComponentRunRequest": {
         "description": "Payload for running a GitLab CI/CD component pipeline.",
         "properties": {
@@ -2163,7 +2269,7 @@
         "type": "object"
       },
       "GitLabComponentCreate": {
-        "description": "Payload for registering a new GitLab CI/CD component.",
+        "description": "Payload for registering a new GitLab CI/CD component.\n\nEither ``gitlab_project_id`` (components project — preferred) or the legacy\n``provider_id`` + ``project_path`` pair is required; when the project is\ngiven, the provider and path are derived from it.",
         "properties": {
           "component_path": {
             "maxLength": 512,
@@ -2180,6 +2286,18 @@
               }
             ],
             "title": "Description"
+          },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "components gitlab project this component is hosted in",
+            "title": "Gitlab Project Id"
           },
           "inputs_schema": {
             "anyOf": [
@@ -2199,13 +2317,27 @@
             "type": "string"
           },
           "project_path": {
-            "maxLength": 512,
-            "title": "Project Path",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Path"
           },
           "provider_id": {
-            "title": "Provider Id",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
           },
           "version": {
             "anyOf": [
@@ -2222,8 +2354,6 @@
         },
         "required": [
           "name",
-          "provider_id",
-          "project_path",
           "component_path"
         ],
         "title": "GitLabComponentCreate",
@@ -2251,6 +2381,17 @@
               }
             ],
             "title": "Description"
+          },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Id"
           },
           "id": {
             "title": "Id",
@@ -2342,6 +2483,17 @@
               }
             ],
             "title": "Description"
+          },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Id"
           },
           "inputs_schema": {
             "anyOf": [
@@ -2827,6 +2979,681 @@
           "published_at"
         ],
         "title": "GithubReleaseOut",
+        "type": "object"
+      },
+      "GitlabProjectCreate": {
+        "description": "Payload to create a GitLab project via the GitLab API.",
+        "properties": {
+          "create_namespace": {
+            "default": false,
+            "title": "Create Namespace",
+            "type": "boolean"
+          },
+          "default_branch": {
+            "default": "main",
+            "maxLength": 255,
+            "title": "Default Branch",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "gitlab_visibility": {
+            "default": "private",
+            "maxLength": 32,
+            "title": "Gitlab Visibility",
+            "type": "string"
+          },
+          "initialize_with_readme": {
+            "default": true,
+            "title": "Initialize With Readme",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Display name in GitLab",
+            "maxLength": 255,
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace_path": {
+            "description": "Group or personal namespace",
+            "maxLength": 500,
+            "title": "Namespace Path",
+            "type": "string"
+          },
+          "path": {
+            "description": "Project slug",
+            "maxLength": 255,
+            "title": "Path",
+            "type": "string"
+          },
+          "project_type": {
+            "$ref": "#/components/schemas/GitlabProjectType"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "integer"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ProjectVisibility",
+            "default": "owner"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "namespace_path",
+          "project_type",
+          "provider_id"
+        ],
+        "title": "GitlabProjectCreate",
+        "type": "object"
+      },
+      "GitlabProjectFileIn": {
+        "description": "Body for upserting a file into a GitLab project.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "commit_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Message"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "encoding": {
+            "default": "text",
+            "description": "text or base64",
+            "title": "Encoding",
+            "type": "string"
+          },
+          "file_path": {
+            "maxLength": 1024,
+            "title": "File Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_path",
+          "content"
+        ],
+        "title": "GitlabProjectFileIn",
+        "type": "object"
+      },
+      "GitlabProjectFileOut": {
+        "description": "A single repository file/tree entry.",
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "GitlabProjectFileOut",
+        "type": "object"
+      },
+      "GitlabProjectImport": {
+        "description": "Register an existing GitLab project (no mutations in GitLab).",
+        "properties": {
+          "full_path": {
+            "maxLength": 512,
+            "title": "Full Path",
+            "type": "string"
+          },
+          "project_type": {
+            "$ref": "#/components/schemas/GitlabProjectType"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "integer"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ProjectVisibility",
+            "default": "owner"
+          }
+        },
+        "required": [
+          "provider_id",
+          "full_path",
+          "project_type"
+        ],
+        "title": "GitlabProjectImport",
+        "type": "object"
+      },
+      "GitlabProjectOut": {
+        "description": "Public representation of a GitlabProject.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_branch": {
+            "title": "Default Branch",
+            "type": "string"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "full_path": {
+            "title": "Full Path",
+            "type": "string"
+          },
+          "gitlab_visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Visibility"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_deleted": {
+            "title": "Is Deleted",
+            "type": "boolean"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace_path": {
+            "title": "Namespace Path",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner User Id"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "project_type": {
+            "$ref": "#/components/schemas/GitlabProjectType"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "integer"
+          },
+          "status_flag": {
+            "title": "Status Flag",
+            "type": "integer"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ProjectVisibility"
+          },
+          "web_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Url"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path",
+          "namespace_path",
+          "full_path",
+          "project_type",
+          "visibility",
+          "provider_id",
+          "default_branch",
+          "status_flag",
+          "is_deleted",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "GitlabProjectOut",
+        "type": "object"
+      },
+      "GitlabProjectShareIn": {
+        "description": "Body for POST /api/gitlab-projects/{id}/share.",
+        "properties": {
+          "team_id": {
+            "title": "Team Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "team_id"
+        ],
+        "title": "GitlabProjectShareIn",
+        "type": "object"
+      },
+      "GitlabProjectSyncResult": {
+        "description": "Result of a metadata sync from GitLab.",
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "gitlab_visibility": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Visibility"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "status_flag": {
+            "title": "Status Flag",
+            "type": "integer"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          },
+          "web_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Url"
+          }
+        },
+        "required": [
+          "id",
+          "status_flag"
+        ],
+        "title": "GitlabProjectSyncResult",
+        "type": "object"
+      },
+      "GitlabProjectTagIn": {
+        "description": "Body for creating a GitLab tag (component version).",
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "tag_name": {
+            "maxLength": 255,
+            "title": "Tag Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag_name"
+        ],
+        "title": "GitlabProjectTagIn",
+        "type": "object"
+      },
+      "GitlabProjectTagOut": {
+        "description": "A single GitLab tag.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "GitlabProjectTagOut",
+        "type": "object"
+      },
+      "GitlabProjectType": {
+        "enum": [
+          "components",
+          "pipelines"
+        ],
+        "title": "GitlabProjectType",
+        "type": "string"
+      },
+      "GitlabProjectUpdate": {
+        "description": "Partial update — only supplied fields are applied.",
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "gitlab_visibility": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Visibility"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectVisibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "GitlabProjectUpdate",
         "type": "object"
       },
       "GoldImageOut": {
@@ -5100,6 +5927,18 @@
             ],
             "title": "Description"
           },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "pipelines gitlab project this config is bound to",
+            "title": "Gitlab Project Id"
+          },
           "is_default": {
             "anyOf": [
               {
@@ -5222,6 +6061,17 @@
             ],
             "title": "Description"
           },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Id"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -5290,6 +6140,35 @@
           "updated_at"
         ],
         "title": "PipelineOut",
+        "type": "object"
+      },
+      "PipelinePushCiIn": {
+        "description": "Body for generating and pushing ``.gitlab-ci.yml`` from a Pipeline config.",
+        "properties": {
+          "commit_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Message"
+          },
+          "extra_yaml": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Yaml"
+          }
+        },
+        "title": "PipelinePushCiIn",
         "type": "object"
       },
       "PipelineRunCreate": {
@@ -5551,6 +6430,17 @@
             ],
             "title": "Description"
           },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Id"
+          },
           "is_default": {
             "anyOf": [
               {
@@ -5600,6 +6490,15 @@
         },
         "title": "PipelineUpdate",
         "type": "object"
+      },
+      "ProjectVisibility": {
+        "enum": [
+          "owner",
+          "team",
+          "public"
+        ],
+        "title": "ProjectVisibility",
+        "type": "string"
       },
       "ProviderActionIn": {
         "description": "Optional parameters for a domain action.",
@@ -11695,8 +12594,26 @@
     },
     "/api/components": {
       "get": {
-        "description": "List all registered GitLab CI/CD components.",
+        "description": "List registered GitLab CI/CD components, optionally filtered by project.",
         "operationId": "list_components_api_components_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gitlab_project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gitlab Project Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -11711,6 +12628,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -11764,6 +12691,37 @@
           }
         ],
         "summary": "Create Component",
+        "tags": [
+          "components"
+        ]
+      }
+    },
+    "/api/components/presets": {
+      "get": {
+        "description": "List the embedded component template presets (no GitLab call).",
+        "operationId": "list_component_presets_api_components_presets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComponentPresetOut"
+                  },
+                  "title": "Response List Component Presets Api Components Presets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Component Presets",
         "tags": [
           "components"
         ]
@@ -11907,6 +12865,112 @@
           }
         ],
         "summary": "Update Component",
+        "tags": [
+          "components"
+        ]
+      }
+    },
+    "/api/components/{component_id}/pull": {
+      "post": {
+        "description": "Pull a component's current content from GitLab for UI editing.",
+        "operationId": "pull_component_api_components__component_id__pull_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component_id",
+            "required": true,
+            "schema": {
+              "title": "Component Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentPullOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Pull Component",
+        "tags": [
+          "components"
+        ]
+      }
+    },
+    "/api/components/{component_id}/push": {
+      "post": {
+        "description": "Push/update a component's content in its GitLab project (files + tag).",
+        "operationId": "push_component_api_components__component_id__push_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "component_id",
+            "required": true,
+            "schema": {
+              "title": "Component Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComponentPushIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitLabComponentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Push Component",
         "tags": [
           "components"
         ]
@@ -13083,6 +14147,824 @@
         "summary": "Batch Delete Tags",
         "tags": [
           "docker-images"
+        ]
+      }
+    },
+    "/api/gitlab-projects": {
+      "get": {
+        "operationId": "list_gitlab_projects_api_gitlab_projects_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "project_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GitlabProjectType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Id"
+            }
+          },
+          {
+            "description": "`me` to filter to caller's projects",
+            "in": "query",
+            "name": "owner",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`me` to filter to caller's projects",
+              "title": "Owner"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GitlabProjectOut"
+                  },
+                  "title": "Response List Gitlab Projects Api Gitlab Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Gitlab Projects",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "post": {
+        "operationId": "create_gitlab_project_api_gitlab_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/import": {
+      "post": {
+        "operationId": "import_gitlab_project_api_gitlab_projects_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}": {
+      "delete": {
+        "operationId": "delete_gitlab_project_api_gitlab_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hard",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Hard",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "get": {
+        "operationId": "get_gitlab_project_api_gitlab_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "patch": {
+        "operationId": "update_gitlab_project_api_gitlab_projects__project_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}/files": {
+      "delete": {
+        "operationId": "delete_gitlab_project_file_api_gitlab_projects__project_id__files_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Repository file path",
+            "in": "query",
+            "name": "file_path",
+            "required": true,
+            "schema": {
+              "description": "Repository file path",
+              "title": "File Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "branch",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Branch"
+            }
+          },
+          {
+            "in": "query",
+            "name": "commit_message",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Commit Message"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Gitlab Project File",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "get": {
+        "operationId": "list_gitlab_project_files_api_gitlab_projects__project_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ref",
+            "required": false,
+            "schema": {
+              "default": "main",
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GitlabProjectFileOut"
+                  },
+                  "title": "Response List Gitlab Project Files Api Gitlab Projects  Project Id  Files Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Gitlab Project Files",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "post": {
+        "operationId": "upsert_gitlab_project_file_api_gitlab_projects__project_id__files_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectFileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectFileOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upsert Gitlab Project File",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}/share": {
+      "post": {
+        "operationId": "share_gitlab_project_api_gitlab_projects__project_id__share_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectShareIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Share Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}/sync": {
+      "post": {
+        "operationId": "sync_gitlab_project_api_gitlab_projects__project_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectSyncResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Gitlab Project",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}/tags": {
+      "get": {
+        "operationId": "list_gitlab_project_tags_api_gitlab_projects__project_id__tags_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GitlabProjectTagOut"
+                  },
+                  "title": "Response List Gitlab Project Tags Api Gitlab Projects  Project Id  Tags Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Gitlab Project Tags",
+        "tags": [
+          "gitlab-projects"
+        ]
+      },
+      "post": {
+        "operationId": "create_gitlab_project_tag_api_gitlab_projects__project_id__tags_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitlabProjectTagIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectTagOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Gitlab Project Tag",
+        "tags": [
+          "gitlab-projects"
+        ]
+      }
+    },
+    "/api/gitlab-projects/{project_id}/unshare": {
+      "post": {
+        "operationId": "unshare_gitlab_project_api_gitlab_projects__project_id__unshare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitlabProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Unshare Gitlab Project",
+        "tags": [
+          "gitlab-projects"
         ]
       }
     },
@@ -16745,6 +18627,62 @@
         ]
       }
     },
+    "/api/pipelines/configs/{pipeline_id}/push-ci": {
+      "post": {
+        "description": "Generate ``.gitlab-ci.yml`` from a Pipeline config and push it to its\nbound pipelines project (host-validated).",
+        "operationId": "push_pipeline_ci_api_pipelines_configs__pipeline_id__push_ci_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pipeline_id",
+            "required": true,
+            "schema": {
+              "title": "Pipeline Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PipelinePushCiIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Push Pipeline Ci",
+        "tags": [
+          "pipelines"
+        ]
+      }
+    },
     "/api/pipelines/configs/{pipeline_id}/restore": {
       "post": {
         "description": "Restore a soft-deleted Pipeline configuration.",
@@ -16788,6 +18726,54 @@
           }
         ],
         "summary": "Restore Pipeline Config",
+        "tags": [
+          "pipelines"
+        ]
+      }
+    },
+    "/api/pipelines/configs/{pipeline_id}/run": {
+      "post": {
+        "description": "Trigger a Pipeline config in its bound gitlab project (default ref/vars).",
+        "operationId": "run_pipeline_config_api_pipelines_configs__pipeline_id__run_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pipeline_id",
+            "required": true,
+            "schema": {
+              "title": "Pipeline Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelineRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Run Pipeline Config",
         "tags": [
           "pipelines"
         ]

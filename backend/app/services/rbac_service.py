@@ -532,6 +532,9 @@ class RBACService:
                 selectinload(User.user_roles)
                 .selectinload(UserRole.role)
                 .selectinload(Role.provider_scopes),
+                selectinload(User.user_roles)
+                .selectinload(UserRole.role)
+                .selectinload(Role.gitlab_project_scopes),
             )
             .where(User.id == user_id)
         )
@@ -551,12 +554,14 @@ class RBACService:
                 "sync_group_ids": None,
                 "team_ids": None,
                 "provider_ids": None,
+                "gitlab_project_ids": None,
             }
 
         source_group_ids: set[int] = set()
         credential_ids: set[int] = set()
         sync_group_ids: set[int] = set()
         provider_ids: set[int] = set()
+        gitlab_project_ids: set[int] = set()
 
         for user_role in user.user_roles:
             role = user_role.role
@@ -575,6 +580,9 @@ class RBACService:
             for scope in role.provider_scopes:
                 provider_ids.add(scope.provider_id)
 
+            for scope in role.gitlab_project_scopes:
+                gitlab_project_ids.add(scope.gitlab_project_id)
+
         # team_ids = teams where the user is a member (12.2.3)
         team_result = await self.db.execute(
             select(TeamMember.team_id).where(TeamMember.user_id == user_id)
@@ -587,6 +595,7 @@ class RBACService:
             "sync_group_ids": sync_group_ids,
             "team_ids": team_ids,
             "provider_ids": provider_ids,
+            "gitlab_project_ids": gitlab_project_ids,
         }
 
     async def check_scope_access(

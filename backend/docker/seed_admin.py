@@ -77,6 +77,11 @@ ADMIN_PERMISSIONS = [
     "providers:read_all", "providers_system:write", "providers:share",
     # Teams
     "teams:read", "teams:write", "teams:manage_members",
+    # GitLab Projects
+    "gitlab_projects:read", "gitlab_projects:write", "gitlab_projects:delete",
+    "gitlab_projects:read_all",
+    # Components
+    "components:read", "components:write", "components:delete", "components:push",
 ]
 
 # Operator: read + write actions (no delete), no user/role/oidc/teams management
@@ -97,6 +102,10 @@ OPERATOR_PERMISSIONS = [
     "providers:read", "providers:write", "providers:use", "providers:share",
     # Teams
     "teams:read",
+    # GitLab Projects
+    "gitlab_projects:read", "gitlab_projects:write",
+    # Components
+    "components:read", "components:write", "components:push",
 ]
 
 # Viewer: read-only across all resources
@@ -120,6 +129,10 @@ VIEWER_PERMISSIONS = [
     "providers:read",
     # Teams
     "teams:read",
+    # GitLab Projects
+    "gitlab_projects:read",
+    # Components
+    "components:read",
 ]
 
 logger = logging.getLogger("seed_admin")

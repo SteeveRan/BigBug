@@ -94,10 +94,7 @@
 - **Keycloak**: Realm `bigbug`, 3 роли, OpenTofu модуль [`infrastructure/terraform/modules/keycloak/`](infrastructure/terraform/modules/keycloak/)
 - **GitLab**: OpenTofu модуль [`infrastructure/terraform/modules/gitlab/`](infrastructure/terraform/modules/gitlab/)
 - **Harbor**: Deployment в kind ([`infrastructure/harbor/`](infrastructure/harbor/)) + OpenTofu модуль [`infrastructure/terraform/modules/harbor/`](infrastructure/terraform/modules/harbor/)
-- **GitLab CI Templates** ([`infrastructure/gitlab-components/`](infrastructure/gitlab-components/)):
-  - `gold-image-template.yml` — build → sign (cosign) → notify
-  - `app-image-template.yml` — build → sign (cosign) → notify
-  - `mirror-template.yml`, `helm-sync-template.yml`, `docker-sync-template.yml`
+- **GitLab CI Templates** — рабочие пресеты вшиты в код ([`backend/app/services/gitlab_projects/presets.py`](backend/app/services/gitlab_projects/presets.py), отдаются через `GET /api/components/presets`). Исходные YAML сохранены как примеры в [`infrastructure/gitlab-components/examples/`](infrastructure/gitlab-components/examples/) (не используются приложением).
 
 ### Тесты
 

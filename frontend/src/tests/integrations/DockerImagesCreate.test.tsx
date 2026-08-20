@@ -118,9 +118,7 @@ describe('DockerImagesCreate', () => {
     await user.click(screen.getByRole('button', { name: /Add Image/ }));
     const dialog = within(screen.getByRole('dialog'));
     await user.type(
-      dialog.getByPlaceholderText(
-        'e.g. nginx:latest or quay.io/prometheus/node-exporter:latest'
-      ),
+      dialog.getByPlaceholderText('e.g. nginx:latest or quay.io/prometheus/node-exporter:latest'),
       'library/nginx:latest'
     );
     await user.click(dialog.getByRole('button', { name: 'Analyze' }));
@@ -173,8 +171,6 @@ describe('DockerImagesCreate', () => {
 
     const { dialog } = await openAndAnalyze();
 
-    expect(
-      await dialog.findByText(/No internal Harbor target configured/)
-    ).toBeInTheDocument();
+    expect(await dialog.findByText(/No internal Harbor target configured/)).toBeInTheDocument();
   });
 });

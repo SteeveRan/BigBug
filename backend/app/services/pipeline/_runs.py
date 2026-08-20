@@ -124,8 +124,10 @@ async def trigger_pipeline_from_config(
 
     ref = pipeline.ref or "main"
 
-    # Providers V3 (11.3.4): the platform GitLab is a resource_providers row.
-    provider = getattr(pipeline, "provider", None)
+    # Prefer the bound gitlab project's provider over the legacy pipeline
+    # provider (gitlab-project-management: runs use their project's provider).
+    project = getattr(pipeline, "gitlab_project", None)
+    provider = getattr(project, "provider", None) or getattr(pipeline, "provider", None)
     connection_id: dict[str, int] = {}
     if provider is not None:
         gl = _get_provider_gitlab_client(provider)
@@ -458,3 +460,30 @@ async def trigger_component(
     await db.commit()
     await db.refresh(run)
     return run
+
+
+async def run_pipeline_config(
+    db: AsyncSession,
+    pipeline_id: int,
+    user_id: int | None = None,
+) -> PipelineRun:
+    """Trigger a Pipeline config in its bound gitlab project (default ref/variables)."""
+    from app.services.pipeline._configs import get_pipeline_config
+
+    pipeline = await get_pipeline_config(db, pipeline_id)
+    if pipeline is None:
+        raise NotFoundError(f"Pipeline config with id={pipeline_id} not found")
+
+    project = getattr(pipeline, "gitlab_project", None)
+    if project is None or project.external_id is None:
+        raise BadRequestError(
+            f"Pipeline '{pipeline.name}' is not bound to a gitlab project with an external_id"
+        )
+
+    return await trigger_pipeline_from_config(
+        db,
+        pipeline,
+        gitlab_project_id=int(project.external_id),
+        mirror_variables=None,
+        user_id=user_id,
+    )

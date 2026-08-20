@@ -33,6 +33,12 @@ class GitLabComponent(Base):
     component_path = Column(String(512), nullable=False)
     version = Column(String(64), nullable=True)
     inputs_schema = Column(JSON, nullable=True)  # JSON Schema for component inputs
+    gitlab_project_id = Column(
+        Integer,
+        ForeignKey("gitlab_projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
@@ -43,6 +49,7 @@ class GitLabComponent(Base):
 
     # Relationships
     provider = relationship("ResourceProvider", foreign_keys=[provider_id])
+    gitlab_project = relationship("GitlabProject", back_populates="components")
     pipeline_components = relationship(
         "PipelineComponent", back_populates="component", cascade="all, delete-orphan"
     )

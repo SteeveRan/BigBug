@@ -31,8 +31,9 @@ from app.services.rbac_service import RBACService
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 SEED_ADMIN_PATH = BACKEND_DIR / "docker" / "seed_admin.py"
-SEED_MIGRATION_PATH = next(
-    (BACKEND_DIR / "alembic" / "versions").glob("*_seed_initial_data.py")
+SEED_MIGRATION_PATH = next((BACKEND_DIR / "alembic" / "versions").glob("*_seed_initial_data.py"))
+GITLAB_PROJECT_SEED_MIGRATION_PATH = next(
+    (BACKEND_DIR / "alembic" / "versions").glob("*_seed_gitlab_project_permissions.py")
 )
 
 # Legacy permissions that phase 5 removes (section 6.2).
@@ -57,6 +58,15 @@ def _load_seed_admin():
 def _load_seed_migration_module():
     spec = importlib.util.spec_from_file_location(
         "migration_seed_initial_data", SEED_MIGRATION_PATH
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_gitlab_project_seed_migration_module():
+    spec = importlib.util.spec_from_file_location(
+        "migration_seed_gitlab_project_permissions", GITLAB_PROJECT_SEED_MIGRATION_PATH
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -181,10 +191,20 @@ class TestSeedAdminDistribution:
         corresponding seed_admin.py role lists (no phantom permissions)."""
         mod = _load_seed_admin()
         migration = _load_seed_migration_module()
+        gitlab_migration = _load_gitlab_project_seed_migration_module()
 
-        assert set(migration.ADMIN_PERMISSIONS) == set(mod.ADMIN_PERMISSIONS)
-        assert set(migration.OPERATOR_PERMISSIONS) == set(mod.OPERATOR_PERMISSIONS)
-        assert set(migration.VIEWER_PERMISSIONS) == set(mod.VIEWER_PERMISSIONS)
+        # The gitlab-project permissions are seeded by a separate migration
+        # (seed_gitlab_project_permissions) on top of seed_initial_data, so the
+        # canonical per-role set is the union of both migrations.
+        admin_seeded = set(migration.ADMIN_PERMISSIONS) | set(gitlab_migration.ADMIN_PERMISSIONS)
+        operator_seeded = set(migration.OPERATOR_PERMISSIONS) | set(
+            gitlab_migration.OPERATOR_PERMISSIONS
+        )
+        viewer_seeded = set(migration.VIEWER_PERMISSIONS) | set(gitlab_migration.VIEWER_PERMISSIONS)
+
+        assert admin_seeded == set(mod.ADMIN_PERMISSIONS)
+        assert operator_seeded == set(mod.OPERATOR_PERMISSIONS)
+        assert viewer_seeded == set(mod.VIEWER_PERMISSIONS)
 
 
 # ========================================================================

@@ -948,7 +948,9 @@ async def _seed_resource_provider(db_session: AsyncSession, **overrides) -> Reso
 
 
 class TestPipelineProviderValidation:
-    """pipelines.provider_id must reference gitlab/system/internal (plan 11.3.4)."""
+    """pipelines.provider_id must reference any live gitlab provider (system-only
+    restriction lifted by gitlab-project-management; category/direction are no
+    longer enforced — the owner/type matrix lives in the service layer)."""
 
     @pytest.mark.asyncio
     async def test_create_with_valid_system_gitlab_provider(self, db_session: AsyncSession):
@@ -964,31 +966,31 @@ class TestPipelineProviderValidation:
         provider = await _seed_resource_provider(db_session, subtype="github", name="github-system")
         data = PipelineCreate(name="prov-pipe-github", provider_id=provider.id)
 
-        with pytest.raises(BadRequestError) as exc_info:
+        with pytest.raises(DomainError) as exc_info:
             await pipeline_service.create_pipeline(db_session, data)
         assert "gitlab" in str(exc_info.value.detail)
 
     @pytest.mark.asyncio
-    async def test_create_rejects_non_system_category(self, db_session: AsyncSession):
+    async def test_create_accepts_non_system_category(self, db_session: AsyncSession):
         provider = await _seed_resource_provider(
             db_session, category="public", name="gitlab-public"
         )
         data = PipelineCreate(name="prov-pipe-public", provider_id=provider.id)
 
-        with pytest.raises(BadRequestError) as exc_info:
-            await pipeline_service.create_pipeline(db_session, data)
-        assert "category=system" in str(exc_info.value.detail)
+        pipeline = await pipeline_service.create_pipeline(db_session, data)
+
+        assert pipeline.provider_id == provider.id
 
     @pytest.mark.asyncio
-    async def test_create_rejects_external_direction(self, db_session: AsyncSession):
+    async def test_create_accepts_external_direction(self, db_session: AsyncSession):
         provider = await _seed_resource_provider(
             db_session, direction="external", name="gitlab-external"
         )
         data = PipelineCreate(name="prov-pipe-external", provider_id=provider.id)
 
-        with pytest.raises(BadRequestError) as exc_info:
-            await pipeline_service.create_pipeline(db_session, data)
-        assert "direction=internal" in str(exc_info.value.detail)
+        pipeline = await pipeline_service.create_pipeline(db_session, data)
+
+        assert pipeline.provider_id == provider.id
 
     @pytest.mark.asyncio
     async def test_create_rejects_missing_provider(self, db_session: AsyncSession):

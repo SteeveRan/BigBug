@@ -31,12 +31,8 @@ class TestPipelineConfigsCrud:
         assert created["name"] == name
         pipeline_id = created["id"]
 
-        get = await client.get(
-            f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers
-        )
-        assert_matches_openapi(
-            get, "/api/pipelines/configs/{pipeline_id}", "get", openapi_spec
-        )
+        get = await client.get(f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers)
+        assert_matches_openapi(get, "/api/pipelines/configs/{pipeline_id}", "get", openapi_spec)
         assert get.status_code == 200
 
         patch = await client.patch(
@@ -44,9 +40,7 @@ class TestPipelineConfigsCrud:
             headers=admin_headers,
             json={"description": "updated"},
         )
-        assert_matches_openapi(
-            patch, "/api/pipelines/configs/{pipeline_id}", "patch", openapi_spec
-        )
+        assert_matches_openapi(patch, "/api/pipelines/configs/{pipeline_id}", "patch", openapi_spec)
         assert patch.status_code == 200
         assert patch.json()["description"] == "updated"
 
@@ -69,9 +63,7 @@ class TestPipelineConfigsCrud:
         # Clean up the duplicate first (it may be soft-deleted, no references).
         await client.delete(f"/api/pipelines/configs/{dup_id}", headers=admin_headers)
 
-        delete = await client.delete(
-            f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers
-        )
+        delete = await client.delete(f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers)
         assert_matches_openapi(
             delete, "/api/pipelines/configs/{pipeline_id}", "delete", openapi_spec
         )

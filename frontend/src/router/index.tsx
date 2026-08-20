@@ -17,6 +17,8 @@ import { GoldImagesPage } from '../pages/Builds/GoldImages';
 import { AppImagesPage } from '../pages/Builds/AppImages';
 import { PipelinesPage } from '../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../pages/Pipelines/Components';
+import { GitlabProjectsPage } from '../pages/Pipelines/Projects';
+import { GitlabProjectDetailPage } from '../pages/Pipelines/Projects/Detail';
 import { AdminPage } from '../pages/Admin/Users';
 import { AdminCredentials } from '../pages/Admin/Credentials';
 import { AuthenticationSettings } from '../pages/Admin/Authentication';
@@ -308,8 +310,26 @@ export function AppRouter() {
         <Route
           path="pipelines/components"
           element={
-            <PermissionGate permission="pipelines:read">
+            <PermissionGate permission="components:read">
               <GitLabComponentsPage />
+            </PermissionGate>
+          }
+        />
+
+        {/* ── Pipelines / Projects ──────────────────────── */}
+        <Route
+          path="pipelines/projects"
+          element={
+            <PermissionGate permission="gitlab_projects:read">
+              <GitlabProjectsPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="pipelines/projects/:id"
+          element={
+            <PermissionGate permission="gitlab_projects:read">
+              <GitlabProjectDetailPage />
             </PermissionGate>
           }
         />

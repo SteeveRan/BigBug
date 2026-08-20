@@ -164,6 +164,18 @@ _ALL_PERMISSIONS = [
     "pipelines:read",
     "pipelines:write",
     "pipelines:delete",
+    # Gitlab projects (gitlab-project-management)
+    "gitlab_projects:read",
+    "gitlab_projects:write",
+    "gitlab_projects:delete",
+    "gitlab_projects:read_all",
+    # Components (gitlab-project-management)
+    "components:read",
+    "components:write",
+    "components:delete",
+    "components:push",
+    # Providers system (needed to attach projects to system providers)
+    "providers_system:write",
     # Integrations
     "integrations:read",
     "integrations:write",

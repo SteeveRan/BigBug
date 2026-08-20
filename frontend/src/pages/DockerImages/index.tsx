@@ -80,11 +80,9 @@ export function DockerImagesPage() {
       const defaultTarget =
         result.available_targets.length === 1
           ? result.available_targets[0]
-          : result.available_targets.find((t) => t.is_default) ?? result.available_targets[0];
+          : (result.available_targets.find((t) => t.is_default) ?? result.available_targets[0]);
       setSelectedTargetId(defaultTarget?.id ?? null);
-      setTargetProject(
-        (defaultTarget?.config?.default_project as string | undefined) ?? ''
-      );
+      setTargetProject((defaultTarget?.config?.default_project as string | undefined) ?? '');
       setStep('analyze');
     } catch (err: unknown) {
       const detail =
@@ -106,9 +104,7 @@ export function DockerImagesPage() {
       const selectedRegistry = analysis.compatible_registries.find(
         (r) => r.id === selectedRegistryId
       );
-      const selectedTarget = analysis.available_targets.find(
-        (r) => r.id === selectedTargetId
-      );
+      const selectedTarget = analysis.available_targets.find((r) => r.id === selectedTargetId);
       await createSource({
         name: analysis.image_name,
         registry_url: selectedRegistry?.base_url || analysis.detected_registry_host,
@@ -394,9 +390,7 @@ export function DockerImagesPage() {
                 onChange={(val) => setSelectedRegistryId(val)}
                 placeholder="Select a registry..."
               />
-              <Typography.Text type="secondary">
-                Registry to pull tags from
-              </Typography.Text>
+              <Typography.Text type="secondary">Registry to pull tags from</Typography.Text>
             </Flex>
 
             {/* Mirror target selection */}
@@ -409,9 +403,7 @@ export function DockerImagesPage() {
                 onChange={(val) => {
                   setSelectedTargetId(val);
                   const target = analysis.available_targets.find((t) => t.id === val);
-                  setTargetProject(
-                    (target?.config?.default_project as string | undefined) ?? ''
-                  );
+                  setTargetProject((target?.config?.default_project as string | undefined) ?? '');
                 }}
                 placeholder="Select a mirror target..."
                 notFoundContent="No internal Harbor target configured"

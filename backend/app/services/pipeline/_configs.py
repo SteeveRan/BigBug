@@ -1,29 +1,35 @@
-"""Pipeline configuration CRUD (git-mirroring v2)."""
+"""Pipeline configuration CRUD (git-mirroring v2) + ``.gitlab-ci.yml`` push."""
 
 from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.core.exceptions import DomainError
+from app.models.gitlab_project import GitlabProject, GitlabProjectType
 from app.models.pipeline import Pipeline, PipelineComponent
 from app.models.resource_provider import ResourceProvider
 from app.models.sync_group import SyncGroup
+from app.models.user import User
 from app.services.audit import AuditService
+from app.services.gitlab_projects._service import GitlabProjectService
+from app.services.pipeline._ci import generate_ci_from_pipeline
 from app.services.pipeline._clients import _get_pipeline_provider_or_404
 
 logger = logging.getLogger(__name__)
 
 
 def _pipeline_eagerload_stmt():
-    """Return a Pipeline select with components/provider/credential eager-loaded."""
+    """Return a Pipeline select with components/provider/gitlab_project eager-loaded."""
     return select(Pipeline).options(
         joinedload(Pipeline.components).joinedload(PipelineComponent.component),
         joinedload(Pipeline.provider).joinedload(ResourceProvider.credential),
+        joinedload(Pipeline.gitlab_project).joinedload(GitlabProject.provider),
     )
 
 
@@ -97,14 +103,27 @@ async def create_pipeline(db: AsyncSession, data) -> Pipeline:
     if result.scalar_one_or_none() is not None:
         raise DomainError("Name already in use", status_code=409)
 
-    # Providers V3 (11.3.4): validate provider when supplied.
+    # Providers V3: validate provider when supplied.
     if data.provider_id is not None:
         await _get_pipeline_provider_or_404(db, data.provider_id)
+
+    # Bind to a pipelines gitlab project when supplied; derive provider_id.
+    provider_id = data.provider_id
+    gitlab_project_id = getattr(data, "gitlab_project_id", None)
+    if gitlab_project_id is not None:
+        project_svc = GitlabProjectService(db)
+        project = await project_svc._get_project_or_404(gitlab_project_id)
+        if project.project_type != GitlabProjectType.pipelines:
+            raise DomainError("Pipeline must be linked to a pipelines project", 422)
+        provider_id = project.provider_id
+        if getattr(data, "ref", None) is None:
+            data.ref = project.default_branch
 
     pipeline = Pipeline(
         name=data.name,
         description=data.description,
-        provider_id=data.provider_id,
+        provider_id=provider_id,
+        gitlab_project_id=gitlab_project_id,
         ref=data.ref or "main",
         default_variables=data.default_variables or {},
         is_enabled=data.is_enabled,
@@ -145,9 +164,16 @@ async def update_pipeline(db: AsyncSession, pipeline_id: int, data) -> Pipeline:
     if data.description is not None:
         pipeline.description = data.description
     if data.provider_id is not None:
-        # Providers V3 (11.3.4): re-validate on every change.
+        # Providers V3: re-validate on every change.
         await _get_pipeline_provider_or_404(db, data.provider_id)
         pipeline.provider_id = data.provider_id
+    if getattr(data, "gitlab_project_id", None) is not None:
+        project_svc = GitlabProjectService(db)
+        project = await project_svc._get_project_or_404(data.gitlab_project_id)
+        if project.project_type != GitlabProjectType.pipelines:
+            raise DomainError("Pipeline must be linked to a pipelines project", 422)
+        pipeline.gitlab_project_id = project.id
+        pipeline.provider_id = project.provider_id
     if data.ref is not None:
         pipeline.ref = data.ref
     if data.default_variables is not None:
@@ -271,6 +297,7 @@ async def duplicate_pipeline(db: AsyncSession, pipeline_id: int, new_name: str) 
         name=new_name,
         description=original.description,
         provider_id=original.provider_id,
+        gitlab_project_id=original.gitlab_project_id,
         ref=original.ref,
         default_variables=original.default_variables,
         is_default=False,
@@ -299,3 +326,46 @@ async def get_default_pipeline(db: AsyncSession) -> Pipeline | None:
     stmt = _pipeline_eagerload_stmt().where(Pipeline.is_default, ~Pipeline.is_deleted)
     result = await db.execute(stmt)
     return result.unique().scalar_one_or_none()
+
+
+async def push_pipeline_ci(
+    db: AsyncSession,
+    pipeline_id: int,
+    user: User,
+    commit_message: str | None = None,
+    extra_yaml: str | None = None,
+) -> dict[str, Any]:
+    """Generate ``.gitlab-ci.yml`` from a Pipeline config and push it to its
+    bound pipelines project (host-validated)."""
+    from app.services.gitlab_projects._clients import get_provider_gitlab_client
+    from app.services.gitlab_projects._files import upsert_file
+
+    pipeline = await get_pipeline_config(db, pipeline_id)
+    if pipeline is None:
+        raise DomainError(f"Pipeline with id={pipeline_id} not found", status_code=404)
+
+    project = pipeline.gitlab_project
+    if project is None:
+        raise DomainError(
+            "Pipeline is not bound to a gitlab project — cannot push .gitlab-ci.yml",
+            422,
+        )
+
+    project_svc = GitlabProjectService(db)
+    await project_svc._ensure_can_mutate(project, user)
+
+    yaml = generate_ci_from_pipeline(pipeline, extra_yaml=extra_yaml)
+
+    provider = project.provider
+    if provider is None:
+        raise DomainError("Pipeline project has no provider", 404)
+    gl = get_provider_gitlab_client(provider)
+    result = await upsert_file(
+        gl,
+        project.full_path,
+        ".gitlab-ci.yml",
+        yaml,
+        project.default_branch,
+        commit_message or f"Push .gitlab-ci.yml for pipeline '{pipeline.name}'",
+    )
+    return {"pipeline_id": pipeline.id, "file_path": ".gitlab-ci.yml", **result}

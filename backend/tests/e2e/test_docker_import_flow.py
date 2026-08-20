@@ -68,9 +68,7 @@ class TestDockerImportFlow:
         else:
             payload["target_registry_url"] = "https://harbor.example.com"
 
-        response = await client.post(
-            "/api/docker-images", headers=admin_headers, json=payload
-        )
+        response = await client.post("/api/docker-images", headers=admin_headers, json=payload)
         assert response.status_code == 201
         data = response.json()
         # Pending — no indexing happened because image_name was omitted.

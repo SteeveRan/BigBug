@@ -104,7 +104,14 @@ function renderDetail(store: ReturnType<typeof createTestStore>) {
     <Provider store={store}>
       <MemoryRouter initialEntries={['/docker-images/42']}>
         <Routes>
-          <Route path="/docker-images/:id" element={<App><DockerImageDetailPage /></App>} />
+          <Route
+            path="/docker-images/:id"
+            element={
+              <App>
+                <DockerImageDetailPage />
+              </App>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </Provider>

@@ -33,9 +33,7 @@ class TestSyncGroupsCrud:
         group_id = created["id"]
 
         get = await client.get(f"/api/mirroring/sync-groups/{group_id}", headers=admin_headers)
-        assert_matches_openapi(
-            get, "/api/mirroring/sync-groups/{group_id}", "get", openapi_spec
-        )
+        assert_matches_openapi(get, "/api/mirroring/sync-groups/{group_id}", "get", openapi_spec)
         assert get.status_code == 200
 
         patch = await client.patch(
@@ -94,9 +92,7 @@ class TestSyncGroupsCrud:
 
         # Cleanup: delete group again, then pipeline.
         await client.delete(f"/api/mirroring/sync-groups/{group_id}", headers=admin_headers)
-        await client.delete(
-            f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers
-        )
+        await client.delete(f"/api/pipelines/configs/{pipeline_id}", headers=admin_headers)
 
     async def test_bulk_assign_mirrors_empty(
         self, client: AsyncClient, admin_headers: dict, unique_name: str, openapi_spec: dict

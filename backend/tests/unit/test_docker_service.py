@@ -124,9 +124,7 @@ async def test_resolve_manifest_digest(docker_service):
     """A 200 HEAD response with docker-content-digest returns the digest."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, headers={"docker-content-digest": "sha256:abc123"}
-        )
+        return httpx.Response(200, headers={"docker-content-digest": "sha256:abc123"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         digest = await docker_service._resolve_manifest_digest(
@@ -161,9 +159,7 @@ async def test_fetch_tags_success(mock_oci, docker_service):
         200, json=FAKE_TAGS_RESPONSE, request=httpx.Request("GET", url)
     )
 
-    tags_data = await docker_service._fetch_tags(
-        "https://registry.local/v2", "nginx:latest"
-    )
+    tags_data = await docker_service._fetch_tags("https://registry.local/v2", "nginx:latest")
 
     assert tags_data == FAKE_TAGS_RESPONSE
     assert url in mock_oci.call_args.args[2]
@@ -174,9 +170,7 @@ async def test_fetch_tags_success(mock_oci, docker_service):
 async def test_fetch_tags_404(mock_oci, docker_service):
     """A non-200 response raises ExternalServiceError."""
     url = "https://registry.local/v2/nonexistent/tags/list"
-    mock_oci.return_value = httpx.Response(
-        404, request=httpx.Request("GET", url)
-    )
+    mock_oci.return_value = httpx.Response(404, request=httpx.Request("GET", url))
 
     with pytest.raises(ExternalServiceError, match="Docker registry"):
         await docker_service._fetch_tags("https://registry.local/v2", "nonexistent")

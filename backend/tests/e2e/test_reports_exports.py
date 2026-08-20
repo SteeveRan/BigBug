@@ -78,7 +78,5 @@ class TestReportsBulk:
             headers=admin_headers,
             json={"mirror_ids": [999999], "pipeline_id": 1},
         )
-        assert_matches_openapi(
-            response, "/api/reports/bulk/apply-pipeline", "post", openapi_spec
-        )
+        assert_matches_openapi(response, "/api/reports/bulk/apply-pipeline", "post", openapi_spec)
         assert response.status_code == 200

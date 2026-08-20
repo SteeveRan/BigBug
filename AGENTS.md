@@ -50,7 +50,7 @@ BigBug/
 │   ├── update-env.sh         # Environment update script
 │   ├── terraform/            # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
 │   ├── harbor/               # Harbor deployment in kind
-│   └── gitlab-components/ # GitLab CI/CD component templates
+│   └── gitlab-components/ # GitLab CI/CD component examples (see backend presets.py)
 ├── docs/
 │   └── architecture/    # Detailed design docs (for human review)
 ├── plans/               # Implementation plans for agents

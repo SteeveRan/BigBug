@@ -106,9 +106,14 @@ vi.mock('../../store/api', async () => {
     useRetryPipelineMutation: vi.fn(),
     // GitLab Components
     useGetComponentsQuery: vi.fn(),
+    useGetComponentPresetsQuery: vi.fn(),
+    useGetGitlabProjectsQuery: vi.fn(),
     useCreateComponentMutation: vi.fn(),
     useUpdateComponentMutation: vi.fn(),
     useDeleteComponentMutation: vi.fn(),
+    usePushComponentMutation: vi.fn(),
+    usePullComponentMutation: vi.fn(),
+    useRunComponentMutation: vi.fn(),
     // Git Mirroring Sources (SourcesPage)
     useGetProvidersQuery: vi.fn(),
     useGetSourceGroupsQuery: vi.fn(),
@@ -154,6 +159,8 @@ import {
   useListDockerImagesQuery,
   useGetPipelineRunsQuery,
   useGetComponentsQuery,
+  useGetComponentPresetsQuery,
+  useGetGitlabProjectsQuery,
   useGetProvidersQuery,
   useGetSourceGroupsQuery,
   useGetSourceRepositoriesQuery,
@@ -197,6 +204,9 @@ import {
   useCreateComponentMutation,
   useUpdateComponentMutation,
   useDeleteComponentMutation,
+  usePushComponentMutation,
+  usePullComponentMutation,
+  useRunComponentMutation,
   useRefreshSourceGroupMutation,
   useDeleteSourceGroupMutation,
   useImportSourceGroupMutation,
@@ -359,6 +369,8 @@ function setupDefaultApiMocks() {
   (useListDockerImagesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetPipelineRunsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetComponentsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetComponentPresetsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
+  (useGetGitlabProjectsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetSourceGroupsQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
   (useGetSourceRepositoriesQuery as ReturnType<typeof vi.fn>).mockReturnValue(mockQ);
@@ -401,6 +413,9 @@ function setupDefaultApiMocks() {
     useCreateComponentMutation,
     useUpdateComponentMutation,
     useDeleteComponentMutation,
+    usePushComponentMutation,
+    usePullComponentMutation,
+    useRunComponentMutation,
     useUpdateProviderMutation,
     useCreateProviderMutation,
     useTestProviderMutation,

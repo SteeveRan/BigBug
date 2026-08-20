@@ -12,6 +12,7 @@ from app.api import (
     components,
     credentials,
     docker_images,
+    gitlab_projects,
     gold_images,
     health_check,
     helm_charts,
@@ -79,6 +80,7 @@ app.include_router(helm_charts.router, prefix="/api/helm-charts", tags=["helm-ch
 app.include_router(docker_images.router, prefix="/api/docker-images", tags=["docker-images"])
 app.include_router(pipelines.router, prefix="/api/pipelines", tags=["pipelines"])
 app.include_router(components.router, prefix="/api/components", tags=["components"])
+app.include_router(gitlab_projects.router, prefix="/api/gitlab-projects", tags=["gitlab-projects"])
 app.include_router(credentials.router, prefix="/api/credentials", tags=["credentials"])
 app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
 app.include_router(mirroring.router, prefix="/api/mirroring", tags=["mirroring"])

@@ -23,7 +23,11 @@ vi.mock('../../store/api', async () => {
   return {
     ...(actual as object),
     useGetComponentsQuery: vi.fn(),
+    useGetComponentPresetsQuery: vi.fn(),
+    useGetGitlabProjectsQuery: vi.fn(),
     useRunComponentMutation: vi.fn(),
+    usePushComponentMutation: vi.fn(),
+    usePullComponentMutation: vi.fn(),
     useGetProvidersQuery: vi.fn(),
   };
 });
@@ -39,7 +43,11 @@ vi.mock('../../hooks/usePermissions', () => ({
 import { api } from '../../store/api';
 import {
   useGetComponentsQuery,
+  useGetComponentPresetsQuery,
+  useGetGitlabProjectsQuery,
   useRunComponentMutation,
+  usePushComponentMutation,
+  usePullComponentMutation,
   useGetProvidersQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -138,6 +146,30 @@ describe('Component Run Functionality', () => {
       isError: false,
       error: null,
     });
+
+    (useGetComponentPresetsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (useGetGitlabProjectsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    (usePushComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() }),
+      { isLoading: false },
+    ]);
+
+    (usePullComponentMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() }),
+      { isLoading: false },
+    ]);
 
     (useGetProvidersQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [

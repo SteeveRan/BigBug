@@ -1,10 +1,16 @@
 /**
  * @file api/pipeline-configs.ts
- * @description Pipeline Configurations CRUD + duplicate
+ * @description Pipeline Configurations CRUD + duplicate + push-ci + run
  * @dependencies api/base.ts
  */
 
-import type { PipelineConfig, PipelineConfigCreate, PipelineConfigUpdate } from '../../types';
+import type {
+  PipelineConfig,
+  PipelineConfigCreate,
+  PipelineConfigUpdate,
+  PipelineRun,
+  PipelinePushCiIn,
+} from '../../types';
 import { api } from './base';
 
 export const pipelineConfigsApi = api.injectEndpoints({
@@ -46,6 +52,21 @@ export const pipelineConfigsApi = api.injectEndpoints({
       }),
       invalidatesTags: ['PipelineConfig'],
     }),
+    pushPipelineCi: builder.mutation<
+      { pipeline_id: number; file_path: string; [key: string]: unknown },
+      { id: number; data: PipelinePushCiIn }
+    >({
+      query: ({ id, data }) => ({
+        url: `/pipelines/configs/${id}/push-ci`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'PipelineConfig', id }],
+    }),
+    runPipelineConfig: builder.mutation<PipelineRun, number>({
+      query: (id) => ({ url: `/pipelines/configs/${id}/run`, method: 'POST' }),
+      invalidatesTags: ['Pipeline'],
+    }),
   }),
 });
 
@@ -56,4 +77,6 @@ export const {
   useUpdatePipelineConfigMutation,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
+  usePushPipelineCiMutation,
+  useRunPipelineConfigMutation,
 } = pipelineConfigsApi;

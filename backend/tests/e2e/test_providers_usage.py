@@ -21,9 +21,7 @@ class TestProviderUsage:
     ):
         # Seeded public provider (github-anonymous, id=1) is stable across runs.
         response = await client.get("/api/providers/1/usage", headers=admin_headers)
-        assert_matches_openapi(
-            response, "/api/providers/{provider_id}/usage", "get", openapi_spec
-        )
+        assert_matches_openapi(response, "/api/providers/{provider_id}/usage", "get", openapi_spec)
         assert response.status_code == 200
         assert response.json()["provider_id"] == 1
         assert isinstance(response.json()["usage"], list)

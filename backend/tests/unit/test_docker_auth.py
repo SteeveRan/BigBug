@@ -70,7 +70,9 @@ class TestOciRequest:
         async def run():
             async with httpx.AsyncClient(transport=transport) as client:
                 return await oci_request(
-                    client, "GET", "https://harbor/v2/library/nginx/tags/list",
+                    client,
+                    "GET",
+                    "https://harbor/v2/library/nginx/tags/list",
                     basic=("user", "pass"),
                 )
 
@@ -124,7 +126,9 @@ class TestOciRequest:
                 return httpx.Response(200, json={"tags": []})
             return httpx.Response(
                 401,
-                headers={"WWW-Authenticate": 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'},
+                headers={
+                    "WWW-Authenticate": 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
+                },
             )
 
         transport = httpx.MockTransport(handler)

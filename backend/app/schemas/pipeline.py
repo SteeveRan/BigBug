@@ -44,6 +44,9 @@ class PipelineCreate(BaseModel):
     name: str = Field(..., max_length=255, description="Unique pipeline name")
     description: str | None = Field(None)
     provider_id: int | None = Field(None, description="system/internal gitlab provider")
+    gitlab_project_id: int | None = Field(
+        None, description="pipelines gitlab project this config is bound to"
+    )
     ref: str | None = Field(None, max_length=255, description="Default branch or tag")
     default_variables: dict[str, Any] | None = Field(None)
     is_default: bool | None = Field(None)
@@ -58,6 +61,7 @@ class PipelineUpdate(BaseModel):
 
     description: str | None = Field(None)
     provider_id: int | None = Field(None, description="system/internal gitlab provider")
+    gitlab_project_id: int | None = Field(None)
     ref: str | None = Field(None, max_length=255)
     default_variables: dict[str, Any] | None = Field(None)
     is_default: bool | None = Field(None)
@@ -96,6 +100,7 @@ class PipelineOut(BaseModel):
     name: str
     description: str | None = None
     provider_id: int | None = None
+    gitlab_project_id: int | None = None
     ref: str | None = None
     default_variables: dict[str, Any] | None = None
     is_default: bool
@@ -166,12 +171,20 @@ class PipelineRunList(BaseModel):
 
 
 class GitLabComponentCreate(BaseModel):
-    """Payload for registering a new GitLab CI/CD component."""
+    """Payload for registering a new GitLab CI/CD component.
+
+    Either ``gitlab_project_id`` (components project — preferred) or the legacy
+    ``provider_id`` + ``project_path`` pair is required; when the project is
+    given, the provider and path are derived from it.
+    """
 
     name: str = Field(..., max_length=255)
     description: str | None = None
-    provider_id: int
-    project_path: str = Field(..., max_length=512)
+    provider_id: int | None = None
+    project_path: str | None = Field(None, max_length=512)
+    gitlab_project_id: int | None = Field(
+        None, description="components gitlab project this component is hosted in"
+    )
     component_path: str = Field(..., max_length=512)
     version: str | None = Field(None, max_length=64)
     inputs_schema: dict[str, Any] | None = None
@@ -184,6 +197,7 @@ class GitLabComponentUpdate(BaseModel):
     description: str | None = None
     provider_id: int | None = None
     project_path: str | None = Field(None, max_length=512)
+    gitlab_project_id: int | None = None
     component_path: str | None = Field(None, max_length=512)
     version: str | None = Field(None, max_length=64)
     inputs_schema: dict[str, Any] | None = None
@@ -198,6 +212,7 @@ class GitLabComponentOut(BaseModel):
     description: str | None
     provider_id: int
     project_path: str
+    gitlab_project_id: int | None = None
     component_path: str
     version: str | None
     inputs_schema: dict[str, Any] | None

@@ -117,24 +117,26 @@ class TestDockerImageDetails:
         source_a = await client.post(
             "/api/docker-images",
             headers=admin_headers,
-            json={"name": f"docker-detail-a-{unique_name}", "registry_url": "https://registry.example.com"},
+            json={
+                "name": f"docker-detail-a-{unique_name}",
+                "registry_url": "https://registry.example.com",
+            },
         )
         assert source_a.status_code == 201
         source_b = await client.post(
             "/api/docker-images",
             headers=admin_headers,
-            json={"name": f"docker-detail-b-{unique_name}", "registry_url": "https://registry.example.com"},
+            json={
+                "name": f"docker-detail-b-{unique_name}",
+                "registry_url": "https://registry.example.com",
+            },
         )
         assert source_b.status_code == 201
         source_a_id = source_a.json()["id"]
         source_b_id = source_b.json()["id"]
         try:
-            detail = await client.get(
-                f"/api/docker-images/{source_a_id}", headers=admin_headers
-            )
-            assert_matches_openapi(
-                detail, "/api/docker-images/{source_id}", "get", openapi_spec
-            )
+            detail = await client.get(f"/api/docker-images/{source_a_id}", headers=admin_headers)
+            assert_matches_openapi(detail, "/api/docker-images/{source_id}", "get", openapi_spec)
             assert detail.status_code == 200
 
             compare = await client.get(

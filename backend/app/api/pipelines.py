@@ -15,6 +15,7 @@ from app.core.exceptions import DomainError
 from app.core.rbac import require_permission
 from app.database import get_db
 from app.models.user import User
+from app.schemas.gitlab_project import PipelinePushCiIn
 from app.schemas.pipeline import (
     PipelineCreate,
     PipelineDuplicateRequest,
@@ -254,6 +255,42 @@ async def duplicate_pipeline_config(
     await db.commit()
 
     return PipelineOut.model_validate(pipeline)
+
+
+@router.post("/configs/{pipeline_id}/push-ci")
+async def push_pipeline_ci(
+    pipeline_id: int,
+    data: PipelinePushCiIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("pipelines:write")),
+):
+    """Generate ``.gitlab-ci.yml`` from a Pipeline config and push it to its
+    bound pipelines project (host-validated)."""
+    try:
+        result = await pipeline_service.push_pipeline_ci(
+            db,
+            pipeline_id,
+            user=current_user,
+            commit_message=data.commit_message,
+            extra_yaml=data.extra_yaml,
+        )
+    except DomainError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+    return result
+
+
+@router.post("/configs/{pipeline_id}/run", response_model=PipelineRunOut, status_code=201)
+async def run_pipeline_config(
+    pipeline_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("pipelines:write")),
+):
+    """Trigger a Pipeline config in its bound gitlab project (default ref/vars)."""
+    try:
+        run = await pipeline_service.run_pipeline_config(db, pipeline_id, user_id=current_user.id)
+    except DomainError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+    return PipelineRunOut.model_validate(run)
 
 
 # ─────────────────────────────────────────────────────────────────

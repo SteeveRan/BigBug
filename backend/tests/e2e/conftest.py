@@ -94,9 +94,7 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
     restarts that drop in-flight requests during development.
     """
     transport = AsyncHTTPTransport(retries=3)
-    async with httpx.AsyncClient(
-        base_url=BASE_URL, timeout=30.0, transport=transport
-    ) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=30.0, transport=transport) as ac:
         yield ac
 
 

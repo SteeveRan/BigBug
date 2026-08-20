@@ -139,6 +139,7 @@ export function Layout() {
       type: 'group',
       children: [
         { key: '/pipelines/runs', icon: <PlayCircleOutlined />, label: 'Pipeline Runs' },
+        { key: '/pipelines/projects', icon: <ForkOutlined />, label: 'GitLab Projects' },
         { key: '/pipelines/configurations', icon: <SettingOutlined />, label: 'Configurations' },
         { key: '/pipelines/components', icon: <BlockOutlined />, label: 'GitLab Components' },
       ],

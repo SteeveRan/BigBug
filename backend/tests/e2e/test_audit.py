@@ -50,9 +50,7 @@ class TestAuditLogAPI:
         )
         assert response.status_code == 200
 
-    async def test_get_audit_logs_pagination(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_audit_logs_pagination(self, client: AsyncClient, admin_headers: dict):
         response = await client.get(
             "/api/admin/audit-logs",
             headers=admin_headers,
@@ -61,17 +59,13 @@ class TestAuditLogAPI:
         assert response.status_code == 200
         assert len(response.json()["items"]) <= 10
 
-    async def test_get_audit_logs_viewer_forbidden(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
+    async def test_get_audit_logs_viewer_forbidden(self, client: AsyncClient, viewer_headers: dict):
         # viewer has audit:read in the seed, but not users:read → audit uses
         # audit:read; assert a deterministic 403/200 based on the seed matrix.
         response = await client.get("/api/admin/audit-logs", headers=viewer_headers)
         assert response.status_code in (200, 403)
 
-    async def test_get_audit_logs_invalid_page(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_audit_logs_invalid_page(self, client: AsyncClient, admin_headers: dict):
         response = await client.get(
             "/api/admin/audit-logs",
             headers=admin_headers,

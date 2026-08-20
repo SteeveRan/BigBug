@@ -18,6 +18,9 @@ from app.services.pipeline._components import (
     delete_component,
     get_component,
     list_components,
+    list_presets,
+    pull_component,
+    push_component,
     update_component,
 )
 from app.services.pipeline._configs import (
@@ -27,6 +30,7 @@ from app.services.pipeline._configs import (
     get_default_pipeline,
     get_pipeline_config,
     get_pipeline_configs,
+    push_pipeline_ci,
     restore_pipeline,
     update_pipeline,
 )
@@ -36,6 +40,7 @@ from app.services.pipeline._runs import (
     get_pipeline_runs,
     monitor_pipeline_status,
     retry_pipeline,
+    run_pipeline_config,
     trigger_component,
     trigger_pipeline,
     trigger_pipeline_from_config,
@@ -68,13 +73,17 @@ __all__ = [
     "_validate_component_inputs",
     "_check_json_type",
     "list_components",
+    "list_presets",
     "get_component",
     "create_component",
     "update_component",
     "delete_component",
+    "push_component",
+    "pull_component",
     # runs
     "trigger_pipeline",
     "trigger_pipeline_from_config",
+    "run_pipeline_config",
     "monitor_pipeline_status",
     "cancel_pipeline",
     "retry_pipeline",
@@ -91,4 +100,5 @@ __all__ = [
     "restore_pipeline",
     "duplicate_pipeline",
     "get_default_pipeline",
+    "push_pipeline_ci",
 ]

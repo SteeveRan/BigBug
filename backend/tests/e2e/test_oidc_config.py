@@ -44,9 +44,7 @@ class TestGetOidcConfig:
         response = await client.get(ADMIN_OIDC)
         assert response.status_code == 401
 
-    async def test_get_oidc_config_as_viewer(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
+    async def test_get_oidc_config_as_viewer(self, client: AsyncClient, viewer_headers: dict):
         # viewer has oidc:read in the seed; assert a deterministic outcome.
         response = await client.get(ADMIN_OIDC, headers=viewer_headers)
         assert response.status_code in (200, 403)
@@ -77,12 +75,8 @@ class TestUpdateOidcConfig:
         response = await client.patch(ADMIN_OIDC, json={"enabled": True})
         assert response.status_code == 401
 
-    async def test_update_oidc_config_as_viewer(
-        self, client: AsyncClient, viewer_headers: dict
-    ):
-        response = await client.patch(
-            ADMIN_OIDC, headers=viewer_headers, json={"enabled": True}
-        )
+    async def test_update_oidc_config_as_viewer(self, client: AsyncClient, viewer_headers: dict):
+        response = await client.patch(ADMIN_OIDC, headers=viewer_headers, json={"enabled": True})
         assert response.status_code == 403
 
     async def test_admin_update_issuer_url(

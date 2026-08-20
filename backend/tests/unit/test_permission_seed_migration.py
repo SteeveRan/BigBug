@@ -58,6 +58,21 @@ EXPECTED_PERMISSIONS = frozenset(
     }
 )
 
+# New gitlab-project management permissions seeded by
+# 20260820_0003_*_seed_gitlab_project_permissions.py (§4 of the spec).
+GITLAB_PROJECT_PERMISSIONS = frozenset(
+    {
+        "gitlab_projects:read",
+        "gitlab_projects:write",
+        "gitlab_projects:delete",
+        "gitlab_projects:read_all",
+        "components:read",
+        "components:write",
+        "components:delete",
+        "components:push",
+    }
+)
+
 
 def _alembic_config() -> AlembicConfig:
     cfg = AlembicConfig()
@@ -165,3 +180,45 @@ class TestPermissionSeedMigration:
                 f"{role_name} is missing read links: "
                 f"{sorted({'providers:read', 'teams:read'} - by_role[role_name])}"
             )
+
+    def test_gitlab_project_permissions_seeded(self, perm_env):
+        """The gitlab-project seed migration inserts all 8 new permissions."""
+        rows = _fetch_all("SELECT name FROM permissions")
+        existing = {r["name"] for r in rows}
+        missing = GITLAB_PROJECT_PERMISSIONS - existing
+        assert not missing, (
+            f"GitLab project permissions missing from the migrated DB: "
+            f"{sorted(missing)}. The seeding migration did not insert them."
+        )
+
+    def test_gitlab_project_permissions_role_links(self, perm_env):
+        """Admin gets all 8; operator and viewer get their read subset."""
+        rows = _fetch_all(
+            "SELECT r.name AS role, p.name AS permission "
+            "FROM role_permissions rp "
+            "JOIN roles r ON r.id = rp.role_id "
+            "JOIN permissions p ON p.id = rp.permission_id "
+            "WHERE p.name IN ("
+            "'gitlab_projects:read','gitlab_projects:write',"
+            "'gitlab_projects:delete','gitlab_projects:read_all',"
+            "'components:read','components:write',"
+            "'components:delete','components:push')"
+        )
+        by_role: dict[str, set[str]] = {"admin": set(), "operator": set(), "viewer": set()}
+        for row in rows:
+            by_role.setdefault(row["role"], set()).add(row["permission"])
+
+        assert by_role["admin"] >= GITLAB_PROJECT_PERMISSIONS, (
+            f"Admin is missing links: {sorted(GITLAB_PROJECT_PERMISSIONS - by_role['admin'])}"
+        )
+        assert {
+            "gitlab_projects:read",
+            "gitlab_projects:write",
+            "components:read",
+            "components:write",
+            "components:push",
+        } <= by_role["operator"]
+        assert {
+            "gitlab_projects:read",
+            "components:read",
+        } <= by_role["viewer"]

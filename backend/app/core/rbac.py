@@ -19,6 +19,25 @@ class RoleName(StrEnum):
     VIEWER = "viewer"
 
 
+class PermissionName(StrEnum):
+    """Canonical permission names (``resource:action``).
+
+    These mirror the permission rows seeded by the Alembic migrations and the
+    declarative lists in ``docker/seed_admin.py``. Only the gitlab-project
+    management permissions are declared here for now; the rest of the codebase
+    passes permission strings inline to :func:`require_permission`.
+    """
+
+    GITLAB_PROJECTS_READ = "gitlab_projects:read"
+    GITLAB_PROJECTS_WRITE = "gitlab_projects:write"
+    GITLAB_PROJECTS_DELETE = "gitlab_projects:delete"
+    GITLAB_PROJECTS_READ_ALL = "gitlab_projects:read_all"
+    COMPONENTS_READ = "components:read"
+    COMPONENTS_WRITE = "components:write"
+    COMPONENTS_DELETE = "components:delete"
+    COMPONENTS_PUSH = "components:push"
+
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),

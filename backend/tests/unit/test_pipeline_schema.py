@@ -120,6 +120,7 @@ class TestPipelineOut:
             "name",
             "description",
             "provider_id",
+            "gitlab_project_id",
             "ref",
             "default_variables",
             "is_default",

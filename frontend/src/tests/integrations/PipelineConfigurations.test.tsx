@@ -25,8 +25,11 @@ vi.mock('../../store/api', async () => {
     useGetPipelineConfigsQuery: vi.fn(),
     useDeletePipelineConfigMutation: vi.fn(),
     useDuplicatePipelineConfigMutation: vi.fn(),
+    usePushPipelineCiMutation: vi.fn(),
+    useRunPipelineConfigMutation: vi.fn(),
     useGetProvidersQuery: vi.fn(),
     useGetComponentsQuery: vi.fn(),
+    useGetGitlabProjectsQuery: vi.fn(),
   };
 });
 
@@ -43,8 +46,11 @@ import {
   useGetPipelineConfigsQuery,
   useDeletePipelineConfigMutation,
   useDuplicatePipelineConfigMutation,
+  usePushPipelineCiMutation,
+  useRunPipelineConfigMutation,
   useGetProvidersQuery,
   useGetComponentsQuery,
+  useGetGitlabProjectsQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import PipelineConfigsPage from '../../pages/Pipelines/Configurations';
@@ -199,6 +205,20 @@ describe('PipelineConfigsPage', () => {
       isError: false,
       error: null,
     });
+    (useGetGitlabProjectsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    (usePushPipelineCiMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() }),
+      { isLoading: false },
+    ]);
+    (useRunPipelineConfigMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve() }),
+      { isLoading: false },
+    ]);
   });
 
   // -----------------------------------------------------------------------
