@@ -378,7 +378,7 @@ erDiagram
 | [`plans/features/integrations.md`](integrations.md) | переписать под resource_providers: модель, реестр, API, категории; таблицу интеграций (раздел 2) — сюда |
 | [`plans/features/auth-rbac.md`](auth-rbac.md) | owner-модель, scope-providers, новая permission-матрица; [Р3] + модель команд, `teams:*`, `providers:share`, team-scope |
 | [`plans/architecture/permissions.md`](../architecture/permissions.md) | [Р3] +`teams:read/write/manage_members`, `providers:share` в сводную таблицу и распределение ролей (помимо уже запланированного в разделе 9 обновления `providers:*`) |
-| [`plans/features/git-mirroring-v2.md`](git-mirroring-v2.md) | замена source_providers → resource_providers в потоках дискавери |
+| [`docs/adr/backend/0008-git-mirroring-github-gitlab.md`](../../docs/adr/backend/0008-git-mirroring-github-gitlab.md) | замена source_providers → resource_providers в потоках дискавери (ADR поглотил `git-mirroring-v2.md`) |
 | [`AGENTS.md`](../../AGENTS.md) | «Common file references»: + registry/service/`api/providers.py`; убрать `api/integrations/` после фазы 7 |
 | [`CHANGELOG.md`](../../CHANGELOG.md) | запись по фазам 0–7 |
 

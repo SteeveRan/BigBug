@@ -76,7 +76,7 @@ flowchart LR
 * Bad, because изменения cron/конкурентности группы подхватываются планировщиком только при рестарте приложения: API не вызывает `schedule_all_jobs` после PATCH группы
 * Bad, because pipeline webhook обновляет `PipelineRun` и audit, но не `Mirror.status_flag` напрямую — статус зеркала актуализируется следующими операциями
 * Bad, because relink/move/delete для orphaned-зеркал вызываются frontend'ом (`orphaned.ts`: `POST /orphaned/{id}/reassign`, `/move-target`, `DELETE`), но **backend-endpoints отсутствуют** — UI-поток relink не работает end-to-end
-* Neutral, because GitHub webhooks не используются — обнаружение новых/удалённых репозиторей источника ограничено частотой refresh групп (осознанный отказ от push-модели)
+* Neutral, because GitHub webhooks не используются — обнаружение новых/удалённых репозиториев источника ограничено частотой refresh групп (осознанный отказ от push-модели)
 * Non-goals: push-модель через GitHub webhooks; выполнение git-операций в backend; автоматический relink orphaned-зеркал (требуется backend-реализация — отдельная задача); автоматическое проставление `target_project_id`; шаблоны CI в репозитории BigBug
 
 ### Confirmation
@@ -132,13 +132,13 @@ Backend выполняет git через subprocess, хранит времен�
 ### Pull-based cron (SyncScheduler) vs GitHub webhooks — chosen: cron
 
 * Good, because не требует публичной доступности backend и секретов webhook'ов; GitHub не должен достукиваться до BigBug
-* Good,because cron настраивается per-group вместе с конкурентностью — прямой контроль rate limits
+* Good, because cron настраивается per-group вместе с конкурентностью — прямой контроль rate limits
 * Bad, because задержка обнаружения изменений источника = период cron (для актуального зеркала приемлемо)
 
 ### Soft delete + retention — chosen vs hard delete
 
 * Good, because отказ «удалил не то» обратим 30 дней; cleanup каскадирует в правильном порядке и не трогает GitLab
-* Bad, потому что нужен cleanup-джоба и учёт `is_deleted` в каждом запросе списков (принято)
+* Bad, because нужен cleanup-джоба и учёт `is_deleted` в каждом запросе списков (принято)
 
 ## More Information
 

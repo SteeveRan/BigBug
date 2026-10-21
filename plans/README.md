@@ -20,7 +20,7 @@
 ### 🎯 Features
 - [`features/auth-rbac.md`](features/auth-rbac.md) - аутентификация и RBAC
 - [`features/builds.md`](features/builds.md) - Gold/App images
-- [`features/mirroring.md`](features/mirroring.md) - Docker/Helm/Git mirroring
+- Git Mirroring (GitHub → GitLab): [docs/adr/backend/0008-git-mirroring-github-gitlab.md](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
 - [`features/integrations.md`](features/integrations.md) - GitLab, Harbor, GitHub, etc
 - [`features/pipelines.md`](features/pipelines.md) - CI/CD пайплайны
 - [`features/security.md`](features/security.md) - шифрование, secrets
