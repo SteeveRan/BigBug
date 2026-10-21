@@ -6,8 +6,9 @@
 
 ### 📋 Обзор проекта
 - [`project-overview.md`](project-overview.md) - краткий обзор платформы BigBug
-- [`tech-stack.md`](tech-stack.md) - технологии, версии, зависимости
 - [`current-state.md`](current-state.md) - текущее состояние, что работает
+
+> Технологии, версии, зависимости: ADR-0001 (backend), ADR-0002 (frontend), ADR-0012/0013 (инфраструктура) — см. [`docs/adr/`](../docs/adr/README.md).
 
 ### 🛠️ Development
 - [`development/setup.md`](development/setup.md) - настройка окружения разработки
@@ -15,7 +16,7 @@
 - [`development/frontend.md`](development/frontend.md) - работа с frontend (React)
 - [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer: PostgreSQL 17, SQLAlchemy 2, Alembic, миграции, conventions
 - [`development/testing.md`](development/testing.md) - тесты backend и frontend
-- [`development/infrastructure.md`](development/infrastructure.md) - Docker Compose, services
+- Infrastructure (Compose, IaC, init flow): [ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
 
 ### 🎯 Features
 - [`features/builds.md`](features/builds.md) - Gold/App images
@@ -30,7 +31,6 @@
 ### 📚 Legacy Documentation
 - [`architecture.md`](architecture.md) - устаревшая архитектура (архив)
 - [`handoff-summary.md`](handoff-summary.md) - handoff блоков 1-5 (архив)
-- [`infrastructure-init-redesign.md`](infrastructure-init-redesign.md) - OpenTofu миграция
 
 ## Как использовать
 

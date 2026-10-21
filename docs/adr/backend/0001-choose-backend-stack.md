@@ -48,7 +48,7 @@ Chosen option: **FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7** — 
 * Bad, because Python 3.14 — свежая версия, часть third-party пакетов может отставать по поддержке (следим через renovate)
 * Bad, because async-модели SQLAlchemy запрещают lazy loading — все связи грузить явным `selectinload`/`joinedload`
 * Neutral, because больше ручной сборки, чем в Django (auth, админка — свои), в обмен на отсутствие лишней инфраструктуры
-* Non-goals: Celery/отдельные воркеры; строгий mypy; выбор фронтенд-стека и инфраструктуры (отдельные ADR); удаление `plans/tech-stack.md`
+* Non-goals: Celery/отдельные воркеры; строгий mypy; выбор фронтенд-стека и инфраструктуры (отдельные ADR: 0002, 0012, 0013); `plans/tech-stack.md` удалён [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
 
 ### Confirmation
 

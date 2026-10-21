@@ -152,7 +152,7 @@ See: [`/plans/development/frontend.md`](plans/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
-See: [`/plans/development/infrastructure.md`](plans/development/infrastructure.md)
+See: [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC (OpenTofu) для Keycloak/GitLab/Harbor; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions
 
@@ -286,6 +286,34 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 ```
 
 Диагностика в BigBug: `POST /api/providers/{id}/test` обновляет `status_flag`/`status_text` провайдера; `GET /api/providers/{id}/usage` показывает потребителей перед удалением.
+
+### Infrastructure Troubleshooting
+
+Ручная диагностика инфраструктурных сервисов (compose-слой — [ADR-0012](docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), IaC — [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)):
+
+```bash
+# Сервисы не стартуют: логи, сеть, volumes
+docker compose -f infrastructure/docker-compose.yml logs keycloak
+docker network inspect bigbug-infra-network
+docker volume ls | grep bigbug
+
+# Конфликты портов
+lsof -i :8000; lsof -i :5432; lsof -i :8080
+
+# GitLab: полная загрузка занимает 2-5 минут; root password для fresh-инстанса
+docker compose -f infrastructure/docker-compose.yml logs -f gitlab
+docker compose -f infrastructure/docker-compose.yml exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
+
+# OpenTofu: сброс state и повторная инициализация с нуля
+make infra-clean && make infra-init
+
+# Health-чеки сервисов
+curl http://localhost:8000/health        # backend
+curl http://localhost:8180/realms/bigbug # Keycloak
+curl http://localhost:8080/-/health      # GitLab
+```
+
+Backup: PostgreSQL — `docker exec bigbug-postgres-backend pg_dump -U bigbug bigbug > backup.sql`; tofu state — local файлы в `infrastructure/terraform/` (gitignored), пересоздаются `infra-init`.
 
 ### Modifying RBAC
 

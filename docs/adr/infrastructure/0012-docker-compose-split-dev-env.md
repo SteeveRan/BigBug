@@ -27,7 +27,7 @@ Dev-окружение BigBug фактически существует, но р
 
 Коды выхода: `0` — успех, `1` — БД недоступна за timeout, `2` — alembic failed.
 
-Связанные планы: [`plans/development/infrastructure.md`](../../../plans/development/infrastructure.md) (compose-структура), [`plans/development/backend.md`](../../../plans/development/backend.md), ADR-0006 (политика миграций Alembic).
+Связанные планы: [`plans/development/backend.md`](../../../plans/development/backend.md), ADR-0006 (политика миграций Alembic).
 
 ## Decision Drivers
 
@@ -121,7 +121,7 @@ Chosen option: **два compose-файла + entrypoint с wait-for-DB и auto-m
 
 ## More Information
 
-- Источники: `infrastructure/docker-compose.yml`, `docker-compose.yml`, `backend/docker/entrypoint.sh`, [`plans/development/infrastructure.md`](../../../plans/development/infrastructure.md)
+- Источники: `infrastructure/docker-compose.yml`, `docker-compose.yml`, `backend/docker/entrypoint.sh`
 - ADR-0001 (backend-стек), ADR-0006 (PostgreSQL/Alembic — идемпотентность миграций), ADR-0003 (Keycloak OIDC — почему Keycloak в инфраструктуре)
-- Владение: compose-структура этого ADR; удаление `plans/development/infrastructure.md` — за ADR-0013; make-цели (`dev-*`/`infra-*`) — за ADR-0019
+- Владение: compose-структура этого ADR; `plans/development/infrastructure.md` удалён [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md); make-цели (`dev-*`/`infra-*`) — за ADR-0019
 - Revisit-триггеры: появление k8s как целевого prod; третий класс сервисов по частоте рестарта; переход harbor из kind в compose
