@@ -10,7 +10,7 @@ informed: SteeveRan
 
 ## Context and Problem Statement
 
-Как BigBug должен авторизовывать действия пользователей после того, как их личность установлена (аутентификация — см. [ADR-0003](0003-keycloak-oidc-sso-dual-mode.md))? Изначально backend использовал иерархию фиксированных ролей (`require_admin` / `require_operator` / `require_viewer` — `app/core/rbac.py`), которая не позволяет:
+Как BigBug должен авторизовывать действия пользователей после того, как их личность установлена (аутентификация — см. [ADR-0003](0003-keycloak-oidc-dual-auth.md))? Изначально backend использовал иерархию фиксированных ролей (`require_admin` / `require_operator` / `require_viewer` — `app/core/rbac.py`), которая не позволяет:
 
 - выдавать доступ частично (например, «read везде, write только в Helm»);
 - ограничивать видимость ресурсов (например, «operator видит только провайдеры своего scope»);
@@ -96,7 +96,7 @@ Chosen option: **Permission-based RBAC**.
 
 ## More Information
 
-* ADR опирается на [ADR-0003](0003-keycloak-oidc-sso-dual-mode.md) (аутентификация: Keycloak OIDC SSO + local users, dual mode) — permission'ы вшиваются в JWT, выпускаемый обоими режимами входа.
+* ADR опирается на [ADR-0003](0003-keycloak-oidc-dual-auth.md) (аутентификация: Keycloak OIDC SSO + local users, dual mode) — permission'ы вшиваются в JWT, выпускаемый обоими режимами входа.
 * Канонический operational-список прав: [`plans/architecture/permissions.md`](../../../plans/architecture/permissions.md) — обновлять при любом изменении прав (правило AGENTS.md). Спроектированные, но ещё не сидируемые права (`gitlab_projects:*`, `components:*`) — там же, раздел «Спроектированные права».
 * История вопроса: `plans/features/auth-rbac.md` (удалён после принятия этого ADR — RBAC-разделы переехали сюда, SSO-разделы — в ADR-0003); operational-рецепты — в `AGENTS.md`.
 * Доменные исключения RBAC: `backend/app/core/exceptions.py` (`RoleNotFoundError`, `CannotModifyBuiltinRoleError`, `RoleHasUsersError`, `PermissionNotFoundError`).
