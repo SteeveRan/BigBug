@@ -28,6 +28,7 @@
 | [ADR-0003](common/0003-keycloak-oidc-dual-auth.md) | proposed | Выбрать dual-mode аутентификацию: локальный email/password JWT + опциональный Keycloak OIDC SSO | 2026-10-21 |
 | [ADR-0004](common/0004-permission-based-rbac-scope-providers.md) | proposed | Авторизация: permission-based RBAC (`resource:action`) со scope-providers | 2026-10-21 |
 | [ADR-0007](common/0007-providers-v3-registry.md) | proposed | Providers V3: единая сущность `resource_providers` с реестром подтипов в коде вместо 5 инстанс-таблиц и V2 `source_providers` | 2026-10-21 |
+| [ADR-0019](common/0019-makefile-tooling-single-entrypoint.md) | proposed | Developer tooling: корневой Makefile — единая точка входа (тонкая обёртка, `make help`); mypy в backend, knip во frontend, vulture в backend | 2026-10-21 |
 
 ### backend
 
@@ -41,6 +42,7 @@
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
 | [ADR-0011](backend/0011-gitlab-ci-pipelines-components.md) | proposed | Управлять GitLab CI/CD-интеграцией (проекты, компоненты, пресеты, пайплайны) внутри приложения | 2026-10-21 |
 | [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
+| [ADR-0016](backend/0016-backend-integration-testing.md) | proposed | Считать интеграционным уровнем backend существующий e2e-suite против живого dev-стенда — без отдельного каталога `tests/integration/` и без testcontainers | 2026-10-21 |
 | [ADR-0020](backend/0020-image-builds-gold-app.md) | proposed | Image builds: домен Gold/App Images — единая таблица версий с дискриминатором, сборка через GitLab CI, APScheduler-расписания, cosign-подпись, Harbor-сканирование | 2026-10-21 |
 
 ### frontend
@@ -49,6 +51,7 @@
 |---|---|---|---|
 | [ADR-0002](frontend/0002-frontend-stack-react-antd-rtk.md) | proposed | Выбрать frontend-стек: React 19 + TypeScript + Ant Design 6 + Redux Toolkit (RTK Query) + Vite | 2026-10-21 |
 | [ADR-0015](frontend/0015-frontend-unit-testing-vitest.md) | proposed | Зафиксировать frontend unit-тестирование: Vitest + @testing-library/react + jsdom, layout `src/tests/unit/` | 2026-10-21 |
+| [ADR-0017](frontend/0017-frontend-integration-testing.md) | proposed | Зафиксировать frontend integration-тестирование: страницы с реальным Redux store, RTK Query-хуки в моках, jsdom, layout `src/tests/integrations/` | 2026-10-21 |
 
 ### infrastructure
 
