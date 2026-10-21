@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Dev-инфраструктура BigBug (см. [ADR-0012](0012-docker-compose-split-dev-env.md) — compose-структура) требует поверх «поднять контейнеры» ещё и **настройки сервисов**: Keycloak realm + OIDC clients + роли, GitLab group + service-account + PAT, Harbor OIDC auth + projects + robot-accounts + registries + replication. Исторически это делалось императивными bash-скриптами и ручными кликами в консолях — невоспроизводимо, не версионируется, деградирует при пересоздании окружения.
+Dev-инфраструктура BigBug (исторический compose-слой — архивный [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md); актуальный k8s-слой — [ADR-0022](0022-dev-stand-on-kind.md)) требует поверх «поднять контейнеры» ещё и **настройки сервисов**: Keycloak realm + OIDC clients + роли, GitLab group + service-account + PAT, Harbor OIDC auth + projects + robot-accounts + registries + replication. Исторически это делалось императивными bash-скриптами и ручными кликами в консолях — невоспроизводимо, не версионируется, деградирует при пересоздании окружения.
 
 Фактический вопрос: **каким инструментом декларативно управлять конфигурацией инфраструктурных сервисов** — и где проходит граница между «IaC» и императивной обвязкой?
 
@@ -49,7 +49,7 @@ Chosen option: **OpenTofu** — декларативный IaC с открыто
 
 1. Проверка зависимостей (`docker`, `curl`, `jq`, `tofu` **или** `terraform` — fallback осознанный, но OpenTofu рекомендуется)
 2. `infrastructure/.env` из `.env.example` (если нет)
-3. `docker compose up` инфраструктурных сервисов ([ADR-0012](0012-docker-compose-split-dev-env.md)), если ещё не запущены
+3. `docker compose up` инфраструктурных сервисов (compose-слой; после [ADR-0022](0022-dev-stand-on-kind.md) — только GitLab, остальное в kind), если ещё не запущены
 4. Ожидание готовности: Keycloak `/realms/master` (180s), GitLab `/users/sign_in` (600s)
 5. Harbor в kind: `deploy.sh`, только если кластера нет (idempotent)
 6. **GitLab PAT bootstrap** — документированное исключение из IaC: начальный root PAT программируется через `gitlab-rails runner` внутри контейнера, только если токен из `infrastructure/.env` отвечает 403; затем пишется в `terraform.tfvars`
@@ -120,7 +120,7 @@ Fork Terraform 1.5/1.6 под эгидой Linux Foundation, MPL 2.0.
 
 ## More Information
 
-- [ADR-0012](0012-docker-compose-split-dev-env.md) — compose-слой (какие контейнеры, порты, сети); этот ADR — слой **поверх** compose
+- [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — исторический compose-слой; этот ADR — слой поверх (после ADR-0022 compose остаётся только для GitLab)
 - [ADR-0003](../common/0003-keycloak-oidc-dual-auth.md) — зачем Keycloak clients (dual-mode auth); [ADR-0007](../common/0007-providers-v3-registry.md) — приложение хранит эти credentials через Providers V3 (шифрование — [ADR-0010](../backend/0010-fernet-secrets-encryption.md))
 - Эксплуатация и troubleshooting (curl-проверки, ручной путь, сброс state) — [`AGENTS.md`](../../../AGENTS.md), make-цели `infra-*` — корневой [`Makefile`](../../../Makefile)
 - Обзор: [`infrastructure/README.md`](../../../infrastructure/README.md)

@@ -68,10 +68,10 @@ BigBug/
 | Backend (Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7) | [ADR-0001](docs/adr/backend/0001-choose-backend-stack.md) |
 | Frontend (React 19 + TypeScript + AntD 6 + RTK/RTK Query + Vite, Node.js) | [ADR-0002](docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) |
 | Auth (JWT + Keycloak OIDC) | [ADR-0003](docs/adr/common/0003-keycloak-oidc-dual-auth.md) |
-| Dev environment (Compose split) | [ADR-0012](docs/adr/infrastructure/0012-docker-compose-split-dev-env.md) |
+| Dev environment (kind-стенд) | [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) |
 | IaC (OpenTofu: Keycloak, GitLab, Harbor) | [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) |
 
-**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0012](docs/adr/infrastructure/0012-docker-compose-split-dev-env.md)/[0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)): GitLab CE (+ Runner), Keycloak, Harbor (в kind), PostgreSQL 17 (2 инстанса), Redis 7.
+**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)): GitLab CE (+ Runner, в compose), Keycloak (keycloakx), Harbor (в kind), PostgreSQL 17 (CNPG), Valkey.
 
 Актуальные версии — [`backend/pyproject.toml`](backend/pyproject.toml), [`frontend/package.json`](frontend/package.json).
 
@@ -129,7 +129,7 @@ See: [`/plans/development/frontend.md`](plans/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
-See: [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC (OpenTofu) для Keycloak/GitLab/Harbor; troubleshooting инфраструктуры — ниже.
+See: [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC (OpenTofu) для Keycloak/GitLab/Harbor; [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions
 
@@ -293,7 +293,7 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 
 ### Infrastructure Troubleshooting
 
-Ручная диагностика инфраструктурных сервисов (compose-слой — [ADR-0012](docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), IaC — [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)):
+Ручная диагностика инфраструктурных сервисов (kind dev-стенд — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md), IaC — [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)):
 
 ```bash
 # Сервисы не стартуют: логи, сеть, volumes

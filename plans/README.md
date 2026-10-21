@@ -15,7 +15,7 @@
 - [`development/setup.md`](development/setup.md) - настройка окружения разработки
 - [`development/backend.md`](development/backend.md) - работа с backend (FastAPI)
 - [`development/frontend.md`](development/frontend.md) - работа с frontend (React)
-- Infrastructure (Compose, IaC, init flow): [ADR-0012](../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), [ADR-0013](../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
+- Infrastructure (kind dev-стенд, IaC, init flow): [ADR-0022](../docs/adr/infrastructure/0022-dev-stand-on-kind.md), [ADR-0023](../docs/adr/infrastructure/0023-bigbug-helm-chart.md), [ADR-0013](../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
 - Testing: ADR-0014…0018 — см. [`docs/adr/README.md`](../docs/adr/README.md)
 
 ### 🎯 Features

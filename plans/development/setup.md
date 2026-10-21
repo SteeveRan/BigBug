@@ -5,7 +5,7 @@
 ### Required
 - **Python** 3.14+ ([ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md))
 - **Node.js** LTS ([ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
-- **Docker** & **Docker Compose** ([ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md))
+- **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
 - **Git**
 
 ### Optional
@@ -137,7 +137,7 @@ make dev-up
 make infra-init    # = ./infrastructure/init.sh
 ```
 
-Подробности compose-слоя и IaC — [ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md) и [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); полный список make-команд — [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
+Подробности dev-стенда — [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 
