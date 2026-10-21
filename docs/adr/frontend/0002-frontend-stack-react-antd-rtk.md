@@ -45,7 +45,7 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 - HTTP: **axios ^1.7.0** (базовый клиент; данные — через RTK Query)
 - Сборка: **Vite ^5.4.0** + `@vitejs/plugin-react`
 - Качество: **Vitest ^2.0.0** + `@testing-library/react` + `jsdom` (unit + integrations), **ESLint 9** + `typescript-eslint 8`, **Prettier**, **knip** (dead code)
-- **Runtime: Node.js 24.16.0 LTS** (локально через nvm — см. `frontend/scripts/*.sh`; docker-сборка — `node:20-alpine` в `frontend/docker/Dockerfile`)
+- **Runtime: Node.js 26 LTS**
 - Пакетный менеджер: **Yarn 4.3.1** (`packageManager` в `package.json`)
 
 ### Consequences
@@ -54,7 +54,6 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 - Good, because RTK Query даёт кэш + инвалидацию по тегам без отдельной библиотеки (React Query не нужен)
 - Bad, because AntD тянет тяжёлый бандл — нужен контроль через tree-shaking и lazy-роуты
 - Bad, because `plans/architecture/decisions.md` и `plans/tech-stack.md` устарели (MUI v9, Node 26) — исправляются владельцами этих документов, не этим ADR
-- Bad, because локальный Node (24.16.0 через nvm) и docker-сборка (`node:20-alpine`) расходятся — расхождение фиксирует этот ADR, выравнивание требует отдельного решения
 - Neutral, because react-router v7 вместо react-router-dom — новый канонический пакет, часть туториалов в сети всё ещё ссылается на старый
 
 ### Confirmation
@@ -105,4 +104,4 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 - `plans/tech-stack.md` — расхождение по MUI/Node исправляется вне этого ADR (out of scope)
 - Конвенции реализации — `plans/development/frontend.md`; тесты — `plans/development/testing.md`
 - Парный ADR: [ADR-0001](../backend/0001-choose-backend-stack.md) (backend-стек)
-- Условие пересмотра: смена UI-кита или появление второго data-fetching-слоя — только через новый ADR; выравнивание Node-версий (nvm vs docker) и фиксация её в `engines`/`.nvmrc` — триггер на отдельный cleanup-ADR
+- Условие пересмотра: смена UI-кита или появление второго data-fetching-слоя — только через новый ADR
