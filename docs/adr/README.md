@@ -33,6 +33,7 @@
 |---|---|---|---|
 | [ADR-0001](backend/0001-choose-backend-stack.md) | proposed | Выбрать backend-стек: Python 3.14 + FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7 | 2026-10-21 |
 | [ADR-0005](backend/0005-service-layer-no-repository.md) | proposed | Сервисный слой без repository pattern: бизнес-логика в `app/services/`, доменные исключения, прямой SQLAlchemy ORM | 2026-10-21 |
+| [ADR-0009](backend/0009-pull-sync-apscheduler-webhooks.md) | proposed | Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks | 2026-10-21 |
 
 ### frontend
 
