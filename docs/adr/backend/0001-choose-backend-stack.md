@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-`docs/adr/` пуст (только README/ARCHIVE/_template). Решение о backend-стеке живёт в разрозненных план-документах (`plans/architecture/decisions.md`, `plans/tech-stack.md`), частично устаревших (например, они упоминают MUI для frontend). Это первый ADR: он фиксирует backend-стек как есть в коде и создаёт точку отсчёта для реестра (roadmap: `.agents/plans/adr-roadmap.md`, 22 ADR — один домен = один ADR). Источник триггера — [issue #2](https://github.com/SteeveRan/BigBug/issues/2).
+Решение о backend-стеке BigBug до сих пор нигде официально не зафиксировано: оно подразумевается кодом (`backend/pyproject.toml`) и разбросано по план-документам (`plans/architecture/decisions.md`, `plans/tech-stack.md`), частично устаревших (например, они упоминают MUI для frontend, которого нет). Без единого ADR агент или новый разработчик не может ответить на вопрос «какой backend-стек канонический и что делать при добавлении новой зависимости».
 
 Источник истины — код, а не план-документы: версии проверены по `backend/pyproject.toml` (см. Decision Outcome).
 
@@ -51,7 +51,7 @@ Chosen option: **FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7** — 
 * Bad, because Python 3.14 — свежая версия, часть third-party пакетов может отставать по поддержке (следим через renovate)
 * Bad, because async-модели SQLAlchemy запрещают lazy loading — все связи грузить явным `selectinload`/`joinedload`
 * Neutral, because больше ручной сборки, чем в Django (auth, админка — свои), в обмен на отсутствие лишней инфраструктуры
-* Non-goals: Celery/отдельные воркеры; строгий mypy; фронтенд-стек (ADR-0002) и инфраструктура (ADR-0012/0013); удаление `plans/tech-stack.md` (владелец — ADR-0013)
+* Non-goals: Celery/отдельные воркеры; строгий mypy; выбор фронтенд-стека и инфраструктуры (отдельные ADR); удаление `plans/tech-stack.md`
 
 ### Confirmation
 
@@ -93,5 +93,4 @@ Batteries included, но sync-first.
 
 - Исходные рассуждения по альтернативам — `plans/architecture/decisions.md` (частично устарел, источник истины — код)
 - Конвенции реализации — `plans/development/backend.md`, `plans/development/database.md`
-- Запланированные связанные ADR: ADR-0002 (frontend stack), ADR-0012/0013 (infrastructure) — см. `.agents/plans/adr-roadmap.md`
 - Условие пересмотра: если экосистема Python 3.14 создаст блокеры (отставание ключевых пакетов) или нагрузка потребует распределённых воркеров — переоткрыть решение через новый ADR
