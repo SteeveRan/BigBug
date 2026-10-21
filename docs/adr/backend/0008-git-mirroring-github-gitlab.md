@@ -12,7 +12,7 @@ Git Mirroring — самая функционально полная подси�
 
 Вопрос: **зафиксировать как стандарт проекта фактическую архитектуру зеркалирования** — pull-based по расписанию, перенос кода силами GitLab CI/CD, soft delete с retention, — чтобы источник истины для агентов и ревьюеров стал ADR, а не устаревающая спека.
 
-Домен строится поверх системы Providers V3 (единый реестр `resource_providers`; решение выделяется в отдельный ADR-0007, issue #8) и сервисного слоя без repository (см. [ADR-0005](0005-service-layer-no-repository.md)).
+Домен строится поверх системы Providers V3 (единый реестр `resource_providers`; см. [ADR-0007](../common/0007-providers-v3-registry.md)) и сервисного слоя без repository (см. [ADR-0005](0005-service-layer-no-repository.md)).
 
 ## Decision Drivers
 
@@ -146,6 +146,6 @@ Backend выполняет git через subprocess, хранит времен�
 - Frontend: страницы `frontend/src/pages/GitMirroring/` (Dashboard, Mirrors, Sources, SyncGroups, Orphaned, Reports), RTK Query `frontend/src/store/api/git-mirroring/`
 - Замечания по расхождениям спеки и кода, учтённые здесь: retention — 30 дней (не 7); sync-механизм — CI/CD pipeline (спека US-7 предполагала API-сравнение как freshness — реализовано отдельно); integrity «deep comparison» из US-15 реализован как direct HEAD-сравнение
 - Единые status flags (0 OK / 1 Failed / 2 Warning / 3 In Progress / 4 Pending) — `status_flag`/`status_text` на зеркалах и логах
-- Родственные ADR: [ADR-0005](0005-service-layer-no-repository.md) (сервисный слой), ADR-0007 Providers V3 (issue #8, готовится) — реестр `resource_providers`, на котором строятся привязки source/target
+- Родственные ADR: [ADR-0005](0005-service-layer-no-repository.md) (сервисный слой), [ADR-0007](../common/0007-providers-v3-registry.md) (Providers V3 — реестр `resource_providers`, на котором строятся привязки source/target), [ADR-0006](0006-database-postgresql-alembic.md) (database layer)
 - Заменил feature-спеку `plans/features/git-mirroring-v2.md` (удалена); переоценивать решение при: потребности в push-модели (real-time зеркалирование), появлении второго source-хостинга вне provider-реестра, необходимости автоматического relink orphaned
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)

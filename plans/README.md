@@ -13,17 +13,17 @@
 - [`development/setup.md`](development/setup.md) - настройка окружения разработки
 - [`development/backend.md`](development/backend.md) - работа с backend (FastAPI)
 - [`development/frontend.md`](development/frontend.md) - работа с frontend (React)
-- [`development/database.md`](development/database.md) - миграции, модели, conventions
+- [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer: PostgreSQL 17, SQLAlchemy 2, Alembic, миграции, conventions
 - [`development/testing.md`](development/testing.md) - тесты backend и frontend
 - [`development/infrastructure.md`](development/infrastructure.md) - Docker Compose, services
 
 ### 🎯 Features
-- [`features/auth-rbac.md`](features/auth-rbac.md) - аутентификация и RBAC
 - [`features/builds.md`](features/builds.md) - Gold/App images
-- Git Mirroring (GitHub → GitLab): [docs/adr/backend/0008-git-mirroring-github-gitlab.md](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
-- [`features/integrations.md`](features/integrations.md) - GitLab, Harbor, GitHub, etc
+- Git Mirroring (GitHub → GitLab): [ADR-0008](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
 - [`features/pipelines.md`](features/pipelines.md) - CI/CD пайплайны
 - [`features/security.md`](features/security.md) - шифрование, secrets
+
+> Провайдеры интеграций (Git/Docker/Helm): см. [ADR-0007](../docs/adr/common/0007-providers-v3-registry.md) — единая сущность `resource_providers`.
 
 ### 🏗️ Architecture
 - [`architecture/decisions.md`](architecture/decisions.md) - Architecture Decision Records (ADR)
