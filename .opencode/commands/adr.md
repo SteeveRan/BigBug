@@ -60,9 +60,10 @@ agent: plan
 
 ## Наполнение секций по правилам проекта
 
-- Секция `### Confirmation` (verification по скиллу): только реально существующие make-цели
-  из корневого `Makefile` (`make lint`, `make typecheck`, `make test-unit-backend`, ...),
-  конкретные и проверяемые. Команды не выдумывать.
+- Секция `### Confirmation` — **опциональная по шаблону**: включай, только если решение реально
+  требует верификации, и способ проверки соответствует типу решения (fitness functions,
+  критерии ревью, observability, тесты — не сведение архитектурного решения к чеклисту таски).
+  Если проверка исполняемая — только существующие make-цели из корневого `Makefile`; не выдумывать команды.
 - Constraints и affected files — только реальные файлы из AGENTS.md
   (`backend/app/services/providers/registry.py`, `backend/app/core/rbac.py`,
   `frontend/src/store/api.ts`, ...), не абстракции. Non-goals — явно, по требованиям скилла.
