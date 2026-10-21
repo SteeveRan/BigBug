@@ -39,6 +39,7 @@
 | [ADR-0008](backend/0008-git-mirroring-github-gitlab.md) | proposed | Архитектура Git Mirroring: pull-based синхронизация GitHub → GitLab с оркестрацией через GitLab CI/CD pipeline | 2026-10-21 |
 | [ADR-0009](backend/0009-pull-sync-apscheduler-webhooks.md) | proposed | Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks | 2026-10-21 |
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
+| [ADR-0011](backend/0011-gitlab-ci-pipelines-components.md) | proposed | Управлять GitLab CI/CD-интеграцией (проекты, компоненты, пресеты, пайплайны) внутри приложения | 2026-10-21 |
 | [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
 
 ### frontend
@@ -46,12 +47,13 @@
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
 | [ADR-0002](frontend/0002-frontend-stack-react-antd-rtk.md) | proposed | Выбрать frontend-стек: React 19 + TypeScript + Ant Design 6 + Redux Toolkit (RTK Query) + Vite | 2026-10-21 |
+| [ADR-0015](frontend/0015-frontend-unit-testing-vitest.md) | proposed | Зафиксировать frontend unit-тестирование: Vitest + @testing-library/react + jsdom, layout `src/tests/unit/` | 2026-10-21 |
 
 ### infrastructure
 
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
-| — | — | — | — |
+| [ADR-0012](infrastructure/0012-docker-compose-split-dev-env.md) | proposed | Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration | 2026-10-21 |
 
 ## Правила для агентов
 

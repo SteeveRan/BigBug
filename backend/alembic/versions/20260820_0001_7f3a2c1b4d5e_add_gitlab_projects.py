@@ -6,7 +6,8 @@ Create Date: 2026-08-20 00:41:00.000000+00:00
 
 Creates the ``gitlab_projects`` table (with project_type and visibility
 enums), the ``role_scope_gitlab_projects`` scope table, and the associated
-indexes/constraints defined in ``plans/gitlab-project-management-spec.md`` §3.
+indexes/constraints defined in the ADR
+``docs/adr/backend/0011-gitlab-ci-pipelines-components.md`` (former spec §3).
 """
 from typing import Sequence, Union
 

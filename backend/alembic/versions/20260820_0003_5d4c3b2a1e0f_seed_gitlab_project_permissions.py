@@ -6,7 +6,8 @@ Create Date: 2026-08-20 00:43:00.000000+00:00
 
 Seeds the 8 gitlab-project management permissions and links them to the
 default roles (admin, operator, viewer) per
-``plans/gitlab-project-management-spec.md`` §4 / ``permissions.md``.
+``docs/adr/backend/0011-gitlab-ci-pipelines-components.md``
+(former spec §4) / ``permissions.md``.
 
 Idempotent: inserts only missing permission rows and missing role→permission
 links. ``downgrade()`` removes only the rows this migration owns.
