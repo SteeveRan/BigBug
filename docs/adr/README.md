@@ -39,6 +39,7 @@
 | [ADR-0008](backend/0008-git-mirroring-github-gitlab.md) | proposed | Архитектура Git Mirroring: pull-based синхронизация GitHub → GitLab с оркестрацией через GitLab CI/CD pipeline | 2026-10-21 |
 | [ADR-0009](backend/0009-pull-sync-apscheduler-webhooks.md) | proposed | Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks | 2026-10-21 |
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
+| [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
 
 ### frontend
 
