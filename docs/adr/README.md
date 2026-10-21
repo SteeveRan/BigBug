@@ -25,7 +25,7 @@
 
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
-| — | — | — | — |
+| [ADR-0001](backend/0001-backend-stack-fastapi-sqlalchemy.md) | Proposed | Выбрать backend-стек: Python 3.14 + FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7 | 2026-10-21 |
 
 ### frontend
 
