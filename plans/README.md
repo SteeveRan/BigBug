@@ -19,7 +19,7 @@
 
 ### 🎯 Features
 - [`features/builds.md`](features/builds.md) - Gold/App images
-- [`features/mirroring.md`](features/mirroring.md) - Docker/Helm/Git mirroring
+- Git Mirroring (GitHub → GitLab): [ADR-0008](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
 - [`features/pipelines.md`](features/pipelines.md) - CI/CD пайплайны
 
 > Провайдеры интеграций (Git/Docker/Helm): см. [ADR-0007](../docs/adr/common/0007-providers-v3-registry.md) — единая сущность `resource_providers`.
