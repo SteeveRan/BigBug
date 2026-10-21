@@ -2,15 +2,32 @@
 description: Создать новый ADR (четырёхфазный workflow skill adr-skill)
 agent: plan
 ---
-Создай Architecture Decision Record строго по четырёхфазному workflow из skill `adr-skill`
-(Phase 0: скан кода → Phase 1: сократический интервью, по одному вопросу → Intent Summary
-Gate, дождись подтверждения человека → Phase 2: драфт → Phase 3: проверка по
-agent-readiness чеклисту из `references/review-checklist.md`). Не пропускай фазы.
+Создай Architecture Decision Record строго по четырёхфазному workflow из skill `adr-skill`.
+Фазы скилла обязательны и не подлежат «пропуску с обоснованием»:
+
+- **Phase 0 — Scan the Codebase** (см. SKILL.md скилла): скан существующих ADR, стека, паттернов.
+- **Phase 1 — Capture Intent** (сократическое интервью по одному вопросу + **Intent Summary Gate**).
+- **Phase 2 — Draft the ADR** по каноническому шаблону.
+- **Phase 3 — Review** по чеклисту agent-readiness.
+
+## Жёсткие требования фаз (не отменяются источником задачи)
+
+- **Наличие issue/плана с ответами НЕ отменяет Phase 1.** Если ответы на вопросы Phase 1
+  уже есть в issue, плане или документах — сократическое интервью сокращается, но
+  **Intent Summary Gate обязателен всегда**: собери summary (Title, Trigger, Constraints,
+  Options, Lean, Non-goals, Related ADRs/code, Affected files, Verification) и дождись
+  явного подтверждения человека («да, фиксируй»), прежде чем создавать файл. Без Gate
+  ADR не пишется вообще.
+- Допускается самостоятельно определять только механические поля: номер `NNNN`, дата,
+  slug. Всё содержательное — только через подтверждённый Intent Summary.
+- **Phase 3 прогоняется формально**: прочитай `references/review-checklist.md` скилла
+  и пройдись по каждому пункту, приведя в ответе результат проверки (пункт → ok/нет → почему).
+  «Прошёлся в уме» — не выполненная Phase 3.
 
 ## Формат — только канонический шаблон скилла
 
-- Копируй шаблон `.opencode/skills/adr-skill/assets/templates/adr-madr.md` (MADR 4.0).
-  Не изобретай свой формат: секции, порядок, формулировки — как в шаблоне.
+- Копируй шаблон `.opencode/skills/adr-skill/assets/templates/adr-madr.md` (MADR 4.0):
+  секции, порядок и формулировки — как в шаблоне.
 - Front-matter строго по скиллу: `status`, `date`, `decision-makers` (обязательные),
   `consulted`, `informed` (опциональные). Дополнительных полей не добавляй.
 - Статусы строго по скиллу: `proposed | accepted | rejected | deprecated |
@@ -23,8 +40,12 @@ agent-readiness чеклисту из `references/review-checklist.md`). Не п
   Решение, затрагивающее несколько компонентов, — в `common/`.
 - Нумерация **сквозная по всем компонентам и архиву**: следующий `NNNN` = максимальный номер
   среди всех ADR в `docs/adr/` (включая `docs/adr/archive/`) + 1. Номера не переиспользуются.
-  Это осознанное отклонение от дефолта скилла, зафиксировано в `docs/adr/README.md`.
 - Имя файла: `NNNN-slug.md` (kebab-case, present-tense imperative slug, англоязычный).
+- **Скрипт `scripts/new_adr.js` сознательно не используется**: его нумерация локальна
+  внутри одного каталога и не может выразить сквозную нумерацию проекта и схему архива.
+  Скилл сам предписывает следовать конвенциям репозитория, если они уже есть. Файл
+  создаётся вручную из канонического шаблона — это санкционированное отклонение,
+  зафиксированное в `docs/adr/README.md`. Скрипт `set_adr_status.js` использовать можно.
 
 ## Phase 0 — обязательный скан
 

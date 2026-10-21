@@ -16,6 +16,7 @@
 - **Имя файла**: `NNNN-slug.md` (по скиллу: kebab-case, present-tense imperative), например `0007-unify-providers-registry.md`.
 - **Архивация** (вместо in-place `deprecated`, по требованию проекта): при `superseded` или `rejected` файл перемещается в `docs/adr/archive/<component>/`, статус в front-matter обновляется (для superseded — со взаимной ссылкой на новый ADR в обе стороны), строка удаляется из этого реестра и добавляется в [ARCHIVE.md](ARCHIVE.md).
 - **Verification** (секция `### Confirmation` по скиллу): указывать только реально существующие make-цели из корневого `Makefile` (`make lint`, `make typecheck`, `make test-unit-backend`, ...); команды не выдумывать.
+- **Скрипт `scripts/new_adr.js` скилла не используется**: его нумерация локальна внутри каталога и несовместима со сквозной нумерацией и схемой архива этого репозитория. Файл создаётся вручную из канонического шаблона скилла; `set_adr_status.js` использовать можно.
 - **Связь с доменами**: в `## Context and Problem Statement` и `## More Information` ссылаться на `plans/features/<домен>.md` и `plans/architecture/decisions.md`.
 
 ## Реестр актуальных ADR
