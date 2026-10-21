@@ -207,7 +207,7 @@ alembic revision -m "add_user_keycloak_sub"
 # Creates: YYYYMMDD_HHMM_<hash>_add_user_keycloak_sub.py
 ```
 
-> Текущая цепочка — 6 ревизий после сброса 2026-08-16: `initial_schema` → `seed_initial_data` → `add_gitlab_projects` → `link_components_pipelines_to_gitlab_projects` → `seed_gitlab_project_permissions` → `add_helm_mirror_fields` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `add_helm_mirror_fields`, см. [`/plans/development/database.md`](plans/development/database.md).
+> Текущая цепочка — 6 ревизий после сброса 2026-08-16: `initial_schema` → `seed_initial_data` → `add_gitlab_projects` → `link_components_pipelines_to_gitlab_projects` → `seed_gitlab_project_permissions` → `add_helm_mirror_fields` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `add_helm_mirror_fields`, см. [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md).
 
 **Naming conventions**:
 - Tables: `users`, `roles`, `gitlab_mirrors` (plural, snake_case)
@@ -215,7 +215,7 @@ alembic revision -m "add_user_keycloak_sub"
 - Foreign keys: `{table}_id`, e.g., `user_id`
 - Indexes: `ix_{table}_{column}`, e.g., `ix_users_email`
 
-See: [`/plans/development/database.md`](plans/development/database.md)
+See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 ### Testing
 
