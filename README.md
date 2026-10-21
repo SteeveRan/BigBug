@@ -2,8 +2,8 @@
 
 > DevOps sync & build service for GitHub mirrors, Docker images, and Helm charts
 
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-111%20passed-brightgreen)]()
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-88%20passed-brightgreen)]()
+[![Backend](https://img.shields.io/badge/backend-pytest-blue)]()
+[![Frontend](https://img.shields.io/badge/frontend-vitest-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
 ## Overview
@@ -15,12 +15,17 @@ Designed for DevOps teams and enterprises that need a single pane of glass for a
 ## ✨ Features
 
 - **GitHub → GitLab mirroring** with automated CI/CD pipeline creation
+- **GitLab Projects / Components / Pipelines management** through the app API — create projects, manage files/tags, generate component presets and push CI configuration
+- **Providers V3** — a single `resource_providers` entity for all external integrations (GitHub/GitLab/Docker registries/Helm repos) with teams, sharing, and scope-based permissions
+- **Docker import** — mirror images from public registries (Docker Hub and others) into Harbor
+- **Helm chart mirror workflow** — mirror chart sources into a GitLab project with status tracking
 - **Gold Images** — base OS/runtime Docker image building
 - **App Images** — application image building on top of Gold Images
 - **Helm chart repository synchronization** — index, track versions, detect drift
 - **Docker registry image synchronization** — resolve tags, digests, architectures
 - **SSO/OIDC authentication** via Keycloak with PKCE S256
-- **RBAC** — three-tier role model (admin, operator, viewer)
+- **Permission-based RBAC** — `resource:action` permissions, custom roles, teams and scope-providers
+- **Teams & Profile** — team management and per-user views of teams and providers
 - **Scheduled sync & build jobs** with configurable cron expressions
 - **Build/sync logs** with status tracking and pipeline URLs
 - **REST API + React UI** — full management interface
@@ -31,7 +36,7 @@ Designed for DevOps teams and enterprises that need a single pane of glass for a
 ```
 ┌─────────────────┐      ┌──────────────┐      ┌──────────────────┐
 │   React UI      │ ────▶│  FastAPI     │ ────▶│ PostgreSQL × 2   │
-│   (Material UI) │      │  (Backend)   │      │ (app + keycloak) │
+│  (Ant Design)   │      │  (Backend)   │      │ (app + keycloak) │
 └─────────────────┘      └──────────────┘      └──────────────────┘
         │                        │                        │
         │                        ▼                        ▼
@@ -47,7 +52,7 @@ Designed for DevOps teams and enterprises that need a single pane of glass for a
                           └──────────────┘
 ```
 
-Detailed architecture: [`plans/architecture.md`](plans/architecture.md)
+Detailed architecture: [`docs/architecture/`](docs/architecture/) (human review) and [`plans/`](plans/) (implementation plans).
 
 ## 🚀 Quick Start
 
@@ -125,20 +130,22 @@ Services will start on:
 - **authlib** + **httpx** — OIDC/OAuth2 (Keycloak SSO)
 - **cryptography** (Fernet) — at-rest secret encryption
 - **pytest** + **pytest-asyncio** + **httpx** — testing
+- **mypy** + **vulture** — static type checking and dead code detection
 
 ### Frontend
 - **React 19** + **TypeScript** — UI framework
 - **Redux Toolkit** + **RTK Query** — state management and API layer
-- **Material UI v9** — component library
+- **Ant Design 6** — component library
 - **React Router v7** — client-side routing
 - **Vite** — build tool with HMR
 - **keycloak-js** — Keycloak OIDC adapter
 - **Vitest** + **@testing-library/react** — testing
 - **ESLint** + **@typescript-eslint** — linting
+- **knip** — dead code detection
 
 ### Infrastructure (dev)
 - **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor
-- **Keycloak 24** — SSO provider
+- **Keycloak** — SSO provider
 - **Harbor** (in kind) — local OCI registry for testing
 - **Docker Compose** — local development orchestration (split into [infra](infrastructure/docker-compose.yml) and [app](docker-compose.yml))
 - **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak → Harbor → GitLab)
@@ -157,7 +164,7 @@ BigBug/
 │   │   └── services/       # Business logic layer
 │   ├── docker/             # Dockerfile + entrypoint
 │   ├── scripts/            # Format, lint, test scripts
-│   ├── tests/              # pytest test suite (111 tests)
+│   ├── tests/              # pytest test suite (unit/ + e2e/)
 │   └── pyproject.toml      # Python dependencies
 ├── frontend/               # React UI
 │   ├── src/
@@ -166,8 +173,8 @@ BigBug/
 │   │   ├── pages/          # Page components per feature
 │   │   ├── router/         # React Router configuration
 │   │   ├── services/       # External service adapters (Keycloak)
-│   │   ├── store/          # Redux store + RTK Query
-│   │   ├── tests/          # Vitest test suite (88 tests)
+│   │   ├── store/          # Redux store + RTK Query (api/<domain>.ts)
+│   │   ├── tests/          # Vitest test suite (unit/ + integrations/)
 │   │   └── types/          # TypeScript type definitions
 │   ├── docker/             # Dockerfile
 │   ├── scripts/            # Format, lint, test scripts
@@ -178,15 +185,19 @@ BigBug/
 │   ├── docker-compose.yml   # Infrastructure services (postgres-keycloak, Keycloak, GitLab)
 │   ├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
 │   ├── harbor/              # Harbor deployment in kind
-│   └── gitlab-components/   # GitLab CI/CD component examples (see backend presets.py)
+│   └── gitlab-components/   # GitLab CI/CD component examples (not used by the app —
+│                            #   presets live in backend/app/services/gitlab_projects/presets.py)
 ├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
-├── gitlab-ci/               # CI/CD pipeline templates (legacy)
-├── plans/                  # Architecture documentation
+├── Makefile                 # Single entry point for all scripts (make help)
+├── plans/                   # Implementation plans (for agents)
+├── docs/                    # Architecture docs (for human review)
 ├── .env.example             # Environment variables template
 └── CHANGELOG.md             # Version history
 ```
 
 ## 🔧 Development
+
+All scripts run through the root [`Makefile`](Makefile) (see `make help`).
 
 ### Backend
 
@@ -205,9 +216,6 @@ alembic upgrade head
 
 # Start development server
 uvicorn app.main:app --reload
-
-# Run tests
-./run_tests.sh
 ```
 
 ### Frontend
@@ -220,15 +228,18 @@ yarn install
 
 # Start development server
 yarn dev
+```
 
-# Run tests
-./run_tests.sh
+### Tests, lint, typecheck
 
-# TypeScript check
-npx tsc --noEmit
-
-# Lint
-yarn lint
+```bash
+make test-unit-backend          # backend unit tests
+make test-e2e-backend           # backend e2e (requires dev stack)
+make test-unit-frontend         # frontend unit tests
+make test-integrations-frontend # frontend integration tests
+make lint                       # ruff + eslint
+make typecheck                  # mypy + tsc --noEmit
+make dead-code                  # vulture + knip
 ```
 
 ## 🐳 Docker Compose Services
@@ -259,7 +270,7 @@ yarn lint
 POST /api/auth/login     # username + password → JWT access token
 ```
 
-Default admin user (created by `keycloak-init`): `bigbug` / `bigbug`
+Default admin user (created by infrastructure init): `bigbug` / `bigbug`
 
 ### SSO Login (Keycloak OIDC)
 
@@ -267,31 +278,26 @@ Default admin user (created by `keycloak-init`): `bigbug` / `bigbug`
 - **Clients:**
   - `bigbug-frontend` — public client, PKCE S256 enforced
   - `bigbug-backend` — confidential client, client secret auth
-- **Roles:** synced from `realm_access.roles` → admin, operator, viewer
+- **Roles:** synced from `realm_access.roles`
 
 ### RBAC
 
-| Role | Permissions |
-|------|-------------|
-| `admin` | Full access + user/role management |
-| `operator` | Manage projects, mirrors, images, helm charts, docker images, trigger syncs |
-| `viewer` | Read-only access to all resources |
+BigBug uses a **permission-based** model with `resource:action` permissions (e.g. `providers:write`, `teams:manage_members`). Permissions are grouped into roles (built-in `admin`/`operator`/`viewer` plus custom roles), and extended with **teams** and **scope-providers** for resource-level isolation.
+
+See [`plans/architecture/permissions.md`](plans/architecture/permissions.md) for the full permission index.
 
 ## 🧪 Testing
 
 ```bash
-# Backend (111 tests)
-cd backend && ./run_tests.sh
-
-# Frontend (88 tests)
-cd frontend && ./run_tests.sh
+make test-unit-backend          # backend unit
+make test-e2e-backend           # backend e2e (requires dev stack)
+make test-unit-frontend         # frontend unit
+make test-integrations-frontend # frontend integrations
+make test-all                   # unit + integrations + e2e
+make coverage-all               # coverage for both stacks
 ```
 
-### Test Coverage
-
-**Backend:** OIDC service (19), Helm service (14), Docker service (16), Secrets (11), Helm API (15), Docker API (16), Auth (7), Projects (6), Images (7)
-
-**Frontend:** Keycloak service (17), `useKeycloakAuth` hook (10), SSO callback (9), Helm charts pages (19), Docker images pages (21), Auth slice (6), StatusChip (6)
+Pass args to a specific test via `TEST_ARGS`, e.g. `make test-unit-backend TEST_ARGS="-k test_login"`.
 
 ## 🌊 Harbor Deployment
 
@@ -325,23 +331,31 @@ After starting the backend:
 
 | Group | Prefix | Description |
 |-------|--------|-------------|
-| Auth | `/api/auth` | Login, token refresh, SSO config & exchange |
+| Auth | `/api/auth` | Login, token refresh, SSO config & exchange, OIDC config (admin) |
+| Admin | `/api/admin` | User and role management (admin only) |
 | Projects | `/api/projects` | GitHub project CRUD |
-| Mirrors | `/api/mirrors` | GitLab mirror management |
+| Mirroring | `/api/mirroring` | Git mirror management (CRUD, sync, orphaned) |
 | Gold Images | `/api/gold-images` | Base image CRUD |
 | App Images | `/api/app-images` | App image CRUD |
-| Helm Charts | `/api/helm-charts` | Chart source CRUD, indexing, versions |
-| Docker Images | `/api/docker-images` | Registry source CRUD, indexing, tags |
+| Helm Charts | `/api/helm-charts` | Chart source CRUD, indexing, versions, mirror |
+| Docker Images | `/api/docker-images` | Registry source CRUD, indexing, tags, mirror |
+| Pipelines | `/api/pipelines` | Pipeline runs (trigger, cancel, retry) |
+| Components | `/api/components` | GitLab CI/CD components |
+| GitLab Projects | `/api/gitlab-projects` | Project CRUD, files, tags, component presets, push-ci |
+| Credentials | `/api/credentials` | Credential management |
+| Providers | `/api/providers` | Unified resource providers (V3) |
+| Teams | `/api/teams` | Team management |
 | Schedules | `/api/schedules` | Sync and build schedule management |
 | Webhooks | `/api/webhooks` | GitLab pipeline status callbacks |
-| Admin | `/api/admin` | User and role management (admin only) |
+| Audit | `/api/admin/audit-logs` | Audit log with filtering |
+| Reports | `/api/reports` | Mirror reports (summary, history, failures, performance) |
+| Health Check | `/api` | Health/readiness endpoints |
 
 ## 🗺️ Roadmap
 
 - [ ] Cosign image signing integration
 - [ ] Advanced scheduling — retry policies, concurrency limits, backoff
 - [ ] Metrics & monitoring — Prometheus metrics + Grafana dashboards
-- [ ] Multi-tenancy — isolated projects and resources per team
 - [ ] Notification channels — Slack, Discord, email alerts
 - [ ] Helm OCI registry support
 - [ ] Harbor-native replication policies
@@ -352,7 +366,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full version history.
 
 Pull requests are welcome. Please:
 
-- Follow the existing code style and patterns documented in [`plans/architecture.md`](plans/architecture.md)
+- Follow the existing code style and patterns documented in [`plans/development/`](plans/development/)
 - Add tests for new features (pytest for backend, Vitest for frontend)
 - Update documentation for any user-facing changes
 - Keep PR scope focused — one feature or fix per PR
@@ -361,9 +375,9 @@ Pull requests are welcome. Please:
 
 The project follows consistent patterns:
 
-- **Backend:** SQLAlchemy 2.0 Column-style models → Pydantic v2 schemas → domain service layer (throws `RuntimeError` subclasses, never `HTTPException`) → API router (maps to HTTP status codes).
-- **Frontend:** TypeScript interfaces in `types/` → RTK Query endpoints in `store/api.ts` → page components in `pages/FeatureName/` → routes in `router/index.tsx`.
-- **RBAC:** `require_admin`, `require_operator`, `require_viewer` FastAPI dependencies.
+- **Backend:** SQLAlchemy 2.0 Column-style models → Pydantic v2 schemas → domain service layer (throws `DomainError` subclasses, never `HTTPException`) → API router (maps to HTTP status codes).
+- **Frontend:** TypeScript interfaces in `types/` → RTK Query endpoints in `store/api/<domain>.ts` (aggregated by `store/api.ts`) → page components in `pages/FeatureName/` → routes in `router/index.tsx`.
+- **RBAC:** `require_permission()` FastAPI dependency with `resource:action` permissions.
 - **Secrets:** `encrypt_secret()` / `decrypt_secret()` via Fernet for registry passwords.
 
 ## 📄 License
@@ -376,4 +390,4 @@ MIT License — see the [LICENSE](LICENSE) file.
 - [Keycloak](https://www.keycloak.org/) — open source identity and access management
 - [GitLab](https://about.gitlab.com/) — complete DevOps platform
 - [FastAPI](https://fastapi.tiangolo.com/) — modern Python web framework
-- [Material UI](https://mui.com/) — React component library
+- [Ant Design](https://ant.design/) — React component library

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Управление GitLab Projects/Components/Pipelines через API** (`7956508`):
+  - Модель `GitlabProject` + scope-таблица + RBAC-права; API [`/api/gitlab-projects`](backend/app/api/gitlab_projects.py) (CRUD, file/tag ops, component presets/push/pull, генерация push-ci)
+  - Сервисы [`gitlab_projects/`](backend/app/services/gitlab_projects/) и реструктуризация `pipeline.py` → [`pipeline/`](backend/app/services/pipeline/)
+  - Frontend [`Pipelines/Projects`](frontend/src/pages/Pipelines/Projects/) (+Detail, CreateModal) и [`Pipelines/Configurations`](frontend/src/pages/Pipelines/Configurations/)
+  - RTK Query [`store/api/gitlab-projects.ts`](frontend/src/store/api/gitlab-projects.ts)
+  - Миграции `add_gitlab_projects`, `link_components_pipelines_to_gitlab_projects`, `seed_gitlab_project_permissions`
+
+- **Helm charts mirror workflow** (`7fd87a1`):
+  - `gitlab_project_id` у `HelmChartSource`, mirror-поля, webhook, миграция `add_helm_mirror_fields`
+  - Frontend HelmCharts (Mirror-UI)
+
 - **Docker-импорт (Docker Hub → Harbor) — починка сквозного потока:**
   - `repository_path_from_ref()` + `ref_tag()` в [`docker.py`](backend/app/services/docker.py) — нормализация canonical-ссылок (`nginx:latest`, `registry-1.docker.io/library/nginx`, digest-ref) в чистый repository path; применяется в `_fetch_tags`, `_resolve_manifest_digest`, `mirror_image` и `import_source_from_url`
   - OCI/Docker Hub bearer-token handshake в новом [`docker_auth.py`](backend/app/services/providers/clients/docker_auth.py): `oci_request()` (Basic → 401 → `WWW-Authenticate: Bearer` → token → один retry), `TokenCache` (TTL 300s), `parse_bearer_challenge`, `scope_for_url`; интегрирован в [`docker_registry.py`](backend/app/services/providers/clients/docker_registry.py) и `_fetch_tags`
@@ -49,12 +60,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Удалён `infrastructure/provision-gitlab.sh` (заменён app API); YAML-шаблоны перенесены в `infrastructure/gitlab-components/examples/`
 - Удалены legacy-роутеры `api/integrations/`, `services/integrations.py`, 5 instance-моделей, модель `SourceProvider` + таблица `source_providers` (enum `ProviderType` перенесён в нейтральное место)
 - Удалены legacy-сторы (`integrations.ts`, `git-mirroring/providers.ts`, `mirrors-legacy.ts`) и страницы (`Settings/Integrations`, `GitMirroring/Providers`, `Admin/Integrations`, `Mirrors`, `Projects`)
 - Удалены legacy-права (`integrations:*`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use`)
 
 ### Changed
 
+- Docker: `_sync_tags` оставляет `status_flag=4` (Pending) вместо «synced» при индексации (`7fd87a1`)
+- Fix gitlab project service (`ecfda09`, мелкий)
 - **Багфиксы (2026-08-16):**
   - Rate-limiter: настройка через env-переменные `RATE_LIMIT_*`, отключён на dev
   - FK `audit_logs` при удалении пользователя (`ondelete=SET NULL`)

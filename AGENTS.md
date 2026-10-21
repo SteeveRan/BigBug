@@ -43,17 +43,19 @@ BigBug/
 │   ├── docker/          # Dockerfile
 │   ├── scripts/         # Format, lint, test scripts
 │   └── package.json     # Node dependencies
-├── gitlab-ci/           # GitLab CI/CD templates
 ├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
 │   ├── docker-compose.yml    # Infrastructure services (Keycloak, GitLab)
 │   ├── init.sh               # Initialization script
 │   ├── update-env.sh         # Environment update script
 │   ├── terraform/            # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
 │   ├── harbor/               # Harbor deployment in kind
-│   └── gitlab-components/ # GitLab CI/CD component examples (see backend presets.py)
+│   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
 │   └── architecture/    # Detailed design docs (for human review)
 ├── plans/               # Implementation plans for agents
+├── Makefile             # Single entry point for all scripts (make help)
+├── CHANGELOG.md         # Version history
+├── .kilo/               # Kilo config (commands, agents, plans)
 └── .roo/                # Kiro AI rules and guidelines
 ```
 
@@ -165,7 +167,7 @@ See: [`/plans/development/infrastructure.md`](plans/development/infrastructure.m
 **Frontend**:
 - Component folder with `index.tsx`: [`frontend/src/pages/Login/index.tsx`](frontend/src/pages/Login/index.tsx)
 - Types centralized: [`frontend/src/types/index.ts`](frontend/src/types/)
-- API endpoints in RTK Query: [`frontend/src/store/api.ts`](frontend/src/store/api.ts)
+- API endpoints in RTK Query: domain files in [`frontend/src/store/api/`](frontend/src/store/api/) (one file per domain, e.g. `gitlab-projects.ts`; `git-mirroring/` subfolder), with [`frontend/src/store/api.ts`](frontend/src/store/api.ts) as the aggregator
 
 ### API Design
 
@@ -205,7 +207,7 @@ alembic revision -m "add_user_keycloak_sub"
 # Creates: YYYYMMDD_HHMM_<hash>_add_user_keycloak_sub.py
 ```
 
-> Текущая цепочка — две миграции после сброса 2026-08-16: `initial_schema` → `seed_initial_data` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `seed_initial_data`, см. [`/plans/development/database.md`](plans/development/database.md).
+> Текущая цепочка — 6 ревизий после сброса 2026-08-16: `initial_schema` → `seed_initial_data` → `add_gitlab_projects` → `link_components_pipelines_to_gitlab_projects` → `seed_gitlab_project_permissions` → `add_helm_mirror_fields` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `add_helm_mirror_fields`, см. [`/plans/development/database.md`](plans/development/database.md).
 
 **Naming conventions**:
 - Tables: `users`, `roles`, `gitlab_mirrors` (plural, snake_case)
