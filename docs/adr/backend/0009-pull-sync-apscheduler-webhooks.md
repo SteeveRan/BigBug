@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Домен Git Mirroring зафиксирован в [ADR-0008](0008-git-mirroring-github-gitlab.md) (создаётся параллельно issue #9 — этот ADR зависит от него), но модель **исполнения** синхронизации нигде не зафиксирована: кто и когда запускает sync-пайплайны и freshness-проверки, как обрабатываются результаты (webhook'и GitLab), как детектируется stale-состояние зеркал и как физически удаляются soft-deleted сущности. Решение существует в коде (`backend/app/services/scheduler.py`, `sync_scheduler.py`, `cleanup.py`, `backend/app/api/webhooks.py`) и фрагментарно в `plans/architecture/decisions.md` (раздел «Pull-based sync через APScheduler», «Нерешённые вопросы»).
+Домен Git Mirroring зафиксирован в [ADR-0008](0008-git-mirroring-github-gitlab.md), но модель **исполнения** синхронизации нигде не зафиксирована: кто и когда запускает sync-пайплайны и freshness-проверки, как обрабатываются результаты (webhook'и GitLab), как детектируется stale-состояние зеркал и как физически удаляются soft-deleted сущности. Решение существует в коде (`backend/app/services/scheduler.py`, `sync_scheduler.py`, `cleanup.py`, `backend/app/api/webhooks.py`) и фрагментарно в `plans/architecture/decisions.md` (раздел «Pull-based sync через APScheduler», «Нерешённые вопросы»).
 
 Фактический вопрос: **принимать ли существующую модель исполнения как стандарт** — pull-based синхронизация по cron-расписаниям через APScheduler (AsyncIOScheduler), webhooks как опциональный канал real-time обновлений статусов, плюс ежедневный cleanup-джоб — без брокера сообщений?
 
