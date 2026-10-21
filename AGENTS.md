@@ -304,13 +304,13 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 ## Architecture Decision Records (ADR)
 
 - **Каталоги**: `docs/adr/<component>/`, где component ∈ `common` | `backend` | `frontend` | `infrastructure`. Решения, затрагивающие несколько компонентов, — в `common/`.
-- **Реестры**: действующие — [`docs/adr/README.md`](docs/adr/README.md), архив отменённых (`Superseded`/`Rejected`) — [`docs/adr/ARCHIVE.md`](docs/adr/ARCHIVE.md).
+- **Реестры**: действующие — [`docs/adr/README.md`](docs/adr/README.md), архив отменённых (`superseded`/`rejected`) — [`docs/adr/ARCHIVE.md`](docs/adr/ARCHIVE.md).
 - **Сквозная нумерация**: `NNNN` единая по всем компонентам и архиву (следующий = max всех + 1, номера не переиспользуются). Имя файла: `NNNN-slug.md`.
-- **Формат**: MADR, шаблон [`docs/adr/_template.md`](docs/adr/_template.md). Свой формат не изобретать. Язык — русский, технические термины не переводить.
-- **ПЕРЕД** любым изменением архитектуры, новой зависимостью, новым паттерном: прочитай [`docs/adr/README.md`](docs/adr/README.md) и релевантные Accepted ADR. **Accepted ADR обязательны к соблюдению**, Proposed — учитывать.
-- Если решение противоречит Accepted ADR — остановись и предложи новый ADR, не ломай код молча.
+- **Формат**: канонический шаблон MADR 4.0 из skill `adr-skill`: `.opencode/skills/adr-skill/assets/templates/adr-madr.md`. Свой формат не изобретать. Язык — русский, технические термины не переводить. Статусы по скиллу: `proposed | accepted | rejected | deprecated | superseded by ADR-NNNN`.
+- **ПЕРЕД** любым изменением архитектуры, новой зависимостью, новым паттерном: прочитай [`docs/adr/README.md`](docs/adr/README.md) и релевантные ADR со статусом `accepted`. **accepted ADR обязательны к соблюдению**, proposed — учитывать.
+- Если решение противоречит ADR со статусом `accepted` — остановись и предложи новый ADR, не ломай код молча.
 - **Триггеры «предложить ADR»**: новая зависимость; новый паттерн (обработка ошибок, data access, API convention); выбор между ≥2 альтернативами с нетривиальным tradeoff; противоречие существующему Accepted ADR.
-- Создание ADR — через команду `/adr` в OpenCode (workflow skill `adr-skill`). Статус `Accepted` выставляет только человек; при `Superseded`/`Rejected` ADR перемещается в `docs/adr/archive/<component>/` и реестры обновляются.
+- Создание ADR — через команду `/adr` в OpenCode (workflow skill `adr-skill`). Статус `accepted` выставляет только человек; при `superseded`/`rejected` ADR перемещается в `docs/adr/archive/<component>/` и реестры обновляются.
 
 ## Documentation
 
