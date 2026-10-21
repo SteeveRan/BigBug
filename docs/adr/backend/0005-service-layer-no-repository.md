@@ -33,12 +33,13 @@ Chosen option: **Service layer + доменные исключения + пря�
 
 Каноническое слоение:
 
-```
-API Layer (FastAPI routers, app/api/)      — HTTP, валидация Pydantic, permission-проверки (require_permission), маппинг исключений
-    ↓
-Service Layer (business logic, app/services/) — доменные правила, транзакционные границы, доменные исключения
-    ↓
-Data Layer (SQLAlchemy models, app/models/)   — сервисы работают с ORM напрямую, без repository
+```mermaid
+flowchart TD
+    API["API Layer<br>FastAPI routers (app/api/)<br>HTTP, валидация Pydantic,<br>permission-проверки (require_permission),<br>маппинг исключений"]
+    SVC["Service Layer<br>business logic (app/services/)<br>доменные правила, транзакционные границы,<br>доменные исключения"]
+    DATA["Data Layer<br>SQLAlchemy models (app/models/)<br>сервисы работают с ORM напрямую,<br>без repository"]
+
+    API --> SVC --> DATA
 ```
 
 Правила слоения:
