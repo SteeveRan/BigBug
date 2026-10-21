@@ -1,7 +1,7 @@
 # Рефакторинг: унифицированная система провайдеров ресурсов (Providers V3)
 
 > Статус: проект (architect mode). Дата: 2026-08-14. **Ревизия 3 (2026-08-14):** дополнен разделом 12 «Модель команд и шаринг провайдеров» (таблицы `teams`/`team_members`, enum `visibility`, API команд и шаринга, фронтенд, тесты, миграция); блоки, изменённые/добавленные в ревизии 3, помечены `[Р3]`. **Ревизия 2 (2026-08-14):** дополнен разделом 11 по 7 замечаниям заказчика; блоки, изменённые/добавленные в ревизии 2, помечены `[Р2]`.
-> Связанные: [`plans/features/integrations.md`](integrations.md), [`plans/features/auth-rbac.md`](auth-rbac.md), [`plans/architecture/permissions.md`](../architecture/permissions.md).
+> Связанные: [`plans/features/integrations.md`](integrations.md), [ADR-0004 (RBAC)](../../docs/adr/common/0004-permission-based-rbac-scope-providers.md), [`plans/architecture/permissions.md`](../architecture/permissions.md).
 
 ## 0. Проблема
 
@@ -376,7 +376,7 @@ erDiagram
 |---|---|
 | [`plans/architecture/permissions.md`](../architecture/permissions.md) | +6 новых `providers:*`/`providers_system:*`, `credentials:write`; удалить `integrations:read/write`, `credentials:use`, секцию legacy (включая legacy-права — теперь физически удалены); обновить распределение ролей |
 | [`plans/features/integrations.md`](integrations.md) | переписать под resource_providers: модель, реестр, API, категории; таблицу интеграций (раздел 2) — сюда |
-| [`plans/features/auth-rbac.md`](auth-rbac.md) | owner-модель, scope-providers, новая permission-матрица; [Р3] + модель команд, `teams:*`, `providers:share`, team-scope |
+| ~~`plans/features/auth-rbac.md`~~ | удалён (2026-10-21): SSO-разделы → ADR-0003, RBAC-разделы → [ADR-0004](../../docs/adr/common/0004-permission-based-rbac-scope-providers.md), operational-рецепты → `AGENTS.md` |
 | [`plans/architecture/permissions.md`](../architecture/permissions.md) | [Р3] +`teams:read/write/manage_members`, `providers:share` в сводную таблицу и распределение ролей (помимо уже запланированного в разделе 9 обновления `providers:*`) |
 | [`plans/features/git-mirroring-v2.md`](git-mirroring-v2.md) | замена source_providers → resource_providers в потоках дискавери |
 | [`AGENTS.md`](../../AGENTS.md) | «Common file references»: + registry/service/`api/providers.py`; убрать `api/integrations/` после фазы 7 |

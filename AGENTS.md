@@ -275,7 +275,7 @@ See: [`/plans/features/integrations.md`](plans/features/integrations.md) и [`/p
 3. Update frontend `usePermissions()` hook
 4. Wrap UI components in `<PermissionGate permission="...">`
 
-See: [`/plans/features/auth-rbac.md`](plans/features/auth-rbac.md)
+See: [`/docs/adr/common/0004-permission-based-rbac-scope-providers.md`](docs/adr/common/0004-permission-based-rbac-scope-providers.md) and [`/plans/architecture/permissions.md`](plans/architecture/permissions.md)
 
 ### Creating Pipeline
 
