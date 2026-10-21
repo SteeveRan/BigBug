@@ -125,7 +125,7 @@ vi.mock('../../store/api', async () => {
     useCreateSourceRepositoryMutation: vi.fn(),
     useDeleteSourceRepositoryMutation: vi.fn(),
     useBulkCreateMirrorsMutation: vi.fn(),
-    // Providers (Settings/Providers) + Teams (Settings/Teams)
+    // Providers (Settings/Providers)
     useGetProviderTypesQuery: vi.fn(),
     useGetProviderUsageQuery: vi.fn(),
     useGetCredentialsQuery: vi.fn(),
