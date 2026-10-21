@@ -299,7 +299,7 @@ encrypted = encrypt_secret("my-token")
 token = decrypt_secret(encrypted)
 ```
 
-See: [`/plans/features/security.md`](plans/features/security.md)
+See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet encryption for stored credentials; key via `ENCRYPTION_KEY` env (not `FERNET_KEY`)
 
 ## Architecture Decision Records (ADR)
 
