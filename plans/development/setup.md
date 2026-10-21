@@ -3,9 +3,9 @@
 ## Prerequisites
 
 ### Required
-- **Python** 3.14+
-- **Node.js** 26 LTS
-- **Docker** & **Docker Compose**
+- **Python** 3.14+ ([ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md))
+- **Node.js** LTS ([ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
+- **Docker** & **Docker Compose** ([ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md))
 - **Git**
 
 ### Optional
@@ -54,6 +54,7 @@ REDIS_URL=redis://localhost:6379/0
 SECRET_KEY=your-secret-key-here
 
 # Encryption Key for secrets (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+# Внимание: переменная называется ENCRYPTION_KEY, не FERNET_KEY — см. ADR-0010
 ENCRYPTION_KEY=your-fernet-key-here
 
 # Keycloak (optional, for SSO)
@@ -121,23 +122,22 @@ node --version
 
 ```bash
 # Start infrastructure services
-docker compose -f infrastructure/docker-compose.yml up -d
-
-# Wait for services to be healthy
-docker compose -f infrastructure/docker-compose.yml ps
+make infra-up
 
 # Initialize infrastructure (optional, with OpenTofu)
-./infrastructure/init.sh
+make infra-init
 
 # Start application services
-docker compose up -d
+make dev-up
 ```
 
 **Option B: Single-shot via init.sh**
 
 ```bash
-./infrastructure/init.sh
+make infra-init    # = ./infrastructure/init.sh
 ```
+
+Подробности compose-слоя и IaC — [ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md) и [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); полный список make-команд — [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 
@@ -224,32 +224,23 @@ alembic downgrade -1
 
 ### Run Tests
 
-```bash
-# Backend
-cd backend
-source .venv/bin/activate
-pytest
+Через корневой Makefile ([ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
-# Frontend
-cd frontend
-yarn test
+```bash
+make test-unit-backend       # backend unit
+make test-e2e-backend        # backend e2e (нужен dev-стек: make dev-up)
+make test-unit-frontend      # frontend unit
+make test-all                # все тесты
 ```
 
 ### Code Quality
 
-```bash
-# Backend
-cd backend
-ruff format .              # Format
-ruff check --fix .         # Lint
-pytest                     # Test
+Через корневой Makefile (см. [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
-# Frontend
-cd frontend
-yarn format                # Prettier
-yarn lint                  # ESLint
-npx tsc --noEmit          # Type check
-./scripts/test.sh          # Test (unit + integrations)
+```bash
+make format      # ruff format + prettier
+make lint        # ruff check + eslint
+make typecheck   # mypy + tsc --noEmit
 ```
 
 ### Reset Database
@@ -263,6 +254,9 @@ alembic downgrade base
 
 # Re-apply all migrations
 alembic upgrade head
+
+# Или без захода в контейнер
+make dev-init
 ```
 
 ### Clean Install

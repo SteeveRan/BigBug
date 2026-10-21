@@ -2,7 +2,7 @@
 
 > Единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 > 
-> **Последняя сверка:** 2026-08-16 — сброс миграций Alembic. Единый канонический сид RBAC теперь находится в миграции [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (61 право, 110 связей `role_permissions`: admin=61, operator=34, viewer=15). Ранее права `providers:*`/`providers_system:*`/`teams:*`/`credentials:write` вставляла миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions` — она удалена в составе сброса вместе с легаси-правами (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`).
+> **Последняя сверка:** 2026-08-16 — сброс миграций Alembic. Единый канонический сид RBAC теперь находится в миграции [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (61 право, 110 связей `role_permissions`: admin=61, operator=34, viewer=15). Ранее права `providers:*`/`providers_system:*`/`teams:*`/`credentials:write` вставляла миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions` — она удалена в составе сброса вместе с легаси-правами (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`).
 
 ## Сводная таблица
 
@@ -138,7 +138,7 @@
 | `teams:write` | ✅ | | |
 | `teams:manage_members` | ✅ | | |
 
-Источник: [`backend/docker/seed_admin.py`](backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
+Источник: [`backend/docker/seed_admin.py`](../../backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
 
 ## Права gitlab-project-management (2026-08-20, реализованы)
 
@@ -159,13 +159,13 @@
 
 ## Легаси-права (удалены в фазе 5)
 
-Эти permissions были созданы предыдущими миграциями и удалены чистящей миграцией фазы 5 ([`20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py`](backend/alembic/versions/20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py)). Физически отсутствуют в БД после `alembic upgrade head`.
+Эти permissions были созданы предыдущими миграциями и удалены чистящей миграцией фазы 5 (`20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py` (удалена при сбросе миграций)). Физически отсутствуют в БД после `alembic upgrade head`.
 
 | Удалённое право | Бывшая миграция | Заменён на |
 |---|---|---|
 | `integrations:read` | `745f271b2faf` | `providers:read` |
 | `integrations:write` | `745f271b2faf` | `providers:write` + `providers_system:write` |
-| `integrations:manage` | [`a66daaecc2fa`](backend/alembic/versions/20260606_2145_a66daaecc2fa_add_integration_instances.py:27) | `providers:read` + `providers:write` |
+| `integrations:manage` | `a66daaecc2fa` (удалена при сбросе миграций) | `providers:read` + `providers:write` |
 | `docker_registry:manage` | `b0714dde902c` | — (управляется через providers) |
 | `helm_repository:manage` | `b0714dde902c` | — (управляется через providers) |
 | `pipelines:manage` | `d1e2f3a4b5c6` | `pipelines:write` + `pipelines:delete` |
@@ -175,17 +175,17 @@
 
 ### `credentials:read` / `credentials:write`
 
-С фазы 5 эндпоинты [`credentials.py`](backend/app/api/credentials.py) используют `credentials:read` (list/get) и `credentials:write` (create/update/delete/test). Право `credentials:read` ранее было назначено, но не проверялось; `credentials:write` — новое право, заменившее `integrations:write` в этом роутере.
+С фазы 5 эндпоинты [`credentials.py`](../../backend/app/api/credentials.py) используют `credentials:read` (list/get) и `credentials:write` (create/update/delete/test). Право `credentials:read` ранее было назначено, но не проверялось; `credentials:write` — новое право, заменившее `integrations:write` в этом роутере.
 
 Фронтенд в `RoleModal.tsx` группирует их под лейблом «Credentials» для UI-редактора ролей.
 
 ### Системные эндпоинты
 
-[`health_check.py`](backend/app/api/health_check.py) использует `require_admin()` (проверка роли, не permission), так как health-check — системная операция, не привязанная к конкретному ресурсу. Это единственное оставшееся использование `require_admin()` во всём API.
+[`health_check.py`](../../backend/app/api/health_check.py) использует `require_admin()` (проверка роли, не permission), так как health-check — системная операция, не привязанная к конкретному ресурсу. Это единственное оставшееся использование `require_admin()` во всём API.
 
 ### Механизм проверки
 
-Фронт получает permissions из JWT (`parseJwtPermissions()` в [`authSlice.ts`](frontend/src/store/authSlice.ts)). Бэкенд проверяет через `require_permission()` в [`rbac.py`](backend/app/core/rbac.py). Несовпадение имён → `PermissionGate` блокирует контент.
+Фронт получает permissions из JWT (`parseJwtPermissions()` в [`authSlice.ts`](../../frontend/src/store/authSlice.ts)). Бэкенд проверяет через `require_permission()` в [`rbac.py`](../../backend/app/core/rbac.py). Несовпадение имён → `PermissionGate` блокирует контент.
 
 ### История изменений
 

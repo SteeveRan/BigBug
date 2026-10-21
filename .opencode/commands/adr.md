@@ -52,10 +52,8 @@ agent: plan
 - `docs/adr/README.md` — реестр действующих ADR; `docs/adr/ARCHIVE.md` — архив отменённых
   (из отменённых решений не наследоваться, но учитывать их историю).
 - `AGENTS.md` — конвенции и структура кода.
-- `plans/features/<домен>.md` — профильный доменный документ по затронутой теме
-  (auth-rbac, pipelines, security, ...).
-- `plans/architecture/decisions.md` — если решение там уже описано, новый ADR его
-  выносит, а в `plans/architecture/decisions.md` помечается «→ вынесено в ADR-NNNN».
+- Релевантные существующие ADR — если решение уже зафиксировано и новый ADR его
+  заменяет, оформить `superseded` (см. «После написания»).
 - `docs/architecture/` — НЕ читать в контекст (по правилам AGENTS.md, для людей).
 
 ## Наполнение секций по правилам проекта
@@ -75,8 +73,8 @@ agent: plan
   `frontend/src/store/api.ts`, ...), не абстракции. Non-goals — явно, по требованиям скилла.
 - Минимум 2 рассмотренных варианта с явным tradeoff (по шаблону: Considered Options +
   Pros and Cons of the Options).
-- `## Context and Problem Statement` и `## More Information` — ссылки на доменные
-  документы `plans/features/<домен>.md`, релевантные ADR, issues.
+- `## Context and Problem Statement` и `## More Information` — ссылки на релевантные
+  ADR, issues, код.
 
 ## После написания
 
