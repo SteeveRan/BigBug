@@ -31,6 +31,7 @@
 | [ADR-0018](common/0018-e2e-testing-strategy.md) | proposed | E2E-стратегия: backend — pytest-suite против живого dev-стенда (CI-политика, отчёт покрытия эндпоинтов), frontend — Cypress как planned direction; удаление `plans/development/testing.md` | 2026-10-22 |
 | [ADR-0019](common/0019-makefile-tooling-single-entrypoint.md) | proposed | Developer tooling: корневой Makefile — единая точка входа (тонкая обёртка, `make help`); mypy в backend, knip во frontend, vulture в backend | 2026-10-21 |
 | [ADR-0024](common/0024-k8s-secrets.md) | proposed | Secrets в k8s: OpenTofu (kubernetes provider) управляет Secret'ами dev-стенда; e2e — только seeded-учётки из отдельного скрипта | 2026-10-22 |
+| [ADR-0028](common/0028-security-transport-cors-jwt-ttl.md) | proposed | Модель безопасности транспорта и периметра: TLS на reverse proxy, per-provider `verify_ssl`, CORS (hardcode dev-origin'ов), JWT TTL/refresh без server-side отзыва | 2026-10-22 |
 
 ### backend
 
@@ -46,6 +47,9 @@
 | [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
 | [ADR-0016](backend/0016-backend-integration-testing.md) | proposed | Считать интеграционным уровнем backend существующий e2e-suite против живого dev-стенда — без отдельного каталога `tests/integration/` и без testcontainers | 2026-10-21 |
 | [ADR-0020](backend/0020-image-builds-gold-app.md) | proposed | Image builds: домен Gold/App Images — единая таблица версий с дискриминатором, сборка через GitLab CI, APScheduler-расписания, cosign-подпись, Harbor-сканирование | 2026-10-21 |
+| [ADR-0025](backend/0025-verify-incoming-webhooks-shared-secret.md) | proposed | Верифицировать входящие webhooks shared-secret токеном (`Authorization: Bearer` + `hmac.compare_digest`); текущий код endpoint'а не проверяет ничего — security gap | 2026-10-22 |
+| [ADR-0026](backend/0026-audit-logging-service-call.md) | proposed | Аудит действий: явные вызовы `AuditService.log_event` (service-call, не middleware) в таблицу `audit_logs`, never-raise политика, чтение через `audit:read` | 2026-10-22 |
+| [ADR-0027](backend/0027-rate-limiting-pyrate-limiter.md) | proposed | Rate limiting: pyrate-limiter с собственной FastAPI-обёрткой (обход бага fastapi-limiter), in-memory, kill-switch `RATE_LIMIT_ENABLED` | 2026-10-22 |
 
 ### frontend
 

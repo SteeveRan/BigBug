@@ -58,6 +58,25 @@ Chosen option: **Permission-based RBAC**.
 * Neutral, because scope-слой (5 таблиц + `check_scope_access`) — отдельная сущность от permissions: permission отвечает «можно ли действие с типом ресурса», scope — «какие инстансы видны»
 * Non-goals: внешние движки авторизации (Casbin/OPA); attribute-based access control; иерархии ролей; удаление `plans/architecture/permissions.md` (он остаётся operational permissions index)
 
+### Политика fail-closed (edit-note, 2026-10-22 — дополнение, не меняющее принятого решения)
+
+Проверка авторизации — **fail-closed**: любая ошибка при проверке права означает «запретить», никогда «разрешить». Это фактическое поведение `require_permission()` / `require_scope_permission()` (`backend/app/core/rbac.py`):
+
+- пустой/отсутствующий кэш permissions в JWT → не «разрешить по умолчанию», а fallback-запрос в БД (`RBACService.get_user_permissions`);
+- пользователь не найден или `is_active=False` → `UnauthorizedError` (запрет), даже если токен подписан валидно;
+- permission не найден ни в кэше, ни в БД → 403;
+- ошибка scope-проверки → 403 (`check_scope_access` возвращает `False` при отсутствии пользователя, не исключение).
+
+Правило для новых механизмов авторизации: путь «ошибка → deny» обязателен; путь «ошибка → allow» запрещён. Неопределённое состояние (исключение в логике проверки) должно маппиться на запрет, а не пропуск.
+
+### Правило anti-escalation при назначении ролей (edit-note, 2026-10-22 — target-state)
+
+Целевое правило: пользователь не может назначить роль, которой не владеет сам (нельзя выдать admin, не будучи admin'ом).
+
+**Статус: в коде НЕ реализовано** (target-state). Фактически `create_user`/`update_user` (`backend/app/api/admin.py`) назначают любые роли любому владельцу права `users:write` — проверки «назначаемая роль ⊆ роли назначающего» нет. Митигация текущей реализацией: `users:write` сидировано только роли admin (61/34/15 — оператор и viewer права не имеют), так что в стандартной матрице эскалация через это endpoint'ы недостижима; но кастомная роль с `users:write` дала бы владельцу выдачу admin.
+
+При реализации правила (отдельный issue после принятия): проверка в `create_user`/`update_user` — назначаемые роли должны входить в набор ролей текущего пользователя; admin-роль (или право-маркер `admin:panel:access`) — исключение из правила. До реализации этот пункт — зафиксированное требование, а не описание кода.
+
 ### Confirmation
 
 * `make test-unit-backend TEST_ARGS="tests/unit/test_rbac_providers.py -v"` — зелёный: покрывает seed-матрицу ролей (admin/operator/viewer), отсутствие legacy-прав, scope-провайдеров (доступ к чужим private через scope), `providers_system:write` и `providers:read_all`.

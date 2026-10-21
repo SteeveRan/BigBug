@@ -42,35 +42,33 @@ cp .env.example .env
 # Edit .env with your values
 ```
 
-**Минимальные настройки** (`.env`):
+**Минимальные настройки** (`.env`) — ключи выверены с [`/.env.example`](../../.env.example):
+
 ```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
+# PostgreSQL (compose собирает из них DATABASE_URL для backend)
+POSTGRES_USER=bigbug
+POSTGRES_PASSWORD=bigbug
+POSTGRES_DB=bigbug
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
+# Backend API
+SECRET_KEY=your-secret-key-here              # generate with: openssl rand -hex 32
+ENCRYPTION_KEY=                              # generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENVIRONMENT=development                      # не FERNET_KEY — см. ADR-0010
+DB_WAIT_TIMEOUT=60
 
-# JWT Secret (generate with: openssl rand -hex 32)
-SECRET_KEY=your-secret-key-here
+# Rate limiting (на dev-стенде выключен, чтобы e2e не упирались в лимит логина)
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_LOGIN=5/minute
+RATE_LIMIT_OIDC_EXCHANGE=3/minute
+RATE_LIMIT_GLOBAL=1000/minute
 
-# Encryption Key for secrets (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-# Внимание: переменная называется ENCRYPTION_KEY, не FERNET_KEY — см. ADR-0010
-ENCRYPTION_KEY=your-fernet-key-here
-
-# Keycloak (optional, for SSO)
-KEYCLOAK_URL=http://localhost:8180
-KEYCLOAK_REALM=bigbug
-KEYCLOAK_CLIENT_ID=bigbug-backend
-KEYCLOAK_CLIENT_SECRET=bigbug-backend-secret
-KEYCLOAK_FRONTEND_CLIENT_ID=bigbug-frontend
-
-# GitLab
-GITLAB_URL=http://localhost:8080
-GITLAB_TOKEN=your-gitlab-token
-
-# GitHub
-GITHUB_TOKEN=your-github-token
+# Initial admin (создаётся автоматически при первом старте)
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@bigbug.local
+ADMIN_PASSWORD=admin
 ```
+
+> Переменных `DATABASE_URL`/`REDIS_URL` в `.env` нет — compose собирает их сам из `POSTGRES_*` (см. `docker-compose.yml`). Конфигурация Keycloak/GitLab/GitHub — env-переменные бэкенда с дефолтами в `backend/app/config.py` (`keycloak_*`, `gitlab_url` — по умолчанию `http://gitlab.local:8080`, `gitlab_token`, `github_token`); в `.env` их задавать не обязательно. Runtime-конфиг SSO — в БД (ADR-0003).
 
 ### 3. Backend Setup
 
@@ -301,7 +299,7 @@ alembic current
 # Show history
 alembic history
 
-# Force revision (危険)
+# Force revision (осторожно — используйте осознанно)
 alembic stamp head
 ```
 
@@ -340,7 +338,7 @@ docker compose -f infrastructure/docker-compose.yml logs keycloak
 # Restart specific service
 docker compose -f infrastructure/docker-compose.yml restart keycloak
 
-# Remove volumes and restart (危険: удаляет данные)
+# Remove volumes and restart (осторожно: удаляет данные)
 docker compose -f infrastructure/docker-compose.yml down -v
 docker compose -f infrastructure/docker-compose.yml up -d
 ```

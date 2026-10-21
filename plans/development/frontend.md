@@ -43,10 +43,9 @@ yarn install
 
 ```bash
 VITE_API_URL=http://localhost:8000
-VITE_KEYCLOAK_URL=http://localhost:8180
-VITE_KEYCLOAK_REALM=bigbug
-VITE_KEYCLOAK_CLIENT_ID=bigbug-frontend
 ```
+
+Единственная используемая frontend-переменная — `VITE_API_URL`. Конфигурация SSO приходит с backend'а (`GET /api/auth/sso/config`: url, realm, client_id — ADR-0003); frontend env-переменных для Keycloak не существует (см. также раздел «Аутентификация»).
 
 ### Запуск для разработки
 
@@ -95,79 +94,41 @@ export interface ResourceUpdate {
 
 ## Работа с API (RTK Query)
 
-Все API endpoints определены в [`src/store/api.ts`](../../frontend/src/store/api.ts).
+API-слой построен по схеме **base + injectEndpoints**:
+
+- [`src/store/api/base.ts`](../../frontend/src/store/api/base.ts) — единственный `createApi`: `baseQuery` (обёрнут в `customBaseQuery`, который при любом 401 диспатчит `logout()`) и полный список `tagTypes`;
+- [`src/store/api/<domain>.ts`](../../frontend/src/store/api/) — файл на домен (`auth.ts`, `gold-images.ts`, `providers.ts`, `git-mirroring/`, ...), каждый добавляет свои endpoint'ы через `api.injectEndpoints(...)`;
+- [`src/store/api.ts`](../../frontend/src/store/api.ts) — агрегатор: побочные импорты всех доменных файлов (регистрируют endpoint'ы) + реэкспорт всех сгенерированных хуков. Приложение импортирует хуки только из `store/api`.
 
 ### Добавление нового endpoint
 
 ```typescript
-// src/store/api.ts
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import type { Resource, ResourceCreate } from '../types';
+// src/store/api/resources.ts — новый доменный файл
+import { api } from './base';
+import type { Resource, ResourceCreate } from '../../types';
 
-export const api = createApi({
-  reducerPath: 'api',
-  baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_URL + '/api',
-    prepareHeaders: (headers, { getState }) => {
-      const token = (getState() as RootState).auth.token;
-      if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-      }
-      return headers;
-    },
-  }),
-  tagTypes: ['Resource', 'Mirror', 'Image', 'HelmChart', 'DockerImage'],
+const extendedApi = api.injectEndpoints({
   endpoints: (builder) => ({
-    // Список ресурсов
     getResources: builder.query<Resource[], void>({
       query: () => '/resources',
       providesTags: ['Resource'],
     }),
-    
-    // Один ресурс
-    getResource: builder.query<Resource, number>({
-      query: (id) => `/resources/${id}`,
-      providesTags: (result, error, id) => [{ type: 'Resource', id }],
-    }),
-    
-    // Создать ресурс
     createResource: builder.mutation<Resource, ResourceCreate>({
-      query: (data) => ({
-        url: '/resources',
-        method: 'POST',
-        body: data,
-      }),
+      query: (data) => ({ url: '/resources', method: 'POST', body: data }),
       invalidatesTags: ['Resource'],
-    }),
-    
-    // Удалить ресурс
-    deleteResource: builder.mutation<void, number>({
-      query: (id) => ({
-        url: `/resources/${id}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: ['Resource'],
-    }),
-    
-    // Кастомное действие
-    syncResource: builder.mutation<void, number>({
-      query: (id) => ({
-        url: `/resources/${id}/sync`,
-        method: 'POST',
-      }),
-      invalidatesTags: (result, error, id) => [{ type: 'Resource', id }],
     }),
   }),
 });
 
-// Экспортировать хуки
-export const {
-  useGetResourcesQuery,
-  useGetResourceQuery,
-  useCreateResourceMutation,
-  useDeleteResourceMutation,
-  useSyncResourceMutation,
-} = api;
+export const { useGetResourcesQuery, useCreateResourceMutation } = extendedApi;
+```
+
+Затем зарегистрировать домен и реэкспортировать хуки в агрегаторе:
+
+```typescript
+// src/store/api.ts
+import './api/resources';                       // регистрация endpoint'ов
+export { useGetResourcesQuery, useCreateResourceMutation } from './api/resources';
 ```
 
 ### Использование в компоненте
@@ -290,20 +251,21 @@ export default ResourceNamePage;
 
 ### 2. Добавить маршрут
 
-В [`src/router/index.tsx`](../../frontend/src/router/index.tsx):
+В [`src/router/index.tsx`](../../frontend/src/router/index.tsx) — JSX-конфигурация с `createBrowserRouter`-деревом: маршруты объявляются элементами `<Route>`, защищённые — обёрнуты в `<ProtectedRoute>` и `<PermissionGate>` (по permission, ADR-0004):
 
-```typescript
+```tsx
 import ResourceNamePage from '../pages/ResourceName';
 
-// В массиве маршрутов:
-{
-  path: '/resources',
-  element: (
+<Route
+  path="resources"
+  element={
     <ProtectedRoute>
-      <ResourceNamePage />
+      <PermissionGate permission="resources:read">
+        <ResourceNamePage />
+      </PermissionGate>
     </ProtectedRoute>
-  ),
-},
+  }
+/>
 ```
 
 ### 3. Добавить в навигацию
@@ -321,34 +283,18 @@ const navItems = [
 
 ### Keycloak SSO
 
-Инициализация в [`src/services/keycloak.ts`](../../frontend/src/services/keycloak.ts):
+Keycloak-js как runtime-зависимость **не используется** (fitness-правило ADR-0003). SSO строится на PKCE-хелперах в [`src/services/keycloak.ts`](../../frontend/src/services/keycloak.ts) (`redirectToKeycloakLogin`, `SSO_VERIFIER_KEY`) — конфигурация приходит с backend'а через `GET /api/auth/sso/config`, а не из env-переменных.
+
+Хук [`src/hooks/useKeycloakAuth.ts`](../../frontend/src/hooks/useKeycloakAuth.ts) — фактическая сигнатура:
 
 ```typescript
-import Keycloak from 'keycloak-js';
+const { ready, enabled, config, error, login, handleCallback } = useKeycloakAuth();
 
-const keycloak = new Keycloak({
-  url: import.meta.env.VITE_KEYCLOAK_URL,
-  realm: import.meta.env.VITE_KEYCLOAK_REALM,
-  clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID,
-});
-
-export default keycloak;
-```
-
-Использование хука [`src/hooks/useKeycloakAuth.ts`](../../frontend/src/hooks/useKeycloakAuth.ts):
-
-```typescript
-import { useKeycloakAuth } from '../../hooks/useKeycloakAuth';
-
-function MyComponent() {
-  const { isAuthenticated, user, logout } = useKeycloakAuth();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-  
-  return <div>Welcome, {user?.email}</div>;
-}
+// ready — конфиг получен и обработан
+// enabled — backend сообщил, что SSO включён
+// login() — старт PKCE-редиректа на Keycloak
+// handleCallback() — на /sso/callback: извлекает code + code_verifier
+//   для POST /api/auth/oidc/exchange ({ code, redirect_uri, code_verifier } | { error })
 ```
 
 ### Auth State (Redux)
@@ -558,7 +504,7 @@ yarn cache clean
 - **Страницы**: папка с `index.tsx` в `src/pages/ComponentName/`
 - **Компоненты**: переиспользуемые в `src/components/`
 - **Типы**: централизованы в `src/types/index.ts`
-- **API**: все endpoints в `src/store/api.ts` через RTK Query
+- **API**: base-слайс в `src/store/api/base.ts`, доменные файлы с `injectEndpoints` в `src/store/api/`, агрегатор `src/store/api.ts` — хуки импортируются только из него
 - **Маршрутизация**: в `src/router/index.tsx`
 - **Не использовать `any`**: всегда типизировать данные
 - **Обработка ошибок**: всегда обрабатывать `isLoading` и `error` состояния

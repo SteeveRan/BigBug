@@ -2,7 +2,9 @@
 
 > Единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 > 
-> **Последняя сверка:** 2026-08-16 — сброс миграций Alembic. Единый канонический сид RBAC теперь находится в миграции [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (61 право, 110 связей `role_permissions`: admin=61, operator=34, viewer=15). Ранее права `providers:*`/`providers_system:*`/`teams:*`/`credentials:write` вставляла миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions` — она удалена в составе сброса вместе с легаси-правами (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`).
+> **Последняя сверка:** 2026-10-22 — полная ревизия 61-строчной таблицы против `backend/app/core/rbac.py` + роутеров + seed-миграции. Найденный drift исправлен (`roles:read` → frontend-маршруты admin-панели). Известное непокрытие (не drift сид-матрицы, а gaps кода): `mirrors:integrity_check` и `mirrors:manage_orphaned` сидируются и проверяются не через `require_permission` — endpoints integrity-check (`POST /mirroring/mirrors/{id}/integrity-check`) и orphaned (`GET /mirroring/orphaned-mirrors`) защищены только `get_current_user` (любой аутентифицированный). Frontend при этом гейтит страницы через `mirrors:manage_orphaned`. 
+>
+> Предыдущая сверка: 2026-08-16 — сброс миграций Alembic. Единый канонический сид RBAC теперь находится в миграции [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (61 право, 110 связей `role_permissions`: admin=61, operator=34, viewer=15). Ранее права `providers:*`/`providers_system:*`/`teams:*`/`credentials:write` вставляла миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions` — она удалена в составе сброса вместе с легаси-правами (`integrations:*`, `credentials:use`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`).
 
 ## Сводная таблица
 
@@ -51,7 +53,7 @@
 | 41 | `users:read` | Просмотр пользователей | A, V | `/admin/users` | ✅ |
 | 42 | `users:write` | Создание/изменение пользователей | A | — | только бэкенд |
 | 43 | `users:delete` | Удаление пользователей | A | — | только бэкенд |
-| 44 | `roles:read` | Просмотр ролей и scope | A, V | — | только бэкенд |
+| 44 | `roles:read` | Просмотр ролей и scope | A, V | `/admin/roles`, `/admin/roles/:roleId`, `/admin/permissions` (`PermissionGate permission="roles:read"`) | ✅ |
 | 45 | `roles:write` | Создание/изменение ролей (включая scope) | A | — | только бэкенд |
 | 46 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
 | 47 | `system:config` | Изменение конфигурации системы (cleanup) | A | — | только бэкенд |
@@ -155,7 +157,7 @@
 | `components:delete` | удаление регистрации | ✅ | | | ✅ реализовано |
 | `components:push` | заливка содержимого компонента в GitLab-проект (files+tag) | ✅ | ✅ | | ✅ реализовано |
 
-Новое scope-правило: `require_scope_permission(permission, "gitlab_project")` по таблице `role_scope_gitlab_projects` (планируемая миграция №1 спеки).
+Новое scope-правило: `require_scope_permission(permission, "gitlab_project")` по таблице `role_scope_gitlab_projects` (миграция [`20260820_0001_7f3a2c1b4d5e_add_gitlab_projects.py`](../../backend/alembic/versions/20260820_0001_7f3a2c1b4d5e_add_gitlab_projects.py) — реализована).
 
 ## Легаси-права (удалены в фазе 5)
 
@@ -191,6 +193,7 @@
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-10-22 | Ревизия из security-audit: `roles:read` — проставлен frontend-usage (маршруты `/admin/roles`, `/admin/roles/:roleId`, `/admin/permissions`); gitlab-project-management — убрана пометка «планируемая» (миграция `20260820_0001` существует); зафиксировано непокрытие `mirrors:integrity_check`/`mirrors:manage_orphaned` на backend. |
 | 2026-08-15 | Root-cause fix RBAC: добавлена миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions`, реально сидящая `providers:*`/`teams:*`/`credentials:write` в `permissions` + `role_permissions` (ранее были только в `seed_admin.py`, но не в БД). |
 | 2026-08-15 | Фаза 7F Providers V3: выпил legacy-таблиц/роутеров (`api/integrations/`, `services/integrations.py`, instance-модели, `source_providers`). Роутеры `/settings/providers`, `/admin/credentials`, `/settings/teams`, `/admin/teams` — окончательные. `source_groups:read` привязан к `/git-mirroring/sources`. |
 | 2026-08-15 | Фаза 5 Providers V3: добавлены `providers:read/write/delete/use/read_all`, `providers_system:write`, `providers:share`, `teams:read/write/manage_members`, `credentials:write`; `credentials:read` начат реально проверяться; удалены `integrations:read/write/manage`, `docker_registry:manage`, `helm_repository:manage`, `pipelines:manage`, `credentials:use` |
