@@ -87,7 +87,7 @@ erDiagram
 * Bad, because `config` (JSON) не типизируется на уровне БД — целостность держится на валидации Pydantic + JSON Schema реестра, а не на констрейнтах СУБД
 * Bad, because универсальная таблица не даёт NOT NULL под «обязательное поле подтипа» (например, `base_url` для generic) — проверка только в реестре/сервисе
 * Neutral, because legacy `ProviderType` enum в `models/provider_type.py` сохранён для V2 git-mirroring движка; V2-клиенты git (`services/source_providers/`) переиспользуются как слой поверх `resource_providers`
-* Non-goals: мульти-шаринг провайдера нескольким командам (потолок зафиксирован); отдельный индексинг Helm-чартов как OCI-артефактов; ротация `ENCRYPTION_KEY` (владелец — будущий ADR-0010 про secrets, куда переходит соответствующий раздел из удалённого `plans/features/integrations.md`); реестр провайдеров в БД
+* Non-goals: мульти-шаринг провайдера нескольким командам (потолок зафиксирован); отдельный индексинг Helm-чартов как OCI-артефактов; ротация `ENCRYPTION_KEY` (владелец — [ADR-0010](../backend/0010-fernet-secrets-encryption.md) про secrets, куда переходит соответствующий раздел из удалённого `plans/features/integrations.md`); реестр провайдеров в БД
 
 ### Confirmation
 
@@ -157,7 +157,7 @@ Status quo до миграции: таблица+роутер+сервис+та�
 ## More Information
 
 * Исходный план миграции (фазы 0–7, таблица всех интеграций, ревизии 1–3): `plans/features/providers-unified.md` — **удалён** этим ADR как реализованный; факты о модели сверены с кодом и перенесены сюда
-* Доменный гайд `plans/features/integrations.md` — **удалён**; troubleshooting-рецепты (curl-проверки GitLab/Harbor/Helm) перенесены в [AGENTS.md](../../AGENTS.md), раздел про ротацию Fernet-ключа — зона ответственности будущего ADR-0010 (secrets), сам текст сохранён в `plans/features/security.md`
+* Доменный гайд `plans/features/integrations.md` — **удалён**; troubleshooting-рецепты (curl-проверки GitLab/Harbor/Helm) перенесены в [AGENTS.md](../../AGENTS.md), раздел про ротацию Fernet-ключа — зона ответственности [ADR-0010](../backend/0010-fernet-secrets-encryption.md) (secrets), сам текст сохранён в `plans/features/security.md`
 * Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 * Родственные ADR: [ADR-0005](../backend/0005-service-layer-no-repository.md) (сервисный слой и `DomainError` — паттерн, на котором построен `ProviderService`); [ADR-0006](../backend/0006-database-postgresql-alembic.md) (PostgreSQL/Alembic, конвенции схемы, политика миграций); [ADR-0004](0004-permission-based-rbac-scope-providers.md) (permission-based RBAC и scope-providers); [ADR-0003](0003-keycloak-oidc-dual-auth.md) (аутентификация); permissions-матрица `providers:*`/`teams:*`/`providers_system:write` — [plans/architecture/permissions.md](../../plans/architecture/permissions.md)
 * Условие пересмотра: потребность в мульти-шаринге провайдера (несколько команд), в per-subtype индексируемых полях (фильтрация по config в SQL) или в справочнике подтипов, редактируемом без деплоя, — переоткрыть через новый ADR

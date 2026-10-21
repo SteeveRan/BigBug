@@ -45,7 +45,7 @@ Chosen option: **Fernet, ключ в `ENCRYPTION_KEY` env** — это уже р
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Зашифрованные колонки (после миграции Providers V3 — ADR-0007, issue #8, на момент написания ещё proposed/in-progress; legacy-таблицы инстансов удалены):
+Зашифрованные колонки (после миграции Providers V3, [ADR-0007](../common/0007-providers-v3-registry.md) — legacy-таблицы инстансов удалены):
 
 | Колонка | Таблица | Что хранит |
 |---|---|---|
@@ -131,7 +131,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_secrets.py -v"
 
 - Реализация: [`backend/app/core/secrets.py`](../../../backend/app/core/secrets.py), ключ — `settings.encryption_key` в [`backend/app/config.py`](../../../backend/app/config.py), проброс env — `docker-compose.yml` (`ENCRYPTION_KEY`)
 - Тесты: [`backend/tests/unit/test_secrets.py`](../../../backend/tests/unit/test_secrets.py), мок ключа в `backend/tests/unit/conftest.py`
-- Этот ADR владеет доменом «secrets» и заменяет раздел Fernet-шифрования из удалённого `plans/features/security.md` (файл удалён; остальные темы того файла — JWT/bcrypt/OIDC → [ADR-0003](../common/0003-keycloak-oidc-dual-auth.md), rate limiting/CORS/webhooks — не зафиксированы ADR, см. roadmap). Заметка о стабильности ключа из `plans/features/integrations.md` (передана сюда по handover ADR-0007, issue #8) также поглощена этим ADR.
-- Источник истины по домену integrations после удаления plans-файлов: ADR-0007 (issue #8, Providers V3 — создаётся отдельной задачей) и код
+- Этот ADR владеет доменом «secrets» и заменяет раздел Fernet-шифрования из удалённого `plans/features/security.md` (файл удалён; остальные темы того файла — JWT/bcrypt/OIDC → [ADR-0003](../common/0003-keycloak-oidc-dual-auth.md), rate limiting/CORS/webhooks — не зафиксированы ADR, см. roadmap). Заметка о стабильности ключа из удалённого `plans/features/integrations.md` (handover по [ADR-0007](../common/0007-providers-v3-registry.md)) также поглощена этим ADR.
+- Источник истины по домену integrations после удаления plans-файлов: [ADR-0007](../common/0007-providers-v3-registry.md) (Providers V3) и код
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 - Условие пересмотра: мультиинстанс-деплой с разными env, требование аудита/ротации секретов, компрометация `ENCRYPTION_KEY` — переоткрыть через новый ADR (кандидаты: vault/KMS, MultiFernet-ротация)
