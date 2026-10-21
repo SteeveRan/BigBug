@@ -27,6 +27,7 @@
 |---|---|---|---|
 | [ADR-0003](common/0003-keycloak-oidc-dual-auth.md) | proposed | Выбрать dual-mode аутентификацию: локальный email/password JWT + опциональный Keycloak OIDC SSO | 2026-10-21 |
 | [ADR-0004](common/0004-permission-based-rbac-scope-providers.md) | proposed | Авторизация: permission-based RBAC (`resource:action`) со scope-providers | 2026-10-21 |
+| [ADR-0007](common/0007-providers-v3-registry.md) | proposed | Providers V3: единая сущность `resource_providers` с реестром подтипов в коде вместо 5 инстанс-таблиц и V2 `source_providers` | 2026-10-21 |
 
 ### backend
 
