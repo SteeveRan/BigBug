@@ -314,6 +314,10 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 
 ## Documentation
 
+### Diagrams
+- **Все диаграммы/схемы в документации — только Mermaid** (fenced-блоки ` ```mermaid ` в markdown). Не использовать PlantUML, draw.io, ASCII-арт и т.п.
+- **C4 model диаграммы — отдельная категория**: Context/Container/Component диаграммы пишутся на Mermaid C4 syntax (`c4Context`, `c4Container`, `c4Component`, ` ```c4context ` и т.п.) и размещаются отдельно от обычных mermaid-диаграмм — не смешивать C4 и обычные (flow/sequence/ER) диаграммы в одном блоке/разделе.
+
 ### For Implementation (agents)
 - **Implementation plans**: [`/plans/`](plans/) - модульное чтение по необходимости
 - **Permissions index**: [`/plans/architecture/permissions.md`](plans/architecture/permissions.md) — единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
