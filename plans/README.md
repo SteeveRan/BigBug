@@ -13,7 +13,7 @@
 - [`development/setup.md`](development/setup.md) - настройка окружения разработки
 - [`development/backend.md`](development/backend.md) - работа с backend (FastAPI)
 - [`development/frontend.md`](development/frontend.md) - работа с frontend (React)
-- [`development/database.md`](development/database.md) - миграции, модели, conventions
+- [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer: PostgreSQL 17, SQLAlchemy 2, Alembic, миграции, conventions
 - [`development/testing.md`](development/testing.md) - тесты backend и frontend
 - [`development/infrastructure.md`](development/infrastructure.md) - Docker Compose, services
 
