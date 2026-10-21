@@ -41,6 +41,7 @@
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
 | [ADR-0011](backend/0011-gitlab-ci-pipelines-components.md) | proposed | Управлять GitLab CI/CD-интеграцией (проекты, компоненты, пресеты, пайплайны) внутри приложения | 2026-10-21 |
 | [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
+| [ADR-0020](backend/0020-image-builds-gold-app.md) | proposed | Image builds: домен Gold/App Images — единая таблица версий с дискриминатором, сборка через GitLab CI, APScheduler-расписания, cosign-подпись, Harbor-сканирование | 2026-10-21 |
 
 ### frontend
 
