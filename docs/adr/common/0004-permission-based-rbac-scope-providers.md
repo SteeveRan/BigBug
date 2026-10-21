@@ -16,7 +16,7 @@ informed: SteeveRan
 - ограничивать видимость ресурсов (например, «operator видит только провайдеры своего scope»);
 - настраивать права без релиза кода.
 
-Нужно выбрать модель авторизации, которая поддерживает granular permissions, кастомные роли без деплоя и scoping на уровне конкретных ресурсов (source groups, credentials, sync groups, providers, gitlab projects), и зафиксировать её в ADR — до сих пор она была описана только в планах (`plans/features/auth-rbac.md`, `plans/architecture/permissions.md`).
+Нужно выбрать модель авторизации, которая поддерживает granular permissions, кастомные роли без деплоя и scoping на уровне конкретных ресурсов (source groups, credentials, sync groups, providers, gitlab projects), и зафиксировать её в ADR — до сих пор она была описана только в планах (`plans/features/auth-rbac.md`, `docs/development/permissions.md`).
 
 ## Decision Drivers
 
@@ -41,7 +41,7 @@ Chosen option: **Permission-based RBAC**.
 
 Механика (проверено по коду):
 
-1. **Формат**: `resource:action` — плоские строки без иерархии и wildcard-раскрытия. Канонический список — `plans/architecture/permissions.md` (61 право: admin=61, operator=34, viewer=15) и миграция-сид `20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`.
+1. **Формат**: `resource:action` — плоские строки без иерархии и wildcard-раскрытия. Канонический список — `docs/development/permissions.md` (61 право: admin=61, operator=34, viewer=15) и миграция-сид `20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`.
 2. **JWT embedding + кэш**: при `login`, `refresh` и `oidc/exchange` в JWT payload вшивается список permissions; `get_current_user` кладёт его в `user._cached_permissions`, `require_permission()` проверяет по кэшу и ходит в БД (RBACService.get_user_permissions) только когда кэш пуст или протух (токен выпущен до добавления permission-а).
 3. **Builtin-роли защищены**: `update_role`/`delete_role` поднимают `CannotModifyBuiltinRoleError` для ролей с `is_custom=False`; `delete_role` также запрещает удаление роли, у которой есть пользователи (`RoleHasUsersError`).
 4. **Кастомные роли**: `create_role`/`update_role`/`delete_role` в `RBACService` (Admin API), доменные исключения — `RoleNotFoundError`, `PermissionNotFoundError`.
@@ -56,7 +56,7 @@ Chosen option: **Permission-based RBAC**.
 * Bad, because permissions в JWT протухают до refresh токена — добавление/снятие права применяется с задержкой (fallback на DB-lookup смягчает, но не отменяет)
 * Bad, because строки-permissions в коде не типизированы полностью: `PermissionName` enum покрывает только 8 gitlab-project/component прав, остальные 50+ передаются inline строками — опечатка в строке компилируется и молча запрещает доступ
 * Neutral, because scope-слой (5 таблиц + `check_scope_access`) — отдельная сущность от permissions: permission отвечает «можно ли действие с типом ресурса», scope — «какие инстансы видны»
-* Non-goals: внешние движки авторизации (Casbin/OPA); attribute-based access control; иерархии ролей; удаление `plans/architecture/permissions.md` (он остаётся operational permissions index)
+* Non-goals: внешние движки авторизации (Casbin/OPA); attribute-based access control; иерархии ролей; удаление `docs/development/permissions.md` (он остаётся operational permissions index)
 
 ### Политика fail-closed (edit-note, 2026-10-22 — дополнение, не меняющее принятого решения)
 
@@ -116,7 +116,7 @@ Chosen option: **Permission-based RBAC**.
 ## More Information
 
 * ADR опирается на [ADR-0003](0003-keycloak-oidc-dual-auth.md) (аутентификация: Keycloak OIDC SSO + local users, dual mode) — permission'ы вшиваются в JWT, выпускаемый обоими режимами входа.
-* Канонический operational-список прав: [`plans/architecture/permissions.md`](../../../plans/architecture/permissions.md) — обновлять при любом изменении прав (правило AGENTS.md). Спроектированные, но ещё не сидируемые права (`gitlab_projects:*`, `components:*`) — там же, раздел «Спроектированные права».
+* Канонический operational-список прав: [`docs/development/permissions.md`](../../development/permissions.md) — обновлять при любом изменении прав (правило AGENTS.md). Спроектированные, но ещё не сидируемые права (`gitlab_projects:*`, `components:*`) — там же, раздел «Спроектированные права».
 * История вопроса: `plans/features/auth-rbac.md` (удалён после принятия этого ADR — RBAC-разделы переехали сюда, SSO-разделы — в ADR-0003); operational-рецепты — в `AGENTS.md`.
 * Доменные исключения RBAC: `backend/app/core/exceptions.py` (`RoleNotFoundError`, `CannotModifyBuiltinRoleError`, `RoleHasUsersError`, `PermissionNotFoundError`).
 * Триггеры пересмотра: появление необходимости в иерархии ролей или наследовании permissions; права, зависящие от атрибутов ресурса (ABCD); взрывной рост числа permissions (>150) или массовые inline-строки вместо enum — тогда рассмотреть централизованный registry permissions в коде.

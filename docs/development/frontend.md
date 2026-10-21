@@ -4,7 +4,7 @@
 
 ## Технологический стек
 
-Решения по стеку зафиксированы в [ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) (React 19 + TypeScript + AntD 6 + Redux Toolkit/RTK Query + Vite) и [ADR-0015](../../docs/adr/frontend/0015-frontend-unit-testing-vitest.md) (тестирование). Актуальные версии — [`frontend/package.json`](../../frontend/package.json); источник истины — код и реестр [ADR](../../docs/adr/README.md).
+Решения по стеку зафиксированы в [ADR-0002](../adr/frontend/0002-frontend-stack-react-antd-rtk.md) (React 19 + TypeScript + AntD 6 + Redux Toolkit/RTK Query + Vite) и [ADR-0015](../adr/frontend/0015-frontend-unit-testing-vitest.md) (тестирование). Актуальные версии — [`frontend/package.json`](../../frontend/package.json); источник истины — код и реестр [ADR](../adr/README.md).
 
 ## Структура проекта
 

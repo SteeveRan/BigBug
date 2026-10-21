@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Backend BigBug — асинхронное FastAPI-приложение (ADR-0001), сервисный слой без repository pattern (ADR-0005). Обширный suite unit-тестов уже написан (`backend/tests/unit/`), но решение о **тестовом стеке unit-уровня** нигде не зафиксировано — оно существует только в коде (`backend/pyproject.toml`, `backend/tests/conftest.py`) и в `plans/development/testing.md` (файл удаляется после принятия ADR-0018).
+Backend BigBug — асинхронное FastAPI-приложение (ADR-0001), сервисный слой без repository pattern (ADR-0005). Обширный suite unit-тестов уже написан (`backend/tests/unit/`), но решение о **тестовом стеке unit-уровня** нигде не зафиксировано — оно существует только в коде (`backend/pyproject.toml`, `backend/tests/conftest.py`) и в `docs/development/testing.md` (файл удаляется после принятия ADR-0018).
 
 Фактический вопрос: **принимать ли существующий стек как стандарт** — pytest + pytest-asyncio (asyncio_mode=auto) + httpx `AsyncClient` поверх `ASGITransport` (API-тесты без запущенного uvicorn) + in-memory SQLite, с общими fixture в `conftest.py` и пробросом флагов через `TEST_ARGS`?
 
@@ -146,7 +146,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_auth_me.py -v"
 - Конфигурация: `backend/pyproject.toml` (`[tool.pytest.ini_options]`, dev-зависимости)
 - Фикстуры: `backend/tests/conftest.py` (БД, клиент, пользователи/токены), `backend/tests/unit/conftest.py` (патч `ENCRYPTION_KEY`)
 - Запуск: `backend/scripts/test-unit.sh`, Makefile-цели `test-unit-backend` / `test-e2e-backend`, проброс `TEST_ARGS`
-- Сиблинги по домену testing: ADR-0015 (frontend unit), ADR-0016 (backend integrations), ADR-0017 (frontend integrations), ADR-0018 (e2e — удаляет `plans/development/testing.md`, из которого этот ADR поглощает backend-раздел)
+- Сиблинги по домену testing: ADR-0015 (frontend unit), ADR-0016 (backend integrations), ADR-0017 (frontend integrations), ADR-0018 (e2e — удаляет `docs/development/testing.md`, из которого этот ADR поглощает backend-раздел)
 - Связанные ADR: [ADR-0001](0001-choose-backend-stack.md) (стек, async-драйвер), [ADR-0005](0005-service-layer-no-repository.md) (что тестируем — сервисный слой), [ADR-0006](0006-database-postgresql-alembic.md) (production-БД, отличия SQLite), [ADR-0010](0010-fernet-secrets-encryption.md) (патч ключа в unit-фикстуре)
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 - Условие пересмотра: апгрейд pytest-asyncio до 1.x (удаление/изменение `event_loop`-fixture API); переход тестовой БД на PostgreSQL (testcontainers) при росте числа SQLite-расхождений; появление потребности в мокировании HTTP-границ (respx) в provider-клиентах

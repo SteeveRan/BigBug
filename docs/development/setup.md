@@ -3,9 +3,9 @@
 ## Prerequisites
 
 ### Required
-- **Python** 3.14+ ([ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md))
-- **Node.js** LTS ([ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
-- **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
+- **Python** 3.14+ ([ADR-0001](../adr/backend/0001-choose-backend-stack.md))
+- **Node.js** LTS ([ADR-0002](../adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
+- **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md))
 - **Git**
 
 ### Optional
@@ -135,7 +135,7 @@ make dev-up
 make infra-init    # = ./infrastructure/init.sh
 ```
 
-Подробности dev-стенда — [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
+Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 
@@ -222,7 +222,7 @@ alembic downgrade -1
 
 ### Run Tests
 
-Через корневой Makefile ([ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
+Через корневой Makefile ([ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
 ```bash
 make test-unit-backend       # backend unit
@@ -233,7 +233,7 @@ make test-all                # все тесты
 
 ### Code Quality
 
-Через корневой Makefile (см. [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
+Через корневой Makefile (см. [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
 ```bash
 make format      # ruff format + prettier
@@ -355,5 +355,5 @@ lsof -i :8000
 
 - [`backend.md`](backend.md) - detailed backend development
 - [`frontend.md`](frontend.md) - detailed frontend development
-- [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer (PostgreSQL, SQLAlchemy, Alembic)
-- Testing decisions: [ADR-0014…0018](../../docs/adr/README.md)
+- [ADR-0006](../adr/backend/0006-database-postgresql-alembic.md) - database layer (PostgreSQL, SQLAlchemy, Alembic)
+- Testing decisions: [ADR-0014…0018](../adr/README.md)

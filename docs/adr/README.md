@@ -28,7 +28,7 @@
 | [ADR-0003](common/0003-keycloak-oidc-dual-auth.md) | proposed | Выбрать dual-mode аутентификацию: локальный email/password JWT + опциональный Keycloak OIDC SSO | 2026-10-21 |
 | [ADR-0004](common/0004-permission-based-rbac-scope-providers.md) | proposed | Авторизация: permission-based RBAC (`resource:action`) со scope-providers | 2026-10-21 |
 | [ADR-0007](common/0007-providers-v3-registry.md) | proposed | Providers V3: единая сущность `resource_providers` с реестром подтипов в коде вместо 5 инстанс-таблиц и V2 `source_providers` | 2026-10-21 |
-| [ADR-0018](common/0018-e2e-testing-strategy.md) | proposed | E2E-стратегия: backend — pytest-suite против живого dev-стенда (CI-политика, отчёт покрытия эндпоинтов), frontend — Cypress как planned direction; удаление `plans/development/testing.md` | 2026-10-22 |
+| [ADR-0018](common/0018-e2e-testing-strategy.md) | proposed | E2E-стратегия: backend — pytest-suite против живого dev-стенда (CI-политика, отчёт покрытия эндпоинтов), frontend — Cypress как planned direction; удаление `docs/development/testing.md` | 2026-10-22 |
 | [ADR-0019](common/0019-makefile-tooling-single-entrypoint.md) | proposed | Developer tooling: корневой Makefile — единая точка входа (тонкая обёртка, `make help`); mypy в backend, knip во frontend, vulture в backend | 2026-10-21 |
 | [ADR-0024](common/0024-k8s-secrets.md) | proposed | Secrets в k8s: OpenTofu (kubernetes provider) управляет Secret'ами dev-стенда; e2e — только seeded-учётки из отдельного скрипта | 2026-10-22 |
 | [ADR-0028](common/0028-security-transport-cors-jwt-ttl.md) | proposed | Модель безопасности транспорта и периметра: TLS на reverse proxy, per-provider `verify_ssl`, CORS (hardcode dev-origin'ов), JWT TTL/refresh без server-side отзыва | 2026-10-22 |

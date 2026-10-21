@@ -138,7 +138,7 @@ GitLab-проект `bigbug-mirrors/components` и файлы компонент
 Связанные материалы:
 
 - [ADR-0007](../common/0007-providers-v3-registry.md) (Providers V3) — провайдеры и capabilities; `CAPABILITY_RESTRICTIONS`
-- Индекс прав: `plans/architecture/permissions.md` (секция gitlab-project-management прав)
+- Индекс прав: `docs/development/permissions.md` (секция gitlab-project-management прав)
 - Конвенции API/статусов: `AGENTS.md`; миграции: [ADR-0006](../backend/0006-database-postgresql-alembic.md)
 - Примеры шаблонов (не используются приложением): `infrastructure/gitlab-components/examples/`
 

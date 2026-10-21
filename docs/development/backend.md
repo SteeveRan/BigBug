@@ -4,7 +4,7 @@
 
 ## Технологический стек
 
-Решения по стеку зафиксированы в [ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md) (backend: Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7), [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) (database layer, миграции) и [ADR-0003](../../docs/adr/common/0003-keycloak-oidc-dual-auth.md) (auth: JWT + Keycloak OIDC). Актуальные версии — [`backend/pyproject.toml`](../../backend/pyproject.toml); источник истины — код и реестр [ADR](../../docs/adr/README.md).
+Решения по стеку зафиксированы в [ADR-0001](../adr/backend/0001-choose-backend-stack.md) (backend: Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7), [ADR-0006](../adr/backend/0006-database-postgresql-alembic.md) (database layer, миграции) и [ADR-0003](../adr/common/0003-keycloak-oidc-dual-auth.md) (auth: JWT + Keycloak OIDC). Актуальные версии — [`backend/pyproject.toml`](../../backend/pyproject.toml); источник истины — код и реестр [ADR](../adr/README.md).
 
 ## Структура проекта
 

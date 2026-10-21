@@ -89,5 +89,5 @@ Batteries included, но sync-first.
 ## More Information
 
 - Исходные рассуждения по альтернативам — `plans/architecture/decisions.md` (частично устарел, источник истины — код)
-- Конвенции реализации — `plans/development/backend.md`, [ADR-0006](0006-database-postgresql-alembic.md)
+- Конвенции реализации — `docs/development/backend.md`, [ADR-0006](0006-database-postgresql-alembic.md)
 - Условие пересмотра: если экосистема Python 3.14 создаст блокеры (отставание ключевых пакетов) или нагрузка потребует распределённых воркеров — переоткрыть решение через новый ADR

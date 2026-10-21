@@ -51,8 +51,9 @@ BigBug/
 │   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
-│   └── adr/              # ADR registry (decisions)
-├── plans/               # Implementation plans for agents
+│   ├── adr/              # ADR registry (decisions)
+│   ├── development/      # Operational guides for agents (setup, backend, frontend, permissions index)
+│   └── runbooks/         # Operational procedures for humans
 ├── Makefile             # Single entry point for all scripts (make help)
 ├── CHANGELOG.md         # Version history
 ├── .kilo/               # Kilo config (commands, agents, plans)
@@ -88,7 +89,7 @@ BigBug/
 - API routers: in [`app/api/`](backend/app/api/), registered in [`main.py`](backend/app/main.py)
 - Migrations: `alembic revision -m "description"` → edit file → `alembic upgrade head`
 
-See: [`/plans/development/backend.md`](plans/development/backend.md)
+See: [`/docs/development/backend.md`](docs/development/backend.md)
 
 ### Frontend (React/TypeScript)
 
@@ -114,7 +115,7 @@ src/tests/
 - Types: TypeScript interfaces in [`src/types/index.ts`](frontend/src/types/)
 - Routing: in [`src/router/index.tsx`](frontend/src/router/)
 
-See: [`/plans/development/frontend.md`](plans/development/frontend.md)
+See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 
 ### Make-команды (единая точка входа)
 
@@ -326,7 +327,7 @@ Backup: PostgreSQL — `docker exec bigbug-postgres-backend pg_dump -U bigbug bi
 3. Update frontend `usePermissions()` hook
 4. Wrap UI components in `<PermissionGate permission="...">`
 
-See: [`/docs/adr/common/0004-permission-based-rbac-scope-providers.md`](docs/adr/common/0004-permission-based-rbac-scope-providers.md) and [`/plans/architecture/permissions.md`](plans/architecture/permissions.md)
+See: [`/docs/adr/common/0004-permission-based-rbac-scope-providers.md`](docs/adr/common/0004-permission-based-rbac-scope-providers.md) and [`/docs/development/permissions.md`](docs/development/permissions.md)
 
 ### Creating Pipeline
 
@@ -369,8 +370,8 @@ See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet e
 - **C4 model диаграммы — отдельная категория**: Context/Container/Component диаграммы пишутся на Mermaid C4 syntax (`c4Context`, `c4Container`, `c4Component`, ` ```c4context ` и т.п.) и размещаются отдельно от обычных mermaid-диаграмм — не смешивать C4 и обычные (flow/sequence/ER) диаграммы в одном блоке/разделе.
 
 ### For Implementation (agents)
-- **Implementation plans**: [`/plans/`](plans/) - модульное чтение по необходимости
-- **Permissions index**: [`/plans/architecture/permissions.md`](plans/architecture/permissions.md) — единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
+- **Implementation guides**: [`/docs/development/`](docs/development/) - setup, backend, frontend
+- **Permissions index**: [`/docs/development/permissions.md`](docs/development/permissions.md) — единый источник истины для всех permissions. **Обязательно обновлять** при добавлении/изменении любых прав.
 - **This guide**: [`/AGENTS.md`](AGENTS.md) - quick start reference
 
 ### For Review (humans)
@@ -456,16 +457,13 @@ await createResource({ name: 'test' });
 
 ## Getting Help
 
-**For detailed implementation plans**, read specific files from [`/plans/`](plans/):
-- [`/plans/development/`](plans/development/) - setup, backend, frontend
-- [`/plans/architecture/`](plans/architecture/) - permissions index (операционный)
-- Architecture decisions: реестр [`docs/adr/README.md`](docs/adr/README.md)
+**For detailed implementation guides**, read [`/docs/development/`](docs/development/) (setup, backend, frontend, permissions index); architecture decisions: реестр [`docs/adr/README.md`](docs/adr/README.md)
 
 **For architectural decisions**, consult реестр [ADR](docs/adr/README.md); эксплуатационные процедуры — [`docs/runbooks/`](docs/runbooks/).
 
 **For specific task context**, AI agents should:
 1. Read [`AGENTS.md`](AGENTS.md) (this file) first
-2. Read relevant modular plans from [`/plans/`](plans/) as needed
+2. Read relevant guides from [`/docs/development/`](docs/development/) as needed
 3. NOT read [`docs/runbooks/`](docs/runbooks/) into context (human operational reference; for agents the entry points are AGENTS.md and the ADR registry)
 4. Examine actual code files to understand current implementation
 5. Ask clarifying questions if requirements are unclear
@@ -481,5 +479,5 @@ await createResource({ name: 'test' });
 - Providers service: [`backend/app/services/providers/service.py`](backend/app/services/providers/service.py)
 - Frontend store: [`frontend/src/store/api.ts`](frontend/src/store/api.ts)
 - Frontend routing: [`frontend/src/router/index.tsx`](frontend/src/router/index.tsx)
-- Permissions index: [`plans/architecture/permissions.md`](plans/architecture/permissions.md)
+- Permissions index: [`docs/development/permissions.md`](docs/development/permissions.md)
 

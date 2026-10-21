@@ -144,7 +144,7 @@
 
 ## Права gitlab-project-management (2026-08-20, реализованы)
 
-Спроектированы в spec-документе gitlab-project-management (удалён; решения зафиксированы в [`docs/adr/backend/0011-gitlab-ci-pipelines-components.md`](../../docs/adr/backend/0011-gitlab-ci-pipelines-components.md)), сидируются миграцией [`20260820_0003_5d4c3b2a1e0f_seed_gitlab_project_permissions.py`](../../backend/alembic/versions/20260820_0003_5d4c3b2a1e0f_seed_gitlab_project_permissions.py) и проверяются в коде ([`backend/app/services/gitlab_projects/_service.py`](../../backend/app/services/gitlab_projects/_service.py)). Разделение владельцев: «проект компонентов» требует `components:push`, «проект пайплайнов» — `pipelines:write`; владение строкой — owner/team/`gitlab_projects:read_all`, гранулярно — scope `gitlab_project`.
+Спроектированы в spec-документе gitlab-project-management (удалён; решения зафиксированы в [`docs/adr/backend/0011-gitlab-ci-pipelines-components.md`](../adr/backend/0011-gitlab-ci-pipelines-components.md)), сидируются миграцией [`20260820_0003_5d4c3b2a1e0f_seed_gitlab_project_permissions.py`](../../backend/alembic/versions/20260820_0003_5d4c3b2a1e0f_seed_gitlab_project_permissions.py) и проверяются в коде ([`backend/app/services/gitlab_projects/_service.py`](../../backend/app/services/gitlab_projects/_service.py)). Разделение владельцев: «проект компонентов» требует `components:push`, «проект пайплайнов» — `pipelines:write`; владение строкой — owner/team/`gitlab_projects:read_all`, гранулярно — scope `gitlab_project`.
 
 | Permission | Назначение | Admin | Operator | Viewer | Статус |
 |---|---|:--:|:--:|:--:|---|

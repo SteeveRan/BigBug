@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Стек зафиксирован в [ADR-0002](0002-frontend-stack-react-antd-rtk.md) (Vitest упомянут в списке «Качество»), но решения по unit-тестированию фронтенда — выбор раннера, DOM-окружение, layout тестовых файлов, конвенции мокирования — нигде формально не зафиксированы. Единственный документ — `plans/development/testing.md`, который разделяется пятью тестовыми доменами (backend unit / frontend unit / backend integrations / frontend integrations / e2e) и будет удалён после выхода всех пяти ADR (последним — ADR-0018, e2e). Внутри него пример конфигурации Vitest уже разошёлся с кодом (`setup.ts` вместо фактического `setup.tsx`, неполный список coverage-репортеров).
+Стек зафиксирован в [ADR-0002](0002-frontend-stack-react-antd-rtk.md) (Vitest упомянут в списке «Качество»), но решения по unit-тестированию фронтенда — выбор раннера, DOM-окружение, layout тестовых файлов, конвенции мокирования — нигде формально не зафиксированы. Единственный документ — `docs/development/testing.md`, который разделяется пятью тестовыми доменами (backend unit / frontend unit / backend integrations / frontend integrations / e2e) и будет удалён после выхода всех пяти ADR (последним — ADR-0018, e2e). Внутри него пример конфигурации Vitest уже разошёлся с кодом (`setup.ts` вместо фактического `setup.tsx`, неполный список coverage-репортеров).
 
 Фактический вопрос: **принять ли существующий Vitest-стек и layout `src/tests/unit/` как стандарт unit-тестирования фронтенда** и зафиксировать его в ADR?
 
@@ -147,4 +147,4 @@ grep -n '"jest' frontend/package.json
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 - Источник истины по конфигурации: `frontend/vitest.config.ts`, `frontend/package.json`, `frontend/scripts/test.sh`, `frontend/src/tests/integrations/setup.tsx`
 - Условие пересмотра: мажорный апгрейд Vitest с ломающими изменениями конфига, потребность в реальном браузерном окружении для unit-тестов, либо разъединение setup-файлов unit/integrations — переоткрыть через новый ADR
-- Этот ADR фиксирует frontend-раздел `plans/development/testing.md`; сам документ удаляется ADR-0018 (последним из семейства), до тех пор remaining-разделы не каноничны в части, покрытой ADR 0014–0017
+- Этот ADR фиксирует frontend-раздел `docs/development/testing.md`; сам документ удаляется ADR-0018 (последним из семейства), до тех пор remaining-разделы не каноничны в части, покрытой ADR 0014–0017

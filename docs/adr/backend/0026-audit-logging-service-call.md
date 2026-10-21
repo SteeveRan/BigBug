@@ -100,6 +100,6 @@ Middleware перехватывает POST/PATCH/DELETE и пишет «кто, 
 * Реализация: `backend/app/services/audit.py`, `backend/app/models/audit_log.py`, `backend/app/api/audit.py`; схема — `20260816_1159_37590bb4a2ec_initial_schema.py` (таблица `audit_logs`).
 * Пример never-raise контракта с rollback-защитой: `AuditService.log_event` (комментарий в коде объясняет `PendingRollbackError` на shared session).
 * Пример системного события: `backend/app/api/webhooks.py` — `mirror.sync_completed` / `mirror.sync_failed` при завершении pipeline.
-* Связанные ADR: ADR-0005 (service layer — аудит живёт в service/API-слое по тем же правилам), ADR-0003 (аутентификация — источник `username`/`user_id`), ADR-0004 (право `audit:read` в RBAC-матрице, `plans/architecture/permissions.md`).
+* Связанные ADR: ADR-0005 (service layer — аудит живёт в service/API-слое по тем же правилам), ADR-0003 (аутентификация — источник `username`/`user_id`), ADR-0004 (право `audit:read` в RBAC-матрице, `docs/development/permissions.md`).
 * Происхождение: legacy-документ `docs/architecture/10-security.md` (удалён в #49) описывал несуществующий middleware `app/core/audit.py` и таблицу `audit_log` (не `audit_logs`); этот ADR фиксирует реализацию по фактам.
 * Триггеры пересмотра: требование тампер-защиты или SIEM-экспорта (регуляторика); рост таблицы до проблемных размеров (нужен ретеншен); требование журналировать read-операции.

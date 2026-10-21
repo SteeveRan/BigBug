@@ -21,6 +21,5 @@ htmlcov/
 docs/runbooks/**/*.md
 
 # Legacy
-plans/architecture.md
 !.env.example
 !infrastructure/.env.example
