@@ -53,7 +53,7 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 - Good, because AntD 6 покрывает 90% enterprise-UI готовыми компонентами — меньше собственного UI-кода
 - Good, because RTK Query даёт кэш + инвалидацию по тегам без отдельной библиотеки (React Query не нужен)
 - Bad, because AntD тянет тяжёлый бандл — нужен контроль через tree-shaking и lazy-роуты
-- Bad, because `plans/architecture/decisions.md` и `plans/tech-stack.md` устарели (MUI v9, Node 26) — исправляются владельцами этих документов, не этим ADR
+- Bad, because `plans/architecture/decisions.md` устарел (MUI v9, Node 26) — исправляется владельцами этих документов, не этим ADR
 - Neutral, because react-router v7 вместо react-router-dom — новый канонический пакет, часть туториалов в сети всё ещё ссылается на старый
 
 ### Confirmation
@@ -101,7 +101,7 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 ## More Information
 
 - Первичные рассуждения — `plans/architecture/decisions.md` (раздел «Frontend: React 19 + TypeScript»; **устарел**: там MUI v9, источник истины — `frontend/package.json`)
-- `plans/tech-stack.md` — расхождение по MUI/Node исправляется вне этого ADR (out of scope)
+- `plans/tech-stack.md` удалён [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); расхождение по MUI/Node зафиксировано как устаревший факт ADR-0002
 - Конвенции реализации — `plans/development/frontend.md`; тесты — `plans/development/testing.md`
 - Парный ADR: [ADR-0001](../backend/0001-choose-backend-stack.md) (backend-стек)
 - Условие пересмотра: смена UI-кита или появление второго data-fetching-слоя — только через новый ADR

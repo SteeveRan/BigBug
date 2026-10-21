@@ -134,5 +134,4 @@ BigBug — централизованная DevOps платформа для у�
 
 - Детальная архитектура: [`/docs/architecture/`](../docs/architecture/)
 - Быстрый старт: [`/AGENTS.md`](../AGENTS.md)
-- Технический стек: [`tech-stack.md`](tech-stack.md)
 - Текущее состояние: [`current-state.md`](current-state.md)

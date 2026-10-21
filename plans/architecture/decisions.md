@@ -347,5 +347,4 @@ app/models/
 ## Полезные ссылки
 
 - [`/docs/architecture/README.md`](../../docs/architecture/README.md) — подробная архитектура
-- [`/plans/tech-stack.md`](../tech-stack.md) — полный список технологий
 - [`AGENTS.md`](../../AGENTS.md) — quick reference для разработки

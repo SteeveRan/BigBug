@@ -114,9 +114,6 @@ make dead-code-backend && make dead-code-frontend             # реальные
 
 - `AGENTS.md`: секции «Start Development Environment», «Run Tests», «Code Quality Checks» — заменить простыни bash на make-команды + краткая таблица групп. Ничего сверх этого.
 - `plans/development/setup.md`: секция «Quick start via Make» (up инфры → init → dev up).
-- `plans/development/testing.md`: в «Запуск тестов» добавить make-варианты (backend + frontend + coverage).
-- `plans/development/infrastructure.md`: make infra-* команды.
-- `infrastructure/README.md`: ссылка на make infra-*.
 - `CHANGELOG.md`: `## [Unreleased] → ### Added` — Makefile, mypy, knip.
 
 ## Что НЕ делаем (YAGNI)

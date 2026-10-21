@@ -53,6 +53,7 @@
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
 | [ADR-0012](infrastructure/0012-docker-compose-split-dev-env.md) | proposed | Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration | 2026-10-21 |
+| [ADR-0013](infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) | proposed | Infrastructure as Code: OpenTofu (root + модули keycloak/harbor/gitlab) для provisioning Keycloak, GitLab, Harbor-конфигурации; Harbor runtime — в kind; init flow `init.sh` → compose → harbor → tofu → update-env | 2026-10-21 |
 
 ## Правила для агентов
 
