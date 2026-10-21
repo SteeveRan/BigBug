@@ -19,7 +19,7 @@
 
 ### 🎯 Features
 - [`features/builds.md`](features/builds.md) - Gold/App images
-- [`features/mirroring.md`](features/mirroring.md) - Docker/Helm/Git mirroring
+- Git Mirroring (GitHub → GitLab): [ADR-0008](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
 - [`features/pipelines.md`](features/pipelines.md) - CI/CD пайплайны
 - [`features/security.md`](features/security.md) - шифрование, secrets
 
