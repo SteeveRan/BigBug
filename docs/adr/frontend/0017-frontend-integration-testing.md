@@ -14,7 +14,7 @@ decision-makers: SteeveRan
 
 Фактическое состояние (проверено по коду, 2026-10-21):
 
-- Layout — `frontend/src/tests/integrations/*.test.tsx`: 37 файлов, ~326 тестов (GitMirroringMirrors, NavigationMenu, Providers, Pipelines, Admin*, Layout и др.)
+- Layout — `frontend/src/tests/integrations/*.test.tsx`: десятки тестовых файлов (GitMirroringMirrors, NavigationMenu, Providers, Pipelines, Admin*, Layout и др.)
 - Раннер/окружение — общий с unit: Vitest ^2, `vitest.config.ts` (`environment: 'jsdom'`, `globals: true`), общий setup-файл `./src/tests/integrations/setup.tsx` (polyfills `window.matchMedia`, `ResizeObserver`, `getComputedStyle` для antd/rc-*; моки `ThemeContext`/`useThemeMode`)
 - Обёртка рендера — реальный `configureStore` с `[api.reducerPath]: api.reducer` и `api.middleware` + `<Provider store>` + `BrowserRouter` (или `MemoryRouter` для маршрутов с параметрами) + `<App>` из antd; хелперы `createTestStore()` / `renderPage()` объявляются локально в каждом файле
 - Стратегия мокирования — **ручные `vi.mock('../../store/api', ...)`** через `vi.importActual` + `vi.fn()` на каждый используемый хук (query: `{ data, isLoading, isError }`; mutation: `[triggerFn, { isLoading: false }]`); MSW в проекте не установлен
@@ -28,7 +28,7 @@ decision-makers: SteeveRan
 - Реальный `api.reducer` + `api.middleware` в store: тесты видят кэширование/подписки RTK Query, а не только «что вернул хук» — при этом сеть полностью отсечена моками хуков
 - MSW не нужен: перехват на сетевом уровне избыточен, когда мокается сам слой хуков — меньше зависимостей и настроек
 - Enterprise-UI на antd: компонентам нужны `App`-контекст, breakpoints (`matchMedia`), таблицы (`ResizeObserver`) — покрыто общим setup-файлом
-- Минимализм (унаследован из ADR-0002): фиксация работающего статус-кво (37 файлов, ~326 тестов), а не миграция
+- Минимализм (унаследован из ADR-0002): фиксация работающего статус-кво, а не миграция
 
 ## Considered Options
 
@@ -39,7 +39,7 @@ decision-makers: SteeveRan
 
 ## Decision Outcome
 
-Chosen option: **Vitest + jsdom + реальный Redux store + ручные `vi.mock` RTK Query-хуков** — фактический стандарт кода (37 файлов, ~326 тестов в `src/tests/integrations/`), ноль миграций, минимальная зависимость.
+Chosen option: **Vitest + jsdom + реальный Redux store + ручные `vi.mock` RTK Query-хуков** — фактический стандарт кода (все integration-тесты в `src/tests/integrations/`), ноль миграций, минимальная зависимость.
 
 ### Зафиксированные правила
 
@@ -99,7 +99,7 @@ make test-integrations-frontend TEST_ARGS="-t 'should render'"   # по имен
 make test-integrations-frontend
 ```
 
-Ожидаемый результат: 37 файлов, ~326 тестов, 0 failed.
+Ожидаемый результат: все integration-тесты, 0 failed.
 
 2. **Стратегия мокирования не подменяется** — при ревью: `frontend/package.json` не содержит `msw`; тесты не содержат реальных `fetch`/`httpx`-запросов. Быстрая проверка:
 
@@ -128,14 +128,14 @@ grep -n '"msw' frontend/package.json
 
 * Good, because тестируется полный путь хука → эндпоинт → ответ, включая URL и сериализацию
 * Bad, because дублирование HTTP-контракта в хендлерах MSW: рассинхрон с `store/api.ts` ловится тестом, а не компилятором
-* Bad, because миграция всех 37 файлов ради нуля функциональной выгоды для текущих сценариев
+* Bad, because миграция всех integration-тестов ради нуля функциональной выгоды для текущих сценариев
 
 ### Playwright Component Testing
 
 Браузерный рантайм для компонентов в изоляции.
 
 * Good, because реальный браузер: layout, настоящие события
-* Bad, because тяжёлый старт для ~326 тестов; дублирует e2e-инфраструктуру (ADR-0018)
+* Bad, because тяжёлый старт для полного integration-набора; дублирует e2e-инфраструктуру (ADR-0018)
 * Bad, because не используется в коде — означало бы миграцию всех integration-тестов
 
 ### Storybook Interaction Tests
