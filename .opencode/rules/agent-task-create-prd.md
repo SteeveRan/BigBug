@@ -1,7 +1,3 @@
----
-description: Generate the PRD spec
-alwaysApply: false
----
 # Rule: Generating a Product Requirements Document (PRD)
 
 ## Goal
