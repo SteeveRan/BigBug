@@ -53,7 +53,7 @@ agent: plan
   (из отменённых решений не наследоваться, но учитывать их историю).
 - `AGENTS.md` — конвенции и структура кода.
 - `plans/features/<домен>.md` — профильный доменный документ по затронутой теме
-  (auth-rbac, pipelines, providers-unified, security, integrations, ...).
+  (auth-rbac, pipelines, security, ...).
 - `plans/architecture/decisions.md` — если решение там уже описано, новый ADR его
   выносит, а в `plans/architecture/decisions.md` помечается «→ вынесено в ADR-NNNN».
 - `docs/architecture/` — НЕ читать в контекст (по правилам AGENTS.md, для людей).

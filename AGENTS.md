@@ -207,7 +207,7 @@ alembic revision -m "add_user_keycloak_sub"
 # Creates: YYYYMMDD_HHMM_<hash>_add_user_keycloak_sub.py
 ```
 
-> Текущая цепочка — 6 ревизий после сброса 2026-08-16: `initial_schema` → `seed_initial_data` → `add_gitlab_projects` → `link_components_pipelines_to_gitlab_projects` → `seed_gitlab_project_permissions` → `add_helm_mirror_fields` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `add_helm_mirror_fields`, см. [`/plans/development/database.md`](plans/development/database.md).
+> Текущая цепочка — 6 ревизий после сброса 2026-08-16: `initial_schema` → `seed_initial_data` → `add_gitlab_projects` → `link_components_pipelines_to_gitlab_projects` → `seed_gitlab_project_permissions` → `add_helm_mirror_fields` (старые 40 ревизий в [`backend/alembic/versions_backup_20260816/`](backend/alembic/versions_backup_20260816/)). Новые изменения схемы — новыми миграциями поверх `add_helm_mirror_fields`, см. [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md).
 
 **Naming conventions**:
 - Tables: `users`, `roles`, `gitlab_mirrors` (plural, snake_case)
@@ -215,7 +215,7 @@ alembic revision -m "add_user_keycloak_sub"
 - Foreign keys: `{table}_id`, e.g., `user_id`
 - Indexes: `ix_{table}_{column}`, e.g., `ix_users_email`
 
-See: [`/plans/development/database.md`](plans/development/database.md)
+See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 ### Testing
 
@@ -266,7 +266,26 @@ See: [`/plans/development/testing.md`](plans/development/testing.md)
 4. API уже унифицирован: [`backend/app/api/providers.py`](backend/app/api/providers.py) (`/api/providers`)
 5. Frontend получает метаданные через `GET /api/providers/types` — новые формы генерируются автоматически
 
-See: [`/plans/features/integrations.md`](plans/features/integrations.md) и [`/plans/features/providers-unified.md`](plans/features/providers-unified.md)
+See: [ADR-0007](docs/adr/common/0007-providers-v3-registry.md)
+
+### Provider Troubleshooting
+
+Быстрые curl-проверки внешних интеграций (внешние системы, не BigBug API):
+
+```bash
+# GitLab API доступен / токен валиден
+curl -H "PRIVATE-TOKEN: glpat-xyz" http://localhost:8080/api/v4/user
+curl -H "PRIVATE-TOKEN: glpat-xyz" http://localhost:8080/api/v4/personal_access_tokens/self
+
+# Harbor доступен / SSL
+curl -u admin:Harbor12345 https://harbor.local/api/v2.0/systeminfo
+curl -k -u admin:Harbor12345 https://harbor.local/api/v2.0/systeminfo
+
+# Helm index.yaml парсится (скачать и проверить)
+curl https://charts.helm.sh/stable/index.yaml | head -50
+```
+
+Диагностика в BigBug: `POST /api/providers/{id}/test` обновляет `status_flag`/`status_text` провайдера; `GET /api/providers/{id}/usage` показывает потребителей перед удалением.
 
 ### Modifying RBAC
 
@@ -275,7 +294,7 @@ See: [`/plans/features/integrations.md`](plans/features/integrations.md) и [`/p
 3. Update frontend `usePermissions()` hook
 4. Wrap UI components in `<PermissionGate permission="...">`
 
-See: [`/plans/features/auth-rbac.md`](plans/features/auth-rbac.md)
+See: [`/docs/adr/common/0004-permission-based-rbac-scope-providers.md`](docs/adr/common/0004-permission-based-rbac-scope-providers.md) and [`/plans/architecture/permissions.md`](plans/architecture/permissions.md)
 
 ### Creating Pipeline
 
@@ -300,7 +319,7 @@ encrypted = encrypt_secret("my-token")
 token = decrypt_secret(encrypted)
 ```
 
-See: [`/plans/features/security.md`](plans/features/security.md)
+See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet encryption for stored credentials; key via `ENCRYPTION_KEY` env (not `FERNET_KEY`)
 
 ## Architecture Decision Records (ADR)
 
@@ -314,6 +333,10 @@ See: [`/plans/features/security.md`](plans/features/security.md)
 - Создание ADR — через команду `/adr` в OpenCode (workflow skill `adr-skill`). Статус `accepted` выставляет только человек; при `superseded`/`rejected` ADR перемещается в `docs/adr/archive/<component>/` и реестры обновляются.
 
 ## Documentation
+
+### Diagrams
+- **Все диаграммы/схемы в документации — только Mermaid** (fenced-блоки ` ```mermaid ` в markdown). Не использовать PlantUML, draw.io, ASCII-арт и т.п.
+- **C4 model диаграммы — отдельная категория**: Context/Container/Component диаграммы пишутся на Mermaid C4 syntax (`c4Context`, `c4Container`, `c4Component`, ` ```c4context ` и т.п.) и размещаются отдельно от обычных mermaid-диаграмм — не смешивать C4 и обычные (flow/sequence/ER) диаграммы в одном блоке/разделе.
 
 ### For Implementation (agents)
 - **Implementation plans**: [`/plans/`](plans/) - модульное чтение по необходимости

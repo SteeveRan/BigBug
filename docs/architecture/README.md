@@ -33,6 +33,13 @@ docs/architecture/
 
 ---
 
+## Конвенции диаграмм
+
+- Все диаграммы — **Mermaid** (fenced-блоки ` ```mermaid ` в markdown).
+- **C4 model диаграммы — отдельно**: Context/Container/Component — Mermaid C4 syntax (`c4Context`, `c4Container`, `c4Component`), размещаются в отдельных блоках/разделах, не смешиваются с обычными mermaid-диаграммами (flow, sequence, ER).
+
+---
+
 ## Быстрый навигатор
 
 ### [1. Executive Summary](./01-executive-summary.md)

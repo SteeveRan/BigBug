@@ -18,7 +18,7 @@ decision-makers: SteeveRan
 
 Решение не было зафиксировано как ADR; три спеки и гайд `plans/features/pipelines.md` были единственными источниками. Вопрос финализирован: **финальная архитектура — вариант 3, промежуточные подходы отклонены и документируются здесь**.
 
-Зависимость: ADR-0007 «Providers V3 — unified resource_providers registry» (в работе, [issue #8](https://github.com/SteeveRan/BigBug/issues/8)) — все GitLab-подключения являются git-провайдерами реестра `resource_providers`; триггер пайплайнов диспетчеризуется через capabilities провайдеров.
+Зависимость: [ADR-0007](../common/0007-providers-v3-registry.md) «Providers V3 — unified resource_providers registry» — все GitLab-подключения являются git-провайдерами реестра `resource_providers`; триггер пайплайнов диспетчеризуется через capabilities провайдеров.
 
 ## Decision Drivers
 
@@ -27,7 +27,7 @@ decision-makers: SteeveRan
 - GitLab Components резолвятся по `$CI_SERVER_FQDN` — проект пайплайна и включаемый проект компонентов обязаны быть на одном GitLab-хосте; это ограничение платформы, которое надо валидировать, а не обходить.
 - Секреты (registry credentials) — только через encrypted credentials провайдеров в runtime-переменных пайплайна; не в файлах репозитория, не в argv.
 - Минимализм зависимостей: Terraform/баш в provisioning-пути — это вторая система state, конфликтующая с приложением.
-- Сквозная нумерация ADR и зависимость от Providers V3 (ADR-0007, issue #8).
+- Сквозная нумерация ADR и зависимость от Providers V3 ([ADR-0007](../common/0007-providers-v3-registry.md)).
 
 ## Considered Options
 
@@ -137,9 +137,9 @@ GitLab-проект `bigbug-mirrors/components` и файлы компонент
 
 Связанные материалы:
 
-- ADR-0007 (Providers V3, issue #8) — провайдеры и capabilities; `CAPABILITY_RESTRICTIONS`
+- [ADR-0007](../common/0007-providers-v3-registry.md) (Providers V3) — провайдеры и capabilities; `CAPABILITY_RESTRICTIONS`
 - Индекс прав: `plans/architecture/permissions.md` (секция gitlab-project-management прав)
-- Конвенции API/статусов: `AGENTS.md`; миграции: `plans/development/database.md`
+- Конвенции API/статусов: `AGENTS.md`; миграции: [ADR-0006](../backend/0006-database-postgresql-alembic.md)
 - Примеры шаблонов (не используются приложением): `infrastructure/gitlab-components/examples/`
 
 Условие пересмотра: если появится сценарий кросс-хостового fan-out компонентов, потребуется пересмотр same-host правила; если раны пойдут через dispatch-механизм провайдеров — пересмотр `CAPABILITY_RESTRICTIONS` для `trigger_pipeline`.
