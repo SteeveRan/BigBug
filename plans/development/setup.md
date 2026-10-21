@@ -364,4 +364,4 @@ lsof -i :8000
 - [`backend.md`](backend.md) - detailed backend development
 - [`frontend.md`](frontend.md) - detailed frontend development
 - [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer (PostgreSQL, SQLAlchemy, Alembic)
-- [`testing.md`](testing.md) - testing strategies
+- Testing decisions: [ADR-0014…0018](../../docs/adr/README.md)
