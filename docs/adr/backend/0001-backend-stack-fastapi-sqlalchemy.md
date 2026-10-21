@@ -79,9 +79,9 @@ Backend BigBug — **Python 3.14** (`requires-python = ">=3.14"`), веб-фре
 
 ## Verification
 
-- [ ] `make lint`
-- [ ] `make typecheck`
-- [ ] `make test-unit-backend`
+ADR документарный, код не меняет — make-цели из шаблона неприменимы.
+Содержательная проверка одна:
+
 - [x] Версии в разделе «Решение» совпадают с `backend/pyproject.toml` и docker-compose-образами (`postgres:17`, `redis:7-alpine`)
 
 ## Связанные ADR и документы
