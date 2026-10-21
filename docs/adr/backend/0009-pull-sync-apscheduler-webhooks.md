@@ -151,7 +151,7 @@ Sync инициируется событиями GitHub/GitLab (push) или р�
 ## More Information
 
 - Открытый вопрос (направление будущего): message queue для background tasks — `plans/architecture/decisions.md`, раздел «Нерешённые вопросы» (варианты Celery+Redis / arq / FastAPI BackgroundTasks; критерии: async support, retry, scheduling). Триггер пересмотра этого ADR — любое из: горизонтальное масштабирование backend (>1 реплики), потребность в retry с backoff и гарантированной доставке, рост числа зеркал на порядки. Открытый вопрос остаётся открытым: этот ADR его не закрывает, а фиксирует, что текущая модель без очереди достаточна
-- Домен зеркалирования (сущности, sync-пайплайны, soft delete): [ADR-0008](0008-git-mirroring-github-gitlab.md); провайдеры и credentials: [ADR-0007](0007-unify-providers-registry.md) (создаётся параллельно issue #8); стек: [ADR-0001](0001-choose-backend-stack.md)
+- Домен зеркалирования (сущности, sync-пайплайны, soft delete): [ADR-0008](0008-git-mirroring-github-gitlab.md); провайдеры и credentials: [ADR-0007](../common/0007-providers-v3-registry.md); стек: [ADR-0001](0001-choose-backend-stack.md)
 - Исходная фиксация решения (устаревает по мере распределения контента): `plans/architecture/decisions.md`, разделы «Синхронизация данных» и «Нерешённые вопросы»; удаление файла — в ADR-0022, не здесь
 - Спецификация домена (удаляется в ADR-0008): `plans/features/git-mirroring-v2.md` — разделы «Sync Groups» (US-4) и «Отложенное удаление» (US-12); упомянутый там «период хранения по умолчанию 30 дней» подтверждён кодом (`soft_delete_retention_days: int = 30`)
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
