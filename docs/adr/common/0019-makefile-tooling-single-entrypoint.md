@@ -18,7 +18,7 @@ decision-makers: SteeveRan
 2. **Typecheck backend**: mypy или pyright, и на каком уровне строгости?
 3. **Dead-code frontend**: knip или ts-prune?
 
-Решение о стеке (ruff, eslint, prettier, pytest, vitest) уже зафиксировано в [ADR-0001](../backend/0001-choose-backend-stack.md) и [ADR-0002](../frontend/0002-frontend-stack-react-antd-rtk.md); этот ADR не пересматривает его, а фиксирует **слой запуска** поверх. Compose-слой (цели `dev-*`/`infra-*`) принадлежит [ADR-0012](../infrastructure/0012-docker-compose-split-dev-env.md), IaC-слой — [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); их make-цели — тонкие обёртки, владение логикой остаётся в тех ADR.
+Решение о стеке (ruff, eslint, prettier, pytest, vitest) уже зафиксировано в [ADR-0001](../backend/0001-choose-backend-stack.md) и [ADR-0002](../frontend/0002-frontend-stack-react-antd-rtk.md); этот ADR не пересматривает его, а фиксирует **слой запуска** поверх. Dev-стенд — [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) (kind) с историческим compose-слоем [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md), IaC-слой — [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); их make-цели — тонкие обёртки, владение логикой остаётся в тех ADR.
 
 ## Decision Drivers
 
@@ -53,7 +53,7 @@ Chosen option: **корневой Makefile — тонкая обёртка, self
 
 | Группа | Цели | Назначение |
 |---|---|---|
-| `dev-*` | `build`, `up`, `init`, `down`, `clean` | дев-стек приложения, `docker compose` (compose-логика — [ADR-0012](../infrastructure/0012-docker-compose-split-dev-env.md)) |
+| `dev-*` | `build`, `up`, `init`, `down`, `clean` | дев-стек приложения (после [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) — kind/helm; ранее `docker compose`, [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md)) |
 | `infra-*` | `up`, `init`, `down`, `clean` (+ `clean-compose`, `clean-harbor`, `clean-tofu`) | зависимости; `infra-init` = `./infrastructure/init.sh` (flow — [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)) |
 | `test-*` | `unit`, `e2e`, `integrations`, `all` × стек | тесты; проброс аргументов через `TEST_ARGS` |
 | `lint-*` / `format-*` / `typecheck-*` | `backend`, `frontend`, без суффикса | ruff / eslint+prettier / mypy+tsc |
@@ -154,7 +154,7 @@ make dead-code           # vulture + knip завершаются с exit 0
 ## More Information
 
 - [ADR-0001](../backend/0001-choose-backend-stack.md) — backend-стек (ruff, pytest, mypy как оговорённый инструмент); [ADR-0002](../frontend/0002-frontend-stack-react-antd-rtk.md) — frontend-стек (eslint, prettier, vitest, tsc)
-- [ADR-0012](../infrastructure/0012-docker-compose-split-dev-env.md) — compose-слой (владение `dev-*`/`infra-*`-логикой); [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой и `init.sh` (владение `infra-init`)
+- [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — исторический compose-слой (после [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) владение `dev-*` переходит к kind/helm-схеме); [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой и `init.sh` (владение `infra-init`)
 - Использование агентами: [`AGENTS.md`](../../../AGENTS.md) (разделы «Start Development Environment», «Run Tests», «Code Quality Checks»), детально — [`plans/development/setup.md`](../../../plans/development/setup.md); тестовые решения — семейство ADR-0014…0018 (реестр: [`docs/adr/README.md`](../../README.md))
 - Источник подтверждённых решений (удалён после фиксации в этом ADR): `plans/makefile-tooling.md`
 - Условие пересмотра: переход на CI-гейтинг качества (обязательные mypy strict / knip exit-code в pipeline) — новый ADR

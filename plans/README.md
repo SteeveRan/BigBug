@@ -16,7 +16,7 @@
 - [`development/frontend.md`](development/frontend.md) - работа с frontend (React)
 - [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer: PostgreSQL 17, SQLAlchemy 2, Alembic, миграции, conventions
 - Тестирование: ADR-0014…0018 — см. [`docs/adr/README.md`](../../docs/adr/README.md)
-- Infrastructure (Compose, IaC, init flow): [ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
+- Infrastructure (kind dev-стенд, IaC, init flow): [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md), [ADR-0023](../../docs/adr/infrastructure/0023-bigbug-helm-chart.md), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
 
 ### 🎯 Features
 - Image builds (Gold/App images): [ADR-0020](../docs/adr/backend/0020-image-builds-gold-app.md)

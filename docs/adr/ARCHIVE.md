@@ -31,4 +31,4 @@
 
 | ADR | Статус | Название | Причина / Замена | Дата архивации |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| [ADR-0012](archive/infrastructure/0012-docker-compose-split-dev-env.md) | superseded by [ADR-0022](infrastructure/0022-dev-stand-on-kind.md) | Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration | Dev-стенд переезжает в единый kind-кластер; compose остаётся только для GitLab | 2026-10-22 |

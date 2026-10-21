@@ -152,7 +152,7 @@ See: [`/plans/development/frontend.md`](plans/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
-See: [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC (OpenTofu) для Keycloak/GitLab/Harbor; troubleshooting инфраструктуры — ниже.
+See: [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC (OpenTofu) для Keycloak/GitLab/Harbor; [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions
 
@@ -316,7 +316,7 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 
 ### Infrastructure Troubleshooting
 
-Ручная диагностика инфраструктурных сервисов (compose-слой — [ADR-0012](docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), IaC — [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)):
+Ручная диагностика инфраструктурных сервисов (kind dev-стенд — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md), IaC — [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)):
 
 ```bash
 # Сервисы не стартуют: логи, сеть, volumes
