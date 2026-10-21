@@ -1,5 +1,7 @@
 # BigBug — System Design Documentation
 
+> **Актуальные архитектурные решения** — в реестре [ADR](../adr/README.md): все решения по стеку, паттернам, интеграциям и тестированию зафиксированы как ADR 0001–0021. Этот каталог — детальный design-документ для человеческого ревью; при расхождении с ADR источником истины являются ADR и код.
+
 ## Обзор
 
 Комплексная архитектурная документация для **BigBug** — платформы управления Docker образами (Gold, App), Helm чартами, Git зеркалированием и CI/CD пайплайнами.
@@ -110,7 +112,7 @@ docs/architecture/
 
 ### [8. Pipelines](./08-pipelines.md)
 - Типы пайплайнов: mirror, gold_image, app_image, helm_sync, docker_sync
-- GitLab CI шаблоны в `gitlab-ci/`
+- GitLab CI шаблоны — in-code пресеты [`backend/app/services/gitlab_projects/presets.py`](../../backend/app/services/gitlab_projects/presets.py) (см. ADR-0011)
 - GitLab Components структура и использование
 - Webhook обратная связь (state machine диаграмма)
 - Polling статуса для пайплайнов без webhook
@@ -169,6 +171,5 @@ docs/architecture/
 - [`backend/app/services/oidc.py`](../../backend/app/services/oidc.py) — OIDC сервис
 - [`backend/app/services/gitlab.py`](../../backend/app/services/gitlab.py) — GitLab сервис
 - [`backend/alembic/versions/`](../../backend/alembic/versions/) — миграции БД
-- [`gitlab-ci/`](../../gitlab-ci/) — CI/CD шаблоны
 - [`infrastructure/`](../../infrastructure/) — примеры настройки GitLab, Harbor, Keycloak
-- [`plans/architecture.md`](../../plans/architecture.md) — высокоуровневый план
+- Реестр ADR: [`docs/adr/README.md`](../adr/README.md)

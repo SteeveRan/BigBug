@@ -4,14 +4,7 @@
 
 ## Технологический стек
 
-- **Python 3.14+**
-- **FastAPI 0.115+** - async REST API framework
-- **SQLAlchemy 2.0+** - ORM с async поддержкой
-- **Alembic** - миграции базы данных
-- **PostgreSQL 17** - основная БД
-- **Redis 7** - кеширование и очереди задач
-- **APScheduler** - планировщик задач (AsyncIOScheduler)
-- **pytest** + **pytest-asyncio** + **httpx** - тестирование
+Решения по стеку зафиксированы в [ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md) (backend: Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7), [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) (database layer, миграции) и [ADR-0003](../../docs/adr/common/0003-keycloak-oidc-dual-auth.md) (auth: JWT + Keycloak OIDC). Актуальные версии — [`backend/pyproject.toml`](../../backend/pyproject.toml); источник истины — код и реестр [ADR](../../docs/adr/README.md).
 
 ## Структура проекта
 
@@ -59,12 +52,13 @@ uv pip install -e .
 DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
 
 # Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+REDIS_URL=redis://localhost:6379/0
 
 # Security
 SECRET_KEY=your-secret-key-here
-FERNET_KEY=your-fernet-key-base64
+
+# Encryption Key for secrets (ENCRYPTION_KEY, не FERNET_KEY — см. ADR-0010)
+ENCRYPTION_KEY=your-fernet-key-here
 
 # OIDC (опционально)
 OIDC_ENABLED=false
