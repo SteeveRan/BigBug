@@ -32,6 +32,23 @@ decision-makers: SteeveRan
 
 Chosen option: **Dual mode — локальная аутентификация (username/password + собственные JWT) как режим по умолчанию, плюс опциональный Keycloak 26 OIDC SSO через Authorization Code + PKCE**, потому что только этот вариант одновременно закрывает оба драйвера развёртывания (с Keycloak и без), не добавляет обязательной инфраструктуры и оставляет API scheme-агностичным.
 
+Оба режима сходятся в одну точку — собственные JWT BigBug и единую проверку `get_current_user`:
+
+```mermaid
+flowchart LR
+    subgraph M1["Режим 1: Local auth"]
+        A1["POST /api/auth/login<br/>(bcrypt verify)"] --> A3["собственные access + refresh JWT<br/>(permissions в payload)"]
+    end
+    subgraph M2["Режим 2: Keycloak OIDC SSO"]
+        B3["POST /api/auth/oidc/exchange"] --> B4["validate id_token<br/>(RS256, JWKS cache)"]
+        B4 --> B5["hybrid provisioning<br/>(users.keycloak_sub / email)"]
+        B5 --> B6["sync realm roles →<br/>admin / operator / viewer"]
+        B6 --> B7["собственные access + refresh JWT<br/>(permissions в payload)"]
+    end
+    A3 --> C["get_current_user —<br/>единая защита API, схема-агностично"]
+    B7 --> C
+```
+
 ### Режим 1: Local auth (по умолчанию)
 
 - `POST /api/auth/login` {username, password} → проверка bcrypt-хеша (`backend/app/core/security.py`) → собственные access + refresh JWT
@@ -43,15 +60,24 @@ Chosen option: **Dual mode — локальная аутентификация (
 
 Поток Authorization Code + PKCE (S256), публичный frontend-клиент Keycloak:
 
-```
-1. Frontend → GET /api/auth/sso/config
-   ← { enabled, url, realm: "bigbug", client_id }   # из БД; enabled=false скрывает SSO-кнопку
-2. Frontend строит authorization URL напрямую (без keycloak-js):
-   response_type=code, code_challenge=S256(verifier), scope="openid profile email";
-   code_verifier хранится в sessionStorage (`frontend/src/services/keycloak.ts`)
-3. Keycloak → redirect на /sso/callback?code=...
-4. Frontend → POST /api/auth/oidc/exchange { code, redirect_uri, code_verifier }
-   ← { access_token, refresh_token }   # собственные JWT BigBug, не токены Keycloak
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User (browser)
+    participant FE as Frontend (SPA)
+    participant API as Backend API
+    participant KC as Keycloak
+
+    U->>FE: нажимает «Sign in with SSO»
+    FE->>API: GET /api/auth/sso/config
+    API-->>FE: { enabled, url, realm: "bigbug", client_id }
+    Note over FE: code_verifier → sessionStorage,<br/>code_challenge = S256(verifier)
+    FE->>KC: redirect на /realms/bigbug/.../auth?<br/>response_type=code & code_challenge & scope="openid profile email"
+    U->>KC: логин в Keycloak
+    KC-->>FE: redirect на /sso/callback?code=...
+    FE->>API: POST /api/auth/oidc/exchange<br/>{ code, redirect_uri, code_verifier }
+    Note over API: exchange code (public client, PKCE,<br/>без client_secret) → validate id_token<br/>(RS256, realm JWKS, iss/aud/exp) →<br/>provision user (keycloak_sub / email) → sync roles
+    API-->>U: { access_token, refresh_token } —<br/>собственные JWT BigBug, не токены Keycloak
 ```
 
 Серверная часть (`backend/app/services/oidc.py`, `KeycloakOIDCService`):
