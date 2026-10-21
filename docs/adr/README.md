@@ -32,6 +32,7 @@
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
 | [ADR-0001](backend/0001-choose-backend-stack.md) | proposed | Выбрать backend-стек: Python 3.14 + FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7 | 2026-10-21 |
+| [ADR-0011](backend/0011-gitlab-ci-pipelines-components.md) | proposed | Управлять GitLab CI/CD-интеграцией (проекты, компоненты, пресеты, пайплайны) внутри приложения | 2026-10-21 |
 
 ### frontend
 

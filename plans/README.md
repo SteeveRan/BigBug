@@ -22,11 +22,11 @@
 - [`features/builds.md`](features/builds.md) - Gold/App images
 - [`features/mirroring.md`](features/mirroring.md) - Docker/Helm/Git mirroring
 - [`features/integrations.md`](features/integrations.md) - GitLab, Harbor, GitHub, etc
-- [`features/pipelines.md`](features/pipelines.md) - CI/CD пайплайны
 - [`features/security.md`](features/security.md) - шифрование, secrets
 
 ### 🏗️ Architecture
 - [`architecture/decisions.md`](architecture/decisions.md) - Architecture Decision Records (ADR)
+- GitLab CI/CD (пайплайны, компоненты, пресеты) — ADR: [`../docs/adr/backend/0011-gitlab-ci-pipelines-components.md`](../docs/adr/backend/0011-gitlab-ci-pipelines-components.md)
 
 ### 📚 Legacy Documentation
 - [`architecture.md`](architecture.md) - устаревшая архитектура (архив)

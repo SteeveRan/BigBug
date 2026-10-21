@@ -279,13 +279,14 @@ See: [`/plans/features/auth-rbac.md`](plans/features/auth-rbac.md)
 
 ### Creating Pipeline
 
-1. Define GitLab CI template in [`gitlab-ci/`](gitlab-ci/)
-2. Use service to trigger via GitLab API
-3. Handle webhook callback in [`backend/app/api/webhooks.py`](backend/app/api/webhooks.py)
-4. Update status in database
-5. Display in frontend
+1. Component/pipeline projects are managed via the app: [`backend/app/services/gitlab_projects/`](backend/app/services/gitlab_projects/)
+2. CI templates are in-code presets: [`backend/app/services/gitlab_projects/presets.py`](backend/app/services/gitlab_projects/presets.py) (served via `GET /api/components/presets`)
+3. Use service to trigger via GitLab API
+4. Handle webhook callback in [`backend/app/api/webhooks.py`](backend/app/api/webhooks.py)
+5. Update status in database
+6. Display in frontend
 
-See: [`/plans/features/pipelines.md`](plans/features/pipelines.md)
+See: [`/docs/adr/backend/0011-gitlab-ci-pipelines-components.md`](docs/adr/backend/0011-gitlab-ci-pipelines-components.md)
 
 ### Working with Secrets
 
