@@ -51,7 +51,7 @@ BigBug/
 │   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
-│   └── architecture/    # Detailed design docs (for human review)
+│   └── adr/              # ADR registry (decisions)
 ├── plans/               # Implementation plans for agents
 ├── Makefile             # Single entry point for all scripts (make help)
 ├── CHANGELOG.md         # Version history
@@ -374,9 +374,9 @@ See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet e
 - **This guide**: [`/AGENTS.md`](AGENTS.md) - quick start reference
 
 ### For Review (humans)
-- **Architecture**: [`/docs/architecture/`](docs/architecture/) - НЕ читать в контекст агентов (слишком объёмно)
-- **API docs**: Auto-generated at `http://localhost:8000/docs` (Swagger UI)
-- **Migration strategy**: [`/docs/architecture/11-migration-strategy.md`](docs/architecture/11-migration-strategy.md)
+- **Architecture decisions**: [ADR registry](docs/adr/README.md) — single source of truth for architectural decisions
+- **API contract**: OpenAPI — Swagger UI at `http://localhost:8000/docs`, schema in `backend/openapi.json` (guarded by `backend/tests/unit/test_openapi_contract.py`, regenerated via `backend/scripts/export-openapi.sh`)
+- **Operational procedures**: [`docs/runbooks/`](docs/runbooks/) (deploy security checklist, external provider API notes)
 
 ### Legacy Documentation
 - Legacy plans-документы (`plans/architecture.md`, `plans/current-state.md`, `plans/architecture/decisions.md`, `plans/project-overview.md`, `plans/development/testing.md`) удалены — решения в реестре [`docs/adr/README.md`](docs/adr/README.md), история в git.
@@ -461,12 +461,12 @@ await createResource({ name: 'test' });
 - [`/plans/architecture/`](plans/architecture/) - permissions index (операционный)
 - Architecture decisions: реестр [`docs/adr/README.md`](docs/adr/README.md)
 
-**For architectural decisions**, consult реестр [ADR](docs/adr/README.md); детальная архитектура для людей — [`/docs/architecture/README.md`](docs/architecture/README.md).
+**For architectural decisions**, consult реестр [ADR](docs/adr/README.md); эксплуатационные процедуры — [`docs/runbooks/`](docs/runbooks/).
 
 **For specific task context**, AI agents should:
 1. Read [`AGENTS.md`](AGENTS.md) (this file) first
 2. Read relevant modular plans from [`/plans/`](plans/) as needed
-3. NOT read [`/docs/architecture/`](docs/architecture/) into context (too large, for human reference only)
+3. NOT read [`docs/runbooks/`](docs/runbooks/) into context (human operational reference; for agents the entry points are AGENTS.md and the ADR registry)
 4. Examine actual code files to understand current implementation
 5. Ask clarifying questions if requirements are unclear
 6. Перед архитектурными изменениями — реестр [ADR](docs/adr/README.md)

@@ -52,7 +52,7 @@ Designed for DevOps teams and enterprises that need a single pane of glass for a
                           └──────────────┘
 ```
 
-Detailed architecture: [`docs/architecture/`](docs/architecture/) (human review) and [`plans/`](plans/) (implementation plans).
+Architecture decisions: [ADR registry](docs/adr/README.md) · Operational runbooks: [`docs/runbooks/`](docs/runbooks/) · Implementation plans: [`plans/`](plans/).
 
 ## 🚀 Quick Start
 
@@ -190,7 +190,7 @@ BigBug/
 ├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
 ├── Makefile                 # Single entry point for all scripts (make help)
 ├── plans/                   # Implementation plans (for agents)
-├── docs/                    # Architecture docs (for human review)
+├── docs/                    # ADR registry + runbooks (for human review)
 ├── .env.example             # Environment variables template
 └── CHANGELOG.md             # Version history
 ```
