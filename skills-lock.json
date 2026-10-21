@@ -43,6 +43,18 @@
       "skillPath": "skills/misc/git-guardrails-claude-code/SKILL.md",
       "computedHash": "ccf581d304132095c2787b0a3bcb7b4ff125863c9f796fb16311d8f1cacef470"
     },
+    "github-issue": {
+      "source": "Mindgames/skills",
+      "sourceType": "github",
+      "skillPath": "skills/github-issue/SKILL.md",
+      "computedHash": "5531eea8e4cb2e7ec18e1de4399cb1c686b604559ce7d1e6ea54f7073c8de4c4"
+    },
+    "github-issues": {
+      "source": "tartinerlabs/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/workflow/skills/github-issues/SKILL.md",
+      "computedHash": "bd4c9a6cd06565828a996d5a882e5b0dfe811ba4e352a94c9fab6d1a8ca54b48"
+    },
     "grill-me": {
       "source": "mattpocock/skills",
       "sourceType": "github",
