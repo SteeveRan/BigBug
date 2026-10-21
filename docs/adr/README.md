@@ -26,6 +26,8 @@
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
 | [ADR-0003](common/0003-keycloak-oidc-dual-auth.md) | proposed | Выбрать dual-mode аутентификацию: локальный email/password JWT + опциональный Keycloak OIDC SSO | 2026-10-21 |
+| [ADR-0004](common/0004-permission-based-rbac-scope-providers.md) | proposed | Авторизация: permission-based RBAC (`resource:action`) со scope-providers | 2026-10-21 |
+| [ADR-0007](common/0007-providers-v3-registry.md) | proposed | Providers V3: единая сущность `resource_providers` с реестром подтипов в коде вместо 5 инстанс-таблиц и V2 `source_providers` | 2026-10-21 |
 
 ### backend
 
@@ -33,6 +35,7 @@
 |---|---|---|---|
 | [ADR-0001](backend/0001-choose-backend-stack.md) | proposed | Выбрать backend-стек: Python 3.14 + FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7 | 2026-10-21 |
 | [ADR-0005](backend/0005-service-layer-no-repository.md) | proposed | Сервисный слой без repository pattern: бизнес-логика в `app/services/`, доменные исключения, прямой SQLAlchemy ORM | 2026-10-21 |
+| [ADR-0006](backend/0006-database-postgresql-alembic.md) | proposed | Зафиксировать database layer: PostgreSQL 17 + SQLAlchemy 2 (async) + Alembic, naming conventions, status flags, политика миграций | 2026-10-21 |
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
 
 ### frontend

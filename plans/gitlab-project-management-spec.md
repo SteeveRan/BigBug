@@ -495,7 +495,7 @@ export const gitlabProjectsApi = api.injectEndpoints({
 
 ## 8. План миграций (Alembic)
 
-Цепочка после `seed_initial_data` (см. [`plans/development/database.md`](development/database.md)):
+Цепочка после `seed_initial_data` (см. [ADR-0006](../docs/adr/backend/0006-database-postgresql-alembic.md)):
 
 1. `YYYYMMDD_HHMM_<hash>_add_gitlab_projects.py`:
    - enum `gitlab_project_type_enum`, таблица `gitlab_projects` со всеми индексами/констрейнтами;
