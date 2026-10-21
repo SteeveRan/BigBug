@@ -155,6 +155,6 @@ make dead-code           # vulture + knip завершаются с exit 0
 
 - [ADR-0001](../backend/0001-choose-backend-stack.md) — backend-стек (ruff, pytest, mypy как оговорённый инструмент); [ADR-0002](../frontend/0002-frontend-stack-react-antd-rtk.md) — frontend-стек (eslint, prettier, vitest, tsc)
 - [ADR-0012](../infrastructure/0012-docker-compose-split-dev-env.md) — compose-слой (владение `dev-*`/`infra-*`-логикой); [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой и `init.sh` (владение `infra-init`)
-- Использование агентами: [`AGENTS.md`](../../../AGENTS.md) (разделы «Start Development Environment», «Run Tests», «Code Quality Checks»), детально — [`plans/development/setup.md`](../../../plans/development/setup.md), [`plans/development/testing.md`](../../../plans/development/testing.md)
+- Использование агентами: [`AGENTS.md`](../../../AGENTS.md) (разделы «Start Development Environment», «Run Tests», «Code Quality Checks»), детально — [`plans/development/setup.md`](../../../plans/development/setup.md); тестовые решения — семейство ADR-0014…0018 (реестр: [`docs/adr/README.md`](../../README.md))
 - Источник подтверждённых решений (удалён после фиксации в этом ADR): `plans/makefile-tooling.md`
 - Условие пересмотра: переход на CI-гейтинг качества (обязательные mypy strict / knip exit-code в pipeline) — новый ADR

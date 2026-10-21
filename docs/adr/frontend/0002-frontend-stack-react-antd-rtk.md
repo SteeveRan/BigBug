@@ -102,6 +102,6 @@ Chosen option: **React 19 + Ant Design 6 + Redux Toolkit (RTK Query) + react-rou
 
 - Первичные рассуждения — `plans/architecture/decisions.md` (раздел «Frontend: React 19 + TypeScript»; **устарел**: там MUI v9, источник истины — `frontend/package.json`)
 - `plans/tech-stack.md` удалён [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md); расхождение по MUI/Node зафиксировано как устаревший факт ADR-0002
-- Конвенции реализации — `plans/development/frontend.md`; тесты — `plans/development/testing.md`
+- Конвенции реализации — `plans/development/frontend.md`; тестовые решения — семейство ADR-0014…0018 (реестр: [docs/adr/README.md](../README.md))
 - Парный ADR: [ADR-0001](../backend/0001-choose-backend-stack.md) (backend-стек)
 - Условие пересмотра: смена UI-кита или появление второго data-fetching-слоя — только через новый ADR
