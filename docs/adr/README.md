@@ -46,7 +46,7 @@
 
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
-| — | — | — | — |
+| [ADR-0012](infrastructure/0012-docker-compose-split-dev-env.md) | proposed | Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration | 2026-10-21 |
 
 ## Правила для агентов
 
