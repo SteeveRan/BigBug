@@ -25,7 +25,7 @@
 
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
-| — | — | — | — |
+| [ADR-0003](common/0003-keycloak-oidc-dual-auth.md) | proposed | Выбрать dual-mode аутентификацию: локальный email/password JWT + опциональный Keycloak OIDC SSO | 2026-10-21 |
 
 ### backend
 
