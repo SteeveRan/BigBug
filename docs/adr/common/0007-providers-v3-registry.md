@@ -16,7 +16,7 @@ decision-makers: SteeveRan
 
 Добавление одного нового типа интеграции требовало: новой таблицы, миграции, роутера, сервиса, стора, фронтенд-таба и hand-written формы. Секреты дублировались в двух местах с разными гарантиями. Вопрос: **принимать ли реализованную унификацию (Providers V3) как архитектурный стандарт** — одна таблица `resource_providers`, реестр подтипов в коде, единый `/api/providers`?
 
-Миграция фактически завершена (фазы 0–7 из `plans/features/providers-unified.md`, включая фазу 7 — DROP legacy-таблиц и удаление `api/integrations/*`); ADR фиксирует решение задним числом. Слоение «API → сервис → ORM» зафиксировано в [ADR-0005](../backend/0005-service-layer-no-repository.md), схема БД и конвенции — в готовящемся ADR-0006 (PostgreSQL/Alembic).
+Миграция фактически завершена (фазы 0–7 из `plans/features/providers-unified.md` — исходный план удалён этим ADR как реализованный, см. More Information; включая фазу 7 — DROP legacy-таблиц и удаление `api/integrations/*`); ADR фиксирует решение задним числом. Слоение «API → сервис → ORM» зафиксировано в [ADR-0005](../backend/0005-service-layer-no-repository.md), схема БД и конвенции — в [ADR-0006](../backend/0006-database-postgresql-alembic.md) (PostgreSQL/Alembic).
 
 ## Decision Drivers
 
@@ -159,5 +159,5 @@ Status quo до миграции: таблица+роутер+сервис+та�
 * Исходный план миграции (фазы 0–7, таблица всех интеграций, ревизии 1–3): `plans/features/providers-unified.md` — **удалён** этим ADR как реализованный; факты о модели сверены с кодом и перенесены сюда
 * Доменный гайд `plans/features/integrations.md` — **удалён**; troubleshooting-рецепты (curl-проверки GitLab/Harbor/Helm) перенесены в [AGENTS.md](../../AGENTS.md), раздел про ротацию Fernet-ключа — зона ответственности будущего ADR-0010 (secrets), сам текст сохранён в `plans/features/security.md`
 * Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
-* Родственные ADR: [ADR-0005](../backend/0005-service-layer-no-repository.md) (сервисный слой и `DomainError` — паттерн, на котором построен `ProviderService`); ADR-0006 (PostgreSQL/Alembic, конвенции схемы — в подготовке); ADR-0003 (аутентификация); permissions-матрица `providers:*`/`teams:*`/`providers_system:write` — [plans/architecture/permissions.md](../../plans/architecture/permissions.md)
+* Родственные ADR: [ADR-0005](../backend/0005-service-layer-no-repository.md) (сервисный слой и `DomainError` — паттерн, на котором построен `ProviderService`); [ADR-0006](../backend/0006-database-postgresql-alembic.md) (PostgreSQL/Alembic, конвенции схемы, политика миграций); [ADR-0004](0004-permission-based-rbac-scope-providers.md) (permission-based RBAC и scope-providers); [ADR-0003](0003-keycloak-oidc-dual-auth.md) (аутентификация); permissions-матрица `providers:*`/`teams:*`/`providers_system:write` — [plans/architecture/permissions.md](../../plans/architecture/permissions.md)
 * Условие пересмотра: потребность в мульти-шаринге провайдера (несколько команд), в per-subtype индексируемых полях (фильтрация по config в SQL) или в справочнике подтипов, редактируемом без деплоя, — переоткрыть через новый ADR
