@@ -31,7 +31,7 @@ agent: plan
 - Front-matter строго по скиллу: `status`, `date`, `decision-makers` (обязательные),
   `consulted`, `informed` (опциональные). Дополнительных полей не добавляй.
 - Статусы строго по скиллу: `proposed | accepted | rejected | deprecated |
-  superseded by [ADR-NNNN](NNNN-slug.md)`. Новый ADR создаётся со статусом `proposed`.
+  superseded by ADR-NNNN (markdown-ссылка на заменивший ADR)`. Новый ADR создаётся со статусом `proposed`.
 - Язык ADR: русский; технические термины не переводить (Providers, RBAC, pipeline, webhook).
 
 ## Размещение — конвенции проекта (docs/adr/README.md)
@@ -52,10 +52,8 @@ agent: plan
 - `docs/adr/README.md` — реестр действующих ADR; `docs/adr/ARCHIVE.md` — архив отменённых
   (из отменённых решений не наследоваться, но учитывать их историю).
 - `AGENTS.md` — конвенции и структура кода.
-- `plans/features/<домен>.md` — профильный доменный документ по затронутой теме
-  (auth-rbac, pipelines, security, ...).
-- `plans/architecture/decisions.md` — если решение там уже описано, новый ADR его
-  выносит, а в `plans/architecture/decisions.md` помечается «→ вынесено в ADR-NNNN».
+- Релевантные существующие ADR — если решение уже зафиксировано и новый ADR его
+  заменяет, оформить `superseded` (см. «После написания»).
 - `docs/architecture/` — НЕ читать в контекст (по правилам AGENTS.md, для людей).
 
 ## Наполнение секций по правилам проекта
@@ -75,14 +73,14 @@ agent: plan
   `frontend/src/store/api.ts`, ...), не абстракции. Non-goals — явно, по требованиям скилла.
 - Минимум 2 рассмотренных варианта с явным tradeoff (по шаблону: Considered Options +
   Pros and Cons of the Options).
-- `## Context and Problem Statement` и `## More Information` — ссылки на доменные
-  документы `plans/features/<домен>.md`, релевантные ADR, issues.
+- `## Context and Problem Statement` и `## More Information` — ссылки на релевантные
+  ADR, issues, код.
 
 ## После написания
 
 - Добавь строку в реестр компонента в `docs/adr/README.md` (колонки: ADR, Статус, Название, Дата).
 - Если новый ADR заменяет существующий — предложи пользователю архивацию: переместить
   старый файл в `docs/adr/archive/<component>/`, выставить в front-matter
-  `status: superseded by [ADR-NNNN](NNNN-slug.md)` со взаимной ссылкой в обе стороны,
+  `status: superseded by ADR-NNNN` (markdown-ссылка на заменивший ADR) со взаимной ссылкой в обе стороны,
   перенести строку в `docs/adr/ARCHIVE.md`.
 - Статус `accepted` выставляет только человек.

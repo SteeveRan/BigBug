@@ -61,42 +61,19 @@ BigBug/
 
 ## Technology Stack
 
-### Backend (Python 3.14+)
-- **FastAPI** - async REST API framework
-- **SQLAlchemy 2.x** - ORM with async support
-- **Alembic** - database migrations
-- **PostgreSQL 17** - primary database
-- **Redis 7** - caching and task queues
-- **APScheduler** - scheduled jobs (AsyncIOScheduler)
-- **python-gitlab** - GitLab API client
-- **PyGithub** - GitHub API client
-- **httpx** - async HTTP client for Harbor/Docker/Helm APIs
-- **authlib** - OIDC/OAuth2 (Keycloak SSO)
-- **cryptography** - Fernet encryption for secrets
-- **pytest** + **pytest-asyncio** + **httpx** - testing
-- **vulture** - dead code detection
-- **mypy** - static type checking
+Решения по стеку зафиксированы в реестре [ADR](docs/adr/README.md):
 
-### Frontend (Node.js 24.16.0 LTS)
-- **React 19** + **TypeScript**
-- **Vite** - build tool
-- **Yarn 4.3.1** - package manager
-- **Redux Toolkit** + **RTK Query** - state management
-- **Ant Design 6** - component library
-- **React Router v7** - routing
-- **ESLint** + `@typescript-eslint` - linting
-- **knip** - dead code detection
-- **Vitest** + `@testing-library/react` + `jsdom` — unit и integration тесты
-- **Cypress** — e2e тесты (planned, [`src/tests/e2e/`](frontend/src/tests/e2e/))
-- **keycloak-js** - SSO adapter
+| Слой | ADR |
+|---|---|
+| Backend (Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7) | [ADR-0001](docs/adr/backend/0001-choose-backend-stack.md) |
+| Frontend (React 19 + TypeScript + AntD 6 + RTK/RTK Query + Vite, Node.js) | [ADR-0002](docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) |
+| Auth (JWT + Keycloak OIDC) | [ADR-0003](docs/adr/common/0003-keycloak-oidc-dual-auth.md) |
+| Dev environment (kind-стенд) | [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) |
+| IaC (OpenTofu: Keycloak, GitLab, Harbor) | [ADR-0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) |
 
-### Infrastructure (dev)
-- **GitLab CE** - CI/CD platform + mirror target
-- **GitLab Runner** - pipeline executor
-- **Keycloak** - SSO / OIDC provider
-- **Harbor** (optional) - container registry
-- **PostgreSQL 17** (2 instances: backend + keycloak)
-- **Redis 7**
+**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0013](docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)): GitLab CE (+ Runner, в compose), Keycloak (keycloakx), Harbor (в kind), PostgreSQL 17 (CNPG), Valkey.
+
+Актуальные версии — [`backend/pyproject.toml`](backend/pyproject.toml), [`frontend/package.json`](frontend/package.json).
 
 ## Development Workflow
 
@@ -378,11 +355,9 @@ See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet e
 
 ## Architecture Decision Records (ADR)
 
-- **Каталоги**: `docs/adr/<component>/`, где component ∈ `common` | `backend` | `frontend` | `infrastructure`. Решения, затрагивающие несколько компонентов, — в `common/`.
-- **Реестры**: действующие — [`docs/adr/README.md`](docs/adr/README.md), архив отменённых (`superseded`/`rejected`) — [`docs/adr/ARCHIVE.md`](docs/adr/ARCHIVE.md).
-- **Сквозная нумерация**: `NNNN` единая по всем компонентам и архиву (следующий = max всех + 1, номера не переиспользуются). Имя файла: `NNNN-slug.md`.
-- **Формат**: канонический шаблон MADR 4.0 из skill `adr-skill`: `.opencode/skills/adr-skill/assets/templates/adr-madr.md`. Свой формат не изобретать. Язык — русский, технические термины не переводить. Статусы по скиллу: `proposed | accepted | rejected | deprecated | superseded by ADR-NNNN`.
-- **ПЕРЕД** любым изменением архитектуры, новой зависимостью, новым паттерном: прочитай [`docs/adr/README.md`](docs/adr/README.md) и релевантные ADR со статусом `accepted`. **accepted ADR обязательны к соблюдению**, proposed — учитывать.
+Единственный источник архитектурных решений — реестр [`docs/adr/README.md`](docs/adr/README.md) (конвенции формата, нумерации, архивации — там же; архив — [`docs/adr/ARCHIVE.md`](docs/adr/ARCHIVE.md)).
+
+- **ПЕРЕД** любым изменением архитектуры, новой зависимостью, новым паттерном: прочитай реестр и релевантные ADR со статусом `accepted`. **accepted ADR обязательны к соблюдению**, proposed — учитывать.
 - Если решение противоречит ADR со статусом `accepted` — остановись и предложи новый ADR, не ломай код молча.
 - **Триггеры «предложить ADR»**: новая зависимость; новый паттерн (обработка ошибок, data access, API convention); выбор между ≥2 альтернативами с нетривиальным tradeoff; противоречие существующему Accepted ADR.
 - Создание ADR — через команду `/adr` в OpenCode (workflow skill `adr-skill`). Статус `accepted` выставляет только человек; при `superseded`/`rejected` ADR перемещается в `docs/adr/archive/<component>/` и реестры обновляются.
@@ -404,8 +379,7 @@ See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet e
 - **Migration strategy**: [`/docs/architecture/11-migration-strategy.md`](docs/architecture/11-migration-strategy.md)
 
 ### Legacy Documentation
-- [`/plans/architecture.md`](plans/architecture.md) - устаревшая архитектура (сохранено для истории)
-- [`/plans/handoff-summary.md`](plans/handoff-summary.md) - handoff блоков 1-5 (архив)
+- Legacy plans-документы (`plans/architecture.md`, `plans/current-state.md`, `plans/architecture/decisions.md`, `plans/project-overview.md`, `plans/development/testing.md`) удалены — решения в реестре [`docs/adr/README.md`](docs/adr/README.md), история в git.
 
 ## Common Tasks
 
@@ -483,11 +457,11 @@ await createResource({ name: 'test' });
 ## Getting Help
 
 **For detailed implementation plans**, read specific files from [`/plans/`](plans/):
-- [`/plans/development/`](plans/development/) - setup, testing, deployment
-- [`/plans/features/`](plans/features/) - feature-specific guides
-- [`/plans/architecture/`](plans/architecture/) - architecture decisions
+- [`/plans/development/`](plans/development/) - setup, backend, frontend
+- [`/plans/architecture/`](plans/architecture/) - permissions index (операционный)
+- Architecture decisions: реестр [`docs/adr/README.md`](docs/adr/README.md)
 
-**For architectural decisions**, consult [`/docs/architecture/README.md`](docs/architecture/README.md) (human review).
+**For architectural decisions**, consult реестр [ADR](docs/adr/README.md); детальная архитектура для людей — [`/docs/architecture/README.md`](docs/architecture/README.md).
 
 **For specific task context**, AI agents should:
 1. Read [`AGENTS.md`](AGENTS.md) (this file) first
@@ -495,6 +469,7 @@ await createResource({ name: 'test' });
 3. NOT read [`/docs/architecture/`](docs/architecture/) into context (too large, for human reference only)
 4. Examine actual code files to understand current implementation
 5. Ask clarifying questions if requirements are unclear
+6. Перед архитектурными изменениями — реестр [ADR](docs/adr/README.md)
 
 **Common file references**:
 - Current RBAC: [`backend/app/core/rbac.py`](backend/app/core/rbac.py)

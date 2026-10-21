@@ -4,15 +4,7 @@
 
 ## Технологический стек
 
-- **React 19** + **TypeScript**
-- **Vite** - build tool с HMR
-- **Yarn 4.3.1** - package manager
-- **Redux Toolkit 2.3+** + **RTK Query** - state management и API клиент
-- **Ant Design 6.4.3** - компонентная библиотека
-- **React Router v7** - маршрутизация
-- **keycloak-js 26+** - SSO адаптер
-- **Vitest** + **@testing-library/react** - unit тесты
-- **ESLint** + `@typescript-eslint` - линтинг
+Решения по стеку зафиксированы в [ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) (React 19 + TypeScript + AntD 6 + Redux Toolkit/RTK Query + Vite) и [ADR-0015](../../docs/adr/frontend/0015-frontend-unit-testing-vitest.md) (тестирование). Актуальные версии — [`frontend/package.json`](../../frontend/package.json); источник истины — код и реестр [ADR](../../docs/adr/README.md).
 
 ## Структура проекта
 
@@ -36,10 +28,10 @@ frontend/src/
 ### Установка зависимостей
 
 ```bash
-# Убедиться что используется Node.js 26 LTS
+# Убедиться что используется актуальная LTS-версия Node.js (см. ADR-0002; фактически в контейнере — node:20-alpine)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm use 26
+nvm use --lts
 
 cd frontend
 yarn install

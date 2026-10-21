@@ -9,7 +9,7 @@
   Свой шаблон не изобретать; секции, front-matter поля и статусы — только как в скилле
   (см. [`adr-conventions.md`](../../.opencode/skills/adr-skill/references/adr-conventions.md)).
 - **Front-matter** (по скиллу): `status`, `date`, `decision-makers` (обязательные), `consulted`, `informed` (опциональные, RACI).
-- **Статусы** (по скиллу): `proposed | accepted | rejected | deprecated | superseded by [ADR-NNNN](NNNN-slug.md)`.
+- **Статусы** (по скиллу): `proposed | accepted | rejected | deprecated | superseded by ADR-NNNN` (для superseded — markdown-ссылка на заменивший ADR).
 - **Язык ADR**: русский; технические термины не переводить (Providers, RBAC, pipeline, webhook).
 - **Каталоги компонентов**: `docs/adr/<component>/`, где component ∈ `common` | `backend` | `frontend` | `infrastructure`.
 - **Сквозная нумерация** (осознанное отклонение от дефолта скилла «номера локальны в категории», принято владельцем проекта): `NNNN` едина для всех компонентов. Следующий номер = максимальный среди **всех** ADR (активные + `archive/`) + 1. Номера не переиспользуются.
@@ -17,7 +17,7 @@
 - **Архивация** (вместо in-place `deprecated`, по требованию проекта): при `superseded` или `rejected` файл перемещается в `docs/adr/archive/<component>/`, статус в front-matter обновляется (для superseded — со взаимной ссылкой на новый ADR в обе стороны), строка удаляется из этого реестра и добавляется в [ARCHIVE.md](ARCHIVE.md).
 - **Confirmation** (опциональна по шаблону): это **доказательство**, что решение воплощено и не деградирует со временем, а не общий прогон тестов. Указывается конкретный артефакт проверки: именованный тест (файл/тест-кейс), покрывающий функционал из Decision; архитектурный тест / fitness function (например, правило, запрещающее обход слоя); правило линтера, отлавливающее нарушение в будущем; чеклист для ревью. Для исполняемой проверки — команда, запускающая **именно этот** тест (существующая make-цель + `TEST_ARGS`), и ожидаемый результат её прогона. «Запусти `make test`» подтверждением не является: непонятно, что и зачем проверяется.
 - **Скрипт `scripts/new_adr.js` скилла не используется**: его нумерация локальна внутри каталога и несовместима со сквозной нумерацией и схемой архива этого репозитория. Файл создаётся вручную из канонического шаблона скилла; `set_adr_status.js` использовать можно.
-- **Связь с доменами**: в `## Context and Problem Statement` и `## More Information` ссылаться на `plans/features/<домен>.md` и `plans/architecture/decisions.md`.
+- **Связь с доменами**: в `## Context and Problem Statement` и `## More Information` ссылаться на релевантные ADR, issues и код. Доменные plans-документы удалены (roadmap: `.agents/plans/adr-roadmap.md`).
 
 ## Реестр актуальных ADR
 
