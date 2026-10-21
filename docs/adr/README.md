@@ -37,7 +37,7 @@
 
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
-| — | — | — | — |
+| [ADR-0002](frontend/0002-frontend-stack-react-antd-rtk.md) | proposed | Выбрать frontend-стек: React 19 + TypeScript + Ant Design 6 + Redux Toolkit (RTK Query) + Vite | 2026-10-21 |
 
 ### infrastructure
 
