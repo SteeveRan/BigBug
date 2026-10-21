@@ -19,7 +19,7 @@
 - Infrastructure (Compose, IaC, init flow): [ADR-0012](../../docs/adr/infrastructure/0012-docker-compose-split-dev-env.md), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)
 
 ### 🎯 Features
-- [`features/builds.md`](features/builds.md) - Gold/App images
+- Image builds (Gold/App images): [ADR-0020](../docs/adr/backend/0020-image-builds-gold-app.md)
 - Git Mirroring (GitHub → GitLab): [ADR-0008](../docs/adr/backend/0008-git-mirroring-github-gitlab.md)
 - GitLab CI/CD (пайплайны, компоненты, пресеты): [ADR-0011](../docs/adr/backend/0011-gitlab-ci-pipelines-components.md)
 
