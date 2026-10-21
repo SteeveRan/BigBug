@@ -8,9 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Решение о backend-стеке BigBug до сих пор нигде официально не зафиксировано: оно подразумевается кодом (`backend/pyproject.toml`) и разбросано по план-документам (`plans/architecture/decisions.md`, `plans/tech-stack.md`), частично устаревших (например, они упоминают MUI для frontend, которого нет). Без единого ADR агент или новый разработчик не может ответить на вопрос «какой backend-стек канонический и что делать при добавлении новой зависимости».
-
-Источник истины — код, а не план-документы: версии проверены по `backend/pyproject.toml` (см. Decision Outcome).
+Решение о backend-стеке BigBug до сих пор нигде официально не зафиксировано: оно подразумевается кодом (`backend/pyproject.toml`).
 
 ## Decision Drivers
 
@@ -47,7 +45,6 @@ Chosen option: **FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7** — 
 ### Consequences
 
 * Good, because один язык схем (Pydantic) от API до конфига; OpenAPI бесплатно (`/docs`)
-* Good, because весь стек покрыт make-целями (`make lint`, `make typecheck`, `make test-unit-backend`)
 * Bad, because Python 3.14 — свежая версия, часть third-party пакетов может отставать по поддержке (следим через renovate)
 * Bad, because async-модели SQLAlchemy запрещают lazy loading — все связи грузить явным `selectinload`/`joinedload`
 * Neutral, because больше ручной сборки, чем в Django (auth, админка — свои), в обмен на отсутствие лишней инфраструктуры
