@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Backend BigBug — асинхронное FastAPI-приложение (ADR-0001), сервисный слой без repository pattern (ADR-0005). Тесты уже написаны (924 unit-теста в `backend/tests/unit/`), но решение о **тестовом стеке unit-уровня** нигде не зафиксировано — оно существует только в коде (`backend/pyproject.toml`, `backend/tests/conftest.py`) и в `plans/development/testing.md` (файл удаляется после принятия ADR-0018).
+Backend BigBug — асинхронное FastAPI-приложение (ADR-0001), сервисный слой без repository pattern (ADR-0005). Обширный suite unit-тестов уже написан (`backend/tests/unit/`), но решение о **тестовом стеке unit-уровня** нигде не зафиксировано — оно существует только в коде (`backend/pyproject.toml`, `backend/tests/conftest.py`) и в `plans/development/testing.md` (файл удаляется после принятия ADR-0018).
 
 Фактический вопрос: **принимать ли существующий стек как стандарт** — pytest + pytest-asyncio (asyncio_mode=auto) + httpx `AsyncClient` поверх `ASGITransport` (API-тесты без запущенного uvicorn) + in-memory SQLite, с общими fixture в `conftest.py` и пробросом флагов через `TEST_ARGS`?
 
@@ -31,7 +31,7 @@ Backend BigBug — асинхронное FastAPI-приложение (ADR-0001
 
 ## Decision Outcome
 
-Chosen option: **pytest + pytest-asyncio + httpx AsyncClient (in-process)**, because это уже работающий стандарт с 924 тестами: pytest-asyncio в `asyncio_mode = "auto"` убирает ручные декораторы на каждом async-тесте, `ASGITransport` прогоняет API-тесты через реальный ASGI-стек FastAPI без сети и без запущенного uvicorn, а in-memory SQLite с rollback-изоляцией даёт быстрый детерминированный прогон в голом CI.
+Chosen option: **pytest + pytest-asyncio + httpx AsyncClient (in-process)**, because это уже работающий стандарт на большом существующем suite: pytest-asyncio в `asyncio_mode = "auto"` убирает ручные декораторы на каждом async-тесте, `ASGITransport` прогоняет API-тесты через реальный ASGI-стек FastAPI без сети и без запущенного uvicorn, а in-memory SQLite с rollback-изоляцией даёт быстрый детерминированный прогон в голом CI.
 
 ### Инструментарий и конфигурация (зафиксировано)
 
@@ -112,7 +112,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_auth_me.py -v"
 
 ### pytest + pytest-asyncio + httpx AsyncClient (in-process) — chosen
 
-Фактический стандарт кода, 924 unit-теста.
+Фактический стандарт кода на весь suite `tests/unit/`.
 
 * Good, because нативный async: pytest-asyncio auto-режим покрывает и тесты, и fixture
 * Good, because in-process API-тесты: полный ASGI-стек без сети, портов и ожидания старта uvicorn
@@ -125,7 +125,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_auth_me.py -v"
 * Good, because ноль зависимостей — test runner и async-поддержка уже в stdlib
 * Bad, because нет fixture-инъекции и экосистемы: общие фикстуры БД/пользователей превратились бы в иерархии базовых классов
 * Bad, because `IsolatedAsyncioTestCase` создаёт event loop на тест — медленнее и шумнее, чем session-scoped loop pytest-asyncio
-* Bad, because переписать 924 существующих теста — цена без выгоды
+* Bad, because переписать весь существующий suite под другой фреймворк — цена без выгоды
 
 ### plain httpx против запущенного сервера (real transport)
 
