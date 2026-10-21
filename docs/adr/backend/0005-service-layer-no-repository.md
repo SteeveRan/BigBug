@@ -126,7 +126,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_rbac_scope.py -v"
 
 ## More Information
 
-- Домены и фичи: `plans/features/` (например, `auth-rbac.md` — описание `RoleNotFoundError`, `integrations.md`, `providers-unified.md` — сервисы Providers V3)
+- Домены и фичи: `plans/features/` (например, `auth-rbac.md` — описание `RoleNotFoundError`, `security.md` — шифрование credentials; Providers V3 зафиксирован в [ADR-0007](../common/0007-providers-v3-registry.md))
 - Исходная фиксация решения (устаревает по мере распределения контента): `plans/architecture/decisions.md`, разделы «Service Layer» и «Repository Pattern: НЕ используется»; удаление файла — в ADR-0022, не здесь
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 - Родственные ADR: [ADR-0001](0001-choose-backend-stack.md) (стек; PostgreSQL зафиксирован — ключевой аргумент против repository)

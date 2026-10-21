@@ -266,7 +266,26 @@ See: [`/plans/development/testing.md`](plans/development/testing.md)
 4. API уже унифицирован: [`backend/app/api/providers.py`](backend/app/api/providers.py) (`/api/providers`)
 5. Frontend получает метаданные через `GET /api/providers/types` — новые формы генерируются автоматически
 
-See: [`/plans/features/integrations.md`](plans/features/integrations.md) и [`/plans/features/providers-unified.md`](plans/features/providers-unified.md)
+See: [ADR-0007](docs/adr/common/0007-providers-v3-registry.md)
+
+### Provider Troubleshooting
+
+Быстрые curl-проверки внешних интеграций (внешние системы, не BigBug API):
+
+```bash
+# GitLab API доступен / токен валиден
+curl -H "PRIVATE-TOKEN: glpat-xyz" http://localhost:8080/api/v4/user
+curl -H "PRIVATE-TOKEN: glpat-xyz" http://localhost:8080/api/v4/personal_access_tokens/self
+
+# Harbor доступен / SSL
+curl -u admin:Harbor12345 https://harbor.local/api/v2.0/systeminfo
+curl -k -u admin:Harbor12345 https://harbor.local/api/v2.0/systeminfo
+
+# Helm index.yaml парсится (скачать и проверить)
+curl https://charts.helm.sh/stable/index.yaml | head -50
+```
+
+Диагностика в BigBug: `POST /api/providers/{id}/test` обновляет `status_flag`/`status_text` провайдера; `GET /api/providers/{id}/usage` показывает потребителей перед удалением.
 
 ### Modifying RBAC
 
