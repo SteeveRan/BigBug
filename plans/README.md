@@ -18,7 +18,6 @@
 - [`development/infrastructure.md`](development/infrastructure.md) - Docker Compose, services
 
 ### 🎯 Features
-- [`features/auth-rbac.md`](features/auth-rbac.md) - аутентификация и RBAC
 - [`features/builds.md`](features/builds.md) - Gold/App images
 - [`features/mirroring.md`](features/mirroring.md) - Docker/Helm/Git mirroring
 - [`features/integrations.md`](features/integrations.md) - GitLab, Harbor, GitHub, etc
