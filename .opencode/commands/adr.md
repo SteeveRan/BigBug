@@ -31,7 +31,7 @@ agent: plan
 - Front-matter строго по скиллу: `status`, `date`, `decision-makers` (обязательные),
   `consulted`, `informed` (опциональные). Дополнительных полей не добавляй.
 - Статусы строго по скиллу: `proposed | accepted | rejected | deprecated |
-  superseded by [ADR-NNNN](NNNN-slug.md)`. Новый ADR создаётся со статусом `proposed`.
+  superseded by ADR-NNNN (markdown-ссылка на заменивший ADR)`. Новый ADR создаётся со статусом `proposed`.
 - Язык ADR: русский; технические термины не переводить (Providers, RBAC, pipeline, webhook).
 
 ## Размещение — конвенции проекта (docs/adr/README.md)
@@ -81,6 +81,6 @@ agent: plan
 - Добавь строку в реестр компонента в `docs/adr/README.md` (колонки: ADR, Статус, Название, Дата).
 - Если новый ADR заменяет существующий — предложи пользователю архивацию: переместить
   старый файл в `docs/adr/archive/<component>/`, выставить в front-matter
-  `status: superseded by [ADR-NNNN](NNNN-slug.md)` со взаимной ссылкой в обе стороны,
+  `status: superseded by ADR-NNNN` (markdown-ссылка на заменивший ADR) со взаимной ссылкой в обе стороны,
   перенести строку в `docs/adr/ARCHIVE.md`.
 - Статус `accepted` выставляет только человек.
