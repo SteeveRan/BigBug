@@ -10,7 +10,7 @@ decision-makers: SteeveRan
 
 Каким способом аутентифицировать пользователей BigBug — централизованной DevOps-платформы, которая деплоится как в окружения с корпоративным IdP (Keycloak), так и в изолированные стенды без него?
 
-Функциональность уже реализована в двух режимах, но само решение и его обоснование нигде не зафиксированы как ADR — они живут только в эксплуатационных документах (`plans/features/auth-rbac.md`, `docs/architecture/03-authentication.md`) и в коде. Этот ADR фиксирует решение по аутентификации; модель авторизации (RBAC permissions) — отдельный ADR-0004.
+Функциональность уже реализована в двух режимах, но само решение и его обоснование нигде не зафиксированы как ADR — оно живёт только в эксплуатационной документации (`plans/features/auth-rbac.md`) и в коде. Этот ADR фиксирует решение по аутентификации; модель авторизации (RBAC permissions) — отдельный ADR-0004.
 
 ## Decision Drivers
 
@@ -146,7 +146,7 @@ sequenceDiagram
 ## More Information
 
 - Источники реализации: `backend/app/services/oidc.py`, `backend/app/services/oidc_config.py`, `backend/app/api/auth.py`, `backend/app/core/security.py`, `frontend/src/services/keycloak.ts`, `frontend/src/hooks/useKeycloakAuth.ts`, `infrastructure/terraform/modules/keycloak/clients.tf`
-- Эксплуатационная документация: `plans/features/auth-rbac.md` (SSO-разделы этого файла принадлежат данному ADR; файл целиком удаляет ADR-0004), `docs/architecture/03-authentication.md`
+- Эксплуатационная документация: `plans/features/auth-rbac.md` (SSO-разделы этого файла принадлежат данному ADR; файл целиком удаляет ADR-0004)
 - Связанные ADR: ADR-0001 (backend-стек: authlib/python-jose/Fernet в стеке), ADR-0004 (RBAC permission model — модель прав, на которую опирается синхронизация ролей)
 - Расхождение с документацией: в `plans/features/auth-rbac.md` описан словарь `KEYCLOAK_ROLE_MAPPING` (`bigbug-admin` → `admin`) и callback `POST /api/auth/sso/callback` — в коде их нет; фактически роли сопоставляются по точному имени (`admin`/`operator`/`viewer`), а endpoint — `POST /api/auth/oidc/exchange` с PKCE. Источник истины — код и этот ADR
 - Условие пересмотра: появление требования multi-realm / нескольких IdP, применение хранимых `role_mapping`/`client_secret` в exchange, либо переход на server-side сессии — новым ADR

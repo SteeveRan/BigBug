@@ -18,7 +18,7 @@ htmlcov/
 *.log
 
 # Large documentation (read selectively)
-docs/architecture/**/*.md
+docs/runbooks/**/*.md
 
 # Legacy
 plans/architecture.md
