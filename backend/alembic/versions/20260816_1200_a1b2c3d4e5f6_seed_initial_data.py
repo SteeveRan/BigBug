@@ -9,7 +9,7 @@ revisions (bde12d699ca4, 745f271b2faf, b214fda62040, ce50f1e2d6af,
 cafe1234abcd, 3446791956ce, 0cce18c6c867) and the Python lists in
 ``docker/seed_admin.py``.
 
-Source of truth: ``plans/architecture/permissions.md`` (61 permissions) and
+Source of truth: ``docs/development/permissions.md`` (61 permissions) and
 the role assignment matrix in its "Распределение по ролям" section, which
 matches ``ADMIN_PERMISSIONS`` / ``OPERATOR_PERMISSIONS`` /
 ``VIEWER_PERMISSIONS`` in ``backend/docker/seed_admin.py``.

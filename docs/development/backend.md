@@ -4,7 +4,7 @@
 
 ## Технологический стек
 
-Решения по стеку зафиксированы в [ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md) (backend: Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7), [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) (database layer, миграции) и [ADR-0003](../../docs/adr/common/0003-keycloak-oidc-dual-auth.md) (auth: JWT + Keycloak OIDC). Актуальные версии — [`backend/pyproject.toml`](../../backend/pyproject.toml); источник истины — код и реестр [ADR](../../docs/adr/README.md).
+Решения по стеку зафиксированы в [ADR-0001](../adr/backend/0001-choose-backend-stack.md) (backend: Python 3.14 + FastAPI + SQLAlchemy 2 + PostgreSQL 17 / Redis 7), [ADR-0006](../adr/backend/0006-database-postgresql-alembic.md) (database layer, миграции) и [ADR-0003](../adr/common/0003-keycloak-oidc-dual-auth.md) (auth: JWT + Keycloak OIDC). Актуальные версии — [`backend/pyproject.toml`](../../backend/pyproject.toml); источник истины — код и реестр [ADR](../adr/README.md).
 
 ## Структура проекта
 
@@ -45,14 +45,14 @@ uv pip install -e .
 
 ### Переменные окружения
 
-Создать файл `.env` в корне проекта (см. `.env.example`):
+Создать файл `.env` в корне проекта (`cp .env.example .env`) — ключи выверены с
+[`/.env.example`](../../.env.example):
 
 ```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
+# Database (compose собирает DATABASE_URL из POSTGRES_*; локальный запуск без Docker — задать целиком)
+POSTGRES_USER=bigbug
+POSTGRES_PASSWORD=bigbug
+POSTGRES_DB=bigbug
 
 # Security
 SECRET_KEY=your-secret-key-here
@@ -60,11 +60,12 @@ SECRET_KEY=your-secret-key-here
 # Encryption Key for secrets (ENCRYPTION_KEY, не FERNET_KEY — см. ADR-0010)
 ENCRYPTION_KEY=your-fernet-key-here
 
-# OIDC (опционально)
-OIDC_ENABLED=false
-OIDC_ISSUER=http://localhost:8180/realms/bigbug
-OIDC_CLIENT_ID=bigbug-backend
+# SSO/Keycloak (опционально; полный список keycloak_* — в backend/app/config.py)
+# KEYCLOAK_URL=http://localhost:8180
+# KEYCLOAK_REALM=bigbug
 ```
+
+> Именование OIDC-переменных: семейство `keycloak_*` в [`backend/app/config.py`](../../backend/app/config.py) (`keycloak_url`, `keycloak_realm`, `keycloak_client_id`, `keycloak_client_secret`, `keycloak_frontend_client_id`, `keycloak_public_url`, `keycloak_http_timeout_seconds`, `keycloak_jwks_cache_ttl_seconds`). Переменных `OIDC_*` не существует. Runtime-конфиг SSO — в БД (таблица `oidc_config`, ADR-0003), env — только инфраструктурные дефолты.
 
 ### Запуск для разработки
 
@@ -74,19 +75,11 @@ alembic upgrade head
 
 # Запустить dev server с hot-reload
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Или через gunicorn + uvicorn workers (production-like)
-gunicorn app.main:app \
-  --workers 4 \
-  --worker-class uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000 \
-  --access-logfile - \
-  --error-logfile -
 ```
 
 Приложение будет доступно по адресу: http://localhost:8000
 
-API документация (Swagger UI): http://localhost:8000/docs
+API документация (Swagger UI): http://localhost:8000/api/docs
 
 ## OpenAPI-контракт (источник истины фронт-бэк)
 
@@ -371,19 +364,21 @@ app.include_router(
 
 ### Структура тестов
 
-Тесты в [`backend/tests/`](../../backend/tests/): организованы по модулям (`test_auth.py`, `test_projects.py`, `test_images.py` и т.д.) с общими fixtures в [`conftest.py`](../../backend/tests/conftest.py).
+Тесты в [`backend/tests/`](../../backend/tests/): `tests/unit/` — unit-тесты (pytest + httpx AsyncClient без живого сервера, ADR-0014), `tests/e2e/` — e2e против живого dev-стенда (ADR-0016/0018), общие fixtures в [`conftest.py`](../../backend/tests/conftest.py).
 
 ### Запуск тестов
 
+Агентам каноничен запуск через `make` + `TEST_ARGS` (см. AGENTS.md); вручную:
+
 ```bash
-# Все тесты
-pytest
+# Все unit-тесты
+pytest tests/unit
 
 # Конкретный файл
-pytest tests/test_auth.py -v
+pytest tests/e2e/test_auth.py -v
 
 # Конкретный тест
-pytest tests/test_auth.py::test_login_success -v
+pytest tests/e2e/test_auth.py::TestAuth::test_login_success -v
 
 # С покрытием
 pytest --cov=app --cov-report=html
@@ -399,12 +394,12 @@ import pytest
 from httpx import AsyncClient
 
 @pytest.mark.asyncio
-async def test_create_resource(async_client: AsyncClient, operator_token: str):
+async def test_create_resource(client: AsyncClient, login_headers: dict):
     """Test creating a new resource"""
-    response = await async_client.post(
+    response = await client.post(
         "/api/resources",
         json={"name": "Test Resource", "description": "Test"},
-        headers={"Authorization": f"Bearer {operator_token}"}
+        headers=login_headers,
     )
     
     assert response.status_code == 201
@@ -414,11 +409,11 @@ async def test_create_resource(async_client: AsyncClient, operator_token: str):
     assert data["status_flag"] == 0
 
 @pytest.mark.asyncio
-async def test_get_resource_not_found(async_client: AsyncClient, operator_token: str):
+async def test_get_resource_not_found(client: AsyncClient, login_headers: dict):
     """Test getting non-existent resource returns 404"""
-    response = await async_client.get(
+    response = await client.get(
         "/api/resources/99999",
-        headers={"Authorization": f"Bearer {operator_token}"}
+        headers=login_headers,
     )
     
     assert response.status_code == 404
@@ -439,26 +434,59 @@ ruff check --fix .
 ruff format . && ruff check --fix . && pytest
 ```
 
-### Pre-commit hooks (опционально)
+### 3. Создать API router
 
-Создать `.pre-commit-config.yaml`:
+В [`app/api/resource.py`](../../backend/app/api/):
 
-```yaml
-repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
-    hooks:
-      - id: ruff-format
-      - id: ruff
-        args: [--fix]
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
+from app.core.rbac import require_permission  # не app.core.security!
+from app.models.user import User
+from app.schemas.resource import ResourceOut, ResourceCreate
+from app.services.resource import ResourceService
+from app.core.exceptions import ResourceNotFoundError
+
+router = APIRouter()
+
+@router.get("/", response_model=list[ResourceOut])
+async def list_resources(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("resources:read"))
+):
+    service = ResourceService(db)
+    resources = await service.get_all()
+    return resources
+
+@router.post("/", response_model=ResourceOut, status_code=201)
+async def create_resource(
+    data: ResourceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("resources:write"))
+):
+    service = ResourceService(db)
+    resource = await service.create(data)
+    return resource
+
+@router.get("/{resource_id}", response_model=ResourceOut)
+async def get_resource(
+    resource_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("resources:read"))
+):
+    service = ResourceService(db)
+    try:
+        resource = await service.get_by_id(resource_id)
+        return resource
+    except ResourceNotFoundError:
+        raise HTTPException(status_code=404, detail="Resource not found")
 ```
 
-Установить:
+> Авторизация: новые endpoint'ы защищаются через `require_permission("resource:action")` из [`app/core/rbac.py`](../../backend/app/core/rbac.py) (ADR-0004). Legacy-зависимости `require_operator`/`require_admin`/`require_viewer` тоже живут в `app/core/rbac.py` (не в `security.py`), но для новых endpoint'ов не используются — исключение одно: `app/api/health_check.py`.</think><tool_call>edit<arg_key>newString</arg_key><arg_value>### Pre-commit hooks
 
-```bash
-pip install pre-commit
-pre-commit install
-```
+Pre-commit конфигурации в репозитории нет — проверки качества выполняются
+вручную/агентом через `make lint`, `make format`, `make typecheck` (см. ADR-0019).
 
 ## Безопасность
 
@@ -496,67 +524,51 @@ decrypted_token = decrypt_secret(mirror.gitlab_token_encrypted)
 ### JWT токены
 
 ```python
-from app.core.security import create_access_token, verify_token
+from app.core.security import create_access_token, decode_token
 
 # Создать токен
-token = create_access_token({"sub": user.email, "user_id": user.id})
+token = create_access_token({"sub": str(user.id), "username": user.username, "permissions": [...]})
 
-# Проверить токен
-payload = verify_token(token)  # Raises HTTPException if invalid
+# Проверить/декодировать токен
+try:
+    payload = decode_token(token)  # raises ValueError if invalid/expired
+except ValueError as e:
+    ...  # маппится в 401: UnauthorizedError(str(e)) — см. app/core/rbac.py
 ```
+
+> Функция проверки токена — `decode_token` (поднимает `ValueError`
+> при невалидном/просроченном токене); в API-слое исключение маппится в 401
+> (`app/core/rbac.py: get_current_user`).
 
 ## Интеграции
 
-### GitHub API
+Интеграции с внешними системами (GitLab, Harbor, GitHub, Docker Registry, Helm-репозитории) унифицированы через Providers V3 (ADR-0007): реестр подтипов — [`app/services/providers/registry.py`](../../backend/app/services/providers/registry.py), HTTP-клиенты — [`app/services/providers/clients/`](../../backend/app/services/providers/clients/), доменные действия — через диспетчер в [`app/services/providers/service.py`](../../backend/app/services/providers/service.py).
 
 ```python
-from app.services.github import GitHubService
+# Доменное действие провайдера — через единый service-диспетчер
+from app.services.providers.service import ProviderService
 
-service = GitHubService(github_token)
-repos = await service.list_repos(org_name)
-releases = await service.get_releases(owner, repo)
+service = ProviderService(db)
+result = await service.dispatch_action(
+    provider_id,
+    action="list_repositories",  # ProviderCapability
+    user=current_user,
+    params={...},
+)
 ```
 
-### GitLab API
+Клиент конкретного подтипа создаётся по метаданным провайдера (`base_url`, credential, `verify_ssl`) — руками инстанцировать классы клиентов из API-слоя не нужно.
 
-```python
-from app.services.gitlab import GitLabService
-
-service = GitLabService(gitlab_url, gitlab_token)
-project = await service.create_mirror(source_repo, target_name)
-await service.trigger_pipeline(project_id)
-```
-
-### OIDC / Keycloak
-
-```python
-from app.services.oidc import OIDCService
-
-service = OIDCService()
-config = await service.get_config(db)
-user_info = await service.verify_token(access_token)
-```
+OIDC-логика — в [`app/services/oidc.py`](../../backend/app/services/oidc.py) (Keycloak-OIDC сервис: обмен кода, валидация id_token, provisioning — ADR-0003); GitLab/mirror-логика — в соответствующих сервисах `app/services/`.
 
 ## Планировщик задач
 
-APScheduler для периодических задач (синхронизация, stale detection):
+APScheduler для периодических задач:
 
-```python
-from app.services.scheduler import scheduler, schedule_mirror_sync
+- **[`app/services/scheduler.py`](../../backend/app/services/scheduler.py)** — `SchedulerService`: глобальные cron-джобы из настроек (`default_sync_cron` — sync schedules, `default_build_cron` — build schedules, `cleanup_cron_hour` — soft-delete cleanup).
+- **[`app/services/sync_scheduler.py`](../../backend/app/services/sync_scheduler.py)** — `SyncScheduler`: per-SyncGroup джобы (sync + freshness check по `sync_cron`/`freshness_cron` групп), динамическое добавление/удаление при изменении конфигурации групп, свой `AsyncSession` на каждый job.
 
-# Запланировать задачу
-schedule_mirror_sync(mirror_id, cron_expression="0 2 * * *")
-
-# Отменить задачу
-scheduler.remove_job(f"mirror_sync_{mirror_id}")
-
-# Запустить сразу
-scheduler.add_job(
-    func=sync_mirror_task,
-    args=[mirror_id],
-    id=f"mirror_sync_{mirror_id}_now",
-)
-```
+Пер-зеркальное API вида `schedule_mirror_sync(mirror_id, cron_expression=...)` не существует — расписание задаётся на уровне SyncGroup/SyncSchedule.
 
 ## Troubleshooting
 
@@ -573,7 +585,7 @@ pip install -e .
 # Проверить PostgreSQL
 docker compose ps postgres-backend
 
-# Проверить DATABASE_URL в .env
+# Проверить DATABASE_URL в .env (compose собирает её из POSTGRES_*; локальный запуск — задать целиком)
 echo $DATABASE_URL
 ```
 
@@ -585,11 +597,12 @@ alembic current
 
 # Откатить
 alembic downgrade -1
-
-# Удалить конфликтующую миграцию и пересоздать
-rm alembic/versions/YYYYMMDD_HHMM_*.py
-alembic revision -m "new_migration"
 ```
+
+> Политика миграций (ADR-0006): миграции после применения не удаляются и не
+> редактируются — цепочка append-only. «Удалить файл миграции и пересоздать»
+> — недопустимый совет: на стендах, где миграция уже применена, это ломает
+> `alembic_version`. Конфликт разрешается новой миграцией поверх `head`.
 
 ### Тесты падают
 

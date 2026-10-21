@@ -74,7 +74,7 @@ Chosen option: **единая страница `/profile`** (роут `profile` 
 
 **4. Что НЕ вводится** (обоснование): `GET /teams/mine` (список уже scoped по членству + `my_role` в ответе); расширение `/auth/me` ролями (уже отдаются); отдельный эндпоинт «мои провайдеры» (scoping `providers:read` уже возвращает public + own + team-shared одним ответом); `PATCH /auth/me` (read-only кабинет, SSO-модель).
 
-**5. Права: изменений нет.** Новые permissions не вводятся; гейтинг данных — backend per-request (`teams:read`, `providers:read` у A/O/V). Мягкая защита внутри карточек — `PermissionGate` с `fallback={<Empty>}` (устойчивость к будущим ролям без этих прав). В `plans/architecture/permissions.md` UI-привязка `teams:read` обновлена: `/settings/teams` → `/profile` (My teams).
+**5. Права: изменений нет.** Новые permissions не вводятся; гейтинг данных — backend per-request (`teams:read`, `providers:read` у A/O/V). Мягкая защита внутри карточек — `PermissionGate` с `fallback={<Empty>}` (устойчивость к будущим ролям без этих прав). В `docs/development/permissions.md` UI-привязка `teams:read` обновлена: `/settings/teams` → `/profile` (My teams).
 
 **6. Судьба `/settings/teams`**: файл `frontend/src/pages/Settings/Teams/` удалён; роут заменён redirect `<Navigate to="/profile" replace />` (бессрочно — старые закладки); импорт `SettingsTeams` удалён. Админские `/admin/teams`, `/admin/teams/:teamId` не затрагиваются.
 

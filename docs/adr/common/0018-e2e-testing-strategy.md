@@ -4,11 +4,11 @@ date: 2026-10-22
 decision-makers: SteeveRan
 ---
 
-# Тестировать e2e-уровень: backend — pytest-suite против живого dev-стенда, frontend — Cypress как запланированное направление (сейчас пусто); удалить `plans/development/testing.md`
+# Тестировать e2e-уровень: backend — pytest-suite против живого dev-стенда, frontend — Cypress как запланированное направление (сейчас пусто); удалить `docs/development/testing.md`
 
 ## Context and Problem Statement
 
-Семейство тестовых ADR закрывается последним, пятым документом: ADR-0014 (backend unit), [ADR-0015](../frontend/0015-frontend-unit-testing-vitest.md) (frontend unit), [ADR-0016](../backend/0016-backend-integration-testing.md) (backend integration) и [ADR-0017](../frontend/0017-frontend-integration-testing.md) (frontend integration) уже зафиксированы. Остался сводный e2e-домен, которым `plans/development/testing.md` владеет целиком: roadmap ADR (`.agents/plans/adr-roadmap.md`, принцип «один домен — один ADR») отводит ADR-0018 роль последнего потребителя этого файла — после его выхода документ удаляется, операциональный runbook (pytest-шпаргалка, рецепты `TEST_ARGS`) переезжает в `AGENTS.md`, решения — сюда.
+Семейство тестовых ADR закрывается последним, пятым документом: ADR-0014 (backend unit), [ADR-0015](../frontend/0015-frontend-unit-testing-vitest.md) (frontend unit), [ADR-0016](../backend/0016-backend-integration-testing.md) (backend integration) и [ADR-0017](../frontend/0017-frontend-integration-testing.md) (frontend integration) уже зафиксированы. Остался сводный e2e-домен, которым `docs/development/testing.md` владеет целиком: roadmap ADR (`.agents/plans/adr-roadmap.md`, принцип «один домен — один ADR») отводит ADR-0018 роль последнего потребителя этого файла — после его выхода документ удаляется, операциональный runbook (pytest-шпаргалка, рецепты `TEST_ARGS`) переезжает в `AGENTS.md`, решения — сюда.
 
 Фактическое состояние (проверено по коду, 2026-10-22):
 
@@ -19,7 +19,7 @@ decision-makers: SteeveRan
 
 1. **Backend e2e**: подтвердить pytest-suite против dev-стенда как e2e-стратегию и зафиксировать CI-политику (e2e не выполняется в голом CI) и отчёт покрытия эндпоинтов?
 2. **Frontend e2e**: записать Cypress как запланированное направление (proposed, без установки зависимости) или выбрать альтернативу сейчас?
-3. **Документация**: удалить `plans/development/testing.md`, перенеся runbook в `AGENTS.md`, и убрать висячие ссылки?
+3. **Документация**: удалить `docs/development/testing.md`, перенеся runbook в `AGENTS.md`, и убрать висячие ссылки?
 
 ## Decision Drivers
 
@@ -60,7 +60,7 @@ Chosen option: **двухстековая e2e-стратегия** — backend: 
 
 **3. Документация**:
 
-- `plans/development/testing.md` **удаляется**; её решения распределены по ADR-0014/0015/0016/0017/0018, операциональный runbook (pytest-шпаргалка, `TEST_ARGS`-рецепты, запуск e2e) — в [`AGENTS.md`](../../../AGENTS.md) (раздел Testing)
+- `docs/development/testing.md` **удаляется**; её решения распределены по ADR-0014/0015/0016/0017/0018, операциональный runbook (pytest-шпаргалка, `TEST_ARGS`-рецепты, запуск e2e) — в [`AGENTS.md`](../../../AGENTS.md) (раздел Testing)
 - источник истины по конфигурации — файлы кода (`pyproject.toml`, `vitest.config.ts`, `conftest.py`, скрипты), не документы
 
 ### Consequences
@@ -93,7 +93,7 @@ make test-e2e-backend TEST_ARGS="tests/e2e/test_auth.py -v"
 grep -n '"cypress' frontend/package.json
 ```
 
-3. **Документация** — при ревью: `plans/development/testing.md` не существует; `grep -rn "development/testing.md"` по репозиторию не находит живых ссылок (исторические упоминания внутри самих ADR-0014/0015/0016/0017 — описание факта удаления, не ссылки-инструкции); pytest-шпаргалка и рецепты `TEST_ARGS` присутствуют в `AGENTS.md`.
+3. **Документация** — при ревью: `docs/development/testing.md` не существует; `grep -rn "development/testing.md"` по репозиторию не находит живых ссылок (исторические упоминания внутри самих ADR-0014/0015/0016/0017 — описание факта удаления, не ссылки-инструкции); pytest-шпаргалка и рецепты `TEST_ARGS` присутствуют в `AGENTS.md`.
 
 ## Pros and Cons of the Options
 
@@ -127,6 +127,6 @@ grep -n '"cypress' frontend/package.json
 - Родственные ADR (семейство testing): [ADR-0014](../backend/0014-backend-unit-testing-pytest.md) (backend unit), [ADR-0015](../frontend/0015-frontend-unit-testing-vitest.md) (frontend unit), [ADR-0016](../backend/0016-backend-integration-testing.md) (backend integration = e2e-suite), [ADR-0017](../frontend/0017-frontend-integration-testing.md) (frontend integration); [ADR-0019](0019-makefile-tooling-single-entrypoint.md) (make-цели тестирования), [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив; dev-стенд как требование e2e — теперь [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md))
 - Фактура: `backend/tests/e2e/` (25 файлов, ~156 тестов), `backend/tests/e2e/conftest.py`, `backend/tests/e2e/openapi_utils.py` (`MIN_COVERAGE_PERCENT = 90`), `backend/scripts/test-e2e.sh`, `backend/scripts/test-e2e-coverage.sh`, `backend/scripts/export-openapi.sh`; frontend-заготовки: Makefile (`test-e2e-frontend`, `test-e2e`), `frontend/scripts/test.sh` (ветка `--e2e`)
 - Runbook (запуск, `TEST_ARGS`, pytest-шпаргалка, переменные окружения e2e): [`AGENTS.md`](../../../AGENTS.md), раздел Testing
-- Roadmap ADR: `.agents/plans/adr-roadmap.md` — ADR-0018 назначен последним потребителем `plans/development/testing.md` с её удалением
+- Roadmap ADR: `.agents/plans/adr-roadmap.md` — ADR-0018 назначен последним потребителем `docs/development/testing.md` с её удалением
 - Условие пересмотра: (а) первый frontend e2e-сценарий — установка и фиксация Cypress (или смена выбора на Playwright); (б) появление CI-контура с Docker — перевод e2e в CI-gate; (в) стабилизация API — жёсткий gate порога 90%; (г) появление кросс-системных e2e-сценариев (браузер + backend + GitLab) — тогда термин «e2e» разводится на уровни новым ADR
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)

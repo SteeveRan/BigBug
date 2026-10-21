@@ -106,7 +106,7 @@ sequenceDiagram
 * Bad, because публичный клиент + PKCE означает, что решение о доверии коду целиком на стороне Keycloak redirect URI — их нельзя ослаблять
 * Neutral, because `role_mapping` и `client_secret` в конфиге хранятся, но текущим exchange/синхронизацией не используются (задел; применение — отдельное решение)
 * Neutral, because realm `bigbug` захардкожен — multi-realm не поддерживается
-* Non-goals: удаление `plans/features/auth-rbac.md` (принадлежит ADR-0004); RBAC permission-модель и права (ADR-0004); multi-realm / несколько IdP; применение хранимых `role_mapping` и `client_secret` в exchange
+* Non-goals: удаление `plans/features/auth-rbac.md` (принадлежит ADR-0004); RBAC permission-модель и права (ADR-0004); multi-realm / несколько IdP; применение хранимых `role_mapping` и `client_secret` в exchange; **управление паролями пользователем (self-service change/reset) — не реализовано и не решено**: endpoint'ы `change-password`/`reset-password` из legacy-документации никогда не существовали в коде; пароли задаёт только admin через Admin UI (см. Режим 1). Появление самостоятельной смены/сброса пароля — отдельное решение новым ADR (требует email-канала для reset).
 
 ### Confirmation
 

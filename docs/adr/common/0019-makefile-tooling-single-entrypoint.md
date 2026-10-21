@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-К моменту написания ADR в репозитории накопился набор скриптов, размазанных по трём каталогам: [`backend/scripts/`](../../../backend/scripts/), [`frontend/scripts/`](../../../frontend/scripts/), [`infrastructure/`](../../../infrastructure/) (`init.sh`, `update-env.sh`, `harbor/deploy.sh`, `harbor/teardown.sh`). У каждого скрипта свои требования к окружению (backend — venv, frontend — nvm + yarn Berry, infra — docker/tofu), и агент или новый разработчик должен знать, какой скрипт где лежит и как его вызывать. Документация (`AGENTS.md`, `plans/development/*`) дублировала простыни bash-команд, которые расходились с реальностью.
+К моменту написания ADR в репозитории накопился набор скриптов, размазанных по трём каталогам: [`backend/scripts/`](../../../backend/scripts/), [`frontend/scripts/`](../../../frontend/scripts/), [`infrastructure/`](../../../infrastructure/) (`init.sh`, `update-env.sh`, `harbor/deploy.sh`, `harbor/teardown.sh`). У каждого скрипта свои требования к окружению (backend — venv, frontend — nvm + yarn Berry, infra — docker/tofu), и агент или новый разработчик должен знать, какой скрипт где лежит и как его вызывать. Документация (`AGENTS.md`, `docs/development/*`) дублировала простыни bash-команд, которые расходились с реальностью.
 
 Дополнительно не был зафиксирован выбор инструментов code quality: проверка типов backend (mypy — добавить или нет?), поиск мёртвого кода (vulture уже был, чем покрывать frontend?).
 
@@ -155,6 +155,6 @@ make dead-code           # vulture + knip завершаются с exit 0
 
 - [ADR-0001](../backend/0001-choose-backend-stack.md) — backend-стек (ruff, pytest, mypy как оговорённый инструмент); [ADR-0002](../frontend/0002-frontend-stack-react-antd-rtk.md) — frontend-стек (eslint, prettier, vitest, tsc)
 - [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — исторический compose-слой (после [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) владение `dev-*` переходит к kind/helm-схеме); [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой и `init.sh` (владение `infra-init`)
-- Использование агентами: [`AGENTS.md`](../../../AGENTS.md) (разделы «Start Development Environment», «Run Tests», «Code Quality Checks»), детально — [`plans/development/setup.md`](../../../plans/development/setup.md); тестовые решения — семейство ADR-0014…0018 (реестр: [`docs/adr/README.md`](../../README.md))
+- Использование агентами: [`AGENTS.md`](../../../AGENTS.md) (разделы «Start Development Environment», «Run Tests», «Code Quality Checks»), детально — [`docs/development/setup.md`](../../development/setup.md); тестовые решения — семейство ADR-0014…0018 (реестр: [`docs/adr/README.md`](../../README.md))
 - Источник подтверждённых решений (удалён после фиксации в этом ADR): `plans/makefile-tooling.md`
 - Условие пересмотра: переход на CI-гейтинг качества (обязательные mypy strict / knip exit-code в pipeline) — новый ADR

@@ -8,9 +8,9 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Стек зафиксирован в [ADR-0001](0001-choose-backend-stack.md), но решения по слою данных — выбор СУБД/ORM-режима, naming conventions, единый статус-флаг, политика цепочки миграций — существовали только в `plans/development/database.md`. Этот документ смешивал актуальные решения с устаревшими фактами (список таблиц всё ещё содержал legacy `gitlab_instances`/`harbor_instances` и не содержал `resource_providers`/`gitlab_projects`; примеры моделей показывали `Mapped[]`-стиль, тогда как код использует legacy `Column()`; драйвер Alembic указан как psycopg2, тогда как `alembic/env.py` работает через async engine). Источник истины — код: `backend/app/models/` и `backend/alembic/versions/`.
+Стек зафиксирован в [ADR-0001](0001-choose-backend-stack.md), но решения по слою данных — выбор СУБД/ORM-режима, naming conventions, единый статус-флаг, политика цепочки миграций — существовали только в `docs/development/database.md`. Этот документ смешивал актуальные решения с устаревшими фактами (список таблиц всё ещё содержал legacy `gitlab_instances`/`harbor_instances` и не содержал `resource_providers`/`gitlab_projects`; примеры моделей показывали `Mapped[]`-стиль, тогда как код использует legacy `Column()`; драйвер Alembic указан как psycopg2, тогда как `alembic/env.py` работает через async engine). Источник истины — код: `backend/app/models/` и `backend/alembic/versions/`.
 
-Фактический вопрос: **принять ли существующий database layer как стандарт проекта** и перенести его правила в ADR, заменив собой `plans/development/database.md`?
+Фактический вопрос: **принять ли существующий database layer как стандарт проекта** и перенести его правила в ADR, заменив собой `docs/development/database.md`?
 
 Фактическое состояние (проверено по коду, 2026-10-21):
 
@@ -170,6 +170,6 @@ Pydantic-модели совмещены с ORM-моделями.
 - Родственные ADR: [ADR-0001](0001-choose-backend-stack.md) (стек: PostgreSQL 17, SQLAlchemy 2, Alembic), [ADR-0005](0005-service-layer-no-repository.md) (сервисы работают с ORM напрямую — этот ADR фиксирует, с чем именно)
 - Реестр ADR и конвенции: [docs/adr/README.md](../README.md)
 - Источник истины по схеме: `backend/app/models/__init__.py` (перечень моделей), `backend/alembic/versions/` (цепочка миграций), `backend/app/database.py` (engine/сессии)
-- Политика прав: `plans/architecture/permissions.md`; RBAC-сиды — миграции `seed_initial_data`/`seed_gitlab_project_permissions`
+- Политика прав: `docs/development/permissions.md`; RBAC-сиды — миграции `seed_initial_data`/`seed_gitlab_project_permissions`
 - Условие пересмотра: потребность в втором хранилище (search-индекс, объектное хранилище), массовая конвертация моделей на `Mapped[]`, либо поломка цепочки миграций, требующая нового сброса — переоткрыть через новый ADR
-- Данный ADR полностью замещает `plans/development/database.md` (удалён); how-to-примеры (SQLAlchemy-запросы, команды Alembic, troubleshooting) не переносились как общеизвестная документация самих инструментов
+- Данный ADR полностью замещает `docs/development/database.md` (удалён); how-to-примеры (SQLAlchemy-запросы, команды Alembic, troubleshooting) не переносились как общеизвестная документация самих инструментов

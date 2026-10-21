@@ -52,7 +52,7 @@ Designed for DevOps teams and enterprises that need a single pane of glass for a
                           └──────────────┘
 ```
 
-Architecture decisions: [ADR registry](docs/adr/README.md) · Operational runbooks: [`docs/runbooks/`](docs/runbooks/) · Implementation plans: [`plans/`](plans/).
+Architecture decisions: [ADR registry](docs/adr/README.md) · Operational runbooks: [`docs/runbooks/`](docs/runbooks/) · Implementation guides: [`docs/development/`](docs/development/).
 
 ## 🚀 Quick Start
 
@@ -189,8 +189,7 @@ BigBug/
 │                            #   presets live in backend/app/services/gitlab_projects/presets.py)
 ├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
 ├── Makefile                 # Single entry point for all scripts (make help)
-├── plans/                   # Implementation plans (for agents)
-├── docs/                    # ADR registry + runbooks (for human review)
+├── docs/                    # ADR registry, development guides (agents), runbooks (humans)
 ├── .env.example             # Environment variables template
 └── CHANGELOG.md             # Version history
 ```
@@ -284,7 +283,7 @@ Default admin user (created by infrastructure init): `bigbug` / `bigbug`
 
 BigBug uses a **permission-based** model with `resource:action` permissions (e.g. `providers:write`, `teams:manage_members`). Permissions are grouped into roles (built-in `admin`/`operator`/`viewer` plus custom roles), and extended with **teams** and **scope-providers** for resource-level isolation.
 
-See [`plans/architecture/permissions.md`](plans/architecture/permissions.md) for the full permission index.
+See [`docs/development/permissions.md`](docs/development/permissions.md) for the full permission index.
 
 ## 🧪 Testing
 
@@ -366,7 +365,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the full version history.
 
 Pull requests are welcome. Please:
 
-- Follow the existing code style and patterns documented in [`plans/development/`](plans/development/)
+- Follow the existing code style and patterns documented in [`docs/development/`](docs/development/)
 - Add tests for new features (pytest for backend, Vitest for frontend)
 - Update documentation for any user-facing changes
 - Keep PR scope focused — one feature or fix per PR

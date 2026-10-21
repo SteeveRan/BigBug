@@ -151,7 +151,7 @@ BigBug сам выполняет `docker build` из HTTP-хендлера ил�
 - [ADR-0007](../common/0007-providers-v3-registry.md) — `resource_providers`: platform GitLab (build trigger) и Harbor (scan) — оба провайдеры реестра
 - [ADR-0006](0006-database-postgresql-alembic.md) — статус-флаги 0–4, naming conventions
 - [ADR-0010](0010-fernet-secrets-encryption.md) — шифрование stored credentials (GitLab токен, Harbor basic-auth); cosign private key в БД не хранится
-- Индекс прав: `plans/architecture/permissions.md`
+- Индекс прав: `docs/development/permissions.md`
 - API reference: автогенерируемый `http://localhost:8000/docs` (Swagger UI), теги `gold-images`, `app-images`
 
 Условие пересмотра: появление сценария параметризованных scheduled-сборок (version from git tag, arch matrix) — расширение `BuildSchedule`; перенос подписи в CI-stage-only (убрать API-эндпоинт sign) — при стандартизации ключей; Harbor webhook'и для scan-событий — при переходе на push-модель сканирования.

@@ -3,9 +3,9 @@
 ## Prerequisites
 
 ### Required
-- **Python** 3.14+ ([ADR-0001](../../docs/adr/backend/0001-choose-backend-stack.md))
-- **Node.js** LTS ([ADR-0002](../../docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
-- **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
+- **Python** 3.14+ ([ADR-0001](../adr/backend/0001-choose-backend-stack.md))
+- **Node.js** LTS ([ADR-0002](../adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
+- **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md))
 - **Git**
 
 ### Optional
@@ -42,35 +42,33 @@ cp .env.example .env
 # Edit .env with your values
 ```
 
-**Минимальные настройки** (`.env`):
+**Минимальные настройки** (`.env`) — ключи выверены с [`/.env.example`](../../.env.example):
+
 ```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
+# PostgreSQL (compose собирает из них DATABASE_URL для backend)
+POSTGRES_USER=bigbug
+POSTGRES_PASSWORD=bigbug
+POSTGRES_DB=bigbug
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
+# Backend API
+SECRET_KEY=your-secret-key-here              # generate with: openssl rand -hex 32
+ENCRYPTION_KEY=                              # generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+ENVIRONMENT=development                      # не FERNET_KEY — см. ADR-0010
+DB_WAIT_TIMEOUT=60
 
-# JWT Secret (generate with: openssl rand -hex 32)
-SECRET_KEY=your-secret-key-here
+# Rate limiting (на dev-стенде выключен, чтобы e2e не упирались в лимит логина)
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_LOGIN=5/minute
+RATE_LIMIT_OIDC_EXCHANGE=3/minute
+RATE_LIMIT_GLOBAL=1000/minute
 
-# Encryption Key for secrets (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-# Внимание: переменная называется ENCRYPTION_KEY, не FERNET_KEY — см. ADR-0010
-ENCRYPTION_KEY=your-fernet-key-here
-
-# Keycloak (optional, for SSO)
-KEYCLOAK_URL=http://localhost:8180
-KEYCLOAK_REALM=bigbug
-KEYCLOAK_CLIENT_ID=bigbug-backend
-KEYCLOAK_CLIENT_SECRET=bigbug-backend-secret
-KEYCLOAK_FRONTEND_CLIENT_ID=bigbug-frontend
-
-# GitLab
-GITLAB_URL=http://localhost:8080
-GITLAB_TOKEN=your-gitlab-token
-
-# GitHub
-GITHUB_TOKEN=your-github-token
+# Initial admin (создаётся автоматически при первом старте)
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@bigbug.local
+ADMIN_PASSWORD=admin
 ```
+
+> Переменных `DATABASE_URL`/`REDIS_URL` в `.env` нет — compose собирает их сам из `POSTGRES_*` (см. `docker-compose.yml`). Конфигурация Keycloak/GitLab/GitHub — env-переменные бэкенда с дефолтами в `backend/app/config.py` (`keycloak_*`, `gitlab_url` — по умолчанию `http://gitlab.local:8080`, `gitlab_token`, `github_token`); в `.env` их задавать не обязательно. Runtime-конфиг SSO — в БД (ADR-0003).
 
 ### 3. Backend Setup
 
@@ -137,7 +135,7 @@ make dev-up
 make infra-init    # = ./infrastructure/init.sh
 ```
 
-Подробности dev-стенда — [ADR-0022](../../docs/adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../../docs/adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
+Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 
@@ -224,7 +222,7 @@ alembic downgrade -1
 
 ### Run Tests
 
-Через корневой Makefile ([ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
+Через корневой Makefile ([ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
 ```bash
 make test-unit-backend       # backend unit
@@ -235,7 +233,7 @@ make test-all                # все тесты
 
 ### Code Quality
 
-Через корневой Makefile (см. [ADR-0019](../../docs/adr/common/0019-makefile-tooling-single-entrypoint.md)):
+Через корневой Makefile (см. [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md)):
 
 ```bash
 make format      # ruff format + prettier
@@ -301,7 +299,7 @@ alembic current
 # Show history
 alembic history
 
-# Force revision (危険)
+# Force revision (осторожно — используйте осознанно)
 alembic stamp head
 ```
 
@@ -340,7 +338,7 @@ docker compose -f infrastructure/docker-compose.yml logs keycloak
 # Restart specific service
 docker compose -f infrastructure/docker-compose.yml restart keycloak
 
-# Remove volumes and restart (危険: удаляет данные)
+# Remove volumes and restart (осторожно: удаляет данные)
 docker compose -f infrastructure/docker-compose.yml down -v
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
@@ -357,5 +355,5 @@ lsof -i :8000
 
 - [`backend.md`](backend.md) - detailed backend development
 - [`frontend.md`](frontend.md) - detailed frontend development
-- [ADR-0006](../../docs/adr/backend/0006-database-postgresql-alembic.md) - database layer (PostgreSQL, SQLAlchemy, Alembic)
-- Testing decisions: [ADR-0014…0018](../../docs/adr/README.md)
+- [ADR-0006](../adr/backend/0006-database-postgresql-alembic.md) - database layer (PostgreSQL, SQLAlchemy, Alembic)
+- Testing decisions: [ADR-0014…0018](../adr/README.md)
