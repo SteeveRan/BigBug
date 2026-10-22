@@ -3,40 +3,7 @@ output "haproxy_ingress_status" {
   value       = helm_release.haproxy_ingress.status
 }
 
-output "cnpg_cluster_name" {
-  description = "CNPG Cluster CR name (ns bigbug)"
-  value       = kubernetes_manifest.cnpg_cluster.manifest.metadata.name
-}
-
-output "cnpg_app_secret" {
-  description = "Secret with application DB credentials (ns bigbug)"
-  value       = "bigbug-dev-app"
-}
-
-output "cnpg_read_write_service" {
-  description = "Read-write Service for the CNPG cluster"
-  value       = "bigbug-dev-rw.bigbug.svc:5432"
-}
-
 output "valkey_service" {
   description = "Valkey Service (no auth, dev)"
   value       = "valkey.bigbug.svc:6379"
-}
-
-output "k8s_secrets" {
-  description = "Secret names/keys created by the k8s-secrets module (helm chart contract, I6)"
-  value       = module.k8s_secrets.secret_names
-  sensitive   = true
-}
-
-output "fernet_key" {
-  description = "Fernet ENCRYPTION_KEY (host tools, sensitive)"
-  value       = module.k8s_secrets.fernet_key
-  sensitive   = true
-}
-
-output "database_url" {
-  description = "Application DATABASE_URL (host tools, sensitive)"
-  value       = module.k8s_secrets.database_url
-  sensitive   = true
 }

@@ -10,9 +10,11 @@
  *
  * Layout (one file per logical unit, for reviewability):
  *   ingress.tf — haproxy-ingress (cluster ingress controller)
- *   cnpg.tf    — CNPG operator + Postgres cluster
+ *   cnpg.tf    — CNPG operator (CRDs; Cluster CR is app-layer, I6)
  *   valkey.tf  — Valkey cache (deployment + service)
- *   secrets.tf — app k8s Secrets (module k8s-secrets, ADR-0024)
+ *
+ * App k8s Secrets (module k8s-secrets, ADR-0024) are wired by the apps root —
+ * they depend on the app's Postgres cluster, not on base.
  */
 
 terraform {
@@ -27,13 +29,8 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
   }
 }
-
 provider "kubernetes" {
   config_path    = var.kubeconfig_path
   config_context = var.kubeconfig_context
