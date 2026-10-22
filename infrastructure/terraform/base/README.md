@@ -50,8 +50,7 @@ Endpoint: `valkey.bigbug.svc:6379`, без аутентификации, без 
 - Postgres Cluster `bigbug-dev` (CNPG) — apps root, I6; оператор генерирует
   секрет `<cluster>-app` с кредами.
 - k8s-секреты приложения (`bigbug-db-credentials`, `bigbug-fernet-key`,
-  ADR-0024) — apps root (модуль `../base/modules/k8s-secrets` переедет туда
-  wiring'ом I6), зависят от Postgres-кластера, не от base.
+  ADR-0024) — apps root (I6), зависят от Postgres-кластера, не от base.
 
 ## Teardown
 
