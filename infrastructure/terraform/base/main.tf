@@ -183,7 +183,7 @@ resource "kubernetes_service_v1" "valkey" {
 # gitlab_token is passed through from tfvars (empty = secret not created).
 # ──────────────────────────────────────────────────────────────────────────────
 module "k8s_secrets" {
-  source = "../modules/k8s-secrets"
+  source = "./modules/k8s-secrets"
 
   depends_on = [kubernetes_manifest.cnpg_cluster]
 
