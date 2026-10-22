@@ -39,7 +39,7 @@ variable "oidc_provider_name" {
 }
 
 variable "oidc_endpoint" {
-  description = "OIDC provider endpoint URL (e.g. http://localhost:8180/realms/bigbug)"
+  description = "OIDC provider endpoint URL (e.g. http://keycloak.local/realms/bigbug)"
   type        = string
 }
 
