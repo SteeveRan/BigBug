@@ -60,7 +60,7 @@ redis:
 
 Backend получает `DATABASE_URL`/`REDIS_URL` через env, собранные из этих значений + `_helpers.tpl`.
 
-**3. Hot-reload в dev** (`values-dev.yaml`): образы dev-сборки; `extraMounts` kind-ноды пробрасывают `./backend` и `./frontend` хоста в ноду, поды монтируют hostPath'ом; backend запускает `uvicorn --reload`, frontend — dev-сервер Vite (в dev frontend-под — Node, не nginx). В prod-values — обычные образы без маунтов.
+**3. Hot-reload в dev** (`values-dev.yaml`): образы dev-сборки; `extraMounts` kind-ноды пробрасывают `./backend` и `./frontend` хоста в ноду, поды монтируют hostPath'ом; backend запускает `uvicorn --reload` (с `--proxy-headers` — за TLS-terminating ingress, [ADR-0030](0030-dev-stand-https-self-signed-certs.md)), frontend — dev-сервер Vite (в dev frontend-под — Node, не nginx) с HMR через `wss` (`server.hmr.protocol: wss`, `clientPort: 443` — ingress терминирует TLS, браузер ходит по `https://app.local`). Backend env включает `REQUESTS_CA_BUNDLE` (маунт self-signed сертов стенда — ADR-0030 §4) и `CORS_ORIGINS` (ConfigMap; ADR-0028 §3). В prod-values — обычные образы без маунтов.
 
 **4. Миграции** — Helm hook Job `pre-upgrade` с `alembic upgrade head`: схема приводится к актуальной при каждом `helm upgrade`, что сохраняет гарантию entrypoint'а ([ADR-0012/0006](../backend/0006-database-postgresql-alembic.md)) в новой форме. Entrypoint `app:start` перестаёт сам гонять миграции при запуске в k8s (проверка готовности БД остаётся).
 
@@ -122,4 +122,5 @@ helm template bigbug charts/bigbug -f charts/bigbug/values-dev.yaml > /dev/null 
 - [ADR-0024](../common/0024-k8s-secrets.md) — откуда берутся Secret'ы (tofu kubernetes provider)
 - [ADR-0006](../backend/0006-database-postgresql-alembic.md) — политика миграций (hook Job сохраняет идемпотентность `alembic upgrade head`)
 - [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — entrypoint `app:start`/`app:init`, чья роль частично переходит в helm hook
+- [ADR-0030](0030-dev-stand-https-self-signed-certs.md) — HTTPS стенда: values-dev содержит REQUESTS_CA_BUNDLE, CORS_ORIGINS, Vite HMR wss-настройки
 - Условие пересмотра: prod-деплой с требованиями HA (PDB/HPA/replicas>1) — расширение prod-values, новый ADR не нужен

@@ -75,3 +75,19 @@
 - `backend/scripts/test-e2e.sh`, `test-e2e-coverage.sh` — base URL api.local + вызов seed-скрипта
 - `backend/docker/entrypoint.sh` — пересмотреть: wait-for-db/migrations уходят в helm-hook/initContainer
 - `docs/adr/README.md`, `ARCHIVE.md`, `AGENTS.md` — реестры и quick-start
+
+---
+
+## Дополнение 2026-10-23: HTTPS на стенде (grilling, result → ADR-0030)
+
+Результат второго grilling по HTTPS (инициатива владельца: «необходимо использовать https вместо http»). Решения зафиксированы в [ADR-0030](../../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md); ключевые пункты, меняющие этот план:
+
+- **D4 уточнён**: хосты — `https://` (TLS-терминирование на haproxy-ingress), GitLab — `https://gitlab.local:8443` (было: HTTP на :80 / `gitlab.local:8080`).
+- Сертификаты: per-service self-signed, **без CA**; генерирует императивный `infrastructure/kind/certs.sh` (openssl, idempotent) **до бутстрапа**; серты переживают `infra-clean`; `bootstrap.sh` чекает их наличие. Порядок fresh-машины: `certs.sh` → `trust-host.sh` (ручной sudo-шаг пользователя) → `infra-init`.
+- Доверие: поды — ConfigMap-инжект сертов + `REQUESTS_CA_BUNDLE` (`verify_ssl=True` работает); docker daemon — system trust store; **`insecure-registries` удаляется**.
+- TLS-секреты в кластере — **apps root tofu** (`kubernetes_secret` type tls из `file()`; base остаётся one-shot).
+- Сервисы за прокси: forwarded-headers обязательны (keycloakx `proxy: forwarded`; Harbor `expose.tls` + externalURL https + `oidc_verify_cert: true`; Vite HMR `wss`/`clientPort 443`; uvicorn `--proxy-headers`).
+- CORS: триггер из ADR-0028 §3 сработал (app.local ≠ api.local) — hardcode вынесен в env `CORS_ORIGINS` (ConfigMap chart'а).
+- OIDC redirect URIs: точные https (снос `:30443`- и localhost-наследия; backend client `["*"]` → `https://app.local/*`).
+
+Затронутые issues (актуализированы 2026-10-23): #58, #59, #60, #61, #62. Правки существующих ADR: 0022 (§2 адресация), 0028 (§3 CORS), 0023 (hot-reload/HMR), реестр.
