@@ -56,6 +56,47 @@ check_dependencies() {
 }
 
 # ---------------------------------------------------------------------------
+# Docker insecure registry for harbor.local:80 (adapted from the retired
+# infrastructure/harbor/deploy.sh configure_docker_insecure)
+# ---------------------------------------------------------------------------
+configure_docker_insecure() {
+  local daemon_json="/etc/docker/daemon.json"
+  local insecure_reg="harbor.local:80"
+
+  info "Проверка Docker insecure registry..."
+
+  if [[ -f "$daemon_json" ]] && grep -q "$insecure_reg" "$daemon_json" 2>/dev/null; then
+    info "  ✓ Insecure registry уже настроен в $daemon_json"
+    return
+  fi
+
+  if [[ $EUID -eq 0 ]]; then
+    warn "Запуск от root — sudo не нужен, продолжаем."
+  fi
+
+  if [[ -f "$daemon_json" ]] && ! command -v jq &>/dev/null; then
+    warn "  jq не найден. Добавьте вручную в $daemon_json:"
+    warn "    \"insecure-registries\": [\"$insecure_reg\"]"
+    return
+  fi
+
+  warn "Настройка Docker daemon для insecure registry (нужен sudo)..."
+  if [[ -f "$daemon_json" ]]; then
+    # `unique` only works on arrays — normalize a scalar entry first
+    sudo jq --arg reg "$insecure_reg" \
+      '."insecure-registries" = (((."insecure-registries" // []) | (if type == "array" then . else [.] end)) + [$reg] | unique)' \
+      "$daemon_json" | sudo tee "${daemon_json}.tmp" >/dev/null \
+      && sudo mv "${daemon_json}.tmp" "$daemon_json"
+  else
+    echo "{\"insecure-registries\": [\"${insecure_reg}\"]}" | sudo tee "$daemon_json" >/dev/null
+  fi
+
+  warn "Перезапуск Docker daemon..."
+  sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || true
+  info "Docker insecure registry настроен."
+}
+
+# ---------------------------------------------------------------------------
 # /etc/hosts: idempotent add of ingress hostnames
 # ---------------------------------------------------------------------------
 add_hosts_entry() {
@@ -120,6 +161,7 @@ main() {
 
   check_dependencies
   add_hosts_entry
+  configure_docker_insecure
   create_kind_cluster
   print_instructions
 }

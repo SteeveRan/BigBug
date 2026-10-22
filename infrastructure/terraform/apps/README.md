@@ -1,10 +1,11 @@
 # apps — app-инстансы в kind-кластере bigbug-dev
 
 App-слой [ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md):
-инстансы приложений в собственных namespace. Сейчас — только стек Keycloak
-(issue #57). Платформа (ingress, операторы) — в `../base`; конфигурация
-сервисов через их API (realm, clients) — в `../..` (config root, ADR-0013).
-Ns `bigbug` приложения (backend/frontend/секреты) — не здесь, это app chart (I6).
+инстансы приложений в собственных namespace. Сейчас — стек Keycloak (issue #57)
+и Harbor (issue #58). Платформа (ingress, операторы) — в `../base`; конфигурация
+сервисов через их API (realm, clients, Harbor projects/robots) — в `../..`
+(config root, ADR-0013). Ns `bigbug` приложения (backend/frontend/секреты) —
+не здесь, это app chart (I6).
 
 ## Состав
 
@@ -26,6 +27,23 @@ Chart `codecentric/keycloakx` 7.4.0 (Keycloak 26.8.1, pinned). БД — CNPG
 ```bash
 curl -fsS http://keycloak.local/realms/master   # → 200
 ```
+
+### Harbor (ns `harbor`, issue #58)
+
+Chart `goharbor/harbor` 1.19.4 (Harbor 2.15.4, pinned), values в
+`values/harbor.yaml`. Endpoint: `http://harbor.local` (Ingress из chart,
+haproxy, :80, без TLS; ssl-redirect аннотации отключены явно). Trivy и notary
+выключены, chartmuseum в chart 1.19.x отсутствует (удалён upstream).
+Registry-endpoint для docker — `harbor.local:80` (порт обязателен без TLS,
+см. goharbor/harbor#5291); insecure-registry на хосте настраивает
+`../../kind/bootstrap.sh`. Health:
+
+```bash
+curl -fsS http://harbor.local/api/v2.0/systeminfo   # → 200
+```
+
+Push/pull-проверка: `../../kind/test-push.sh`. После apps — config root
+(`cd .. && tofu apply`): projects/robots/webhooks против `http://harbor.local`.
 
 ## Применение (порядок обязателен)
 

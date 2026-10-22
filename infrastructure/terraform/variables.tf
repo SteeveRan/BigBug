@@ -75,19 +75,19 @@ variable "harbor_client_secret" {
 variable "harbor_redirect_uris" {
   description = "Valid redirect URIs for Harbor OIDC client"
   type        = list(string)
-  default     = ["https://harbor.local:30443/c/oidc/callback", "https://harbor.local:30443/*"]
+  default     = ["http://harbor.local/c/oidc/callback", "http://harbor.local/*"]
 }
 
 variable "harbor_post_logout_redirect_uris" {
   description = "Post-logout redirect URIs for Harbor OIDC client"
   type        = list(string)
-  default     = ["https://harbor.local:30443/c/oidc/logout", "https://harbor.local:30443/"]
+  default     = ["http://harbor.local/c/oidc/logout", "http://harbor.local/"]
 }
 
 variable "harbor_root_url" {
   description = "Root URL for Harbor OIDC client"
   type        = string
-  default     = "https://harbor.local:30443"
+  default     = "http://harbor.local"
 }
 
 variable "test_user_username" {
@@ -114,9 +114,9 @@ variable "test_user_email" {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 variable "harbor_url" {
-  description = "Harbor instance URL"
+  description = "Harbor instance URL (harbor chart in bigbug-dev behind ingress, http://harbor.local — issue #58)"
   type        = string
-  default     = "https://harbor.local"
+  default     = "http://harbor.local"
 }
 
 variable "harbor_username" {
