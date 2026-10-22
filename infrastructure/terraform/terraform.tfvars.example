@@ -87,5 +87,5 @@ backend_user_email    = "bigbug-backend@localhost.localdomain"
 # backend_user_password — leave null to auto-generate via init.sh
 # backend_user_password = null
 
-backend_token_name   = "bigbug-backend-token"
-backend_token_scopes = ["api", "read_repository", "write_repository"]
+# Backend PAT is NOT created by tofu — GitLab creds for the app are configured
+# in the app UI (resource_providers) at app deploy time (ADR-0024, #56).

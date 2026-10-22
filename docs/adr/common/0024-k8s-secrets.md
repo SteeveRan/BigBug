@@ -36,15 +36,21 @@ Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены �
 
 **1. Какие Secret'ы создаёт tofu** (namespace `bigbug`, **apps-слой** — уточнение
 из #56: apps применяются после base и config-root, поэтому в момент их apply
-существуют и CNPG-кластер, и `gitlab_backend_token`; base не создаёт секретов —
-он one-shot бутстрап без внешних значений):
+существует CNPG-кластер; base не создаёт секретов — он one-shot бутстрап без
+внешних значений):
 
 | Secret | Содержимое | Потребители |
 |---|---|---|
 | `bigbug-db-credentials` | `DATABASE_URL` + `username`/`password`/`database`/`host`/`port` — проекция секрета `bigbug-dev-app`, генерируемого CNPG-оператором (не ручная копия) | backend (DATABASE_URL), hook Job миграций |
 | `bigbug-keycloak-oidc` | `client_id`, `client_secret` (генерируются модулем keycloak) | backend |
 | `bigbug-fernet-key` | `ENCRYPTION_KEY` (Fernet: 32 байта, urlsafe base64; генерация детерминирована state'ом — no drift на повторных apply) | backend |
-| `bigbug-gitlab-token` | `GITLAB_TOKEN` (= `gitlab_backend_token` из config-root, **не** admin/root PAT из tfvars) | backend |
+
+**Рабочие креды приложения (GitLab PAT и др.) tofu не создаёт и в секреты не
+кладёт** — они заводятся при деплое/конфигурации приложения как providers
+(`resource_providers`, шифрование Fernet — [ADR-0010](../backend/0010-fernet-secrets-encryption.md),
+реестр — [ADR-0007](0007-providers-v3-registry.md)). Деплой приложения — вне
+скоупа инфра-инита; так уходит и боль ADR-0013 с 90-дневным PAT и
+`ignore_changes`.
 
 Граница: `app/core/secrets.py` (шифрование stored credentials) **не меняется** — `ENCRYPTION_KEY` просто доставляется из k8s Secret вместо `.env`.
 
@@ -74,7 +80,7 @@ Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены �
 ```bash
 make infra-clean && make infra-init
 kubectl get secrets -n bigbug --context kind-bigbug-dev
-# ожидается: bigbug-db-credentials, bigbug-keycloak-oidc, bigbug-fernet-key, bigbug-gitlab-token
+# ожидается: bigbug-db-credentials, bigbug-keycloak-oidc, bigbug-fernet-key
 ```
 
 2. E2E-политика: `grep -rE 'password' backend/tests/e2e/` показывает только ссылки на seeded-учётки (константы из seed-скрипта/фикстур), никаких личных или admin-паролей стенда. Прогон `make test-e2e-backend` начинается с вызова seed-скрипта (видно в логе).

@@ -164,19 +164,3 @@ output "gitlab_backend_user_username" {
   description = "Backend service account username"
   value       = module.gitlab.backend_user_username
 }
-
-output "gitlab_backend_token" {
-  description = "Backend personal access token (store securely)"
-  value       = module.gitlab.backend_token
-  sensitive   = true
-}
-
-output "gitlab_backend_token_name" {
-  description = "Backend PAT name"
-  value       = module.gitlab.backend_token_name
-}
-
-output "gitlab_backend_token_expires_at" {
-  description = "Backend PAT expiration date"
-  value       = module.gitlab.backend_token_expires_at
-}

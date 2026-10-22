@@ -311,15 +311,3 @@ variable "backend_user_password" {
   sensitive   = true
   default     = null
 }
-
-variable "backend_token_name" {
-  description = "Name for the backend PAT"
-  type        = string
-  default     = "bigbug-backend-token"
-}
-
-variable "backend_token_scopes" {
-  description = "Scopes for the backend PAT"
-  type        = list(string)
-  default     = ["api", "read_repository", "write_repository"]
-}

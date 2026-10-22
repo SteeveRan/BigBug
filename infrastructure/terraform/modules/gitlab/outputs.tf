@@ -22,19 +22,3 @@ output "backend_user_username" {
   description = "Backend service account username"
   value       = gitlab_user.backend.username
 }
-
-output "backend_token" {
-  description = "Backend personal access token (store securely)"
-  value       = gitlab_personal_access_token.backend_integration.token
-  sensitive   = true
-}
-
-output "backend_token_name" {
-  description = "Backend PAT name"
-  value       = gitlab_personal_access_token.backend_integration.name
-}
-
-output "backend_token_expires_at" {
-  description = "Backend PAT expiration date"
-  value       = gitlab_personal_access_token.backend_integration.expires_at
-}
