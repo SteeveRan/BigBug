@@ -8,6 +8,15 @@ haproxy-ingress, CNPG operator + Postgres-кластер, Valkey. App-инста
 
 Требуется кластер из `../../kind/bootstrap.sh` (контекст `kind-bigbug-dev`).
 
+### GitLab PAT для секрета `bigbug-gitlab-token` (I3)
+
+Base применяется **одной командой при бутстрапе кластера** — раньше GitLab и его
+PAT, поэтому `bigbug-gitlab-token` здесь **не создаётся** (правило: base не
+принимает внешние значения). Секрет создаёт более поздний слой (apps/config,
+issue I6/I8), когда config-root уже сгенерировал `gitlab_backend_token`.
+
+### Первый apply
+
 **Первый apply на свежем кластере — двухшаговый**: CRD `postgresql.cnpg.io`
 создаются helm-релизом оператора, а `kubernetes_manifest` проверяет их наличие
 на этапе plan:

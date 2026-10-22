@@ -22,3 +22,21 @@ output "valkey_service" {
   description = "Valkey Service (no auth, dev)"
   value       = "valkey.bigbug.svc:6379"
 }
+
+output "k8s_secrets" {
+  description = "Secret names/keys created by the k8s-secrets module (helm chart contract, I6)"
+  value       = module.k8s_secrets.secret_names
+  sensitive   = true
+}
+
+output "fernet_key" {
+  description = "Fernet ENCRYPTION_KEY (host tools, sensitive)"
+  value       = module.k8s_secrets.fernet_key
+  sensitive   = true
+}
+
+output "database_url" {
+  description = "Application DATABASE_URL (host tools, sensitive)"
+  value       = module.k8s_secrets.database_url
+  sensitive   = true
+}

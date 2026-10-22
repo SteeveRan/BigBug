@@ -21,6 +21,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -96,8 +100,8 @@ resource "kubernetes_manifest" "cnpg_cluster" {
       }
       resources = {
         requests = {
-          cpu     = "100m"
-          memory  = "256Mi"
+          cpu    = "100m"
+          memory = "256Mi"
         }
         limits = {
           memory = "512Mi"
@@ -167,10 +171,25 @@ resource "kubernetes_service_v1" "valkey" {
       app = "valkey"
     }
     port {
-      port       = 6379
+      port        = 6379
       target_port = 6379
     }
   }
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# App secrets in k8s (ADR-0024, issue #56). Depends on the CNPG cluster (the
+# operator's <cluster>-app secret is the credentials source) and the namespace.
+# gitlab_token is passed through from tfvars (empty = secret not created).
+# ──────────────────────────────────────────────────────────────────────────────
+module "k8s_secrets" {
+  source = "../modules/k8s-secrets"
+
+  depends_on = [kubernetes_manifest.cnpg_cluster]
+
+  # Literal: must match the Cluster spec above (manifest attr is unavailable
+  # at refresh time — see kubernetes_manifest plan-time limitations).
+  cnpg_app_secret_name = "bigbug-dev"
 }
 # ──────────────────────────────────────────────────────────────────────────────
 # haproxy-ingress — cluster ingress controller (ingressClass default)

@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 #
 # @file update-env.sh
-# @description Updates the .env file with outputs from the root OpenTofu module.
-#              Reads all infrastructure outputs from infrastructure/terraform/
-#              and writes them to the project .env.
+# @description Updates the .env file with host-tool variables only.
+#
+# Since issue #56 (ADR-0024) all application secrets (DB credentials,
+# ENCRYPTION_KEY, GitLab PAT) are delivered into the cluster as k8s Secrets
+# by the OpenTofu base layer — NOT via .env. This script keeps only the
+# variables needed by tools running on the host, outside the cluster:
+#   - BIGBUG_E2E_BASE_URL — e2e tests hit the ingress (http://api.local)
+#   - GITLAB_TOKEN        — tofu/CLI access to GitLab from the host
 #
 # Usage:
 #   ./infrastructure/update-env.sh
@@ -61,47 +66,31 @@ update_env_var() {
     fi
 }
 
-log "### Updating .env from OpenTofu outputs ###"
+log "### Updating .env with host-tool variables ###"
+
+# App DB / Fernet / Keycloak secrets are now k8s Secrets managed by OpenTofu
+# (base layer, ADR-0024) — this script must not write them into .env.
+
+# e2e tests run on the host and reach the backend through the ingress host
+update_env_var "BIGBUG_E2E_BASE_URL" "http://api.local"
 
 # ─────────────────────────────────────────────────────────────
-# Read all outputs from the root terraform module
+# GitLab PAT for host CLI tools (from the config root module outputs)
 # ─────────────────────────────────────────────────────────────
-if [[ ! -f "${TF_DIR}/terraform.tfstate" ]]; then
-    log_warn "  Root terraform state not found at ${TF_DIR}/terraform.tfstate"
-    log_warn "  Run 'cd ${TF_DIR} && ${TF_CMD} apply' first."
-    exit 0
-fi
+if [[ -f "${TF_DIR}/terraform.tfstate" ]]; then
+    cd "${TF_DIR}"
 
-cd "${TF_DIR}"
+    log "  Reading GitLab outputs..."
+    GL_TOKEN="$("${TF_CMD}" output -raw gitlab_backend_token 2>/dev/null || echo "")"
 
-log "  Reading Keycloak outputs..."
-
-KC_REALM="$("${TF_CMD}" output -raw keycloak_realm_name 2>/dev/null || echo "")"
-KC_BACKEND_ID="$("${TF_CMD}" output -raw keycloak_backend_client_id 2>/dev/null || echo "")"
-KC_BACKEND_SECRET="$("${TF_CMD}" output -raw keycloak_backend_client_secret 2>/dev/null || echo "")"
-KC_FRONTEND_ID="$("${TF_CMD}" output -raw keycloak_frontend_client_id 2>/dev/null || echo "")"
-
-if [[ -n "${KC_REALM}" ]]; then
-    update_env_var "KEYCLOAK_REALM" "${KC_REALM}"
-fi
-if [[ -n "${KC_BACKEND_ID}" ]]; then
-    update_env_var "KEYCLOAK_CLIENT_ID" "${KC_BACKEND_ID}"
-fi
-if [[ -n "${KC_BACKEND_SECRET}" ]]; then
-    update_env_var "KEYCLOAK_CLIENT_SECRET" "${KC_BACKEND_SECRET}"
-fi
-if [[ -n "${KC_FRONTEND_ID}" ]]; then
-    update_env_var "KEYCLOAK_CLIENT_ID_FRONTEND" "${KC_FRONTEND_ID}"
-fi
-
-log "  Reading GitLab outputs..."
-
-GL_TOKEN="$("${TF_CMD}" output -raw gitlab_backend_token 2>/dev/null || echo "")"
-
-if [[ -n "${GL_TOKEN}" ]]; then
-    update_env_var "GITLAB_TOKEN" "${GL_TOKEN}"
+    if [[ -n "${GL_TOKEN}" ]]; then
+        update_env_var "GITLAB_TOKEN" "${GL_TOKEN}"
+    else
+        log_warn "  Could not extract GITLAB_TOKEN from terraform outputs (GitLab module may not have been applied)."
+    fi
 else
-    log_warn "  Could not extract GITLAB_TOKEN from terraform outputs (GitLab module may not have been applied)."
+    log_warn "  Root terraform state not found at ${TF_DIR}/terraform.tfstate"
+    log_warn "  Run 'cd ${TF_DIR} && ${TF_CMD} apply' first — skipping GITLAB_TOKEN."
 fi
 
 log "### .env update complete ###"
