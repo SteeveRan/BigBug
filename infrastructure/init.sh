@@ -300,9 +300,8 @@ fi
 log "  OpenTofu applied successfully."
 
 # ─────────────────────────────────────────────────────────────
-# 9. Update application .env with OpenTofu outputs
+# 9. Update host-tool .env vars (e2e base URL, GitLab PAT)
 # ─────────────────────────────────────────────────────────────
-log "### Updating .env from OpenTofu outputs ###"
 "${SCRIPT_DIR}/update-env.sh"
 
 # ─────────────────────────────────────────────────────────────

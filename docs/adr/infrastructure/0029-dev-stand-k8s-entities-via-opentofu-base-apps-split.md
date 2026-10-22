@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-[ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, Valkey/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
+[ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
 
 При этом ADR-0013 зафиксировал non-goal «управление ресурсами внутри kind-кластера через tofu». Этот non-goal теперь мешает: in-cluster сущностей становится много (ingress, операторы, сервисы, app), и императивные скрипты для них не масштабируются. Требуется пересмотреть границу.
 
@@ -23,7 +23,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 | Root | State | Содержимое | Куда переезжает |
 |---|---|---|---|
-| `infrastructure/terraform/base/` | свой (`terraform.tfstate` в каталоге модуля) | всё in-cluster: haproxy-ingress (helm release, ingressClass default), операторы и их CRD/зависимости (CNPG, Valkey — следующие issues) | на preprod **как есть** |
+| `infrastructure/terraform/base/` | свой (`terraform.tfstate` в каталоге модуля) | платформа in-cluster: haproxy-ingress (helm release, ingressClass default), **только операторы** и их CRD (CNPG, redis-operator). Инстансов и секретов приложений в base нет: base применяется одной командой при бутстрапе и не принимает внешних значений | на preprod **как есть** |
 | `infrastructure/terraform/apps/` | свой | app-сущности: Harbor chart, keycloakx, helm chart приложения (следующие issues) | на preprod с переменными под окружение |
 | `infrastructure/terraform/` (существующий) | свой (не трогаем) | конфигурация **сервисов** через API: Keycloak realm/clients, Harbor projects/robots, GitLab group/PAT | на preprod с переменными под окружение |
 
@@ -36,7 +36,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 ### Scope этого решения
 
 - haproxy-ingress переезжает из `bootstrap.sh` в `base` немедленно (issue #54 дорабатывается).
-- CNPG, Valkey, keycloakx, Harbor-chart, app-chart добавляются в соответствующие root'ы отдельными issues — структура под них готова.
+- CNPG/redis-operator, Postgres Cluster CR, Redis CR, keycloakx, Harbor-chart, app-chart, k8s-секреты приложения добавляются в соответствующие root'ы отдельными issues — структура под них готова. Уточнение границы из #56: **base = операторы + платформенные сервисы; инстансы (Cluster CR, Redis CR, keycloakx, Harbor, app-chart) и k8s-секреты приложения ([ADR-0024](../common/0024-k8s-secrets.md)) — apps**.
 - Провайдеры: `helm` (hashicorp/helm) и `kubernetes` (hashicorp/kubernetes) в `base`/`apps`; аутентификация — через kubeconfig контекста `kind-bigbug-dev` (для preprod — kubeconfig кластера в переменной).
 
 ### Non-goals

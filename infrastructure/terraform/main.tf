@@ -43,14 +43,14 @@ module "keycloak" {
   backend_client_id     = var.backend_client_id
   backend_client_secret = var.backend_client_secret
 
-  frontend_client_id    = var.frontend_client_id
+  frontend_client_id     = var.frontend_client_id
   frontend_redirect_uris = var.frontend_redirect_uris
 
-  harbor_client_id               = var.harbor_client_id
-  harbor_client_secret           = var.harbor_client_secret
-  harbor_redirect_uris           = var.harbor_redirect_uris
+  harbor_client_id                 = var.harbor_client_id
+  harbor_client_secret             = var.harbor_client_secret
+  harbor_redirect_uris             = var.harbor_redirect_uris
   harbor_post_logout_redirect_uris = var.harbor_post_logout_redirect_uris
-  harbor_root_url                = var.harbor_root_url
+  harbor_root_url                  = var.harbor_root_url
 
   test_user_username = var.test_user_username
   test_user_password = var.test_user_password
@@ -115,7 +115,4 @@ module "gitlab" {
   backend_user_username = var.backend_user_username
   backend_user_email    = var.backend_user_email
   backend_user_password = var.backend_user_password
-
-  backend_token_name   = var.backend_token_name
-  backend_token_scopes = var.backend_token_scopes
 }

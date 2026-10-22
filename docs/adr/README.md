@@ -65,9 +65,9 @@
 | ADR | Статус | Название | Дата |
 |---|---|---|---|
 | [ADR-0013](infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) | proposed | Infrastructure as Code: OpenTofu (root + модули keycloak/harbor/gitlab) для provisioning Keycloak, GitLab, Harbor-конфигурации; Harbor runtime — в kind; init flow `init.sh` → compose → harbor → tofu → update-env | 2026-10-21 |
-| [ADR-0022](infrastructure/0022-dev-stand-on-kind.md) | proposed | Dev-стенд на kind: единый кластер `bigbug-dev`, haproxy-ingress, CNPG + Valkey (single-instance), keycloakx; GitLab omnibus остаётся в compose (исключение) | 2026-10-22 |
-| [ADR-0023](infrastructure/0023-bigbug-helm-chart.md) | proposed | Helm chart приложения BigBug: backend + frontend, external postgres/redis (CNPG/Valkey), hot-reload через extraMounts, миграции — helm hook Job | 2026-10-22 |
-| [ADR-0029](infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) | proposed | In-cluster сущности через OpenTofu: root'ы `terraform/base` (платформа: ingress, операторы — на preprod как есть) и `terraform/apps` (инстансы сервисов); кластер и hosts — императивно; 3 изолированных state'а, оркестрация init.sh | 2026-10-22 |
+| [ADR-0022](infrastructure/0022-dev-stand-on-kind.md) | proposed | Dev-стенд на kind: единый кластер `bigbug-dev`, haproxy-ingress, операторы CNPG + redis-operator (инстансы — в apps-слое), keycloakx; GitLab omnibus остаётся в compose (исключение) | 2026-10-22 |
+| [ADR-0023](infrastructure/0023-bigbug-helm-chart.md) | proposed | Helm chart приложения BigBug: backend + frontend, external postgres/redis (CNPG/redis-operator), hot-reload через extraMounts, миграции — helm hook Job | 2026-10-22 |
+| [ADR-0029](infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) | proposed | In-cluster сущности через OpenTofu: root'ы `terraform/base` (платформа: ingress + только операторы CNPG/redis-operator, one-shot без внешних значений — на preprod как есть) и `terraform/apps` (инстансы сервисов + k8s-секреты приложения); кластер и hosts — императивно; 3 изолированных state'а, оркестрация init.sh | 2026-10-22 |
 
 ## Правила для агентов
 

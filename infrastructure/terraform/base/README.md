@@ -1,64 +1,63 @@
 # base — платформа kind-кластера bigbug-dev
 
-In-cluster сущности платформенного слоя ([ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)):
-haproxy-ingress, CNPG operator + Postgres-кластер, Valkey. App-инстансы
-(Harbor, keycloakx, chart приложения) — в root-модуле `../apps`.
+In-cluster сущности **платформенного слоя** ([ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)):
+haproxy-ingress, операторы CNPG и redis-operator (CRD). App-инстансы (Postgres
+Cluster, Redis CR, Harbor, keycloakx, chart приложения, k8s-секреты
+приложения, ns `bigbug`) — в root-модуле `../apps`, их деплой — отдельные
+issues (I4/I6/I8).
+
+**Граница**: base деплоит только операторов и платформенные сервисы — никаких
+инстансов приложений и их секретов. Применяется одной командой при бутстрапе
+кластера и не принимает внешних значений.
 
 ## Применение
 
 Требуется кластер из `../../kind/bootstrap.sh` (контекст `kind-bigbug-dev`).
 
-**Первый apply на свежем кластере — двухшаговый**: CRD `postgresql.cnpg.io`
-создаются helm-релизом оператора, а `kubernetes_manifest` проверяет их наличие
-на этапе plan:
-
 ```bash
 tofu init
-tofu apply -target=helm_release.cloudnative_pg   # оператор + CRD
-tofu apply                                       # Cluster CR, Valkey, ...
+tofu apply
 ```
 
-Все последующие apply — обычный `tofu apply`, идемпотентны.
+Идемпотентно; CRD оператора ставятся helm-релизом, поэтому двухшаговый
+первый apply (как раньше с `kubernetes_manifest`) больше не нужен.
 
-Wait-for-ready (входит в init-цепочку I8): применяется только после того, как
-под Postgres готов:
+Wait-for-ready (входит в init-цепочку I8):
 
 ```bash
-kubectl wait --context kind-bigbug-dev --for=condition=Ready cluster/bigbug-dev -n bigbug --timeout=300s
+kubectl wait --context kind-bigbug-dev --for=condition=Ready deployment/redis-operator -n redis-operator --timeout=120s
 ```
 
-## Подключение потребителей (I3 / I4 / I6)
+## Состав
 
-### PostgreSQL (CNPG Cluster `bigbug-dev`, ns `bigbug`)
+### haproxy-ingress (ns `haproxy-ingress`)
 
-Две базы: `bigbug` (приложение) и `keycloak` (Keycloak, I4). Обе принадлежат
-юзеру `app` — один набор кредов.
+IngressClass default; host :80/:443 → nodePort 30080/30443 (kind
+extraPortMappings в `../kind/kind-config.yaml`).
 
-Секреты оператора в ns `bigbug`:
+### redis-operator (ns `redis-operator`)
 
-| Секрет | Назначение |
-|---|---|
-| `bigbug-dev-app` | креды юзера `app`. Ключи: `user`, `password`, `host`, `port`, `dbname`, `uri`, `jdbc-uri`, `fqdn-uri`, `fqdn-jdbc-uri`, `pgpass` |
-| `bigbug-dev-superuser` | юзер `postgres` (создаётся при `enableSuperuserAccess`, dev: по требованию) |
-| `bigbug-dev-ca`, `bigbug-dev-server`, `bigbug-dev-replication` | TLS/репликация (только для отладки) |
+Оператор [ot-container-kit/redis-operator](https://github.com/ot-container-kit/redis-operator)
+(CRD `redis.redis.redis.opstreelabs.in` и др.). Bare-Valkey Deployment из
+ранних итераций (#55) удалён: инстанс кэша — это Redis CR в app-слое (I6),
+base деплоит только оператора.
 
-Read-write endpoint: `bigbug-dev-rw.bigbug.svc:5432` (также `bigbug-dev-ro`,
-`bigbug-dev-r`). Пример из секрета:
+### CNPG operator (ns `cnpg-system`)
 
-```
-postgresql://app:<password>@bigbug-dev-rw.bigbug:5432/bigbug
-```
+Только оператор + CRD `postgresql.cnpg.io`. Postgres **Cluster CR здесь не
+создаётся** — это app-слой (I6): кластер БД — инстанс приложения, а не
+платформа. После base оператор готов принимать Cluster CR из apps.
 
-Для БД `keycloak` тот же user/password, `dbname=keycloak`.
+## App-сущности (вне base, для контекста)
 
-### Valkey (ns `bigbug`, single-node, без operator — [ADR-0022](../../../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
-
-Endpoint: `valkey.bigbug.svc:6379`, без аутентификации, без PV (кэш,
-потеря данных при пересоздании пода допустима).
+- Postgres Cluster `bigbug-dev` (CNPG) — apps root, I6; оператор генерирует
+  секрет `<cluster>-app` с кредами.
+- Redis CR (кэш вместо bare-Valkey) — apps root, I6.
+- k8s-секреты приложения (`bigbug-db-credentials`, `bigbug-fernet-key`,
+  ADR-0024) — apps root (I6), зависят от Postgres-кластера, не от base.
 
 ## Teardown
 
-`../../kind/teardown.sh` удаляет кластер вместе со всеми данными Postgres и
-Valkey — для dev-стенда потеря данных допустима. State tofu (`terraform.tfstate`)
-остаётся локально; после пересоздания кластера применяйте base заново
-(см. двухшаговый первый apply выше).
+`../../kind/teardown.sh` удаляет кластер вместе со всеми данными —
+для dev-стенда потеря данных допустима. State tofu (`terraform.tfstate`)
+остаётся локально; после пересоздания кластера применяйте base заново.

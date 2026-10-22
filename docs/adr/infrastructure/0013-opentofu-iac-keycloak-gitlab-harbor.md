@@ -39,7 +39,7 @@ Chosen option: **OpenTofu** — декларативный IaC с открыто
 |---|---|---|
 | `modules/keycloak` | realm `bigbug` (token lifespans, `ssl_required=external`), 3 OIDC clients (`bigbug-backend`, `bigbug-frontend`, `harbor`), роли `admin`/`operator`/`viewer`, тестовый пользователь с привязкой ролей | `mrparkers/keycloak ~> 4.0` |
 | `modules/harbor` | OIDC auth-mode (client secret из Keycloak), 3 projects (`gold_images`, `app_images`, `mirrors`) с quotas, robot accounts, registries (Docker Hub, Quay), pull-replication policies, webhooks на backend | `goharbor/harbor ~> 3.12` |
-| `modules/gitlab` | group `mirrors`, service-account user `backend`, group membership, PAT (scopes `api`, `read_repository`, `write_repository`; `expires_at = now + 90d`, `lifecycle.ignore_changes` на `expires_at`) | `gitlabhq/gitlab ~> 17.0` |
+| `modules/gitlab` | group `mirrors`, service-account user `backend`, group membership ~~+ PAT~~ (PAT-генерация убрана #56 — рабочие креды приложения заводятся при деплое приложения, [ADR-0024](../common/0024-k8s-secrets.md)) | `gitlabhq/gitlab ~> 17.0` |
 
 Важная граница: **Harbor как runtime не управляется OpenTofu** — он разворачивается в kind-кластере (Helm, [`infrastructure/harbor/deploy.sh`](../../../infrastructure/harbor/deploy.sh), optional, пропускается если `kind` не установлен). OpenTofu управляет только **конфигурацией** Harbor через API (auth, projects, robots, replication). Аналогично provisioning GitLab CI/CD components и пайплайнов — задача самого приложения через GitLab API (пресеты в [`backend/app/services/gitlab_projects/presets.py`](../../../backend/app/services/gitlab_projects/presets.py)), не IaC: tofu отвечает только за **базовую настройку**.
 
@@ -65,7 +65,7 @@ State: **local** (`terraform.tfstate` в `infrastructure/terraform/`, в `.gitig
 * Good, because MPL 2.0 — никаких лицензионных рисков BUSL; провайдеры Terraform работают без изменений
 * Good, because `tofu plan` даёт dry-run и diff для любых изменений инфраструктуры
 * Bad, because local state без locking: параллельные запуски `apply` могут конфликтовать; потеря state = drift (лечится `infra-clean-tofu` + повторный apply — окружение dev и так пересоздаётся)
-* Bad, because GitLab PAT живёт 90 дней (`ignore_changes` маскирует проблему от tofu) — по истечении нужен re-bootstrap через `init.sh` (шаг 6); осознанная цена dev-окружения
+* ~~Bad, because GitLab PAT живёт 90 дней (`ignore_changes` маскирует проблему от tofu) — по истечении нужен re-bootstrap через `init.sh` (шаг 6); осознанная цена dev-окружения~~ (снято #56/[ADR-0024](../common/0024-k8s-secrets.md): tofu больше не генерирует backend PAT; root-PAT bootstrap в init.sh остаётся только для аутентификации самого tofu)
 * Bad, because история инфраструктуры размазана на три инструмента: compose (контейнеры, ADR-0012), kind+Helm (Harbor runtime), tofu (конфигурация) — новый агент должен понимать, что где живёт
 * Neutral, because `terraform.tfvars` (с токенами) gitignored, в репозитории только `.example`
 * Non-goals: production deployment (K8s и т.п.); remote state backend в dev; provisioning CI/CD компонентов и пайплайнов через IaC; управление ресурсами внутри kind-кластера через tofu

@@ -1,0 +1,2 @@
+# cloudnative-pg operator chart values (ns cnpg-system).
+# Only overrides from chart defaults; version pinned in cnpg.tf (Renovate bumps).
