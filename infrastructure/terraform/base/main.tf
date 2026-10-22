@@ -13,8 +13,8 @@
  *   cnpg.tf    — CNPG operator (CRDs; Cluster CR is app-layer, I6)
  *   redis.tf   — redis-operator (CRDs; Redis CR is app-layer, I6)
  *
- * App k8s Secrets (module k8s-secrets, ADR-0024) are wired by the apps root —
- * they depend on the app's Postgres cluster, not on base.
+ * Base creates NO namespaces of its own beyond what its charts need
+ * (create_namespace): ns bigbug is the app domain — created by the apps root.
  */
 
 terraform {
@@ -41,9 +41,4 @@ provider "helm" {
     config_path    = var.kubeconfig_path
     config_context = var.kubeconfig_context
   }
-}
-
-# Shared namespace for all base workloads below.
-resource "kubernetes_namespace" "bigbug" {
-  metadata { name = "bigbug" }
 }
