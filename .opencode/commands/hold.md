@@ -1,6 +1,5 @@
 ---
 description: Freeze the agent — stop all actions, report state and reasoning, wait for explicit approval
-agent: build
 ---
 
 The user has signaled a deviation: something in your behavior feels wrong to them.
