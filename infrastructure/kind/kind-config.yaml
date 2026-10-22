@@ -1,0 +1,30 @@
+# kind cluster configuration for bigbug-dev dev-stand
+# Reference: https://kind.sigs.k8s.io/docs/user/configuration/
+# ADR-0022: single cluster for ingress + operators + app helm chart
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: bigbug-dev
+nodes:
+  - role: control-plane
+    # Resource budget for ~8-10 GB total (Harbor ~2, CNPG ~0.5, keycloakx ~1, app ~1.5, ingress ~0.2)
+    kubeadmConfigPatches:
+      - |
+        kind: KubeletConfiguration
+        systemReserved:
+          memory: 500Mi
+          cpu: 500m
+    extraPortMappings:
+      # Ingress controller NodePorts (host :80/:443 -> node 30080/30443); hostnames via /etc/hosts
+      - containerPort: 30080
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 30443
+        hostPort: 443
+        protocol: TCP
+    extraMounts:
+      # Hot-reload: app pods mount these hostPaths (Linux-only, per ADR-0022).
+      # Relative to repo root — bootstrap.sh runs kind from there.
+      - hostPath: ./backend
+        containerPath: /workspace/backend
+      - hostPath: ./frontend
+        containerPath: /workspace/frontend
