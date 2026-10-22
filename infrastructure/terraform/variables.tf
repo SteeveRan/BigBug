@@ -9,9 +9,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 variable "keycloak_url" {
-  description = "Keycloak server URL"
+  description = "Keycloak server URL (keycloakx in kind, http://keycloak.local — issue #57)"
   type        = string
-  default     = "http://localhost:8180"
+  default     = "http://keycloak.local"
 }
 
 variable "keycloak_admin_username" {
@@ -152,7 +152,7 @@ variable "harbor_oidc_provider_name" {
 variable "harbor_oidc_endpoint" {
   description = "OIDC provider endpoint URL"
   type        = string
-  default     = "http://localhost:8180/realms/bigbug"
+  default     = "http://keycloak.local/realms/bigbug"
 }
 
 variable "harbor_oidc_groups_claim" {

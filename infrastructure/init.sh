@@ -183,8 +183,8 @@ compose_up_if_needed "${INFRA_COMPOSE}" 4 "infrastructure" "--env-file ${INFRA_E
 # ─────────────────────────────────────────────────────────────
 log "### Waiting for service readiness ###"
 
-# Keycloak
-wait_for_service "Keycloak" "http://localhost:8180/realms/master" 180
+# Keycloak (keycloakx в kind, apps root) — endpoint keycloak.local
+wait_for_service "Keycloak" "http://keycloak.local/realms/master" 180
 
 # GitLab — takes a while to boot
 wait_for_service "GitLab" "http://localhost:8080/users/sign_in" 600
@@ -317,7 +317,7 @@ log "  ✅ Infrastructure initialization complete!"
 log "==========================================="
 log ""
 log "  Infrastructure services:"
-log "    Keycloak:  http://localhost:8180  (admin / admin)"
+log "    Keycloak:  http://keycloak.local  (admin / admin)"
 log "    GitLab:    http://localhost:8080  (root / ${GITLAB_ROOT_PW_DISPLAY})"
 if command -v kind &>/dev/null && kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
 log "    Harbor:    https://harbor.local:30443  (admin / Harbor12345)"

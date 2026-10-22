@@ -4,9 +4,9 @@
  */
 
 variable "keycloak_url" {
-  description = "Keycloak server URL (e.g. http://localhost:8180)"
+  description = "Keycloak server URL (e.g. http://keycloak.local)"
   type        = string
-  default     = "http://localhost:8180"
+  default     = "http://keycloak.local"
 }
 
 variable "keycloak_admin_username" {

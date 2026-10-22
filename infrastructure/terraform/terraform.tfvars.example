@@ -17,7 +17,7 @@
 # Keycloak
 # ═══════════════════════════════════════════════════════════════════════════════
 
-keycloak_url            = "http://localhost:8180"
+keycloak_url            = "http://keycloak.local"
 keycloak_admin_username = "admin"
 keycloak_admin_password = "admin"
 realm_name              = "bigbug"
@@ -48,7 +48,7 @@ harbor_password = "Harbor12345"
 
 harbor_auth_mode          = "oidc_auth"
 harbor_oidc_provider_name = "Keycloak"
-harbor_oidc_endpoint      = "http://localhost:8180/realms/bigbug"
+harbor_oidc_endpoint      = "http://keycloak.local/realms/bigbug"
 harbor_oidc_groups_claim  = "groups"
 harbor_oidc_scope         = "openid,profile,email,groups"
 harbor_oidc_verify_cert   = false
