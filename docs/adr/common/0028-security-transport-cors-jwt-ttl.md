@@ -47,9 +47,9 @@ Backend всегда HTTP; HTTPS обеспечивает reverse proxy (nginx/t
 
 Флаг `verify_ssl` на каждом `resource_provider` (default `True`), управляется через UI/API провайдеров. Все HTTP-клиенты провайдеров обязаны передавать `verify=provider.verify_ssl`. Отключать проверку — только для self-signed dev-стендов (правило в runbook).
 
-### 3. CORS — захардкоженные dev-origin'ы, env-настройка отложена
+### 3. CORS — env `CORS_ORIGINS` (триггер выноса сработал: kind-стенд)
 
-**Решение: оставить hardcode** `["http://localhost:5173", "http://localhost:3000"]` в `main.py` на текущем этапе; вынести в переменную `CORS_ORIGINS` при первом production-деплое с отдельным frontend-origin (триггер — см. Confirmation). Обоснование: во всех текущих схемах деплоя SPA отдаётся тем же reverse proxy, что и API (тот же origin — CORS не задействован), а dev-стенд всегда localhost. Env-переменная, нужная только одному гипотетическому деплою, — YAGNI.
+**Решение: вынести в env `CORS_ORIGINS`** (ConfigMap app chart'а, [ADR-0023](../infrastructure/0023-bigbug-helm-chart.md); не Secret — не чувствительно). Триггер из исходной редакции («первый деплой с отдельным frontend-origin») сработал: dev-стенд на kind ([ADR-0022](../infrastructure/0022-dev-stand-on-kind.md)) — SPA на `https://app.local`, API на `https://api.local`, origin'ы раздельны, CORS задействован. Дефолт в коде — прежние localhost'ы (`http://localhost:5173`, `http://localhost:3000`, compose-эра); values-dev стенда добавляет `https://app.local`.
 
 ### 4. JWT TTL / refresh — без server-side отзыва
 
@@ -75,11 +75,11 @@ Access 60 мин, refresh 7 дней (HS256, `SECRET_KEY`); `POST /api/auth/refr
 
 ## Pros and Cons of the Options
 
-### CORS: hardcode — chosen (на текущем этапе)
+### CORS: hardcode — отклонено (триггер выноса сработал, см. Decision Outcome §3)
 
-* Good, потому что нулевая конфигурация; в типовых деплоях (SPA за тем же proxy) CORS не задействован вовсе
-* Bad, потому что раздельные origin'ы требуют правки кода
-* Bad, потому что забытый hardcode — частый источник «на проде не работает» (mitigation: триггер выноса в Confirmation)
+* Good, было — нулевая конфигурация; в compose-схемах SPA за тем же proxy, CORS не задействован
+* Bad, стало — kind-стенд ([ADR-0022](../infrastructure/0022-dev-stand-on-kind.md)) разделил origin'ы (app.local ≠ api.local), hardcode перестал быть полным
+* Bad, потому что забытый hardcode — частый источник «на проде не работает»
 
 ### CORS: env-переменная `CORS_ORIGINS`
 
@@ -113,4 +113,5 @@ Access 60 мин, refresh 7 дней (HS256, `SECRET_KEY`); `POST /api/auth/refr
 * Связанные ADR: ADR-0003 (аутентификация, JWT, отклонение server-side сессий), ADR-0010 (шифрование секретов `ENCRYPTION_KEY`), ADR-0025 (верификация webhook'ов — отдельный механизм), ADR-0027 (rate limiting), ADR-0022/0023 (k8s-деплой: ingress, secrets), ADR-0024 (secrets в k8s).
 * Runbook деплоя: `docs/runbooks/deploy-security-checklist.md`.
 * Происхождение: threat-model таблица legacy `docs/architecture/10-security.md` (удалён в #49) использована как черновик, но переписана по фактам кода: claim «HMAC/token верификация webhook» был ложным (см. ADR-0025); разделы про CORS/rate limit/TTL выверены.
-* Триггеры пересмотра: первый деплой с раздельными frontend/backend origin'ами (вынести CORS в `CORS_ORIGINS`); требование регуляторики к отзыву токенов (blacklist новым ADR); появление сервис-меша (пересмотреть TLS-терминирование).
+* Триггеры пересмотра: требование регуляторики к отзыву токенов (blacklist новым ADR); появление сервис-меша (пересмотреть TLS-терминирование). Триггер CORS вынесен в env 2026-10-23 (kind-стенд, [ADR-0030](../infrastructure/0030-dev-stand-https-self-signed-certs.md)) — исполнен, см. §3.
+* HTTPS на dev-стенде (per-service self-signed серты, терминирование на haproxy-ingress): [ADR-0030](../infrastructure/0030-dev-stand-https-self-signed-certs.md) — конкретизация §1 для dev-стенда.

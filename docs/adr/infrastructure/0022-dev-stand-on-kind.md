@@ -55,7 +55,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 | Harbor | chart `harbor/harbor` | переезжает из кластера `harbor` внутрь `bigbug-dev`, за ingress, hostname `harbor.local` |
 | BigBug app | собственный helm chart (см. [ADR-0023](0023-bigbug-helm-chart.md)) | backend `api.local`, frontend `app.local` |
 
-**2. Адресация**: все хосты — через ingress на :80 + записи в `/etc/hosts` (`keycloak.local`, `harbor.local`, `app.local`, `api.local`); скрипт bootstrap добавляет записи сам (паттерн `harbor/deploy.sh`). GitLab не меняется: `gitlab.local:8080` (compose). Wildcard-DNS (dnsmasq, nip.io) отклонены: либо новая системная зависимость, либо внешняя.
+**2. Адресация**: все хосты — через ingress с **TLS-терминированием** ([ADR-0030](0030-dev-stand-https-self-signed-certs.md): `https://` для `keycloak.local`, `harbor.local`, `app.local`, `api.local`; самоподписанные per-service сертификаты, генерируемые `certs.sh` до бутстрапа) + записи в `/etc/hosts`. GitLab тоже HTTPS на своём nginx: `https://gitlab.local:8443` (серт из certs.sh; compose-исключение остаётся). Wildcard-DNS (dnsmasq, nip.io) отклонены: либо новая системная зависимость, либо внешняя.
 
 **3. Hot-reload**: kind `extraMounts` маппит `./backend` и `./frontend` хоста в kind-ноду; поды приложения монтируют их hostPath'ом; dev-образы остаются с `uvicorn --reload` / `yarn dev`. Изменения кода подхватываются без пересборки образов.
 
@@ -116,6 +116,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 ## More Information
 
 - [ADR-0023](0023-bigbug-helm-chart.md) — собственный helm chart приложения (backend+frontend), external postgres/redis
+- [ADR-0030](0030-dev-stand-https-self-signed-certs.md) — HTTPS на стенде: per-service self-signed сертификаты (certs.sh), терминирование на ingress, доверие хоста/подов
 - [ADR-0024](../common/0024-k8s-secrets.md) — secrets в k8s: tofu через kubernetes provider
 - [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — OpenTofu-слой остаётся; init flow адаптируется (kind вместо compose для Keycloak/Harbor)
 - Supersedes: [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — compose-разделение dev-стенда (compose остаётся только для GitLab)
