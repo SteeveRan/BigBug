@@ -148,3 +148,6 @@ override.tf.json
 # =============================================================================
 *.code-workspace
 roo_task_*.md
+
+# Dev-stand self-signed certs (ADR-0030) — переживают infra-clean
+infrastructure/kind/certs/

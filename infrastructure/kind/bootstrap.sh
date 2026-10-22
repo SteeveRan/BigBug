@@ -18,6 +18,7 @@ readonly HOSTS=(
   "harbor.local"
   "app.local"
   "api.local"
+  "gitlab.local"
 )
 
 # Цветной вывод
@@ -29,6 +30,20 @@ NC='\033[0m' # No Color
 info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
+# ---------------------------------------------------------------------------
+# Серты (ADR-0030 §3): до кластера — порядок certs → bootstrap обязателен
+# ---------------------------------------------------------------------------
+check_certs() {
+  for host in "${HOSTS[@]}"; do
+    if [[ ! -f "${SCRIPT_DIR}/certs/${host}/tls.crt" || ! -f "${SCRIPT_DIR}/certs/${host}/tls.key" ]]; then
+      error "Серты не найдены: ${SCRIPT_DIR}/certs/${host}/"
+      error "Запустите сначала: ${SCRIPT_DIR}/certs.sh"
+      exit 1
+    fi
+  done
+  info "Серты на месте (${#HOSTS[@]} хостов)."
+}
 
 # ---------------------------------------------------------------------------
 # Проверка зависимостей
@@ -160,6 +175,7 @@ main() {
   cd "${SCRIPT_DIR}/../.."
 
   check_dependencies
+  check_certs
   add_hosts_entry
   configure_docker_insecure
   create_kind_cluster
