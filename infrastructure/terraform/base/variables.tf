@@ -9,3 +9,9 @@ variable "kubeconfig_context" {
   type        = string
   default     = "kind-bigbug-dev"
 }
+
+variable "cnpg_storage_size" {
+  description = "CNPG cluster storage size (dev default)"
+  type        = string
+  default     = "5Gi"
+}
