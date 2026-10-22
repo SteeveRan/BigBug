@@ -1,0 +1,3 @@
+# redis-operator chart values (ns redis-operator).
+# Only overrides from chart defaults; version pinned in redis.tf (Renovate bumps).
+# The Redis cache CR itself is app-layer (apps root, I6) — not deployed here.

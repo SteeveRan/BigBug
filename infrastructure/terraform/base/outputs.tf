@@ -3,7 +3,7 @@ output "haproxy_ingress_status" {
   value       = helm_release.haproxy_ingress.status
 }
 
-output "valkey_service" {
-  description = "Valkey Service (no auth, dev)"
-  value       = "valkey.bigbug.svc:6379"
+output "redis_operator_status" {
+  description = "Deployed redis-operator release status"
+  value       = helm_release.redis_operator.status
 }

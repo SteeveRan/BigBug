@@ -11,7 +11,7 @@
  * Layout (one file per logical unit, for reviewability):
  *   ingress.tf — haproxy-ingress (cluster ingress controller)
  *   cnpg.tf    — CNPG operator (CRDs; Cluster CR is app-layer, I6)
- *   valkey.tf  — Valkey cache (deployment + service)
+ *   redis.tf   — redis-operator (CRDs; Redis CR is app-layer, I6)
  *
  * App k8s Secrets (module k8s-secrets, ADR-0024) are wired by the apps root —
  * they depend on the app's Postgres cluster, not on base.

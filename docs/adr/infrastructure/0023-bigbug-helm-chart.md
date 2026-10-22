@@ -15,7 +15,7 @@ decision-makers: SteeveRan
 ## Decision Drivers
 
 - Единый chart для dev и prod: различия — только в values, не в шаблонах
-- PostgreSQL и Redis в dev живут через операторы CNPG/Valkey ([ADR-0022](0022-dev-stand-on-kind.md)) — chart приложения не должен тащить собственные БД
+- PostgreSQL и Redis в dev живут через операторы CNPG/redis-operator ([ADR-0022](0022-dev-stand-on-kind.md)) — chart приложения не должен тащить собственные БД
 - Hot-reload в dev: правка кода должна попадать в под без пересборки образа
 - Порядок старта: БД должны быть готовы до старта backend; миграции Alembic применяются автоматически ([ADR-0006](../backend/0006-database-postgresql-alembic.md))
 - Драйвер минимализма (ADR-0001): без HA, без service mesh, без операторов внутри chart'а
@@ -69,7 +69,7 @@ Backend получает `DATABASE_URL`/`REDIS_URL` через env, собран
 ### Consequences
 
 * Good, because один chart обслуживает dev и prod — различия только в values-файлах
-* Good, because external-only БД совпадает с операторной схемой dev (CNPG/Valkey) и будущим prod — dual-mode STS-костыли не нужны
+* Good, because external-only БД совпадает с операторной схемой dev (CNPG/redis-operator) и будущим prod — dual-mode STS-костыли не нужны
 * Good, because helm hook Job заменяет auto-migration entrypoint'а декларативно и видно в `helm status`
 * Bad, because dev-режим завязан на Linux-хост (extraMounts + hostPath + file-watcher) — как и весь kind-стенд ([ADR-0022](0022-dev-stand-on-kind.md))
 * Bad, because front-end dev-под с Vite потребляет больше памяти, чем nginx-под prod — цена hot-reload
@@ -118,7 +118,7 @@ helm template bigbug charts/bigbug -f charts/bigbug/values-dev.yaml > /dev/null 
 
 ## More Information
 
-- [ADR-0022](0022-dev-stand-on-kind.md) — dev-стенд на kind: кластер, ingress, CNPG/Valkey, keycloakx, Harbor
+- [ADR-0022](0022-dev-stand-on-kind.md) — dev-стенд на kind: кластер, ingress, CNPG/redis-operator, keycloakx, Harbor
 - [ADR-0024](../common/0024-k8s-secrets.md) — откуда берутся Secret'ы (tofu kubernetes provider)
 - [ADR-0006](../backend/0006-database-postgresql-alembic.md) — политика миграций (hook Job сохраняет идемпотентность `alembic upgrade head`)
 - [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — entrypoint `app:start`/`app:init`, чья роль частично переходит в helm hook

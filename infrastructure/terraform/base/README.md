@@ -1,9 +1,10 @@
 # base — платформа kind-кластера bigbug-dev
 
 In-cluster сущности **платформенного слоя** ([ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)):
-haproxy-ingress, оператор CNPG (CRD), Valkey. App-инстансы (Postgres Cluster,
-Harbor, keycloakx, chart приложения, k8s-секреты приложения) — в root-модуле
-`../apps`, их деплой — отдельные issues (I4/I6/I8).
+haproxy-ingress, операторы CNPG и redis-operator (CRD). App-инстансы (Postgres
+Cluster, Redis CR, Harbor, keycloakx, chart приложения, k8s-секреты
+приложения) — в root-модуле `../apps`, их деплой — отдельные issues
+(I4/I6/I8).
 
 **Граница**: base деплоит только операторов и платформенные сервисы — никаких
 инстансов приложений и их секретов. Применяется одной командой при бутстрапе
@@ -24,7 +25,7 @@ tofu apply
 Wait-for-ready (входит в init-цепочку I8):
 
 ```bash
-kubectl wait --context kind-bigbug-dev --for=condition=Ready deployment/valkey -n bigbug --timeout=120s
+kubectl wait --context kind-bigbug-dev --for=condition=Ready deployment/redis-operator -n redis-operator --timeout=120s
 ```
 
 ## Состав
@@ -34,21 +35,24 @@ kubectl wait --context kind-bigbug-dev --for=condition=Ready deployment/valkey -
 IngressClass default; host :80/:443 → nodePort 30080/30443 (kind
 extraPortMappings в `../kind/kind-config.yaml`).
 
+### redis-operator (ns `redis-operator`)
+
+Оператор [ot-container-kit/redis-operator](https://github.com/ot-container-kit/redis-operator)
+(CRD `redis.redis.redis.opstreelabs.in` и др.). Bare-Valkey Deployment из
+ранних итераций (#55) удалён: инстанс кэша — это Redis CR в app-слое (I6),
+base деплоит только оператора.
+
 ### CNPG operator (ns `cnpg-system`)
 
 Только оператор + CRD `postgresql.cnpg.io`. Postgres **Cluster CR здесь не
 создаётся** — это app-слой (I6): кластер БД — инстанс приложения, а не
 платформа. После base оператор готов принимать Cluster CR из apps.
 
-### Valkey (ns `bigbug`, single-node, без operator — [ADR-0022](../../../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
-
-Endpoint: `valkey.bigbug.svc:6379`, без аутентификации, без PV (кэш,
-потеря данных при пересоздании пода допустима).
-
 ## App-сущности (вне base, для контекста)
 
 - Postgres Cluster `bigbug-dev` (CNPG) — apps root, I6; оператор генерирует
   секрет `<cluster>-app` с кредами.
+- Redis CR (кэш вместо bare-Valkey) — apps root, I6.
 - k8s-секреты приложения (`bigbug-db-credentials`, `bigbug-fernet-key`,
   ADR-0024) — apps root (I6), зависят от Postgres-кластера, не от base.
 

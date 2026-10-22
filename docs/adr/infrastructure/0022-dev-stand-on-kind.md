@@ -4,7 +4,7 @@ date: 2026-10-22
 decision-makers: SteeveRan
 ---
 
-# Dev-стенд на kind: единый кластер, haproxy-ingress, CNPG + Valkey, keycloakx
+# Dev-стенд на kind: единый кластер, haproxy-ingress, операторы CNPG/redis-operator, keycloakx
 
 ## Context and Problem Statement
 
@@ -49,8 +49,8 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 | Компонент | Способ установки | Замечания |
 |---|---|---|
 | haproxy-ingress | Helm chart `haproxytech/kubernetes-ingress` | публикуется через kind `extraPortMappings` host :80 → node :80 |
-| PostgreSQL | CloudNativePG (CNPG) operator, `Cluster` CR `instances: 1` | две database: `bigbug` (приложение) и `keycloak`; credentials — в Secret, создаваемом оператором |
-| Redis/Valkey | Valkey standalone (single-node) | без Redis-operator в dev; single-instance |
+| PostgreSQL | CloudNativePG (CNPG) operator | operator — в base-слое ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)); `Cluster` CR `instances: 1` — в apps-слое (кластер БД — инстанс приложения); БД `keycloak` создаётся apps-слоем вместе с keycloakx; credentials — в Secret, создаваемом оператором |
+| Redis/Valkey | ot-container-kit [redis-operator](https://github.com/ot-container-kit/redis-operator) | operator — в base-слое; Redis CR (cache-инстанс) — в apps-слое; bare-Valkey Deployment отклонён |
 | Keycloak | chart `codecentric/keycloakx` | БД — CNPG (не встроенная H2); hostname `keycloak.local` |
 | Harbor | chart `harbor/harbor` | переезжает из кластера `harbor` внутрь `bigbug-dev`, за ingress, hostname `harbor.local` |
 | BigBug app | собственный helm chart (см. [ADR-0023](0023-bigbug-helm-chart.md)) | backend `api.local`, frontend `app.local` |
@@ -61,7 +61,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 
 **4. GitLab-исключение**: GitLab CE omnibus + gitlab-runner остаются в `infrastructure/docker-compose.yml`. Обоснование: официальный helm chart требует 6–8 GB RAM только на GitLab и тянет переезд omnibus-конфигурации; самописный StatefulSet для omnibus — неподдерживаемый путь. Runner остаётся с docker.sock executor'ом (known limitation: джобы бегут на хосте, а не в кластере). Путь будущего переезда: официальный chart `gitlab/gitlab` или managed GitLab — отдельный ADR, не эта задача.
 
-**5. Запрет на bitnami-чарты для БД** — вместо них операторы CNPG и Valkey: в dev и prod — одинаковые механизмы, никаких «dev-заглушек, которые в проде заменяют».
+**5. Запрет на bitnami-чарты для БД** — вместо них операторы CNPG и redis-operator (ot-container-kit): в dev и prod — одинаковые механизмы, никаких «dev-заглушек, которые в проде заменяют».
 
 ### Consequences
 
@@ -79,7 +79,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 Чеклист ревью (агент проверяет по живому стенду):
 
 1. `kind get clusters` содержит `bigbug-dev` и **не содержит** `harbor` (кластер ликвидирован)
-2. `kubectl get pods -A --context kind-bigbug-dev` показывает поды: haproxy-ingress, cnpg (postgres), valkey, keycloakx, harbor, backend, frontend
+2. `kubectl get pods -A --context kind-bigbug-dev` показывает поды: haproxy-ingress, cnpg (postgres), redis-operator (+ Redis CR из apps), keycloakx, harbor, backend, frontend
 3. `curl -fsS http://keycloak.local/realms/master` → HTTP 200
 4. `curl -fsS http://harbor.local/api/v2.0/systeminfo` → HTTP 200
 5. Hot-reload: правка файла в `backend/app/` видна в uvicorn без пересборки образа (лог пода показывает reload)

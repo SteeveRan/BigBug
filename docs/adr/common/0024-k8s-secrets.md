@@ -30,18 +30,21 @@ decision-makers: SteeveRan
 
 ## Decision Outcome
 
-Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены как ресурсы в tofu-конфиге (новый модуль `modules/k8s-secrets`), провайдер `hashicorp/kubernetes` указывает на контекст `kind-bigbug-dev`. Один `tofu apply` создаёт и конфигурацию Keycloak/GitLab/Harbor, и все k8s Secret'ы.
+Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены как ресурсы в tofu-конфиге (модуль `k8s-secrets`), провайдер `hashicorp/kubernetes` указывает на контекст `kind-bigbug-dev`. Модуль подключается в **apps root** ([ADR-0029](../infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): секреты зависят от Postgres Cluster (CNPG) и токена из config-root — оба появляются после base, поэтому base секретов не создаёт. Один `tofu apply` по каждому root'у создаёт и конфигурацию Keycloak/GitLab/Harbor, и все k8s Secret'ы.
 
 ### Зафиксированные правила
 
-**1. Какие Secret'ы создаёт tofu** (namespace `bigbug`):
+**1. Какие Secret'ы создаёт tofu** (namespace `bigbug`, **apps-слой** — уточнение
+из #56: apps применяются после base и config-root, поэтому в момент их apply
+существуют и CNPG-кластер, и `gitlab_backend_token`; base не создаёт секретов —
+он one-shot бутстрап без внешних значений):
 
 | Secret | Содержимое | Потребители |
 |---|---|---|
-| `bigbug-db-credentials` | `username`, `password`, `database` (совпадают с CNPG Cluster spec) | backend (DATABASE_URL), hook Job миграций |
+| `bigbug-db-credentials` | `DATABASE_URL` + `username`/`password`/`database`/`host`/`port` — проекция секрета `bigbug-dev-app`, генерируемого CNPG-оператором (не ручная копия) | backend (DATABASE_URL), hook Job миграций |
 | `bigbug-keycloak-oidc` | `client_id`, `client_secret` (генерируются модулем keycloak) | backend |
-| `bigbug-fernet-key` | `ENCRYPTION_KEY` (Fernet, [ADR-0010](../backend/0010-fernet-secrets-encryption.md)) | backend |
-| `bigbug-gitlab-token` | `GITLAB_TOKEN` (PAT из модуля gitlab) | backend |
+| `bigbug-fernet-key` | `ENCRYPTION_KEY` (Fernet: 32 байта, urlsafe base64; генерация детерминирована state'ом — no drift на повторных apply) | backend |
+| `bigbug-gitlab-token` | `GITLAB_TOKEN` (= `gitlab_backend_token` из config-root, **не** admin/root PAT из tfvars) | backend |
 
 Граница: `app/core/secrets.py` (шифрование stored credentials) **не меняется** — `ENCRYPTION_KEY` просто доставляется из k8s Secret вместо `.env`.
 
@@ -77,7 +80,8 @@ kubectl get secrets -n bigbug --context kind-bigbug-dev
 2. E2E-политика: `grep -rE 'password' backend/tests/e2e/` показывает только ссылки на seeded-учётки (константы из seed-скрипта/фикстур), никаких личных или admin-паролей стенда. Прогон `make test-e2e-backend` начинается с вызова seed-скрипта (видно в логе).
 
 3. Fitness-критерии ревью:
-   - Новый инфраструктурный секрет появляется как resource в `modules/k8s-secrets` (или соответствующем модуле), а не `kubectl create` в bash
+   - Новый инфраструктурный секрет появляется как resource в модуле `k8s-secrets` (подключённом в apps root), а не `kubectl create` в bash
+   - Base-слой не содержит ресурсов приложений и секретов (граница [ADR-0029](../infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md))
    - Приложение в k8s не получает секреты через plain env в Deployment-манифесте — только `secretKeyRef`
 
 ## Pros and Cons of the Options
@@ -107,7 +111,7 @@ kubectl get secrets -n bigbug --context kind-bigbug-dev
 
 ## More Information
 
-- [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) — кластер `bigbug-dev`, операторы CNPG/Valkey
+- [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) — кластер `bigbug-dev`, операторы CNPG/redis-operator
 - [ADR-0023](../infrastructure/0023-bigbug-helm-chart.md) — как приложение потребляет Secret'ы (env из `secretKeyRef`)
 - [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — граница IaC расширяется: k8s-объекты теперь тоже tofu (non-goal из этого ADR снят)
 - [ADR-0010](../backend/0010-fernet-secrets-encryption.md) — Fernet-шифрование stored credentials (не меняется)
