@@ -1,0 +1,10 @@
+# haproxy-ingress chart values (ns haproxy-ingress).
+controller:
+  ingressClassResource:
+    # Single ingress controller in the cluster — make it the default.
+    default: true
+  service:
+    # Must match extraPortMappings in ../../kind/kind-config.yaml
+    nodePorts:
+      http: 30080
+      https: 30443

@@ -9,21 +9,9 @@ resource "helm_release" "haproxy_ingress" {
   name             = "haproxy-ingress"
   repository       = "https://haproxytech.github.io/helm-charts"
   chart            = "kubernetes-ingress"
+  version          = "1.54.3" # latest chart; Renovate bumps
   namespace        = "haproxy-ingress"
   create_namespace = true
 
-  set {
-    name  = "controller.ingressClassResource.default"
-    value = "true"
-  }
-
-  # Must match extraPortMappings in ../kind/kind-config.yaml
-  set {
-    name  = "controller.service.nodePorts.http"
-    value = "30080"
-  }
-  set {
-    name  = "controller.service.nodePorts.https"
-    value = "30443"
-  }
+  values = [file("${path.module}/values/haproxy-ingress.yaml")]
 }
