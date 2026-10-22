@@ -30,9 +30,9 @@ frontend_redirect_uris = ["http://localhost:5173/*", "http://localhost:3000/*"]
 
 harbor_client_id                = "harbor"
 harbor_client_secret            = "harbor-oidc-secret"
-harbor_redirect_uris            = ["https://harbor.local:30443/c/oidc/callback", "https://harbor.local:30443/*"]
-harbor_post_logout_redirect_uris = ["https://harbor.local:30443/c/oidc/logout", "https://harbor.local:30443/"]
-harbor_root_url                 = "https://harbor.local:30443"
+harbor_redirect_uris            = ["http://harbor.local/c/oidc/callback", "http://harbor.local/*"]
+harbor_post_logout_redirect_uris = ["http://harbor.local/c/oidc/logout", "http://harbor.local/"]
+harbor_root_url                 = "http://harbor.local"
 
 test_user_username = "bigbug"
 test_user_password = "bigbug"
@@ -42,7 +42,7 @@ test_user_email    = "bigbug@example.com"
 # Harbor
 # ═══════════════════════════════════════════════════════════════════════════════
 
-harbor_url      = "https://harbor.local"
+harbor_url      = "http://harbor.local"
 harbor_username = "admin"
 harbor_password = "Harbor12345"
 

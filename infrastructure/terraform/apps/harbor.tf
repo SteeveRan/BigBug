@@ -10,6 +10,13 @@
  * (see harbor issue #5291): `harbor.local:80`, configured as insecure-registry
  * on the host by ../kind/bootstrap.sh.
  *
+ * Admin password: chart bootstrap value (harborAdminPassword in values,
+ * dev-only `Harbor12345`) — NOT moved to a tofu-managed secret. Deviation
+ * from the keycloakx pattern: Harbor is installed once per stand and its
+ * admin password only matters for first DB init; a k8s secret buys nothing
+ * here (no other workload reads it). Follows the retired
+ * infrastructure/harbor/harbor-values.yaml.
+ *
  * Ordering: needs base layer (haproxy-ingress) — see main.tf header.
  */
 
