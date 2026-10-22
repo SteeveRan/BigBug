@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 #
-# bootstrap.sh — Создать kind кластер bigbug-dev + haproxy-ingress
+# bootstrap.sh — Создать kind кластер bigbug-dev + записи /etc/hosts
 #
-# Зависимости: kind, kubectl, helm, docker, tofu
+# In-cluster сущности (haproxy-ingress, операторы) ставятся OpenTofu:
+# infrastructure/terraform/base (ADR-0029). Этот скрипт — только императивный
+# минимум: кластер + hosts.
+#
+# Зависимости: kind, kubectl, docker (tofu/helm нужны для tofu-слоя, не здесь)
 # Использование: ./bootstrap.sh
 #
 set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly CLUSTER_NAME="bigbug-dev"
-readonly INGRESS_NAMESPACE="haproxy-ingress"
 readonly HOSTS=(
   "keycloak.local"
   "harbor.local"
@@ -33,12 +36,12 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; }
 check_dependencies() {
   info "Проверка зависимостей..."
 
-  local deps=("kind" "kubectl" "helm" "docker" "tofu")
+  local deps=("kind" "kubectl" "docker")
   local missing=()
 
   for dep in "${deps[@]}"; do
     if command -v "$dep" &>/dev/null; then
-      info "  ✓ $dep ($($dep --version 2>&1 | head -1 || echo '?'))"
+      info "  ✓ $dep"
     else
       error "  ✗ $dep не найден"
       missing+=("$dep")
@@ -85,47 +88,6 @@ create_kind_cluster() {
 }
 
 # ---------------------------------------------------------------------------
-# Установка haproxy-ingress (haproxytech chart, ingressClass default)
-# ---------------------------------------------------------------------------
-install_ingress() {
-  info "Установка haproxy-ingress в namespace '$INGRESS_NAMESPACE'..."
-
-  kubectl create namespace "$INGRESS_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-
-  helm repo add haproxytech https://haproxytech.github.io/helm-charts 2>/dev/null || true
-  helm repo update
-
-  helm upgrade --install haproxy-ingress haproxytech/kubernetes-ingress \
-    --namespace "$INGRESS_NAMESPACE" \
-    --set controller.ingressClassResource.default=true \
-    --set controller.service.nodePorts.http=30080 \
-    --set controller.service.nodePorts.https=30443 \
-    --wait \
-    --timeout 10m
-
-  info "haproxy-ingress установлен."
-}
-
-# ---------------------------------------------------------------------------
-# Ожидание готовности подов
-# ---------------------------------------------------------------------------
-wait_for_ready() {
-  info "Ожидание готовности подов haproxy-ingress (таймаут 300с)..."
-
-  kubectl wait --for=condition=ready pod \
-    --all \
-    --namespace "$INGRESS_NAMESPACE" \
-    --timeout=300s 2>/dev/null || {
-      warn "Не все поды готовы в течение 300с."
-      warn "Текущее состояние подов:"
-      kubectl get pods -A
-    }
-
-  info "Поды кластера:"
-  kubectl get pods -A
-}
-
-# ---------------------------------------------------------------------------
 # Вывод инструкций
 # ---------------------------------------------------------------------------
 print_instructions() {
@@ -134,10 +96,11 @@ print_instructions() {
   echo -e "${GREEN}  Кластер '$CLUSTER_NAME' готов!${NC}"
   echo "============================================"
   echo ""
-  echo "Проверка ingress:"
-  echo "  curl -H 'Host: app.local' http://localhost/"
+  echo "Дальше — in-cluster сущности через OpenTofu (ADR-0029):"
+  echo "  cd infrastructure/terraform/base && tofu init && tofu apply"
   echo ""
-  echo "Дальнейшие шаги: установка CNPG, Valkey, keycloakx, Harbor, app (отдельные issues)."
+  echo "Проверка ingress (после base-apply):"
+  echo "  curl -H 'Host: app.local' http://localhost/"
   echo ""
   echo "Удаление:"
   echo "  ${SCRIPT_DIR}/teardown.sh"
@@ -158,8 +121,6 @@ main() {
   check_dependencies
   add_hosts_entry
   create_kind_cluster
-  install_ingress
-  wait_for_ready
   print_instructions
 }
 
