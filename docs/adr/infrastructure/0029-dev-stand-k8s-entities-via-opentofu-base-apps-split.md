@@ -37,7 +37,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 Императивным остаётся только то, что tofu сделать не может: `kind create cluster`, `/etc/hosts`, дождаться готовности API. Это `infrastructure/kind/bootstrap.sh`/`teardown.sh` — они сужаются до кластера + hosts, установка ingress переходит в `base`.
 
-«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (infra-apps) → `tofu apply` (apps, update #59) → `tofu apply` (config). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/infra-apps/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
+«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (infra-apps, две фазы; config root влит в infra-apps 2026-10-23) → `tofu apply` (apps, update #59). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/infra-apps/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
 
 ### Scope этого решения
 

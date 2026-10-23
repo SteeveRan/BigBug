@@ -264,8 +264,8 @@ harbor/
 └── keycloak-integration.md   # Руководство по интеграции OIDC с Keycloak
 ```
 
-> **Инициализация проектов и OIDC через OpenTofu**: [`infrastructure/terraform/`](../terraform/).
-> Модуль `harbor` в [`infrastructure/terraform/modules/harbor/`](../terraform/modules/harbor/) вызывается корневым модулем.
+> **Инициализация проектов и OIDC через OpenTofu**: [`infrastructure/terraform/infra-apps/`](../terraform/infra-apps/).
+> Модуль `harbor` в [`infrastructure/terraform/infra-apps/modules/harbor/`](../terraform/infra-apps/modules/harbor/) вызывается корневым модулем.
 
 ## Порты (сводка)
 

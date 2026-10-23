@@ -183,7 +183,7 @@ BigBug/
 │   ├── init.sh              # Full environment initialization script
 │   ├── update-env.sh        # Update .env from OpenTofu outputs
 │   ├── gitlab/              # GitLab compose zone (gitlab + gitlab-runner, ADR-0033)
-│   ├── terraform/           # OpenTofu roots: base / infra-apps / apps (ADR-0029) + config root (GitLab)
+│   ├── terraform/           # OpenTofu roots: base / infra-apps (+GitLab) / apps (ADR-0029)
 │   ├── harbor/              # Harbor deployment in kind (LEGACY — pending removal, #62)
 │   └── gitlab-components/   # GitLab CI/CD component examples (not used by the app —
 │                            #   presets live in backend/app/services/gitlab_projects/presets.py)

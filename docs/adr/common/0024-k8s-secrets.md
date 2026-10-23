@@ -30,12 +30,13 @@ decision-makers: SteeveRan
 
 ## Decision Outcome
 
-Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены как ресурсы в tofu-конфиге (модуль `k8s-secrets`), провайдер `hashicorp/kubernetes` указывает на контекст `kind-bigbug-dev`. Модуль подключается в **apps root** ([ADR-0029](../infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): секреты зависят от Postgres Cluster (CNPG) и токена из config-root — оба появляются после base, поэтому base секретов не создаёт. Один `tofu apply` по каждому root'у создаёт и конфигурацию Keycloak/GitLab/Harbor, и все k8s Secret'ы.
+Chosen option: **tofu + kubernetes provider** — Secret'ы объявлены как ресурсы в tofu-конфиге (модуль `k8s-secrets`), провайдер `hashicorp/kubernetes` указывает на контекст `kind-bigbug-dev`. Модуль подключается в **apps root** ([ADR-0029](../infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): секреты зависят от Postgres Cluster (CNPG) и токена из GitLab base setup (infra-apps; config root влит туда 2026-10-23) — оба появляются после base, поэтому base секретов не создаёт. Один `tofu apply` по каждому root'у создаёт и конфигурацию Keycloak/GitLab/Harbor, и все k8s Secret'ы.
 
 ### Зафиксированные правила
 
 **1. Какие Secret'ы создаёт tofu** (namespace `bigbug`, **apps-слой** — уточнение
-из #56: apps применяются после base и config-root, поэтому в момент их apply
+из #56: apps применяются после base и infra-apps (включая GitLab base setup —
+config root влит туда 2026-10-23), поэтому в момент их apply
 существует CNPG-кластер; base не создаёт секретов — он one-shot бутстрап без
 внешних значений):
 

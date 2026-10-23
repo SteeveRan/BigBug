@@ -4,7 +4,8 @@
 # @description BigBug infrastructure initialization (ADR-0022/0029/0033).
 #              Ensures TLS certs (ADR-0030), starts the GitLab compose zone,
 #              bootstraps the kind cluster, applies OpenTofu
-#              (base → apps → config/GitLab), updates application .env.
+#              (base → infra-apps (2 phases, incl. GitLab) → apps),
+#              updates application .env.
 #
 # Usage:
 #   ./infrastructure/init.sh
@@ -296,7 +297,7 @@ sed -i "s|gitlab_token\s*=\s*\"[^\"]*\"|gitlab_token = \"${GITLAB_PAT}\"|" "${TF
 log "  gitlab_token written to terraform.tfvars."
 
 # ─────────────────────────────────────────────────────────────
-# 9. Run OpenTofu — base → apps → config (ADR-0029/0033; общий state
+# 9. Run OpenTofu — base → infra-apps → apps (ADR-0029/0033; общий state
 #    backend ~/.local/state/bigbug для base/infra-apps/apps). keycloak-провайдер
 #    логинится при plan, поэтому infra-apps идёт в 2 фазы: инсталляции, затем конфиг.
 #    Приложение (ns bigbug) — отдельный apps root, после infra-apps.
