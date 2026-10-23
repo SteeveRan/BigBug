@@ -12,7 +12,7 @@
 #
 set -euo pipefail
 
-readonly CERTS_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/bigbug/certs"
+readonly CERTS_DIR="$HOME/.local/state/bigbug/certs"
 readonly TRUST_DIR="/usr/local/share/ca-certificates"
 
 GREEN='\033[0;32m'

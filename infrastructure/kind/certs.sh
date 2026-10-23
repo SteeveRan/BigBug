@@ -16,7 +16,7 @@
 #
 set -euo pipefail
 
-readonly CERTS_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/bigbug/certs"
+readonly CERTS_DIR="$HOME/.local/state/bigbug/certs"
 readonly HOSTS=(
   "keycloak.local"
   "harbor.local"

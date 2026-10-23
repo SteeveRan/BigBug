@@ -35,7 +35,7 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; }
 # Серты (ADR-0030 §3): до кластера — порядок certs → bootstrap обязателен
 # ---------------------------------------------------------------------------
 check_certs() {
-  local certs_dir="${XDG_STATE_HOME:-$HOME/.local/state}/bigbug/certs"
+  local certs_dir="$HOME/.local/state/bigbug/certs"
   for host in "${HOSTS[@]}"; do
     if [[ ! -f "${certs_dir}/${host}/tls.crt" || ! -f "${certs_dir}/${host}/tls.key" ]]; then
       error "Серты не найдены: ${certs_dir}/${host}/"
