@@ -2,14 +2,14 @@
 #
 # test-push.sh — Проверить работу Harbor: логин, push образа, API
 #
-# Требования: Harbor в bigbug-dev за ingress (apps root, issue #58),
-# insecure-registry harbor.local:80 настроен (bootstrap.sh)
+# Требования: Harbor в bigbug-dev за TLS-ingress (apps root, issue #58, ADR-0030),
+# серты доверены хосту (trust-host.sh + restart docker)
 # Использование: ./test-push.sh
 #
 set -euo pipefail
 
 readonly HARBOR_HOST="harbor.local"
-readonly REGISTRY="${HARBOR_HOST}:80"
+readonly REGISTRY="${HARBOR_HOST}"
 readonly HARBOR_USER="admin"
 readonly HARBOR_PASS="Harbor12345"
 readonly TEST_IMAGE="alpine:latest"
@@ -70,7 +70,7 @@ echo ""
 # 5. Проверка через Harbor REST API
 info "5. Проверка проектов через Harbor REST API..."
 API_RESPONSE=$(curl -s -u "${HARBOR_USER}:${HARBOR_PASS}" \
-  "http://${HARBOR_HOST}/api/v2.0/projects" 2>&1) || true
+  "https://${HARBOR_HOST}/api/v2.0/projects" 2>&1) || true
 
 if echo "$API_RESPONSE" | grep -q '"project_id"'; then
   info "   ✓ API отвечает. Проекты:"
@@ -84,7 +84,7 @@ echo ""
 # 6. Проверка тегов образа через API
 info "6. Проверка тегов образа 'library/alpine' через API..."
 TAGS_RESPONSE=$(curl -s -u "${HARBOR_USER}:${HARBOR_PASS}" \
-  "http://${HARBOR_HOST}/api/v2.0/projects/library/repositories/alpine/artifacts" 2>&1) || true
+  "https://${HARBOR_HOST}/api/v2.0/projects/library/repositories/alpine/artifacts" 2>&1) || true
 
 if echo "$TAGS_RESPONSE" | grep -q '"digest"'; then
   info "   ✓ Репозиторий 'library/alpine' содержит артефакты."
@@ -103,7 +103,7 @@ echo "============================================"
 echo -e "${GREEN}  Все тесты пройдены!${NC}"
 echo "============================================"
 echo ""
-echo "Harbor UI:  http://${HARBOR_HOST}"
+echo "Harbor UI:  https://${HARBOR_HOST}"
 echo "Registry:   ${REGISTRY}"
 echo "Образ:      ${TAG}"
 echo ""

@@ -73,21 +73,21 @@ variable "harbor_client_secret" {
 }
 
 variable "harbor_redirect_uris" {
-  description = "Valid redirect URIs for Harbor OIDC client"
+  description = "Valid redirect URIs for Harbor OIDC client (https, no :30443 — ADR-0030 §8)"
   type        = list(string)
-  default     = ["http://harbor.local/c/oidc/callback", "http://harbor.local/*"]
+  default     = ["https://harbor.local/c/oidc/callback", "https://harbor.local/*"]
 }
 
 variable "harbor_post_logout_redirect_uris" {
   description = "Post-logout redirect URIs for Harbor OIDC client"
   type        = list(string)
-  default     = ["http://harbor.local/c/oidc/logout", "http://harbor.local/"]
+  default     = ["https://harbor.local/c/oidc/logout", "https://harbor.local/"]
 }
 
 variable "harbor_root_url" {
   description = "Root URL for Harbor OIDC client"
   type        = string
-  default     = "http://harbor.local"
+  default     = "https://harbor.local"
 }
 
 variable "test_user_username" {
@@ -114,9 +114,9 @@ variable "test_user_email" {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 variable "harbor_url" {
-  description = "Harbor instance URL (harbor chart in bigbug-dev behind ingress, http://harbor.local — issue #58)"
+  description = "Harbor instance URL (harbor chart in bigbug-dev behind TLS ingress, https://harbor.local — issue #58, ADR-0030)"
   type        = string
-  default     = "http://harbor.local"
+  default     = "https://harbor.local"
 }
 
 variable "harbor_username" {
@@ -168,9 +168,9 @@ variable "harbor_oidc_scope" {
 }
 
 variable "harbor_oidc_verify_cert" {
-  description = "Verify OIDC provider certificate"
+  description = "Verify OIDC provider certificate (true — harbor trusts keycloak.local cert via caBundle, ADR-0030 §4; never disable, ADR-0028 §2)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "harbor_oidc_auto_onboard" {

@@ -1,29 +1,35 @@
 # Harbor chart values (ns harbor, issue #58). Chart 1.19.4 (harbor 2.15.4),
-# pinned in harbor.tf. Adapted from the retired infrastructure/harbor/harbor-values.yaml:
-# nodePort expose + TLS replaced by haproxy-ingress on :80 (ADR-0022, D4).
+# pinned in harbor.tf. Adapted from the retired infrastructure/harbor/harbor-values.yaml.
+# HTTPS per ADR-0030: TLS terminates on haproxy-ingress with the tofu-managed
+# `tls-harbor-local` secret (certs from ../../kind/certs.sh); pod-to-pod stays HTTP.
 
 expose:
   type: ingress
   tls:
-    enabled: false
+    enabled: true
+    certSource: secret
+    secret:
+      secretName: "tls-harbor-local"
   ingress:
     hosts:
       core: harbor.local
     className: haproxy
-    # ssl-redirect default annotation must be explicitly disabled when TLS
-    # is off (haproxy-ingress honors `ingress.kubernetes.io/ssl-redirect`)
+    # keep unlimited body size for image pushes through haproxy
     annotations:
-      ingress.kubernetes.io/ssl-redirect: "false"
-      nginx.ingress.kubernetes.io/ssl-redirect: "false"
       ingress.kubernetes.io/proxy-body-size: "0"
       nginx.ingress.kubernetes.io/proxy-body-size: "0"
 
-# http:// on :80 — matches the ingress addressing; docker commands must use
-# harbor.local:80 (no TLS fallback, harbor-helm values comment)
-externalURL: "http://harbor.local"
+# External URL — https via ingress TLS (ADR-0030 §6); docker commands need no
+# port (default 443) — host daemon trusts the cert via trust-host.sh
+externalURL: "https://harbor.local"
 
 # Admin credentials (dev environment only)
 harborAdminPassword: "Harbor12345"
+
+# Trust store: keycloak.local cert (tls-keycloak secret in harbor-tls.tf) into
+# core/jobservice/registry — Harbor core calls Keycloak OIDC over
+# https://keycloak.local with oidc_verify_cert: true (ADR-0030 §4)
+caBundleSecretName: "harbor-ca-bundle"
 
 # ── Persistence (dev-sized; local-path storage) ──────────────
 persistence:
