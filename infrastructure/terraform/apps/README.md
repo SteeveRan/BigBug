@@ -73,3 +73,17 @@ kubectl wait --context kind-bigbug-dev --for=condition=Ready \
 `../../kind/teardown.sh` удаляет кластер вместе со всеми данными (Postgres,
 Keycloak) — для dev-стенда потеря данных допустима. State остаётся локально;
 после пересоздания кластера применяйте base заново, затем apps.
+
+## Apply order (после пересоздания кластера)
+
+```bash
+./kind/certs.sh                      # 1. серты (переживают teardown)
+./kind/bootstrap.sh                  # 2. kind кластер + hosts
+cd terraform/base && tofu apply      # 3. платформа (ingress, операторы, coredns)
+cd terraform/apps && tofu apply -target=module.keycloak_init -target=module.harbor_init   # 4. инсталляции (chart'ы)
+cd terraform/apps && tofu apply      # 5. конфиг (realm, клиенты, harbor projects) — keycloak-провайдер требует живой Keycloak
+```
+
+State: общий local backend `~/.local/state/bigbug/{base,apps}/` (все ворктрии видят один стейт).
+
+Примечание: шаг 4 отдельной фазой нужен потому, что keycloak-провайдер логинится при plan/apply — конфиг-модули применяются только когда Keycloak отвечает (шаги 4→5 можно объединить повторным apply: `tofu apply -target=module.keycloak_init` уже создан → полный apply проходит).
