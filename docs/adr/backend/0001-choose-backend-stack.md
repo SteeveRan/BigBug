@@ -52,7 +52,7 @@ Chosen option: **FastAPI + SQLAlchemy 2 (async) + PostgreSQL 17 / Redis 7** — 
 
 ### Confirmation
 
-Версии в разделе Decision Outcome сверяются с `backend/pyproject.toml` и docker-compose-образами (`postgres:17`, `redis:7-alpine`) — на 2026-10-21 сверены, расхождений нет. Правило на будущее: новая backend-зависимость или смена версии вне этого списка требует нового ADR (триггер — «новая зависимость» из README). Архитектурный fitness-критерий: `backend/pyproject.toml` не должен содержать пакетов, не упомянутых здесь, и vice versa; `requirements`-файлы не вводятся — только `pyproject.toml`.
+Версии в разделе Decision Outcome сверяются с `backend/pyproject.toml` и docker-compose-образами (`postgres:17`, `redis:7-alpine`) — на 2026-10-21 сверены, расхождений нет. Правило на будущее: новая backend-зависимость или смена версии вне этого списка требует нового ADR (триггер — «новая зависимость» из README). Архитектурный fitness-критерий: `backend/pyproject.toml` не должен содержать пакетов, не упомянутых здесь, и vice versa; `requirements`-файлы не вводятся — только `pyproject.toml` (управление окружением и зависимостями — uv, см. [ADR-0031](0031-uv-package-manager.md); `uv.lock` — lock-файл, а не requirements-файл).
 
 ## Pros and Cons of the Options
 

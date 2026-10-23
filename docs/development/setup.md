@@ -75,26 +75,17 @@ ADMIN_PASSWORD=admin
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv .venv
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Activate (Linux/Mac)
-source .venv/bin/activate
-
-# Activate (Windows)
-.venv\Scripts\activate
-
-# Install dependencies
-pip install -e .
-
-# Install dev dependencies
-pip install -e ".[dev]"
+# Install all dependencies from uv.lock (creates .venv automatically)
+uv sync
 
 # Run migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Verify setup
-python -c "from app.database import engine; print('Database connection OK')"
+uv run python -c "from app.database import engine; print('Database connection OK')"
 ```
 
 ### 4. Frontend Setup
@@ -163,13 +154,12 @@ curl http://localhost:8080/-/health
 
 ```bash
 cd backend
-source .venv/bin/activate
 
 # Run dev server with auto-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run in background
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 
 # View logs
 tail -f app.log
@@ -190,7 +180,7 @@ yarn dev
 
 ```bash
 # Terminal 1: Backend
-cd backend && source .venv/bin/activate && uvicorn app.main:app --reload
+cd backend && uv run uvicorn app.main:app --reload
 
 # Terminal 2: Frontend
 cd frontend && yarn dev
@@ -205,19 +195,18 @@ docker compose -f infrastructure/docker-compose.yml logs -f
 
 ```bash
 cd backend
-source .venv/bin/activate
 
 # Auto-generate migration from model changes
-alembic revision --autogenerate -m "description"
+uv run alembic revision --autogenerate -m "description"
 
 # Create empty migration
-alembic revision -m "description"
+uv run alembic revision -m "description"
 
 # Apply migration
-alembic upgrade head
+uv run alembic upgrade head
 
 # Rollback
-alembic downgrade -1
+uv run alembic downgrade -1
 ```
 
 ### Run Tests
@@ -245,13 +234,12 @@ make typecheck   # mypy + tsc --noEmit
 
 ```bash
 cd backend
-source .venv/bin/activate
 
 # Downgrade all migrations
-alembic downgrade base
+uv run alembic downgrade base
 
 # Re-apply all migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Или без захода в контейнер
 make dev-init
@@ -263,9 +251,7 @@ make dev-init
 # Backend
 cd backend
 rm -rf .venv
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+uv sync
 
 # Frontend
 cd frontend
@@ -279,7 +265,8 @@ yarn install
 
 **Import errors**:
 ```bash
-pip install -e .
+# Resync environment from uv.lock
+uv sync
 ```
 
 **Database connection failed**:
@@ -294,13 +281,13 @@ echo $DATABASE_URL
 **Alembic issues**:
 ```bash
 # Check current revision
-alembic current
+uv run alembic current
 
 # Show history
-alembic history
+uv run alembic history
 
 # Force revision (осторожно — используйте осознанно)
-alembic stamp head
+uv run alembic stamp head
 ```
 
 ### Frontend Issues

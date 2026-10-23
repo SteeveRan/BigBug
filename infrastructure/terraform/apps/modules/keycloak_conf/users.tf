@@ -5,14 +5,14 @@
  */
 
 resource "keycloak_user" "test_admin" {
-  realm_id   = keycloak_realm.bigbug.id
-  username   = var.test_user_username
-  email      = var.test_user_email
-  enabled    = true
+  realm_id = keycloak_realm.bigbug.id
+  username = var.test_user_username
+  email    = var.test_user_email
+  enabled  = true
 
   email_verified = true
-  first_name = "Alice"
-  last_name  = "Aliceberg"
+  first_name     = "Alice"
+  last_name      = "Aliceberg"
 
   initial_password {
     value     = var.test_user_password

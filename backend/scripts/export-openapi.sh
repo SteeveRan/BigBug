@@ -7,24 +7,24 @@
 #
 # Требования:
 #   - Python 3.14+ с виртуальным окружением (.venv)
-#   - все зависимости из pyproject.toml установлены
+#   - установлен uv; зависимости ставятся автоматически из uv.lock
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e ."
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
 cd "$BACKEND_DIR"
 
 echo "=== Экспорт OpenAPI-схемы ==="
-"$VENV_PYTHON" -m scripts.export_openapi
+"${VENV_PYTHON[@]}" -m scripts.export_openapi
 
 echo ""
 echo "=== Done ==="

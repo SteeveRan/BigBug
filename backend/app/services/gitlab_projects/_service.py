@@ -127,9 +127,7 @@ class GitlabProjectService:
         result = await self.db.execute(
             select(GitlabProject)
             .options(
-                selectinload(GitlabProject.provider).selectinload(
-                    ResourceProvider.credential
-                ),
+                selectinload(GitlabProject.provider).selectinload(ResourceProvider.credential),
                 selectinload(GitlabProject.owner),
                 selectinload(GitlabProject.team),
             )

@@ -9907,6 +9907,28 @@
             ],
             "title": "Description"
           },
+          "gitlab_project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Id"
+          },
+          "gitlab_project_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gitlab Project Url"
+          },
           "name": {
             "anyOf": [
               {

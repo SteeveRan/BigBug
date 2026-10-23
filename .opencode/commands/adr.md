@@ -3,9 +3,16 @@ description: Создать новый ADR (четырёхфазный workflow 
 agent: plan
 ---
 Создай Architecture Decision Record строго по четырёхфазному workflow из skill `adr-skill`.
+
+**Сначала активируй скилл**: вызови тул `skill` с `name: adr-skill` и выполняй его
+инструкции. НЕ читай `.opencode/skills/adr-skill/SKILL.md` напрямую — только если тул
+`skill` недоступен или вернул ошибку, допускается fallback-чтение файла. Поддерживающие
+файлы скилла (references/, assets/templates/) читай по указаниям самого скилла — это
+нормально, но только после его активации.
+
 Фазы скилла обязательны и не подлежат «пропуску с обоснованием»:
 
-- **Phase 0 — Scan the Codebase** (см. SKILL.md скилла): скан существующих ADR, стека, паттернов.
+- **Phase 0 — Scan the Codebase**: скан существующих ADR, стека, паттернов.
 - **Phase 1 — Capture Intent** (сократическое интервью по одному вопросу + **Intent Summary Gate**).
 - **Phase 2 — Draft the ADR** по каноническому шаблону.
 - **Phase 3 — Review** по чеклисту agent-readiness.

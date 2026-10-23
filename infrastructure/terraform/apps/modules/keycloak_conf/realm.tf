@@ -12,7 +12,7 @@ resource "keycloak_realm" "bigbug" {
   ssl_required = "external"
 
   # Token settings
-  access_token_lifespan  = "15m"
+  access_token_lifespan    = "15m"
   sso_session_idle_timeout = "30m"
   sso_session_max_lifespan = "10h"
 

@@ -6,6 +6,8 @@ decision-makers: SteeveRan
 
 # Dev-stand k8s entities via OpenTofu: base/apps split
 
+> **Обновление 2026-10-23 (#58):** конфигурация Keycloak/Harbor через их API переехала из config root в `apps` (модули `*_conf`); config root остался только для GitLab. State всех root'ов вынесен в общий local backend `~/.local/state/bigbug/<root>/terraform.tfstate` (через `pathexpand` в `backend "local"`) — один стейт на все git-worktree одной машины. apps разбит на 4 модуля: `harbor_init`/`harbor_conf`, `keycloak_init`/`keycloak_conf`. Apply apps — двухфазный (сначала `*_init`, затем полный), потому что keycloak-провайдер логинится при plan, а Keycloak ставится тем же apply. Подробности — в конце документа.
+
 ## Context and Problem Statement
 
 [ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
@@ -67,3 +69,24 @@ OpenTofu управляет **всем содержимым kind-кластер�
 - [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой для API-конфигурации; его non-goal «in-cluster через tofu» этим ADR superseded-по-смыслу (документально оформить supersede при accept)
 - Issue #54 — первая реализация bootstrap (haproxy-ingress переносится в base)
 - Условие пересмотра: появление production-кластера (remote state, secrets management) — новый ADR
+
+## Update 2026-10-23 (#58): общий state backend, конфиг в apps, init/conf модули
+
+Три уточнения поверх исходного решения (решение не отменяют — сужают):
+
+1. **State backend — общий для всех worktree машины.** Вместо «terraform.tfstate в каталоге модуля» (где стейт попадает в git-worktree и расходится между ворктриями) — local backend с фиксированным путём:
+   ```hcl
+   # base/backend.tf и apps/backend.tf
+   terraform {
+     backend "local" {
+       path = pathexpand("~/.local/state/bigbug/<root>/terraform.tfstate")
+     }
+   }
+   ```
+   `pathexpand` обязателен: внутри `backend`-блока `~` не раскрывается (tofu создаёт literal-каталог `~/`). Файл стейта создаётся только при первой записи — «No state file was found» до первого apply это норма, а не ошибка. Config root пока остаётся на локальном стейте в каталоге (GitLab-зона не трогалась).
+
+2. **API-конфиг Keycloak/Harbor — в `apps`**, модулями `keycloak_conf`/`harbor_conf` (исходная таблица «config root: Keycloak realm/clients, Harbor projects/robots» устарела). Config root остаётся только для GitLab. Причина: harbor-конфиг неразрывно связан с инсталляцией (OIDC client secret из keycloak_conf → harbor_conf), а Keycloak в кластере — делить его конфиг между root'ами бессмысленно.
+
+3. **apps = 4 модуля**: `harbor_init` (ns, TLS-секреты, chart), `harbor_conf` (API-конфиг), `keycloak_init` (ns, TLS/admin-секреты, CNPG CR, chart), `keycloak_conf` (realm/clients/roles/users). Провайдеры пробрасываются из root (`providers = {}`), в модулях собственных `provider`-блоков нет.
+
+Следствие: apply apps **двухфазный** — `tofu apply -target=module.keycloak_init -target=module.harbor_init`, затем полный apply. Причина: keycloak-провайдер выполняет логин при plan/apply, а Keycloak ставится тем же apply. После первой фазы повторный полный apply идемпотентен и проходит одной командой. init.sh (шаг 8) исполняет: base → apps(фаза 1) → wait Keycloak → apps(полный) → config.

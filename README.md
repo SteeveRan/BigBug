@@ -203,18 +203,16 @@ All scripts run through the root [`Makefile`](Makefile) (see `make help`).
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Install uv (if not already installed): curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies
-pip install -e .
+# Install dependencies from uv.lock (creates .venv automatically)
+uv sync
 
 # Run migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Start development server
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
 ### Frontend
