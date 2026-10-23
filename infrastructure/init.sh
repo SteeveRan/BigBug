@@ -320,7 +320,7 @@ log "  Infrastructure services:"
 log "    Keycloak:  http://keycloak.local  (admin / admin)"
 log "    GitLab:    http://localhost:8080  (root / ${GITLAB_ROOT_PW_DISPLAY})"
 if command -v kind &>/dev/null && kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
-log "    Harbor:    http://harbor.local  (admin / Harbor12345)"
+log "    Harbor:    https://harbor.local  (admin / Harbor12345)"
 fi
 log ""
 log "  GitLab PAT: ${GITLAB_TOKEN_DISPLAY}"

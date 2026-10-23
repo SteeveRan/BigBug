@@ -150,9 +150,9 @@ variable "harbor_oidc_provider_name" {
 }
 
 variable "harbor_oidc_endpoint" {
-  description = "OIDC provider endpoint URL"
+  description = "OIDC provider endpoint URL (https per ADR-0030 §6)"
   type        = string
-  default     = "http://keycloak.local/realms/bigbug"
+  default     = "https://keycloak.local/realms/bigbug"
 }
 
 variable "harbor_oidc_groups_claim" {
