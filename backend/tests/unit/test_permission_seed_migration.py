@@ -6,7 +6,7 @@
              links them to the default roles.
 
              This is the regression test for the root-cause RBAC bug: those
-             permission strings only existed in ``docker/seed_admin.py`` (Python
+             permission strings only existed in ``bin/seed_admin.py`` (Python
              lists) but no Alembic migration inserted them into the DB, so the
              admin's JWT never contained them and ``GET /api/providers`` returned
              403 while the Settings pages rendered empty (PermissionGate → null).

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# @file entrypoint.sh
+# @file bin/entrypoint.sh
 # @description Container entrypoint for the BigBug backend. Dispatches between
 #              `app:start` (wait for DB, seed, launch uvicorn),
 #              `app:init` (wait for DB, run migrations, seed, exit — used by
@@ -36,32 +36,10 @@ parse_database_url() {
         return 1
     fi
 
-    # WHY: A here-doc into python3 is more robust than awk/sed regexes against
-    # URL-encoded credentials or unusual hostnames (e.g. IPv6).
+    # WHY: a Python parse (bin/parse_db_url.py) is robust against URL-encoded
+    # credentials and unusual hostnames (e.g. IPv6), where shell regexes fail.
     local parsed
-    parsed="$(python3 - <<'PY' "${DATABASE_URL}"
-import sys
-from urllib.parse import urlparse, unquote
-
-raw = sys.argv[1]
-# Strip SQLAlchemy dialect (e.g. "postgresql+asyncpg") so urlparse sees a
-# scheme it can reason about.
-scheme, _, rest = raw.partition("://")
-base_scheme = scheme.split("+", 1)[0]
-url = urlparse(f"{base_scheme}://{rest}")
-
-host = url.hostname or ""
-port = url.port or 5432
-user = unquote(url.username or "")
-db = (url.path or "/").lstrip("/")
-
-if not host:
-    sys.stderr.write("DATABASE_URL is missing host component\n")
-    sys.exit(1)
-
-print(f"{host}\t{port}\t{user}\t{db}")
-PY
-)"
+    parsed="$(python3 /app/bin/parse_db_url.py "${DATABASE_URL}")"
 
     DB_HOST="$(echo "${parsed}" | cut -f1)"
     DB_PORT="$(echo "${parsed}" | cut -f2)"
@@ -112,7 +90,7 @@ run_migrations() {
 # it exits cleanly when an admin already exists.
 seed_admin() {
     log INFO "Seeding admin user (idempotent)"
-    if ! python3 /app/docker/seed_admin.py; then
+    if ! python3 /app/bin/seed_admin.py; then
         log WARN "Admin seeding returned non-zero (see above) — continuing"
     fi
 }
@@ -122,7 +100,7 @@ seed_admin() {
 # is idempotent (upsert by name) and only touches seeded fields.
 seed_providers() {
     log INFO "Seeding default providers (idempotent)"
-    if ! python3 -m scripts.seed_providers; then
+    if ! python3 /app/bin/seed_providers.py; then
         log WARN "Provider seeding returned non-zero (see above) — continuing"
     fi
 }
@@ -151,10 +129,36 @@ start_app() {
     exec uvicorn "${uvicorn_args[@]}"
 }
 
+# WHY: Compose dev mounts no CA bundle; k8s mounts the stand bundle
+# (ConfigMap bigbug-ca-bundle) at EXTRA_CA_DIR. SSL_CERT_FILE/REQUESTS_CA_BUNDLE
+# REPLACE the trust store entirely, so the exported bundle must be complete:
+# system roots (public CAs: api.github.com, …) + stand certs (self-signed
+# keycloak.local / harbor.local / gitlab.local). Merged into a writable
+# emptyDir (/run/bigbug-ca) at every container start; exported for both httpx
+# (app) and requests (transitive deps). No bundle mounted → no export, system
+# store used as-is (compose parity). Never verify=False (ADR-0030 §4).
+build_ca_bundle() {
+    local extra_dir="/etc/bigbug-certs"
+    local out="/run/bigbug-ca/ca-bundle.crt"
+    shopt -s nullglob
+    local extras=("${extra_dir}"/*.crt)
+    shopt -u nullglob
+    if (( ${#extras[@]} == 0 )); then
+        log INFO "No stand CA bundle mounted at ${extra_dir} — using system trust store"
+        return 0
+    fi
+    mkdir -p "$(dirname "$out")"
+    cat /etc/ssl/certs/ca-certificates.crt "${extras[@]}" > "$out"
+    export SSL_CERT_FILE="$out" REQUESTS_CA_BUNDLE="$out"
+    log INFO "CA bundle built: system roots + ${#extras[@]} stand cert(s) → $out"
+}
+
 main() {
     # WHY: When the container is invoked without arguments docker-compose passes
     # an empty argv. Treat that as the default production-style start.
     local cmd="${1:-app:start}"
+
+    build_ca_bundle
 
     case "${cmd}" in
         app:start)

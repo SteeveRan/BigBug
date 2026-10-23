@@ -201,11 +201,14 @@ resource "kubernetes_config_map_v1" "ca_bundle" {
     namespace = kubernetes_namespace.bigbug.metadata[0].name
   }
 
-  # Single PEM bundle: peers the backend calls over https (Keycloak OIDC, Harbor API)
+  # Single PEM bundle: peers the backend calls over https (Keycloak OIDC,
+  # Harbor API, stand GitLab). The entrypoint merges this with the system
+  # roots into the pod's SSL_CERT_FILE/REQUESTS_CA_BUNDLE bundle.
   data = {
     "ca-bundle.crt" = join("\n", [
       file("${var.certs_dir}/keycloak.local/tls.crt"),
       file("${var.certs_dir}/harbor.local/tls.crt"),
+      file("${var.certs_dir}/gitlab.local/tls.crt"),
     ])
   }
 }

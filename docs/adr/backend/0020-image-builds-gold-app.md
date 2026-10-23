@@ -89,7 +89,7 @@ CI-шаблоны — in-code пресеты `gold_image` и `app_image` из [A
 
 ### RBAC
 
-8 permissions (сидируются в `20260816_1200_…_seed_initial_data` и `backend/docker/seed_admin.py`): `gold_images:read/write/delete/build` и `app_images:read/write/delete/build`. Разделение: `write` — CRUD/schedule/sign/scan-trigger, `build` — триггер сборки, `read` — просмотр и scan-results. Все эндпоинты — `require_permission(...)` (`backend/app/api/gold_images.py`, `backend/app/api/app_images.py`).
+8 permissions (сидируются в `20260816_1200_…_seed_initial_data` и `backend/bin/seed_admin.py`): `gold_images:read/write/delete/build` и `app_images:read/write/delete/build`. Разделение: `write` — CRUD/schedule/sign/scan-trigger, `build` — триггер сборки, `read` — просмотр и scan-results. Все эндпоинты — `require_permission(...)` (`backend/app/api/gold_images.py`, `backend/app/api/app_images.py`).
 
 ### Consequences
 

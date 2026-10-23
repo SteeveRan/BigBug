@@ -14,8 +14,8 @@ every run.
 
 Run (from ``backend/``)::
 
-    python -m scripts.seed_providers            # apply changes
-    python -m scripts.seed_providers --dry-run  # print plan only, write nothing
+    python3 bin/seed_providers.py            # apply changes
+    python3 bin/seed_providers.py --dry-run  # print plan only, write nothing
 """
 
 import argparse
@@ -313,7 +313,11 @@ async def _seed_system_harbor(session: AsyncSession, *, dry_run: bool) -> list[d
             changed.append("encrypted_secret")
         if changed:
             actions.append(
-                {"action": "update", "name": HARBOR_SYSTEM_CREDENTIAL_NAME, "fields": sorted(changed)}
+                {
+                    "action": "update",
+                    "name": HARBOR_SYSTEM_CREDENTIAL_NAME,
+                    "fields": sorted(changed),
+                }
             )
 
     # ── Provider (upsert by name) ────────────────────────────────────────
@@ -423,9 +427,7 @@ async def seed_providers(session: AsyncSession, *, dry_run: bool = False) -> lis
 
         updates = _seeded_updates(spec, existing)
         if updates:
-            actions.append(
-                {"action": "update", "name": spec["name"], "fields": sorted(updates)}
-            )
+            actions.append({"action": "update", "name": spec["name"], "fields": sorted(updates)})
             if not dry_run:
                 for field, value in updates.items():
                     setattr(existing, field, value)

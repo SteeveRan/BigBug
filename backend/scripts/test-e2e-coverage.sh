@@ -12,11 +12,9 @@
 #
 # Требования:
 #   - backend/.venv с установленными dev-зависимостями (coverage, pytest)
-#   - PostgreSQL/Redis из dev-стека (docker compose up -d), БД накатана миграциями
-#   - переменные окружения из backend/.env (DATABASE_URL, REDIS_URL, ...)
-#
-# Порты можно переопределить через COVERAGE_PORT (по умолчанию 8011), чтобы
-# не конфликтовать с уже запущенным dev-сервером на 8000.
+#   - живой dev-стенд kind (CNPG/Redis из кластера, ADR-0022): DATABASE_URL/
+#     REDIS_URL/SSL_CERT_FILE задаёт make (e2e-env.sh), либо backend/.env
+#   - Порты можно переопределить через COVERAGE_PORT (по умолчанию 8011)
 #
 set -euo pipefail
 
@@ -87,6 +85,13 @@ httpx.get('${BASE_URL}/api/health', timeout=2.0).raise_for_status()
 fi
 
 # 3. Прогнать e2e-тесты против поднятого сервера.
+# Backend под coverage слушает локально по http — ingress (https://api.local)
+# сюда не попадает; это локальный периметр, TLS не нужен (ADR-0030 §1: HTTPS —
+# только внешние reverse-proxy). Креды — те же seeded e2e-константы.
+echo ""
+echo "=== Seeding e2e accounts ==="
+"$SCRIPT_DIR/seed-e2e.sh"
+
 echo ""
 echo "=== Running e2e tests против ${BASE_URL} ==="
 BIGBUG_E2E_BASE_URL="$BASE_URL" "${VENV_PYTHON[@]}" -m pytest tests/e2e/ -v "$@"

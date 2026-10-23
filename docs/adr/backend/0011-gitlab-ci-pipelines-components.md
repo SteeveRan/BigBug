@@ -65,13 +65,13 @@ Chosen option: **«Управление через приложение: сущ�
 
 ### RBAC
 
-8 permissions (сидятся миграцией `20260820_0003_..._seed_gitlab_project_permissions.py`, задекларированы в `backend/docker/seed_admin.py`): `gitlab_projects:read/write/delete/read_all`, `components:read/write/delete/push`. Разделение «владелец компонентов» vs «владелец пайплайнов»: мутация проекта дополнительно требует право типа (`components:push` для components-проектов, `pipelines:write` для pipelines-проектов); владение строкой — owner/team/`read_all`; гранулярно — scope-таблица `role_scope_gitlab_projects` (`require_scope_permission(permission, "gitlab_project")`). Существующие `pipelines:read/write/delete` сохранены для конфигураций и ранов; отдельный `pipelines:trigger` не вводился (триггер = `pipelines:write`).
+8 permissions (сидятся миграцией `20260820_0003_..._seed_gitlab_project_permissions.py`, задекларированы в `backend/bin/seed_admin.py`): `gitlab_projects:read/write/delete/read_all`, `components:read/write/delete/push`. Разделение «владелец компонентов» vs «владелец пайплайнов»: мутация проекта дополнительно требует право типа (`components:push` для components-проектов, `pipelines:write` для pipelines-проектов); владение строкой — owner/team/`read_all`; гранулярно — scope-таблица `role_scope_gitlab_projects` (`require_scope_permission(permission, "gitlab_project")`). Существующие `pipelines:read/write/delete` сохранены для конфигураций и ранов; отдельный `pipelines:trigger` не вводился (триггер = `pipelines:write`).
 
 ### Docker-импорт (Docker Hub → Harbor)
 
 Финальное состояние из docker-import-fix-спеки, работающее поверх этой архитектуры:
 
-- Разделение source/target: `get_internal_docker_targets()` (`backend/app/services/docker.py`) отдаёт internal-провайдеры `harbor`/`generic_registry` как mirror-цели; system Harbor сидится `backend/scripts/seed_providers.py` из env (`HARBOR_URL` и др., секрет — Fernet через `app.core.secrets`).
+- Разделение source/target: `get_internal_docker_targets()` (`backend/app/services/docker.py`) отдаёт internal-провайдеры `harbor`/`generic_registry` как mirror-цели; system Harbor сидится `backend/bin/seed_providers.py` из env (`HARBOR_URL` и др., секрет — Fernet через `app.core.secrets`).
 - Нормализация `repository_path_from_ref()` (host/тег/digest отрезаются, Docker Hub → префикс `library/`) — единая для tags/manifest/mirror/source-импорта.
 - OCI/Docker Hub token handshake — `backend/app/services/providers/clients/docker_auth.py` (`oci_request`: 401 + `WWW-Authenticate: Bearer` → fetch token → ровно один retry; кэш per-(service, scope) TTL 300s).
 - Зеркалирование — `crane copy` (subprocess), секреты в 0600 `DOCKER_CONFIG/config.json` (не argv), `--insecure` при `verify_ssl=False`.
