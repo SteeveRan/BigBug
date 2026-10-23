@@ -256,8 +256,8 @@ uv run alembic downgrade base
 # Re-apply all migrations
 uv run alembic upgrade head
 
-# Или без захода в контейнер
-make dev-init
+# Или пересоздать схему в CNPG dev-стенда (только владелец инфры)
+make dev-clean CONFIRM=yes && make dev-up
 ```
 
 ### Clean Install

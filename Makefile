@@ -2,8 +2,8 @@
 # BigBug — единая точка входа для запуска всех скриптов проекта.
 #
 # Группы команд (подробнее: make help):
-#   dev-*     — дев-сборка приложения (docker-compose.yml)
-#   infra-*   — зависимости (keycloak, gitlab, harbor) + OpenTofu
+#   dev-*     — приложение в kind-кластере bigbug-dev (helm chart bigbug)
+#   infra-*   — kind-стенд (tofu base/infra-apps/apps) + GitLab compose-зона
 #   test-*    — тесты по стеку и типу (unit / integrations / e2e / all)
 #   lint-*    — линтинг
 #   format-*  — форматирование
@@ -15,12 +15,14 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-# Compose-обёртки
+# Compose-обёртки (корневой compose живёт до #62 — снос compose-приложения)
 COMPOSE_APP   := docker compose
 COMPOSE_INFRA := docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env
 
 # Директории
-TF_DIR := infrastructure/terraform
+TF_DIR    := infrastructure/terraform
+TF_ROOTS  := $(TF_DIR)/apps/.terraform $(TF_DIR)/infra-apps/.terraform $(TF_DIR)/base/.terraform
+STATE_DIR := $(HOME)/.local/state/bigbug
 
 # =============================================================================
 ##@ Help
@@ -34,42 +36,55 @@ help: ## Показать все доступные команды
 		$(MAKEFILE_LIST)
 
 # =============================================================================
-##@ dev — дев-сборка приложения (postgres, redis, backend, frontend)
+##@ dev — приложение в kind-кластере bigbug-dev (helm chart bigbug)
 # =============================================================================
+
+# kind-стенд (ADR-0022): кластер, ns, релиз, dev-теги образов (values-dev, #59)
+KIND_CLUSTER   := bigbug-dev
+KUBE_CONTEXT   := kind-$(KIND_CLUSTER)
+APP_NAMESPACE  := bigbug
+APP_RELEASE    := bigbug
+DB_CLUSTER     := bigbug-dev  # CNPG Cluster CR name (tofu apps root, ≠ release name)
+BACKEND_IMAGE  := bigbug-backend:dev
+FRONTEND_IMAGE := bigbug-frontend:dev
 
 .PHONY: dev-migrate-check
 dev-migrate-check: ## Чек миграций ветки на чистой копии БД (multi-agent pre-merge)
 	./backend/scripts/migrate-check.sh $(DB)
 
 .PHONY: dev-build
-dev-build: ## Собрать образы приложения
-	$(COMPOSE_APP) build
+dev-build: ## Собрать dev-образы (bigbug-{backend,frontend}:dev) и залить в kind
+	docker build -f backend/docker/Dockerfile -t $(BACKEND_IMAGE) backend
+	docker build -f frontend/docker/Dockerfile -t $(FRONTEND_IMAGE) frontend
+	kind load docker-image $(BACKEND_IMAGE) $(FRONTEND_IMAGE) --name $(KIND_CLUSTER)
 
 .PHONY: dev-up
-dev-up: ## Запустить дев-стек (entrypoint сам ждёт БД и применяет миграции)
-	$(COMPOSE_APP) up -d
-
-.PHONY: dev-init
-dev-init: ## Применить миграции Alembic (повторно, без перезапуска стека)
-	$(COMPOSE_APP) run --rm backend app:init
+dev-up: ## Задеплоить приложение в kind (helm upgrade; миграции — pre-upgrade hook job, повтор = повторный dev-up)
+	helm upgrade --install $(APP_RELEASE) charts/bigbug -n $(APP_NAMESPACE) \
+		--kube-context $(KUBE_CONTEXT) -f charts/bigbug/values-dev.yaml --wait --timeout 10m
 
 .PHONY: dev-down
-dev-down: ## Остановить дев-стек (контейнеры сохраняются)
-	$(COMPOSE_APP) down
+dev-down: ## Удалить релиз bigbug из kind (данные CNPG/Redis сохраняются)
+	helm uninstall $(APP_RELEASE) -n $(APP_NAMESPACE) --kube-context $(KUBE_CONTEXT) --wait
 
 .PHONY: dev-clean
-dev-clean: ## Остановить дев-стек и удалить вольюмы (postgres/redis)
+dev-clean: dev-down ## dev-down + сброс app-данных (DROP SCHEMA в CNPG + flush Redis); только владелец инфры
 	@if [ "$(CONFIRM)" != "yes" ]; then \
-		echo "ОШИБКА: dev-clean удаляет вольюмы postgres/redis общего стенда."; \
+		echo "ОШИБКА: dev-clean удаляет данные приложения (CNPG + Redis) общего стенда."; \
 		echo "Разрешено только владельцу инфры (см. AGENTS.md: Multi-agent discipline)."; \
 		echo "Запускайте: make dev-clean CONFIRM=yes"; \
 		exit 1; \
 	fi
-	$(COMPOSE_APP) down -v --remove-orphans
+	PGPOD=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get pod -l cnpg.io/cluster=$(DB_CLUSTER) -o jsonpath='{.items[0].metadata.name}'); \
+	PGPW=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get secret $(DB_CLUSTER)-app -o jsonpath='{.data.password}' | base64 -d); \
+	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec "$$PGPOD" -c postgres -- env PGPASSWORD="$$PGPW" \
+		psql -h localhost -U bigbug -d bigbug -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec $(APP_RELEASE)-cache-0 -- redis-cli flushall
 
 .PHONY: dev-db-create
 dev-db-create: ## Создать БД на ворктрий в общем postgres (DB=feat_<branch>)
 	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-create DB=feat_<branch>"; exit 1; fi
+	# shortcut: зависит от compose-контейнера postgres-backend; переедет на CNPG в #62 (снос compose)
 	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "CREATE DATABASE $(DB)"
 
 .PHONY: dev-db-drop
@@ -79,49 +94,44 @@ dev-db-drop: ## Удалить БД ворктрия (DB=feat_<branch>)
 	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "DROP DATABASE IF EXISTS $(DB)"
 
 # =============================================================================
-##@ infra — зависимости (keycloak, gitlab, harbor)
+##@ infra — kind-стенд (tofu: base/infra-apps/apps) + GitLab compose-зона
 # =============================================================================
 
 .PHONY: infra-up
-infra-up: ## Запустить инфраструктурные сервисы (keycloak + gitlab)
+infra-up: ## Запустить GitLab compose-зону (kind-стенд не «останавливается»; полный стенд — infra-init)
+	bash infrastructure/kind/certs.sh
 	$(COMPOSE_INFRA) up -d
 
 .PHONY: infra-init
-infra-init: ## Полная инициализация: compose → harbor (kind) → OpenTofu → .env
+infra-init: ## Полная инициализация: certs → gitlab compose → kind bootstrap → tofu base/infra-apps/apps → .env
 	./infrastructure/init.sh
 
 .PHONY: infra-down
-infra-down: ## Остановить инфраструктурные сервисы (контейнеры сохраняются)
+infra-down: ## Остановить GitLab compose-зону (вольюмы живы; kind/tofu-стенд продолжает работать)
 	$(COMPOSE_INFRA) down
 
 .PHONY: infra-clean
-infra-clean: ## Полная чистка инфраструктуры (все сервисы)
+infra-clean: ## Полная чистка: tofu destroy (apps→infra-apps→base) + kind teardown + state-каталоги; GitLab-вольюмы и certs/ не трогаются
 	@if [ "$(CONFIRM)" != "yes" ]; then \
-		echo "ОШИБКА: infra-clean удаляет kind-кластеры, вольюмы и tofu-стейт."; \
+		echo "ОШИБКА: infra-clean уничтожает kind-кластер и tofu-стейт (GitLab-вольюмы и серты не трогаются)."; \
 		echo "Разрешено только владельцу инфры (см. AGENTS.md: Multi-agent discipline)."; \
 		echo "Запускайте: make infra-clean CONFIRM=yes"; \
 		exit 1; \
 	fi
-	$(MAKE) infra-clean-compose infra-clean-harbor infra-clean-tofu
-
-.PHONY: infra-clean-compose
-infra-clean-compose: ## Остановить keycloak/gitlab/postgres и удалить их вольюмы
-	$(COMPOSE_INFRA) down -v --remove-orphans
-
-.PHONY: infra-clean-harbor
-infra-clean-harbor: ## Удалить kind-кластер Harbor и запись из /etc/hosts
-	bash infrastructure/harbor/teardown.sh --all
+	$(MAKE) infra-clean-tofu infra-clean-kind
 
 .PHONY: infra-clean-tofu
-infra-clean-tofu: ## Удалить все файлы OpenTofu (стейт, lock, .terraform, tfvars)
-	rm -rf \
-		$(TF_DIR)/.terraform \
-		$(TF_DIR)/.terraform.lock.hcl \
-		$(TF_DIR)/terraform.tfstate \
-		$(TF_DIR)/terraform.tfstate.backup \
-		$(TF_DIR)/terraform.tfvars \
-		$(TF_DIR)/crash.log
-	rm -f $(TF_DIR)/*.tfplan
+infra-clean-tofu: ## tofu destroy трёх root'ов (порядок apps → infra-apps → base, кластер ещё жив)
+	@set -e; for root in apps infra-apps base; do \
+		echo ">>> tofu destroy: $$root"; \
+		(cd infrastructure/terraform/$$root && tofu init -input=false && tofu destroy -auto-approve -input=false); \
+	done
+
+.PHONY: infra-clean-kind
+infra-clean-kind: ## Удалить kind-кластер + hosts и стейт-каталоги (~/.local/state/bigbug/{apps,infra-apps,base}); certs/ не трогается
+	bash infrastructure/kind/teardown.sh --all
+	rm -rf $(STATE_DIR)/apps $(STATE_DIR)/infra-apps $(STATE_DIR)/base
+	rm -rf $(TF_ROOTS)
 
 # =============================================================================
 ##@ test — тесты по стеку и типу
