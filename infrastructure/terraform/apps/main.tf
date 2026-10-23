@@ -58,7 +58,7 @@ provider "harbor" {
 # OIDC auth) — migrated from the deprecated config root (ADR-0013 module),
 # per the config-root decommission plan; issues #58/#62.
 module "harbor" {
-  source = "../modules/harbor"
+  source = "./modules/harbor"
 
   harbor_password    = "Harbor12345"
   oidc_client_secret = "harbor-oidc-secret"
