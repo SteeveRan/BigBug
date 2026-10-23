@@ -7,24 +7,24 @@
 #
 # Требования:
 #   - Python 3.14+ с виртуальным окружением (backend/.venv)
-#   - установлен mypy: pip install -e '.[dev]'
+#   - установлен mypy: uv sync
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)" >&2
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'" >&2
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
 cd "$BACKEND_DIR"
 
 echo "=== Running mypy ==="
-"$VENV_PYTHON" -m mypy app/
+"${VENV_PYTHON[@]}" -m mypy app/
 
 echo ""
 echo "=== Done ==="

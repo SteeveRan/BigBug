@@ -22,15 +22,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 
 COVERAGE_PORT="${COVERAGE_PORT:-8011}"
 BASE_URL="http://localhost:${COVERAGE_PORT}"
 PID_FILE="$(mktemp)"
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
@@ -55,7 +55,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "=== Запуск backend под coverage (порт ${COVERAGE_PORT}) ==="
-"$VENV_PYTHON" -m coverage run \
+"${VENV_PYTHON[@]}" -m coverage run \
     --data-file=.coverage.host \
     -m uvicorn app.main:app \
     --host 127.0.0.1 \
@@ -66,7 +66,7 @@ echo $! > "$PID_FILE"
 # 2. Дождаться готовности сервера.
 echo "=== Ожидание готовности backend ==="
 for _ in $(seq 1 60); do
-    if "$VENV_PYTHON" -c "
+    if "${VENV_PYTHON[@]}" -c "
 import httpx
 try:
     httpx.get('${BASE_URL}/api/health', timeout=2.0).raise_for_status()
@@ -78,7 +78,7 @@ except Exception:
     sleep 1
 done
 
-if ! "$VENV_PYTHON" -c "
+if ! "${VENV_PYTHON[@]}" -c "
 import httpx
 httpx.get('${BASE_URL}/api/health', timeout=2.0).raise_for_status()
 " 2>/dev/null; then
@@ -89,7 +89,7 @@ fi
 # 3. Прогнать e2e-тесты против поднятого сервера.
 echo ""
 echo "=== Running e2e tests против ${BASE_URL} ==="
-BIGBUG_E2E_BASE_URL="$BASE_URL" "$VENV_PYTHON" -m pytest tests/e2e/ -v "$@"
+BIGBUG_E2E_BASE_URL="$BASE_URL" "${VENV_PYTHON[@]}" -m pytest tests/e2e/ -v "$@"
 
 # 4. Остановить сервер и снять покрытие.
 kill "$(cat "$PID_FILE")" 2>/dev/null || true
@@ -98,8 +98,8 @@ wait "$(cat "$PID_FILE")" 2>/dev/null || true
 
 echo ""
 echo "=== Формирование отчёта о покрытии кода ==="
-"$VENV_PYTHON" -m coverage report --data-file=.coverage.host
-"$VENV_PYTHON" -m coverage html --data-file=.coverage.host -d htmlcov
+"${VENV_PYTHON[@]}" -m coverage report --data-file=.coverage.host
+"${VENV_PYTHON[@]}" -m coverage html --data-file=.coverage.host -d htmlcov
 
 echo ""
 echo "Отчёты:"

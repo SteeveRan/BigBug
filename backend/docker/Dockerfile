@@ -1,10 +1,10 @@
 # Multi-stage build for the BigBug backend (FastAPI + SQLAlchemy + Alembic).
 #
 # Layout rationale:
-#   * `builder` stage compiles wheels and installs them into a self-contained
-#     virtualenv at /opt/venv. Keeping deps outside /app means bind-mounting
-#     the source tree at runtime (compose dev mode) does NOT shadow the
-#     installed packages.
+#   * `builder` stage resolves and installs dependencies from uv.lock into a
+#     self-contained virtualenv at /opt/venv. Keeping deps outside /app means
+#     bind-mounting the source tree at runtime (compose dev mode) does NOT
+#     shadow the installed packages.
 #   * `runtime` stage starts from a clean slim image, copies only the venv
 #     plus app sources, runs as a non-root user and uses tini as PID 1 so
 #     uvicorn receives signals correctly.
@@ -23,8 +23,7 @@ FROM python:${PYTHON_VERSION}-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
@@ -36,21 +35,22 @@ RUN apt-get update \
         curl \
     && rm -rf /var/lib/apt/lists/*
 
-# WHY: uv resolves & installs an order of magnitude faster than pip and we use
-# it consistently across the project. The venv lives at a stable path so the
-# runtime stage can copy it verbatim.
-RUN pip install --no-cache-dir uv \
-    && python -m venv /opt/venv
-
 WORKDIR /build
 
-# WHY: Copy only the manifest first so dependency installation is cached
-# independently from source changes. The app/ source must also be present
-# so that `uv pip install .` can discover the package defined in pyproject.toml
-# (packages = ["app"]) and install it into /opt/venv.
-COPY pyproject.toml ./
+# WHY: Copy only the manifest + lock first so dependency installation is cached
+# independently from source changes. `uv sync --frozen` installs exactly the
+# versions from uv.lock (reproducible builds). Dev group is excluded — the
+# image ships runtime deps only. The app/ source must also be present so that
+# uv can install the project itself (packages = ["app"]) into /opt/venv.
+COPY pyproject.toml uv.lock ./
 
-RUN uv pip install --python /opt/venv/bin/python --no-cache .
+COPY app ./app
+
+# WHY: uv (pinned via image tag) installs exactly the versions from uv.lock;
+# dev group is excluded — the image ships runtime deps only.
+COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
+
+RUN uv sync --frozen --no-dev --no-editable
 
 ############################################
 # Stage 2: runtime

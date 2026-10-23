@@ -10,7 +10,7 @@
 # Требования:
 #   - запущенный dev-стек: docker compose up -d (backend на localhost:8000)
 #   - Python 3.14+ с виртуальным окружением (backend/.venv)
-#   - все зависимости из pyproject.toml установлены (включая jsonschema)
+#   - установлен uv; зависимости ставятся автоматически из uv.lock (включая jsonschema)
 #
 # Настройка через переменные окружения:
 #   BIGBUG_E2E_BASE_URL   — базовый URL backend (по умолчанию http://localhost:8000)
@@ -24,20 +24,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 
 BASE_URL="${BIGBUG_E2E_BASE_URL:-http://localhost:8000}"
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
 cd "$BACKEND_DIR"
 
 echo "=== Проверка доступности backend ($BASE_URL) ==="
-if ! "$VENV_PYTHON" -c "
+if ! "${VENV_PYTHON[@]}" -c "
 import sys, httpx
 try:
     httpx.get('${BASE_URL}/api/health', timeout=5.0).raise_for_status()
@@ -53,7 +53,7 @@ echo "Backend доступен."
 echo ""
 echo "=== Running e2e tests (tests/e2e/) ==="
 # Без pytest-cov: покрытие кода измеряется отдельно скриптом test-e2e-coverage.sh.
-"$VENV_PYTHON" -m pytest tests/e2e/ -v "$@"
+"${VENV_PYTHON[@]}" -m pytest tests/e2e/ -v "$@"
 
 echo ""
 echo "=== Done ==="
