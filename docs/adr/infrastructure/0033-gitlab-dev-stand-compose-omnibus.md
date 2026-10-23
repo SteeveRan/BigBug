@@ -12,7 +12,7 @@ informed: SteeveRan
 
 После переезда dev-стенда на kind ([ADR-0022](0022-dev-stand-on-kind.md)) и base/apps-разрезки OpenTofu ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)) GitLab остался единственным сервисом вне kind — compose-исключением. Его решения были размазаны по трём ADR ([ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md), ADR-0022, [ADR-0030](0030-dev-stand-https-self-signed-certs.md)), а код отставал:
 
-- `infrastructure/docker-compose.yml` всё ещё содержал `postgres-keycloak` + `keycloak` (чеклист ADR-0022 §7 требует только gitlab + gitlab-runner);
+- `infrastructure/gitlab/docker-compose.yml` всё ещё содержал `postgres-keycloak` + `keycloak` (чеклист ADR-0022 §7 требует только gitlab + gitlab-runner);
 - config root OpenTofu (`infrastructure/terraform/main.tf`) содержал модули `keycloak`/`harbor`, хотя их конфиг переехал в `terraform/apps` (ADR-0029, update #58) — при полном прогоне два root'а управляли одним Keycloak realm;
 - TLS не был реализован: `external_url 'http://gitlab.local:8080'` против зафиксированного ADR-0030 §9 `https://gitlab.local:8443`.
 
@@ -35,11 +35,11 @@ informed: SteeveRan
 
 ## Decision Outcome
 
-Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastructure/docker-compose.yml`** (compose-исключение ADR-0022 §4), HTTPS на omnibus-nginx, config root OpenTofu — GitLab-only.
+Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastructure/gitlab/docker-compose.yml`** (compose-исключение ADR-0022 §4), HTTPS на omnibus-nginx, config root OpenTofu — GitLab-only.
 
 ### Зафиксированные правила
 
-**1. Compose-исключение.** `infrastructure/docker-compose.yml` содержит ровно два сервиса: `gitlab` (CE omnibus, PostgreSQL bundled внутрь образа) и `gitlab-runner` (docker.sock executor — known limitation: джобы бегут на хосте, не в кластере). Сеть `bigbug-network`, вольюмы `gitlab_*`. RAM-бюджет: `mem_limit: 4g`. Переезд в kind (chart `gitlab/gitlab` или managed) — отдельный ADR при необходимости (условие пересмотра ниже).
+**1. Compose-исключение.** `infrastructure/gitlab/docker-compose.yml` (выделенная папка GitLab-зоны вместе с её `.env`; project name pinned `infrastructure` — вольюмы `infrastructure_gitlab_*` не переезжают) содержит ровно два сервиса: `gitlab` (CE omnibus, PostgreSQL bundled внутрь образа) и `gitlab-runner` (docker.sock executor — known limitation: джобы бегут на хосте, не в кластере). Сеть `bigbug-network`, вольюмы `gitlab_*`. RAM-бюджет: `mem_limit: 4g`. Переезд в kind (chart `gitlab/gitlab` или managed) — отдельный ADR при необходимости (условие пересмотра ниже).
 
 **2. TLS: `https://gitlab.local:8443`.** Omnibus `external_url 'https://gitlab.local:8443'`; серт — self-signed из `kind/certs.sh` (ADR-0030 §2/§3, файлы в `~/.local/state/bigbug/certs/gitlab.local/`), bind-mount `~/.local/state/bigbug/certs/gitlab.local/` → `/etc/gitlab/ssl/gitlab.local/` (read-only), порты `8443:8443` и `2222:22` (SSH). HTTP-слушателя нет. `letsencrypt` выключен явно. Доверие хоста — `trust-host.sh`; скрипты стенда (init.sh, healthcheck) используют `-k`/`--cacert`, но никогда не переходят на plain HTTP.
 
@@ -53,7 +53,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 
 Модули `keycloak`/`harbor` из config root удалены (их конфиг — `terraform/apps/modules/{keycloak_conf,harbor_conf}`, ADR-0029 update #58). Провайдер ходит на `https://gitlab.local:8443` с `cacert_file` = серт из `~/.local/state/bigbug/certs/` — верификация self-signed не отключается (ADR-0028 §2). State-следы старых keycloak/harbor-ресурсов root'а не переносятся: существующие ресурсы заселены через apps, двойное управление хуже.
 
-**4. PAT bootstrap — постоянное задокументированное исключение из IaC.** Начальный root-PAT программируется `gitlab-rails runner` внутри контейнера (init.sh, шаг 8), только если токен из `infrastructure/.env` отвечает 403. Почему императивно: gitlab-провайдер не умеет `set_token` (нельзя задать значение существующего PAT), а рабочие креды приложения (resource_providers) заводятся в UI — [ADR-0024](../common/0024-k8s-secrets.md). Это единственный императивный шаг в GitLab-зоне; PAT живёт 90 дней, re-bootstrap — повторный запуск init.sh.
+**4. PAT bootstrap — постоянное задокументированное исключение из IaC.** Начальный root-PAT программируется `gitlab-rails runner` внутри контейнера (init.sh, шаг 8), только если токен из `infrastructure/gitlab/.env` отвечает 403. Почему императивно: gitlab-провайдер не умеет `set_token` (нельзя задать значение существующего PAT), а рабочие креды приложения (resource_providers) заводятся в UI — [ADR-0024](../common/0024-k8s-secrets.md). Это единственный императивный шаг в GitLab-зоне; PAT живёт 90 дней, re-bootstrap — повторный запуск init.sh.
 
 **5. Интеграционная точка с приложением.** Приложение работает с GitLab через API: resource_providers ([ADR-0007](../common/0007-providers-v3-registry.md)), пресеты CI в [`backend/app/services/gitlab_projects/presets.py`](../../../backend/app/services/gitlab_projects/presets.py) ([ADR-0011](../backend/0011-gitlab-ci-pipelines-components.md)). Provisioning CI/CD components и пайплайнов — задача приложения, не IaC.
 
@@ -78,8 +78,8 @@ grep -c "keycloak\|harbor" main.tf variables.tf outputs.tf   # → 0 (GitLab-onl
 2. Compose-состав (ADR-0022 §7 чеклист):
 
 ```bash
-docker compose -f infrastructure/docker-compose.yml config --services   # → gitlab, gitlab-runner
-docker compose -f infrastructure/docker-compose.yml ps                   # → 2 контейнера
+docker compose -f infrastructure/gitlab/docker-compose.yml config --services   # → gitlab, gitlab-runner
+docker compose -f infrastructure/gitlab/docker-compose.yml ps                   # → 2 контейнера
 ```
 
 3. TLS живой:

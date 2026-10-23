@@ -17,7 +17,7 @@ SHELL := /usr/bin/env bash
 
 # Compose-обёртки
 COMPOSE_APP   := docker compose
-COMPOSE_INFRA := docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env
+COMPOSE_INFRA := docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env
 
 # Директории
 TF_DIR := infrastructure/terraform

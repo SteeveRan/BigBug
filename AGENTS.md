@@ -44,7 +44,7 @@ BigBug/
 │   ├── scripts/         # Format, lint, test scripts
 │   └── package.json     # Node dependencies
 ├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
-│   ├── docker-compose.yml    # GitLab zone (gitlab + gitlab-runner — compose-исключение, ADR-0033)
+│   ├── gitlab/               # GitLab compose zone (gitlab + gitlab-runner — compose-исключение, ADR-0033)
 │   ├── init.sh               # Initialization script (certs → compose → kind → base → apps → config)
 │   ├── update-env.sh         # Environment update script
 │   ├── kind/                 # kind-стенд: bootstrap/certs/trust scripts
@@ -212,7 +212,7 @@ See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 - `make dev-clean` / `make infra-clean` / `docker compose down -v` — гасят общий стенд (защищены CONFIRM-гвардом, обходить его нельзя)
 - `alembic downgrade` на общей БД `bigbug`
-- Tofu apply / пересоздание секретов / изменение `infrastructure/.env`
+- Tofu apply / пересоздание секретов / изменение `infrastructure/gitlab/.env`
 
 Нужен пересозданный секрет, свежее окружение или чистка — issue владельцу инфры, не самодеятельность.
 
@@ -337,7 +337,7 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 
 ```bash
 # Сервисы не стартуют: логи, сеть, volumes
-docker compose -f infrastructure/docker-compose.yml logs gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml logs gitlab
 kubectl get pods -A --context kind-bigbug-dev          # keycloakx, harbor, ingress — в kind
 docker network inspect bigbug-network
 docker volume ls | grep bigbug
@@ -346,8 +346,8 @@ docker volume ls | grep bigbug
 lsof -i :8443; lsof -i :5432; lsof -i :8000
 
 # GitLab: полная загрузка занимает 2-5 минут; root password для fresh-инстанса
-docker compose -f infrastructure/docker-compose.yml logs -f gitlab
-docker compose -f infrastructure/docker-compose.yml exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
 
 # OpenTofu: сброс state и повторная инициализация с нуля
 make infra-clean && make infra-init

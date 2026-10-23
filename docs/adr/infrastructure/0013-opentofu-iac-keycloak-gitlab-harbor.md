@@ -48,11 +48,11 @@ Chosen option: **OpenTofu** — декларативный IaC с открыто
 [`infrastructure/init.sh`](../../../infrastructure/init.sh) — единственная точка входа (`make infra-init`); императивные шаги — ровно те, которые tofu не может сделать сам:
 
 1. Проверка зависимостей (`docker`, `curl`, `jq`, `tofu` **или** `terraform` — fallback осознанный, но OpenTofu рекомендуется)
-2. `infrastructure/.env` из `.env.example` (если нет)
+2. `infrastructure/gitlab/.env` из `.env.example` (если нет)
 3. `docker compose up` инфраструктурных сервисов (compose-слой; после [ADR-0022](0022-dev-stand-on-kind.md) — только GitLab, остальное в kind), если ещё не запущены
 4. Ожидание готовности: Keycloak `/realms/master` (180s), GitLab `/users/sign_in` (600s)
 5. Harbor в kind: `deploy.sh`, только если кластера нет (idempotent)
-6. **GitLab PAT bootstrap** — документированное исключение из IaC: начальный root PAT программируется через `gitlab-rails runner` внутри контейнера, только если токен из `infrastructure/.env` отвечает 403; затем пишется в `terraform.tfvars`
+6. **GitLab PAT bootstrap** — документированное исключение из IaC: начальный root PAT программируется через `gitlab-rails runner` внутри контейнера, только если токен из `infrastructure/gitlab/.env` отвечает 403; затем пишется в `terraform.tfvars`
 7. `tofu init` + `tofu apply -auto-approve` из единого root-модуля
 8. [`infrastructure/update-env.sh`](../../../infrastructure/update-env.sh): `tofu output` → корневой `.env` (`OIDC_*`, `GITLAB_*` и др.) — приложение получает сконфигурированные секреты без ручных шагов
 

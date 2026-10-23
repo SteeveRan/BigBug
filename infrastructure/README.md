@@ -64,7 +64,7 @@ After completion, access:
 |---------|-----|-------------|
 | Keycloak | https://keycloak.local | admin / admin |
 | Harbor | https://harbor.local | admin / Harbor12345 |
-| GitLab | https://gitlab.local:8443 | root / see `infrastructure/.env` |
+| GitLab | https://gitlab.local:8443 | root / see `infrastructure/gitlab/.env` |
 | Frontend UI / Backend API | https://app.local / https://api.local | bigbug / bigbug |
 
 ## Directory Structure
@@ -80,7 +80,7 @@ infrastructure/
 ├── harbor/                # LEGACY (cluster эпоха) — подлежит сносу (#62)
 ├── gitlab-components/
 │   └── examples/          # GitLab CI/CD component templates (examples only — not used by the app)
-├── docker-compose.yml     # GitLab zone (gitlab + gitlab-runner) — ADR-0033
+├── gitlab/                # GitLab compose zone: docker-compose.yml (gitlab + gitlab-runner) + .env.example — ADR-0033
 ├── init.sh                # Full initialization script
 └── update-env.sh          # Update .env with host-tool variables
 ```
@@ -92,13 +92,13 @@ If you prefer to run each step manually:
 ### 1. Start Infrastructure
 
 ```bash
-docker compose -f infrastructure/docker-compose.yml up -d
+docker compose -f infrastructure/gitlab/docker-compose.yml up -d
 ```
 
 Wait for all services to be healthy:
 
 ```bash
-docker compose -f infrastructure/docker-compose.yml ps
+docker compose -f infrastructure/gitlab/docker-compose.yml ps
 ```
 
 ### 2. Apply OpenTofu (base → infra-apps → apps → config)
@@ -149,7 +149,7 @@ cd ../..
 
 ```bash
 # Stop GitLab compose zone (volumes preserved)
-docker compose -f infrastructure/docker-compose.yml down
+docker compose -f infrastructure/gitlab/docker-compose.yml down
 
 # Destroy OpenTofu-managed resources (per root)
 cd infrastructure/terraform/base && tofu destroy && cd ../infra-apps && tofu destroy && cd ../apps && tofu destroy && cd ../.. && tofu destroy && cd ../..
@@ -166,7 +166,7 @@ cd infrastructure/terraform/base && tofu destroy && cd ../infra-apps && tofu des
 ls ~/.local/state/bigbug/certs/gitlab.local/     # tls.crt tls.key
 
 # Logs
-docker compose -f infrastructure/docker-compose.yml logs -f gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f gitlab
 
 # Readiness (self-signed: -k in scripts, host trust via kind/trust-host.sh)
 curl -k https://gitlab.local:8443/users/sign_in
@@ -178,7 +178,7 @@ GitLab CE requires significant resources and can take 5+ minutes on first boot.
 
 ```bash
 # Monitor GitLab startup
-docker compose -f infrastructure/docker-compose.yml logs -f gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f gitlab
 
 # Check readiness endpoint
 curl -vk https://gitlab.local:8443/users/sign_in
@@ -206,8 +206,8 @@ Default ports can conflict with local services:
 |------|---------|------------|
 | 5432 | postgres-backend (CNPG CR in kind) | terraform/apps (ns bigbug) / terraform/infra-apps (ns keycloak) |
 | 6379 | redis (CR in kind) | terraform/apps |
-| 8443 | gitlab (https, ADR-0033) | `infrastructure/docker-compose.yml` |
-| 2222 | gitlab ssh | `infrastructure/docker-compose.yml` |
+| 8443 | gitlab (https, ADR-0033) | `infrastructure/gitlab/docker-compose.yml` |
+| 2222 | gitlab ssh | `infrastructure/gitlab/docker-compose.yml` |
 | 80/443 | ingress (keycloak.local, harbor.local, app.local, api.local) | kind extraPortMappings |
 | 8000/5173 | backend/frontend (app chart in kind) | charts/bigbug |
 

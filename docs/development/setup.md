@@ -147,7 +147,7 @@ make infra-init    # = ./infrastructure/init.sh
 
 ```bash
 # Check all services
-docker compose -f infrastructure/docker-compose.yml ps
+docker compose -f infrastructure/gitlab/docker-compose.yml ps
 docker compose ps
 
 # Test backend
@@ -201,7 +201,7 @@ cd backend && uv run uvicorn app.main:app --reload
 cd frontend && yarn dev
 
 # Terminal 3: Infrastructure logs
-docker compose -f infrastructure/docker-compose.yml logs -f
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f
 ```
 
 ## Common Tasks
@@ -335,14 +335,14 @@ curl http://localhost:8000/docs
 **Services not starting**:
 ```bash
 # Check logs
-docker compose -f infrastructure/docker-compose.yml logs keycloak
+docker compose -f infrastructure/gitlab/docker-compose.yml logs keycloak
 
 # Restart specific service
-docker compose -f infrastructure/docker-compose.yml restart keycloak
+docker compose -f infrastructure/gitlab/docker-compose.yml restart keycloak
 
 # Remove volumes and restart (осторожно: удаляет данные)
-docker compose -f infrastructure/docker-compose.yml down -v
-docker compose -f infrastructure/docker-compose.yml up -d
+docker compose -f infrastructure/gitlab/docker-compose.yml down -v
+docker compose -f infrastructure/gitlab/docker-compose.yml up -d
 ```
 
 **Port conflicts**:

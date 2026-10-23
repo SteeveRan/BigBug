@@ -80,10 +80,10 @@ cp .env.example .env
 
 ```bash
 # 1. Start infrastructure
-docker compose -f infrastructure/docker-compose.yml up -d
+docker compose -f infrastructure/gitlab/docker-compose.yml up -d
 
 # 2. Wait for readiness (check health)
-docker compose -f infrastructure/docker-compose.yml ps
+docker compose -f infrastructure/gitlab/docker-compose.yml ps
 
 # 3. Initialize infrastructure (Keycloak → Harbor → GitLab)
 cd infrastructure/terraform
@@ -147,7 +147,7 @@ Services will start on:
 - **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor
 - **Keycloak** — SSO provider
 - **Harbor** (in kind) — local OCI registry for testing
-- **Docker Compose** — local development orchestration (split into [infra](infrastructure/docker-compose.yml) and [app](docker-compose.yml))
+- **Docker Compose** — local development orchestration (split into [GitLab zone](infrastructure/gitlab/docker-compose.yml) and [app](docker-compose.yml))
 - **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak → Harbor → GitLab)
 
 ## 🗂️ Project Structure
@@ -182,9 +182,9 @@ BigBug/
 ├── infrastructure/          # Infrastructure initialization
 │   ├── init.sh              # Full environment initialization script
 │   ├── update-env.sh        # Update .env from OpenTofu outputs
-│   ├── docker-compose.yml   # Infrastructure services (postgres-keycloak, Keycloak, GitLab)
-│   ├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
-│   ├── harbor/              # Harbor deployment in kind
+│   ├── gitlab/              # GitLab compose zone (gitlab + gitlab-runner, ADR-0033)
+│   ├── terraform/           # OpenTofu roots: base / infra-apps / apps (ADR-0029) + config root (GitLab)
+│   ├── harbor/              # Harbor deployment in kind (LEGACY — pending removal, #62)
 │   └── gitlab-components/   # GitLab CI/CD component examples (not used by the app —
 │                            #   presets live in backend/app/services/gitlab_projects/presets.py)
 ├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
@@ -241,13 +241,11 @@ make dead-code                  # vulture + knip
 
 ## 🐳 Docker Compose Services
 
-### Infrastructure (`infrastructure/docker-compose.yml`)
+### Infrastructure (`infrastructure/gitlab/docker-compose.yml`)
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `postgres-keycloak` | 5433 | Keycloak database (separate instance) |
-| `keycloak` | 8180 | SSO/OIDC identity provider |
-| `gitlab` | 8080 | GitLab CE for CI/CD |
+| `gitlab` | 8443 (https) | GitLab CE for CI/CD (compose zone — ADR-0033) |
 | `gitlab-runner` | — | Pipeline executor |
 
 ### Application (`docker-compose.yml`)
@@ -258,6 +256,9 @@ make dead-code                  # vulture + knip
 | `redis` | 6379 | Cache and session store |
 | `backend` | 8000 | FastAPI REST API with hot reload |
 | `frontend` | 5173 | React dev server with HMR |
+
+> Keycloak и Harbor живут в kind-кластере `bigbug-dev` (ADR-0022/0034/0035),
+> не в compose.
 
 ## 🔐 Authentication
 

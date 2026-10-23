@@ -21,12 +21,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Compose files
-INFRA_COMPOSE="${SCRIPT_DIR}/docker-compose.yml"
+# Compose files (GitLab compose zone — ADR-0033)
+GITLAB_DIR="${SCRIPT_DIR}/gitlab"
+INFRA_COMPOSE="${GITLAB_DIR}/docker-compose.yml"
 
-# .env file (infrastructure only — application .env is managed separately)
-INFRA_ENV="${SCRIPT_DIR}/.env"
-INFRA_ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
+# .env file (gitlab compose zone only — application .env is managed separately)
+INFRA_ENV="${GITLAB_DIR}/.env"
+INFRA_ENV_EXAMPLE="${GITLAB_DIR}/.env.example"
 
 # Terraform (ADR-0029: base/infra-apps/apps roots; config root = GitLab only)
 TF_DIR="${SCRIPT_DIR}/terraform"
@@ -155,20 +156,20 @@ if (( ${#MISSING_DEPS[@]} > 0 )); then
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 2. Create infrastructure/.env from example if not exists
+# 2. Create infrastructure/gitlab/.env from example if not exists
 # ─────────────────────────────────────────────────────────────
-log "### Checking infrastructure environment ###"
+log "### Checking gitlab compose environment ###"
 
 if [[ ! -f "${INFRA_ENV}" ]]; then
     if [[ -f "${INFRA_ENV_EXAMPLE}" ]]; then
-        log "  Creating infrastructure/.env from infrastructure/.env.example..."
+        log "  Creating infrastructure/gitlab/.env from .env.example..."
         cp "${INFRA_ENV_EXAMPLE}" "${INFRA_ENV}"
     else
-        log_error "infrastructure/.env.example not found."
+        log_error "infrastructure/gitlab/.env.example not found."
         exit 1
     fi
 else
-    log "  infrastructure/.env already exists."
+    log "  infrastructure/gitlab/.env already exists."
 fi
 
 # Source infra .env to get GITLAB_TOKEN and GITLAB_ROOT_PASSWORD
@@ -189,7 +190,7 @@ log "### Starting infrastructure services ###"
 cd "${PROJECT_ROOT}"
 
 # Compose = GitLab zone only (gitlab + gitlab-runner — ADR-0033)
-compose_up_if_needed "${INFRA_COMPOSE}" 2 "infrastructure" "--env-file ${INFRA_ENV}"
+compose_up_if_needed "${INFRA_COMPOSE}" 2 "gitlab compose zone" "--env-file ${INFRA_ENV}"
 
 # ─────────────────────────────────────────────────────────────
 # 5. Wait for service readiness
@@ -245,17 +246,17 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 8. Verify / program GitLab PAT from infrastructure/.env
+# 8. Verify / program GitLab PAT from infrastructure/gitlab/.env
 #    (documented imperative exception from IaC — ADR-0033)
 # ─────────────────────────────────────────────────────────────
 log "### Checking GitLab PAT ###"
 
-# GITLAB_TOKEN comes from infrastructure/.env (sourced in step 2)
+# GITLAB_TOKEN comes from infrastructure/gitlab/.env (sourced in step 2)
 GITLAB_PAT="${GITLAB_TOKEN:-}"
 
 if [[ -z "${GITLAB_PAT}" ]]; then
-    log_error "GITLAB_TOKEN is empty or not set in infrastructure/.env."
-    log_error "Add GITLAB_TOKEN=<your-pat> to infrastructure/.env and re-run."
+    log_error "GITLAB_TOKEN is empty or not set in infrastructure/gitlab/.env."
+    log_error "Add GITLAB_TOKEN=<your-pat> to infrastructure/gitlab/.env and re-run."
     exit 1
 fi
 

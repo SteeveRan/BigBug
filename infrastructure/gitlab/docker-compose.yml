@@ -1,20 +1,24 @@
 # =============================================================================
-# BigBug Infrastructure Services (GitLab zone — ADR-0033)
+# GitLab compose zone (ADR-0033)
 # =============================================================================
 #
 # GitLab CE omnibus + gitlab-runner. Keycloak/Harbor live in the kind cluster
-# `bigbug-dev` (ADR-0022/0029); Keycloak config via tofu apps root.
+# `bigbug-dev` (ADR-0022/0029); Keycloak config via tofu infra-apps root.
 #
 # TLS (ADR-0030 §9): external_url https://gitlab.local:8443, cert from
 # kind/certs.sh (run certs.sh before compose up — init.sh does this).
 #
 # Usage:
-#   docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env up -d
+#   docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env up -d
 #
-# Or via init.sh which auto-creates infrastructure/.env from infrastructure/.env.example
+# Or via init.sh which auto-creates infrastructure/gitlab/.env from .env.example
 #
 # See infrastructure/README.md for the full initialization workflow.
 # =============================================================================
+# Project name pinned: volumes (infrastructure_gitlab_*) and containers must
+# keep their names across this file's move from infrastructure/ (data survives
+# the re-arrangement).
+name: infrastructure
 
 networks:
   bigbug-network:
