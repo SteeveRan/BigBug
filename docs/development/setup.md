@@ -79,6 +79,8 @@ pip install pre-commit
 pre-commit install   # включает gitleaks hook на каждый коммит
 ```
 
+Обход хука: `git commit --no-verify` — легитимный emergency-exit, но push всё равно сканируется в CI, а утечка разбирается по процедуре [security.md](security.md). Обходить осознанно: bypass оставляет секрет в локальной истории.
+
 ### 3. Backend Setup
 
 ```bash

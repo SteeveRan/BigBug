@@ -1,0 +1,25 @@
+# Gitleaks configuration — extends the default rules (do NOT replace them).
+# Policy: ADR-0032; response procedure: docs/development/security.md.
+# Inline `gitleaks:allow` markers in source are forbidden — add allowlist
+# entries here instead (reviewed carefully: this is where a real secret hides).
+title = "BigBug gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-fake tokens in examples, docs and test fixtures"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''^docs/''',
+  '''^backend/tests/''',
+  '''^infrastructure/''',
+  '''^AGENTS\.md$''',
+]
+stopwords = [
+  "xyz",
+  "changeme",
+  "bigbug",
+  "test",
+  "example",
+]
