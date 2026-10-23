@@ -31,28 +31,30 @@ curl -fsS http://keycloak.local/realms/master   # → 200
 ### Harbor (ns `harbor`, issue #58)
 
 Chart `goharbor/harbor` 1.19.4 (Harbor 2.15.4, pinned), values в
-`values/harbor.yaml`. Endpoint: `http://harbor.local` (Ingress из chart,
-haproxy, :80, без TLS; ssl-redirect аннотации отключены явно). Trivy и notary
-выключены, chartmuseum в chart 1.19.x отсутствует (удалён upstream).
-Registry-endpoint для docker — `harbor.local:80` (порт обязателен без TLS,
-см. goharbor/harbor#5291); insecure-registry на хосте настраивает
-`../../kind/bootstrap.sh`. Health:
+`values/harbor.yaml`. Endpoint: `https://harbor.local` (TLS терминируется
+на haproxy-ingress, серт — секрет `tls-harbor-local` из `../../kind/certs/`,
+ADR-0030). Trivy и notary выключены, chartmuseum в chart 1.19.x отсутствует
+(удалён upstream). Registry-endpoint для docker — `harbor.local` (порт не
+нужен, дефолт 443); доверие хоста — `../../kind/trust-host.sh` +
+restart docker (insecure-registries не используются, ADR-0030 §4). Health:
 
 ```bash
-curl -fsS http://harbor.local/api/v2.0/systeminfo   # → 200
+curl -fsS https://harbor.local/api/v2.0/systeminfo   # → 200 (без -k)
 ```
 
 Push/pull-проверка: `../../kind/test-push.sh`. После apps — config root
-(`cd .. && tofu apply`): projects/robots/webhooks против `http://harbor.local`.
+(`cd .. && tofu apply`): projects/robots/webhooks против `https://harbor.local`.
 
 ## Применение (порядок обязателен)
 
 ```bash
+# 0. серты для *.local (до bootstrap; переживают infra-clean)
+../../kind/certs.sh && ../../kind/trust-host.sh   # trust-host требует sudo
 # 1. кластер + /etc/hosts
 ../../kind/bootstrap.sh
-# 2. платформа (CNPG operator + CRD, haproxy-ingress)
+# 2. платформа (CNPG operator + CRD, haproxy-ingress, CoreDNS *.local hosts)
 cd ../base && tofu init && tofu apply && cd ../apps
-# 3. app-инстансы (этот root)
+# 3. app-инстансы (этот root; требует секретов из шага 0 — harbor-tls.tf)
 tofu init && tofu apply
 ```
 
