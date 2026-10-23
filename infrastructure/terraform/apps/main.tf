@@ -29,6 +29,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
+    harbor = {
+      source  = "goharbor/harbor"
+      version = "~> 3.12"
+    }
   }
 }
 
@@ -42,6 +46,22 @@ provider "helm" {
     config_path    = var.kubeconfig_path
     config_context = var.kubeconfig_context
   }
+}
+
+provider "harbor" {
+  url      = "https://harbor.local"
+  username = "admin"
+  password = "Harbor12345"
+}
+
+# Harbor API configuration (projects/robots/registries/replications/webhooks +
+# OIDC auth) — migrated from the deprecated config root (ADR-0013 module),
+# per the config-root decommission plan; issues #58/#62.
+module "harbor" {
+  source = "../modules/harbor"
+
+  harbor_password    = "Harbor12345"
+  oidc_client_secret = "harbor-oidc-secret"
 }
 
 resource "kubernetes_namespace" "keycloak" {

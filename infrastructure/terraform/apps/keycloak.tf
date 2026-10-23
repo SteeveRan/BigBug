@@ -9,13 +9,30 @@
  * Admin bootstrap: KC_BOOTSTRAP_ADMIN_* env (Keycloak 26) — secret is
  * tofu-managed and only takes effect on first (empty) DB init.
  *
- * Endpoint: http://keycloak.local via chart-managed Ingress (haproxy,
- * port 80, no TLS in dev — ADR-0022 addressing). http.relativePath "/"
- * keeps URLs identical to the retired compose setup (no /auth prefix).
+ * Endpoint: https://keycloak.local — TLS terminates on haproxy-ingress with
+ * the `tls-keycloak-local` secret (certs from ../../kind/certs.sh, ADR-0030);
+ * pod-to-pod stays http. Harbor OIDC (oidc_verify_cert: true) verifies this
+ * cert via the harbor-ca-bundle secret.
+ * http.relativePath "/" keeps URLs identical to the retired compose setup
+ * (no /auth prefix).
  *
  * Ordering: helm release depends_on the Cluster CR; the chart's dbchecker
  * init container waits for Postgres readiness itself.
  */
+
+resource "kubernetes_secret_v1" "tls_keycloak" {
+  metadata {
+    name      = "tls-keycloak-local"
+    namespace = "keycloak"
+  }
+
+  type = "kubernetes.io/tls"
+
+  data = {
+    "tls.crt" = file("${path.module}/../../kind/certs/keycloak.local/tls.crt")
+    "tls.key" = file("${path.module}/../../kind/certs/keycloak.local/tls.key")
+  }
+}
 
 resource "kubernetes_secret_v1" "keycloak_admin" {
   metadata {
