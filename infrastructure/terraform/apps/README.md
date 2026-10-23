@@ -1,11 +1,12 @@
 # apps — app-инстансы в kind-кластере bigbug-dev
 
 App-слой [ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md):
-инстансы приложений в собственных namespace. Сейчас — стек Keycloak (issue #57)
-и Harbor (issue #58). Платформа (ingress, операторы) — в `../base`; конфигурация
-сервисов через их API (realm, clients, Harbor projects/robots) — в `../..`
-(config root, ADR-0013). Ns `bigbug` приложения (backend/frontend/секреты) —
-не здесь, это app chart (I6).
+инстансы приложений в собственных namespace: стек Keycloak (issue #57),
+Harbor (issue #58) и инфраструктура приложения BigBug в ns `bigbug`
+(issue #59 — module `bigbug_init`). Платформа (ingress, операторы) — в
+`../base`; конфигурация сервисов через их API (realm, clients, Harbor
+projects/robots) — в `../..` (config root, ADR-0013). Запуск приложения —
+chart `charts/bigbug` (helm, issue #61).
 
 ## Состав
 
@@ -13,8 +14,24 @@ App-слой [ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-enti
 
 Отдельный Cluster CR для Keycloak: БД `keycloak`, юзер `keycloak`. Креды —
 секрет оператора `keycloak-app` (ns `keycloak`), RW endpoint
-`keycloak-rw.keycloak.svc:5432`. Postgres-кластер приложения (`bigbug`) —
-отдельный CR, I6.
+`keycloak-rw.keycloak.svc:5432`.
+
+### BigBug app infra (ns `bigbug`, module `bigbug_init`, issue #59)
+
+- Postgres Cluster `bigbug-dev` (CNPG): БД `bigbug`, юзер `bigbug`, RW
+  endpoint `bigbug-dev-rw.bigbug.svc:5432`. Креды — секрет оператора
+  `bigbug-dev-app`.
+- Redis `bigbug-cache` (redis-operator из base) — `bigbug-cache.bigbug.svc:6379`.
+- Секреты приложения (ADR-0024 §1): `bigbug-db-credentials` (проекция
+  `bigbug-dev-app`, DATABASE_URL для backend и hook Job), `bigbug-fernet-key`
+  (ENCRYPTION_KEY, стабилен в state), `bigbug-keycloak-oidc`
+  (client_id/client_secret backend-клиента).
+- TLS-секреты `tls-api-local` / `tls-app-local` + ConfigMap `bigbug-ca-bundle`
+  (серты keycloak.local/harbor.local для backend-пода, SSL_CERT_FILE —
+  ADR-0030 §4/§5).
+
+Само приложение — chart `charts/bigbug` (деплой helm, см. README chart'а;
+инсталляция — `make dev-up`/`dev-build`, issue #61).
 
 ### keycloakx (ns `keycloak`, issue #57)
 

@@ -4,12 +4,11 @@
  *
  * Scope: Keycloak stack (issue #57) — namespace, CNPG Postgres Cluster CR,
  * keycloakx chart, realm/clients/roles/users config (modules/keycloak) —
- * and Harbor (issue #58) — namespace, TLS secrets, chart release,
- * API config (modules/harbor). Both API configs migrated from the
- * deprecated config root (ADR-0013); gitlab config stays there for now.
- *
- * The app namespace `bigbug` (backend/frontend/cache/app secrets) is NOT
- * here — it belongs to the app chart (I6, #59).
+ * Harbor (issue #58) — namespace, TLS secrets, chart release,
+ * API config (modules/harbor) — and the BigBug app itself (issue #59):
+ * namespace `bigbug`, CNPG Cluster, Redis CR, app secrets, TLS secrets
+ * (modules/bigbug_init). The app runs via the charts/bigbug helm release
+ * (applied by make dev-up, #61).
  *
  * Platform layer (ingress, operators) lives in ../base (separate state).
  *
@@ -129,6 +128,21 @@ module "keycloak_conf" {
   test_user_username = var.test_user_username
   test_user_password = var.test_user_password
   test_user_email    = var.test_user_email
+}
+
+# ── BigBug app infra (ns bigbug: CNPG, Redis CR, secrets, TLS) — #59 ─────────
+module "bigbug_init" {
+  source = "./modules/bigbug_init"
+
+  providers = {
+    kubernetes = kubernetes
+  }
+
+  certs_dir             = local.certs_dir
+  cnpg_storage_size     = var.cnpg_storage_size
+  backend_client_id     = var.backend_client_id
+  backend_client_secret = var.backend_client_secret
+  keycloak_url          = var.keycloak_url
 }
 
 # ── Harbor config (projects/robots/registries/replications/webhooks +
