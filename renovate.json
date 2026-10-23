@@ -9,8 +9,20 @@
     },
     {
       "matchUpdateTypes": ["major"],
-      "groupName": "major dependencies",
-      "groupSlug": "all-major"
+      "groupName": "major dependencies (ADR review required)",
+      "groupSlug": "all-major",
+      "automerge": false,
+      "labels": ["major:adr-review"],
+      "prBodyNotes": [
+        "⚠️ **Major update**: если компонент зафиксирован в ADR-реестре (`docs/adr/README.md`), перед мержем нужен новый/обновлённый ADR."
+      ]
+    },
+    {
+      "description": "Инфраструктурные версии, зафиксированные в ADR (ADR-0001/0002/0006): major-обновления блокированы до явного решения (новый ADR)",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchPackageNames": ["python", "node", "postgres", "redis"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ],
   "python": {
