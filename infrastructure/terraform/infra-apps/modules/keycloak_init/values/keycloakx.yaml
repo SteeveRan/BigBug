@@ -1,0 +1,84 @@
+# keycloakx chart values (ns keycloak, issue #57). Templated: keycloak_hostname.
+# Chart 7.4.0 (keycloak 26.8.1), pinned in keycloak.tf.
+
+replicas: 1
+
+# Image default CMD is `--help` — start explicitly (dev mode; production
+# hardening is a preprod concern)
+command: ["/opt/keycloak/bin/kc.sh"]
+args: ["start-dev"]
+
+# Dev budget (ADR-0022: ~1 GB for keycloakx)
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+# Admin bootstrap (Keycloak 26); secret is tofu-managed (keycloak.tf)
+extraEnv: |
+  - name: KC_BOOTSTRAP_ADMIN_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-admin-credentials
+        key: username
+  - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-admin-credentials
+        key: password
+  # TLS behind haproxy-ingress (ingress terminates, pod stays http — ADR-0030)
+  - name: KC_HOSTNAME
+    value: ${keycloak_hostname}
+  - name: KC_HOSTNAME_STRICT
+    value: "false"
+  - name: KC_HOSTNAME_STRICT_HTTPS
+    value: "false"
+  - name: KC_PROXY_HEADERS
+    value: "xforwarded"
+
+database:
+  # CNPG operator secret (source of truth), ns keycloak
+  existingSecret: keycloak-app
+  existingSecretKey: password
+  vendor: postgres
+  hostname: keycloak-rw.keycloak.svc
+  port: 5432
+  database: keycloak
+  username: keycloak
+
+# Behind haproxy ingress — trust forwarded headers
+proxy:
+  enabled: true
+  mode: forwarded
+
+# URLs without /auth prefix — same as the compose Keycloak this replaces
+http:
+  relativePath: "/"
+
+health:
+  enabled: true
+
+metrics:
+  enabled: true
+
+# Ingress host keycloak.local -> service port http (haproxy ingressClass
+# default from base; nodePort mapping in ../../kind/kind-config.yaml).
+# TLS per ADR-0030: terminates on ingress with the tofu-managed
+# `tls-keycloak-local` secret (certs from kind/certs.sh →
+# ~/.local/state/bigbug/certs); Harbor OIDC
+# (oidc_verify_cert: true) depends on keycloak presenting this cert.
+ingress:
+  enabled: true
+  ingressClassName: haproxy
+  servicePort: http
+  tls:
+    - secretName: tls-keycloak-local
+      hosts:
+        - ${keycloak_hostname}
+  rules:
+    - host: ${keycloak_hostname}
+      paths:
+        - path: "/"
+          pathType: Prefix

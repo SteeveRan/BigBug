@@ -2,12 +2,12 @@
 #
 # @file entrypoint.sh
 # @description Container entrypoint for the BigBug backend. Dispatches between
-#              `app:start` (wait for DB, run migrations, launch uvicorn),
-#              `app:init` (wait for DB, run migrations, exit) and arbitrary
-#              commands (e.g. bash, pytest) that are exec'd as-is.
-#              The two `app:*` commands are intended for production / CI flows
-#              where deterministic DB readiness and schema upgrades must
-#              precede the application start.
+#              `app:start` (wait for DB, seed, launch uvicorn),
+#              `app:init` (wait for DB, run migrations, seed, exit — used by
+#              the helm migrate hook Job, ADR-0023 §4) and arbitrary commands
+#              (e.g. bash, pytest) that are exec'd as-is.
+#              In k8s migrations run as a pre-install/pre-upgrade hook Job;
+#              `app:start` only waits for DB readiness.
 # @dependencies pg_isready (postgresql-client), python3 (stdlib only), alembic
 #
 # Exit codes:
@@ -129,7 +129,9 @@ seed_providers() {
 
 # WHY: `--reload` is only safe and useful in development, where the source tree
 # is bind-mounted into the container. In production the watcher wastes CPU and
-# can lead to inconsistent worker state on partial writes.
+# can lead to inconsistent worker state on partial writes. Extra flags after
+# `app:start --` (e.g. --proxy-headers from helm values-dev) are appended so
+# the chart can tune uvicorn without editing the image.
 start_app() {
     local -a uvicorn_args=(
         app.main:app
@@ -142,6 +144,10 @@ start_app() {
     else
         log INFO "Starting uvicorn in ${ENVIRONMENT} mode"
     fi
+    if [[ "${1:-}" == "--" ]]; then
+        shift
+        uvicorn_args+=("$@")
+    fi
     exec uvicorn "${uvicorn_args[@]}"
 }
 
@@ -153,12 +159,13 @@ main() {
     case "${cmd}" in
         app:start)
             wait_for_db
-            run_migrations
             seed_admin
             seed_providers
-            start_app
+            shift
+            start_app "$@"
             ;;
         app:init)
+            # helm hook Job only (ADR-0023 §4): migrations + seeds, then exit
             wait_for_db
             run_migrations
             seed_admin

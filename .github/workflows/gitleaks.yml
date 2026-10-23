@@ -1,0 +1,24 @@
+name: Gitleaks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # "before 5am on Sunday" (Europe/Moscow) => 01:30 UTC Sunday (weekly full-history scan)
+    - cron: "30 1 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,50 @@
+# infra-apps root — example Terraform variables (ADR-0029/0033)
+#
+# Copy to terraform.tfvars and customize for your environment. All variables
+# have dev defaults in variables.tf — only gitlab_token is required (see
+# below); init.sh programs it from infrastructure/gitlab/.env automatically
+# (gitlab-rails runner — ADR-0033 exception).
+#
+# For a fresh GitLab CE, get the initial root password:
+#   docker compose -f infrastructure/gitlab/docker-compose.yml exec gitlab \
+#     cat /etc/gitlab/initial_root_password
+# Then create a root PAT at https://gitlab.local:8443/-/user_settings/
+# personal_access_tokens with "api" scope.
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GitLab (base setup: group, service-account — ADR-0033)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+gitlab_url   = "https://gitlab.local:8443"
+gitlab_token = "CHANGE-ME-root-personal-access-token"
+# gitlab_ca_cert — path to the self-signed cert from kind/certs.sh
+# (default ~/.local/state/bigbug/certs/gitlab.local/tls.crt — shared per
+# machine, same dir as the tofu states; override or set "" only
+# if you manage GitLab TLS differently).
+
+mirrors_group_name = "bigbug-mirrors"
+
+backend_user_name     = "BigBug Backend"
+backend_user_username = "bigbug-backend"
+backend_user_email    = "bigbug-backend@localhost.localdomain"
+# backend_user_password — leave null to auto-generate via init.sh
+# backend_user_password = null
+
+# Backend PAT is NOT created by tofu — GitLab creds for the app are configured
+# in the app UI (resource_providers) at app deploy time (ADR-0024, #56).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Keycloak / Harbor — dev defaults in variables.tf; override here if needed
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# keycloak_hostname        = "keycloak.local"
+# keycloak_admin_username  = "admin"
+# keycloak_admin_password  = "admin"
+# realm_name               = "bigbug"
+# backend_client_id        = "bigbug-backend"
+# backend_client_secret    = "bigbug-backend-secret"
+# frontend_client_id       = "bigbug-frontend"
+# harbor_client_id         = "harbor"
+# harbor_client_secret     = "harbor-oidc-secret"
+# test_user_username       = "bigbug"
+# test_user_password       = "bigbug"

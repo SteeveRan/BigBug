@@ -2,9 +2,13 @@
 #
 # certs.sh — Генерация self-signed сертификатов для dev-стенда (ADR-0030).
 #
-# Создаёт certs/<host>/{tls.crt,tls.key} рядом с этим скриптом (каталог
-# gitignored). Идемпотентен: существующие серты не трогает — доверие хоста
-# переживает infra-clean/infra-init. Ротация — только вручную: --reset.
+# Создаёт certs/<host>/{tls.crt,tls.key} в общем state-каталоге
+# ~/.local/state/bigbug/certs — там же, где лежат tofu-стейты. Каталог вне
+# репозитория НЕ переживает удаление ворктрия (bind-mount'ы kind-ноды
+# умирали вместе с ворктрием бутстрапа), поэтому серты живут рядом со
+# стейтами — общими для всех ворктриев машины. Идемпотентен: существующие
+# серты не трогает — доверие хоста переживает infra-clean/infra-init.
+# Ротация — только вручную: --reset.
 #
 # Использование:
 #   ./certs.sh           # создать отсутствующие серты
@@ -12,7 +16,7 @@
 #
 set -euo pipefail
 
-readonly CERTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/certs"
+readonly CERTS_DIR="$HOME/.local/state/bigbug/certs"
 readonly HOSTS=(
   "keycloak.local"
   "harbor.local"

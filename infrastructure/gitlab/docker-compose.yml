@@ -1,0 +1,87 @@
+# =============================================================================
+# GitLab compose zone (ADR-0033)
+# =============================================================================
+#
+# GitLab CE omnibus + gitlab-runner. Keycloak/Harbor live in the kind cluster
+# `bigbug-dev` (ADR-0022/0029); Keycloak config via tofu infra-apps root.
+#
+# TLS (ADR-0030 §9): external_url https://gitlab.local:8443, cert from
+# kind/certs.sh (run certs.sh before compose up — init.sh does this).
+#
+# Usage:
+#   docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env up -d
+#
+# Or via init.sh which auto-creates infrastructure/gitlab/.env from .env.example
+#
+# See infrastructure/README.md for the full initialization workflow.
+# =============================================================================
+# Project name pinned: volumes (infrastructure_gitlab_*) and containers must
+# keep their names across this file's move from infrastructure/ (data survives
+# the re-arrangement).
+name: infrastructure
+
+networks:
+  bigbug-network:
+    name: bigbug-network
+    driver: bridge
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  gitlab_runner_config:
+
+services:
+  # ─────────────────────────────────────────────────────────────
+  # GitLab (CI/CD platform) — PostgreSQL is bundled inside the image
+  # ─────────────────────────────────────────────────────────────
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: bigbug-gitlab
+    hostname: gitlab.local
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.local:8443'
+        letsencrypt['enable'] = false
+        nginx['ssl_certificate'] = '/etc/gitlab/ssl/gitlab.local/tls.crt'
+        nginx['ssl_certificate_key'] = '/etc/gitlab/ssl/gitlab.local/tls.key'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD:-G!tLb_r0oT_9xQz#2}'
+        puma['port'] = 8081
+        puma['worker_processes'] = 2
+        sidekiq['max_concurrency'] = 10
+        prometheus_monitoring['enable'] = false
+        gitlab_kas['enable'] = false
+        gitlab_pages['enable'] = false
+        postgresql['shared_buffers'] = "256MB"
+    ports:
+      - "8443:8443"
+      - "2222:22"
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - $HOME/.local/state/bigbug/certs/gitlab.local:/etc/gitlab/ssl/gitlab.local:ro
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    networks:
+      - bigbug-network
+    mem_limit: 4g
+    memswap_limit: 4g
+    shm_size: "256m"
+    healthcheck:
+      test: ["CMD", "curl", "-kfs", "https://localhost:8443/users/sign_in"]
+      interval: 60s
+      timeout: 30s
+      retries: 10
+      start_period: 300s
+
+  gitlab-runner:
+    image: gitlab/gitlab-runner:latest
+    container_name: bigbug-gitlab-runner
+    volumes:
+      - gitlab_runner_config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - bigbug-network
+    depends_on:
+      gitlab:
+        condition: service_healthy

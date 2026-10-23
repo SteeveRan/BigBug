@@ -8,6 +8,10 @@ decision-makers: SteeveRan
 
 > **Обновление 2026-10-23 (#58):** конфигурация Keycloak/Harbor через их API переехала из config root в `apps` (модули `*_conf`); config root остался только для GitLab. State всех root'ов вынесен в общий local backend `~/.local/state/bigbug/<root>/terraform.tfstate` (через `pathexpand` в `backend "local"`) — один стейт на все git-worktree одной машины. apps разбит на 4 модуля: `harbor_init`/`harbor_conf`, `keycloak_init`/`keycloak_conf`. Apply apps — двухфазный (сначала `*_init`, затем полный), потому что keycloak-провайдер логинится при plan, а Keycloak ставится тем же apply. Подробности — в конце документа.
 
+> **Обновление 2026-10-23 (#59): apps → infra-apps split.** Инфраструктура приложения BigBug (ns `bigbug`, module `bigbug_init`) вынесена из root'а `apps` в отдельный root `apps`; старый `apps` переименован в `infra-apps` (Keycloak/Harbor). Мотивация: инфра-слой (`infra-apps` ставит keycloakx/Harbor, его keycloak/harbor-провайдеры логинятся во внешние API при plan) — медленный и конкурентный; изменения в приложении не должны требовать его apply — иначе апплаи из разных ворктриев дерутся за state/lock. Связь roots — только значениями переменных (`backend_client_id/secret` из `keycloak_conf` → `bigbug_init`), не state-ссылками. State: `~/.local/state/bigbug/{base,infra-apps,apps}/`; переезд — `tofu state mv module.bigbug_init.*` из старого state в новый. Порядок apply: base → infra-apps (2 фазы) → apps.
+
+> **Обновление 2026-10-23: config root упразднён.** GitLab base setup (group `bigbug-mirrors`, service-account — module `gitlab`, [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) §3) влит в `infra-apps`; каталог `terraform/` больше не root — остались только `base/`, `infra-apps/`, `apps/`. Причина: отдельный root ради одного модуля, к тому же без общего state-бэкенда. Три root'а, один общий state-шаблон.
+
 ## Context and Problem Statement
 
 [ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
@@ -33,13 +37,13 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 Императивным остаётся только то, что tofu сделать не может: `kind create cluster`, `/etc/hosts`, дождаться готовности API. Это `infrastructure/kind/bootstrap.sh`/`teardown.sh` — они сужаются до кластера + hosts, установка ingress переходит в `base`.
 
-«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (apps) → `tofu apply` (config). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
+«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (infra-apps, две фазы; config root влит в infra-apps 2026-10-23) → `tofu apply` (apps, update #59). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/infra-apps/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
 
 ### Scope этого решения
 
 - haproxy-ingress переезжает из `bootstrap.sh` в `base` немедленно (issue #54 дорабатывается).
-- CNPG/redis-operator, Postgres Cluster CR, Redis CR, keycloakx, Harbor-chart, app-chart, k8s-секреты приложения добавляются в соответствующие root'ы отдельными issues — структура под них готова. Уточнение границы из #56: **base = операторы + платформенные сервисы; инстансы (Cluster CR, Redis CR, keycloakx, Harbor, app-chart) и k8s-секреты приложения ([ADR-0024](../common/0024-k8s-secrets.md)) — apps**.
-- Провайдеры: `helm` (hashicorp/helm) и `kubernetes` (hashicorp/kubernetes) в `base`/`apps`; аутентификация — через kubeconfig контекста `kind-bigbug-dev` (для preprod — kubeconfig кластера в переменной).
+- CNPG/redis-operator, Postgres Cluster CR, Redis CR, keycloakx, Harbor-chart, app-chart, k8s-секреты приложения добавляются в соответствующие root'ы отдельными issues — структура под них готова. Уточнение границы из #56: **base = операторы + платформенные сервисы; инстансы (Cluster CR, Redis CR, keycloakx, Harbor, app-chart) и k8s-секреты приложения ([ADR-0024](../common/0024-k8s-secrets.md)) — apps**. Уточнение #59: **root'а два** — `infra-apps` (инсталляции/конфиг Keycloak и Harbor) и `apps` (инфраструктура приложения BigBug, ns `bigbug`); см. update #59 выше.
+- Провайдеры: `helm` (hashicorp/helm) и `kubernetes` (hashicorp/kubernetes) в `base`/`infra-apps`/`apps`; аутентификация — через kubeconfig контекста `kind-bigbug-dev` (для preprod — kubeconfig кластера в переменной).
 
 ### Non-goals
 
@@ -83,10 +87,28 @@ OpenTofu управляет **всем содержимым kind-кластер�
      }
    }
    ```
-   `pathexpand` обязателен: внутри `backend`-блока `~` не раскрывается (tofu создаёт literal-каталог `~/`). Файл стейта создаётся только при первой записи — «No state file was found» до первого apply это норма, а не ошибка. Config root пока остаётся на локальном стейте в каталоге (GitLab-зона не трогалась).
+   `pathexpand` обязателен: внутри `backend`-блока `~` не раскрывается (tofu создаёт literal-каталог `~/`). Файл стейта создаётся только при первой записи — «No state file was found» до первого apply это норма, а не ошибка. Config root упразднён (update 2026-10-23 выше) — до слияния он оставался на локальном стейте в каталоге.
 
 2. **API-конфиг Keycloak/Harbor — в `apps`**, модулями `keycloak_conf`/`harbor_conf` (исходная таблица «config root: Keycloak realm/clients, Harbor projects/robots» устарела). Config root остаётся только для GitLab. Причина: harbor-конфиг неразрывно связан с инсталляцией (OIDC client secret из keycloak_conf → harbor_conf), а Keycloak в кластере — делить его конфиг между root'ами бессмысленно.
 
 3. **apps = 4 модуля**: `harbor_init` (ns, TLS-секреты, chart), `harbor_conf` (API-конфиг), `keycloak_init` (ns, TLS/admin-секреты, CNPG CR, chart), `keycloak_conf` (realm/clients/roles/users). Провайдеры пробрасываются из root (`providers = {}`), в модулях собственных `provider`-блоков нет.
 
 Следствие: apply apps **двухфазный** — `tofu apply -target=module.keycloak_init -target=module.harbor_init`, затем полный apply. Причина: keycloak-провайдер выполняет логин при plan/apply, а Keycloak ставится тем же apply. После первой фазы повторный полный apply идемпотентен и проходит одной командой. init.sh (шаг 8) исполняет: base → apps(фаза 1) → wait Keycloak → apps(полный) → config.
+
+## Update 2026-10-23 (#80): поглощение инструментального ядра ADR-0013
+
+[ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) разрастался: он одновременно про выбор IaC-инструмента, state и границу императивного, и про три сервиса (Keycloak, Harbor, GitLab). После ADR-0022/0029/0030 его сервисные решения разъехались с фактической топологией. Разборка (issue #80):
+
+1. **Сервисные решения вынесены в отдельные ADR** (каждый — фактическое состояние своей зоны):
+   - [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) — GitLab: compose-исключение, https://gitlab.local:8443, PAT-исключение; base setup — module gitlab в infra-apps (config root упразднён);
+   - [ADR-0034](0034-keycloak-dev-stand-keycloakx.md) — Keycloak: keycloakx + CNPG + keycloak_conf;
+   - [ADR-0035](0035-harbor-dev-stand-chart.md) — Harbor: chart + harbor_conf.
+
+2. **Инструментальное ядро ADR-0013 поглощается этим ADR** (отдельный IaC-ADR не создаётся):
+   - *Выбор OpenTofu* — MPL 2.0 против BUSL 1.1 Terraform, drop-in совместимость с Terraform-провайдерами (keycloak/harbor/gitlab/helm/kubernetes) — см. Decision Drivers и Alternatives ADR-0013; rationale переносится сюда как есть.
+   - *State backend* — политика «общий local state `~/.local/state/bigbug/<root>/terraform.tfstate` для всех worktree машины» — update #58 выше; здесь не дублируется.
+   - *Граница «императивно vs декларативно»* — общий принцип: tofu управляет всем декларативным (k8s-сущности, API-конфигурация сервисов); императивно — только то, что tofu не может сделать сам или что должно жить вне жизненного цикла стенда (kind-кластер, /etc/hosts, self-signed серты). **Класс исключений**: bootstrap рабочих кредов через внутренние инструменты сервиса (GitLab PAT через `gitlab-rails runner`, ADR-0033 §4) — задокументированные постоянные исключения, а не грязь.
+
+3. **init flow не дублируется** ни здесь, ни в сервисных ADR — он живёт в [`infrastructure/init.sh`](../../../infrastructure/init.sh) + roadmap #61 (переписывание под kind-поток).
+
+4. После accept сервисных ADR человеком ADR-0013 архивируется (статус superseded, взаимные ссылки) — выполняет **#62**; этим issue он не архивируется.

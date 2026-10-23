@@ -14,7 +14,7 @@ decision-makers: SteeveRan
 
 ## Decision Drivers
 
-- BigBug — self-hosted платформа для DevOps-команд, у которых уже есть корпоративный Keycloak (модуль `infrastructure/terraform/modules/keycloak/` разворачивает realm `bigbug` вместе с GitLab/Harbor)
+- BigBug — self-hosted платформа для DevOps-команд, у которых уже есть корпоративный Keycloak (модуль `infrastructure/terraform/infra-apps/modules/keycloak_conf/` разворачивает realm `bigbug` вместе с GitLab/Harbor)
 - Платформа должна работать и без Keycloak: pure-local deployments (docker-compose без infrastructure-стека) — SSO опционален
 - Роли из IdP должны маппиться на локальную RBAC-модель (`admin` / `operator` / `viewer`); локальная модель — источник истины для permissions
 - Frontend — SPA (React): implicit flow запрещён, нужен Authorization Code + PKCE
@@ -145,7 +145,7 @@ sequenceDiagram
 
 ## More Information
 
-- Источники реализации: `backend/app/services/oidc.py`, `backend/app/services/oidc_config.py`, `backend/app/api/auth.py`, `backend/app/core/security.py`, `frontend/src/services/keycloak.ts`, `frontend/src/hooks/useKeycloakAuth.ts`, `infrastructure/terraform/modules/keycloak/clients.tf`
+- Источники реализации: `backend/app/services/oidc.py`, `backend/app/services/oidc_config.py`, `backend/app/api/auth.py`, `backend/app/core/security.py`, `frontend/src/services/keycloak.ts`, `frontend/src/hooks/useKeycloakAuth.ts`, `infrastructure/terraform/infra-apps/modules/keycloak_conf/clients.tf`
 - Эксплуатационная документация: `plans/features/auth-rbac.md` (SSO-разделы этого файла принадлежат данному ADR; файл целиком удаляет ADR-0004)
 - Связанные ADR: ADR-0001 (backend-стек: authlib/python-jose/Fernet в стеке), ADR-0004 (RBAC permission model — модель прав, на которую опирается синхронизация ролей)
 - Расхождение с документацией: в `plans/features/auth-rbac.md` описан словарь `KEYCLOAK_ROLE_MAPPING` (`bigbug-admin` → `admin`) и callback `POST /api/auth/sso/callback` — в коде их нет; фактически роли сопоставляются по точному имени (`admin`/`operator`/`viewer`), а endpoint — `POST /api/auth/oidc/exchange` с PKCE. Источник истины — код и этот ADR

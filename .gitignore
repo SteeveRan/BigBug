@@ -149,5 +149,7 @@ override.tf.json
 *.code-workspace
 roo_task_*.md
 
-# Dev-stand self-signed certs (ADR-0030) — переживают infra-clean
+# Dev-stand self-signed certs live OUTSIDE the repo — in the shared state dir
+# ~/.local/state/bigbug/certs (ADR-0030 §3; same place as tofu states, survive
+# worktree deletion). The old in-repo path is kept ignored for stragglers.
 infrastructure/kind/certs/

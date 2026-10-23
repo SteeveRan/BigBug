@@ -87,3 +87,17 @@ _Avoid_: group, org
 **Status Flag**:
 Унифицированный числовой статус в ответах API: 0 OK, 1 Failed, 2 Warning/Stale, 3 In Progress, 4 Pending.
 _Avoid_: status code (это HTTP), state
+
+### Security
+
+**Secret**:
+Любое значение, открывающее доступ к внешней системе (токен, PAT, пароль, ключ), попавшее в git — независимо от того, живое оно или считалось временным.
+_Avoid_: credentials (они — про хранимые в БД провайдера), leaked token
+
+**False Positive**:
+Срабатывание gitleaks на значение, которое не является живым секретом (фейковый токен в доках/фикстурах, пример в `.env.example`).
+_Avoid_: noise, ложное срабатывание
+
+**Allowlist**:
+Набор правил в `.gitleaks.toml` (пути, stopwords), исключающий известные false positives из сканирования; единственный легальный способ подавить срабатывание.
+_Avoid_: ignore, whitelist, exclusion

@@ -17,7 +17,7 @@ SHELL := /usr/bin/env bash
 
 # Compose-обёртки
 COMPOSE_APP   := docker compose
-COMPOSE_INFRA := docker compose -f infrastructure/docker-compose.yml --env-file infrastructure/.env
+COMPOSE_INFRA := docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env
 
 # Директории
 TF_DIR := infrastructure/terraform
@@ -228,6 +228,14 @@ coverage-frontend: ## Покрытие кода frontend (vitest --coverage)
 
 .PHONY: coverage-all
 coverage-all: coverage-backend-unit coverage-backend-e2e coverage-frontend ## Покрытие обоих стеков
+
+# =============================================================================
+##@ security — сканирование секретов
+# =============================================================================
+
+.PHONY: secrets-scan
+secrets-scan: ## Поиск секретов в полной git-истории (gitleaks, exit != 0 при находках)
+	./scripts/secrets-scan.sh
 
 # =============================================================================
 ##@ dead-code — поиск мёртвого кода

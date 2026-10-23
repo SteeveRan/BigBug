@@ -7,6 +7,7 @@
 - **Node.js** LTS ([ADR-0002](../adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
 - **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md))
 - **Git**
+- **gitleaks** (сканирование секретов; `make secrets-scan`) — ставьте **свежий release**: `brew install gitleaks` или бинарник с [github.com/gitleaks/gitleaks/releases](https://github.com/gitleaks/gitleaks/releases) в PATH. ⚠️ Пакет `gitleaks` из apt дистрибутива устарел (старые правила дают неверные результаты) — не используйте его.
 
 ### Optional
 - **OpenTofu** (для Keycloak/GitLab инициализации)
@@ -26,6 +27,7 @@ make dev-up        # postgres, redis, backend, frontend
 make help          # полный список команд
 make test-all      # все тесты
 make lint          # линт обоих стеков
+make secrets-scan  # сканирование полной git-истории на секреты
 ```
 
 ### 1. Clone Repository
@@ -69,6 +71,19 @@ ADMIN_PASSWORD=admin
 ```
 
 > Переменных `DATABASE_URL`/`REDIS_URL` в `.env` нет — compose собирает их сам из `POSTGRES_*` (см. `docker-compose.yml`). Конфигурация Keycloak/GitLab/GitHub — env-переменные бэкенда с дефолтами в `backend/app/config.py` (`keycloak_*`, `gitlab_url` — по умолчанию `http://gitlab.local:8080`, `gitlab_token`, `github_token`); в `.env` их задавать не обязательно. Runtime-конфиг SSO — в БД (ADR-0003).
+
+### Secret scanning (gitleaks)
+
+Репозиторий сканируется на утечки секретов: pre-commit hook (staged-only) + blocking GitHub Actions + `make secrets-scan` (полная история). Политика и процедура реагирования на утечку — [docs/development/security.md](security.md), решение — [ADR-0032](../adr/common/0032-adopt-gitleaks-secret-scanning.md).
+
+```bash
+pip install pre-commit
+pre-commit install   # включает gitleaks hook на каждый коммит
+```
+
+Обход хука: `git commit --no-verify` — легитимный emergency-exit, но push всё равно сканируется в CI, а утечка разбирается по процедуре [security.md](security.md). Обходить осознанно: bypass оставляет секрет в локальной истории.
+
+Разовый полный скан истории: `make secrets-scan` (требует gitleaks в PATH — см. Required выше).
 
 ### 3. Backend Setup
 
@@ -132,7 +147,7 @@ make infra-init    # = ./infrastructure/init.sh
 
 ```bash
 # Check all services
-docker compose -f infrastructure/docker-compose.yml ps
+docker compose -f infrastructure/gitlab/docker-compose.yml ps
 docker compose ps
 
 # Test backend
@@ -186,7 +201,7 @@ cd backend && uv run uvicorn app.main:app --reload
 cd frontend && yarn dev
 
 # Terminal 3: Infrastructure logs
-docker compose -f infrastructure/docker-compose.yml logs -f
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f
 ```
 
 ## Common Tasks
@@ -320,14 +335,14 @@ curl http://localhost:8000/docs
 **Services not starting**:
 ```bash
 # Check logs
-docker compose -f infrastructure/docker-compose.yml logs keycloak
+docker compose -f infrastructure/gitlab/docker-compose.yml logs keycloak
 
 # Restart specific service
-docker compose -f infrastructure/docker-compose.yml restart keycloak
+docker compose -f infrastructure/gitlab/docker-compose.yml restart keycloak
 
 # Remove volumes and restart (осторожно: удаляет данные)
-docker compose -f infrastructure/docker-compose.yml down -v
-docker compose -f infrastructure/docker-compose.yml up -d
+docker compose -f infrastructure/gitlab/docker-compose.yml down -v
+docker compose -f infrastructure/gitlab/docker-compose.yml up -d
 ```
 
 **Port conflicts**:

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: bigbug
+description: BigBug DevOps Sync & Build Service (FastAPI backend + React frontend)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.29.0"
+
+maintainers:
+  - name: SteeveRan

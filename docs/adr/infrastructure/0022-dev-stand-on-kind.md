@@ -14,7 +14,7 @@ Dev-стенд BigBug поднимается в Docker Compose (см. архив
 
 Фактическое состояние (проверено по коду, 2026-10-22):
 
-**Compose-инфраструктура** ([`infrastructure/docker-compose.yml`](../../../infrastructure/docker-compose.yml)): `postgres-keycloak` (:5433), `keycloak` 24.0 (:8180), `gitlab` CE omnibus (:8080/:8443/:2222, вольюмы `gitlab_*`), `gitlab-runner` (docker.sock executor). Сеть `bigbug-network`.
+**Compose-инфраструктура** ([`infrastructure/gitlab/docker-compose.yml`](../../../infrastructure/gitlab/docker-compose.yml)): `postgres-keycloak` (:5433), `keycloak` 24.0 (:8180), `gitlab` CE omnibus (:8080/:8443/:2222, вольюмы `gitlab_*`), `gitlab-runner` (docker.sock executor). Сеть `bigbug-network`.
 
 **Compose-приложение** (корневой `docker-compose.yml`): `postgres-backend` (:5432), `redis` (:6379), `backend` (:8000, bind-mount, uvicorn `--reload`), `frontend` (:5173, bind-mount, `yarn dev`).
 
@@ -57,9 +57,9 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 
 **2. Адресация**: все хосты — через ingress с **TLS-терминированием** ([ADR-0030](0030-dev-stand-https-self-signed-certs.md): `https://` для `keycloak.local`, `harbor.local`, `app.local`, `api.local`; самоподписанные per-service сертификаты, генерируемые `certs.sh` до бутстрапа) + записи в `/etc/hosts`. GitLab тоже HTTPS на своём nginx: `https://gitlab.local:8443` (серт из certs.sh; compose-исключение остаётся). Wildcard-DNS (dnsmasq, nip.io) отклонены: либо новая системная зависимость, либо внешняя.
 
-**3. Hot-reload**: kind `extraMounts` маппит `./backend` и `./frontend` хоста в kind-ноду; поды приложения монтируют их hostPath'ом; dev-образы остаются с `uvicorn --reload` / `yarn dev`. Изменения кода подхватываются без пересборки образов.
+**3. Hot-reload**: (вырезан в #59 — см. [ADR-0023](0023-bigbug-helm-chart.md) §3) изначальная схема «kind `extraMounts` + hostPath в поды + `uvicorn --reload`» оказалась хрупкой: bind-mountы ноды привязаны к ворктрию, из которого запускался bootstrap, и умирают вместе с ним (deleted-inode), ломая поды молча. Источник кода в dev — dev-образ; изменение кода = пересборка образа + `helm upgrade`. `extraMounts` в kind-config остаются (нейтральны).
 
-**4. GitLab-исключение**: GitLab CE omnibus + gitlab-runner остаются в `infrastructure/docker-compose.yml`. Обоснование: официальный helm chart требует 6–8 GB RAM только на GitLab и тянет переезд omnibus-конфигурации; самописный StatefulSet для omnibus — неподдерживаемый путь. Runner остаётся с docker.sock executor'ом (known limitation: джобы бегут на хосте, а не в кластере). Путь будущего переезда: официальный chart `gitlab/gitlab` или managed GitLab — отдельный ADR, не эта задача.
+**4. GitLab-исключение**: GitLab CE omnibus + gitlab-runner остаются в `infrastructure/gitlab/docker-compose.yml`. Обоснование: официальный helm chart требует 6–8 GB RAM только на GitLab и тянет переезд omnibus-конфигурации; самописный StatefulSet для omnibus — неподдерживаемый путь. Runner остаётся с docker.sock executor'ом (known limitation: джобы бегут на хосте, а не в кластере). Путь будущего переезда: официальный chart `gitlab/gitlab` или managed GitLab — отдельный ADR, не эта задача.
 
 **5. Запрет на bitnami-чарты для БД** — вместо них операторы CNPG и redis-operator (ot-container-kit): в dev и prod — одинаковые механизмы, никаких «dev-заглушек, которые в проде заменяют».
 
@@ -84,7 +84,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 4. `curl -fsS http://harbor.local/api/v2.0/systeminfo` → HTTP 200
 5. Hot-reload: правка файла в `backend/app/` видна в uvicorn без пересборки образа (лог пода показывает reload)
 6. `make dev-clean` не трогает GitLab-вольюмы compose (`gitlab_data` и пр. остаются)
-7. `infrastructure/docker-compose.yml` содержит только gitlab + gitlab-runner (+ без postgres-keycloak — БД в CNPG)
+7. `infrastructure/gitlab/docker-compose.yml` содержит только gitlab + gitlab-runner (+ без postgres-keycloak — БД в CNPG)
 
 ## Pros and Cons of the Options
 

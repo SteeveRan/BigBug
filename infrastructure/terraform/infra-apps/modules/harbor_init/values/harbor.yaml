@@ -1,0 +1,54 @@
+# Harbor chart values (ns harbor, issue #58). Chart 1.19.4 (harbor 2.15.4),
+# pinned in harbor.tf. Adapted from the retired infrastructure/harbor/harbor-values.yaml.
+# HTTPS per ADR-0030: TLS terminates on haproxy-ingress with the tofu-managed
+# `tls-harbor-local` secret (certs from kind/certs.sh →
+# ~/.local/state/bigbug/certs); pod-to-pod stays HTTP.
+
+expose:
+  type: ingress
+  tls:
+    enabled: true
+    certSource: secret
+    secret:
+      secretName: "tls-harbor-local"
+  ingress:
+    hosts:
+      core: harbor.local
+    className: haproxy
+    # keep unlimited body size for image pushes through haproxy
+    annotations:
+      ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+
+# External URL — https via ingress TLS (ADR-0030 §6); docker commands need no
+# port (default 443) — host daemon trusts the cert via trust-host.sh
+externalURL: "https://harbor.local"
+
+# Admin credentials (dev environment only)
+harborAdminPassword: "Harbor12345"
+
+# Trust store: keycloak.local cert (tls-keycloak secret in harbor-tls.tf) into
+# core/jobservice/registry — Harbor core calls Keycloak OIDC over
+# https://keycloak.local with oidc_verify_cert: true (ADR-0030 §4)
+caBundleSecretName: "harbor-ca-bundle"
+
+# ── Persistence (dev-sized; local-path storage) ──────────────
+persistence:
+  enabled: true
+  resourcePolicy: "keep"      # Preserve PVCs on uninstall
+  persistentVolumeClaim:
+    registry:
+      size: 5Gi
+    database:
+      size: 2Gi
+    redis:
+      size: 1Gi
+    trivy:
+      size: 2Gi
+
+# ── Disabled services (save dev resources) ───────────────────
+trivy:
+  enabled: false
+
+notary:
+  enabled: false
