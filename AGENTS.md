@@ -127,7 +127,7 @@ See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 
 | Группа | Примеры |
 |---|---|
-| `dev-*` | `make dev-up`, `make dev-init`, `make dev-down`, `make dev-clean` |
+| `dev-*` | `make dev-up`, `make dev-down`, `make dev-clean` (dev-build — сборка dev-образов) |
 | `infra-*` | `make infra-up`, `make infra-init`, `make infra-clean` |
 | `test-*` | `make test-unit-backend`, `make test-e2e-backend`, `make test-all` |
 | `lint-*`/`format-*`/`typecheck-*` | `make lint`, `make format`, `make typecheck` |
