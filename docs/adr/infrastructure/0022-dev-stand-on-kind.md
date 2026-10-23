@@ -57,7 +57,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 
 **2. Адресация**: все хосты — через ingress с **TLS-терминированием** ([ADR-0030](0030-dev-stand-https-self-signed-certs.md): `https://` для `keycloak.local`, `harbor.local`, `app.local`, `api.local`; самоподписанные per-service сертификаты, генерируемые `certs.sh` до бутстрапа) + записи в `/etc/hosts`. GitLab тоже HTTPS на своём nginx: `https://gitlab.local:8443` (серт из certs.sh; compose-исключение остаётся). Wildcard-DNS (dnsmasq, nip.io) отклонены: либо новая системная зависимость, либо внешняя.
 
-**3. Hot-reload**: kind `extraMounts` маппит `./backend` и `./frontend` хоста в kind-ноду; поды приложения монтируют их hostPath'ом; dev-образы остаются с `uvicorn --reload` / `yarn dev`. Изменения кода подхватываются без пересборки образов.
+**3. Hot-reload**: (вырезан в #59 — см. [ADR-0023](0023-bigbug-helm-chart.md) §3) изначальная схема «kind `extraMounts` + hostPath в поды + `uvicorn --reload`» оказалась хрупкой: bind-mountы ноды привязаны к ворктрию, из которого запускался bootstrap, и умирают вместе с ним (deleted-inode), ломая поды молча. Источник кода в dev — dev-образ; изменение кода = пересборка образа + `helm upgrade`. `extraMounts` в kind-config остаются (нейтральны).
 
 **4. GitLab-исключение**: GitLab CE omnibus + gitlab-runner остаются в `infrastructure/docker-compose.yml`. Обоснование: официальный helm chart требует 6–8 GB RAM только на GitLab и тянет переезд omnibus-конфигурации; самописный StatefulSet для omnibus — неподдерживаемый путь. Runner остаётся с docker.sock executor'ом (known limitation: джобы бегут на хосте, а не в кластере). Путь будущего переезда: официальный chart `gitlab/gitlab` или managed GitLab — отдельный ADR, не эта задача.
 
