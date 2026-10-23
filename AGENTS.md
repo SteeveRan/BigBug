@@ -195,7 +195,35 @@ alembic revision -m "add_user_keycloak_sub"
 
 See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
-### Testing
+### Multi-Agent Worktree Discipline
+
+Несколько агентов работают в разных git worktree на одной машине; инфраструктура (kind-кластер `bigbug-dev`, compose-сервисы, GitLab, Keycloak) — **общая**. Правила, чтобы агенты не мешали друг другу:
+
+### Роли
+
+- **Владелец инфры** — один ворктрий (по умолчанию `main`, `/home/vnosov/Projects/BigBug`). Только он запускает: `infra-init`, `infra-clean`, `dev-clean`, tofu-команды, пересоздание секретов, `down -v`.
+- **Feature-агенты** (все остальные ворктрии) — код, unit/integrations-тесты, lint, typecheck. Инфру не трогают.
+
+### Запрещено feature-агентам
+
+- `make dev-clean` / `make infra-clean` / `docker compose down -v` — гасят общий стенд (защищены CONFIRM-гвардом, обходить его нельзя)
+- `alembic downgrade` на общей БД `bigbug`
+- Tofu apply / пересоздание секретов / изменение `infrastructure/.env`
+
+Нужен пересозданный секрет, свежее окружение или чистка — issue владельцу инфры, не самодеятельность.
+
+### Миграции: своя БД на ворктрий
+
+- Общий контейнер `postgres-backend` — один; каждая фича-ветка работает со **своей БД**: `make dev-db-create DB=feat_<branch>`, затем `DATABASE_URL` ветки указывает на `feat_<branch>` (локальный env-override, gitignored). Alembic-головы веток не конфликтуют.
+- Каноническая БД `bigbug` — только владелец инфры; перед мержем ветка проходит `make dev-migrate-check` (накат всех миграций на чистую копию БД) — ловит разошедшиеся головы до мержа.
+- `make dev-db-drop DB=<name>` — удалить свою БД, когда фича смержена. Удалять `bigbug` скрипт запрещает.
+
+### E2E — по очереди
+
+- Живой стенд (`make dev-up`) поднимает один ворктрий; код на стенде — bind-mount этого ворктрия. `make test-e2e-backend` гоняет тот же ворктрий, который поднял стенд.
+- Остальные агенты обходятся unit/integrations (стенд не нужен). Перед e2e — объявить стенд занятым, после — освободить (дисциплина, без локов).
+
+## Testing
 
 **Backend** (pytest):
 ```python
@@ -204,6 +232,12 @@ async def test_feature_success(async_client):
     response = await async_client.post("/api/endpoint", json={...})
     assert response.status_code == 200
 ```
+
+**Per-worktree DATABASE_URL** (multi-agent): в `backend/.env` ворктрия пропишите свою БД:
+```
+DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/feat_<branch>
+```
+(создание БД — `make dev-db-create DB=feat_<branch>`)
 
 **Frontend** (vitest + testing-library):
 ```typescript
