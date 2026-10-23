@@ -1,0 +1,81 @@
+{{/*
+Frontend Deployment. Default: nginx serving the React build. Dev mode
+(values-dev): Node + Vite dev server instead of nginx (ADR-0023 §3).
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bigbug.fullname" . }}-frontend
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bigbug.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "bigbug.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+    spec:
+      {{- if .Values.frontend.dev.enabled }}
+      # The Vite dev image's node_modules must persist across container restarts:
+      # copy them into an emptyDir, mount it over /app/node_modules.
+      initContainers:
+        - name: node-modules
+          image: {{ include "bigbug.frontendImage" . }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          # trailing "/." matters: /node_modules is an existing mountpoint,
+          # plain "cp -a src dst/" would nest node_modules/node_modules
+          command: ["sh", "-c", "cp -a /app/node_modules/. /node_modules/"]
+          volumeMounts:
+            - name: node-modules
+              mountPath: /node_modules
+      {{- end }}
+      containers:
+        - name: frontend
+          image: {{ include "bigbug.frontendImage" . }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          {{- if .Values.frontend.dev.enabled }}
+          command:
+            {{- toYaml .Values.frontend.dev.command | nindent 12 }}
+          env:
+            {{- with .Values.frontend.dev.apiUrl }}
+            - name: VITE_API_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.frontend.dev.allowedHosts }}
+            - name: VITE_ALLOWED_HOSTS
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.frontend.dev.hmr.wss }}
+            - name: VITE_HMR_WSS
+              value: "true"
+            - name: VITE_HMR_CLIENT_PORT
+              value: {{ .Values.frontend.dev.hmr.clientPort | quote }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.port }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.frontend.dev.enabled }}
+            - name: node-modules
+              mountPath: /app/node_modules
+            {{- end }}
+            {{- with .Values.frontend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.frontend.dev.enabled }}
+        - name: node-modules
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.frontend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

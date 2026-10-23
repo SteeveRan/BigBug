@@ -3,7 +3,8 @@
 In-cluster сущности **платформенного слоя** ([ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)):
 haproxy-ingress, операторы CNPG и redis-operator (CRD). App-инстансы (Postgres
 Cluster, Redis CR, Harbor, keycloakx, chart приложения, k8s-секреты
-приложения, ns `bigbug`) — в root-модуле `../apps`, их деплой — отдельные
+приложения, ns `bigbug`) — в root-модуле `../apps` (split #59: Keycloak/Harbor
+— в `../infra-apps`), их деплой — отдельные
 issues (I4/I6/I8).
 
 **Граница**: base деплоит только операторов и платформенные сервисы — никаких
@@ -50,11 +51,12 @@ base деплоит только оператора.
 
 ## App-сущности (вне base, для контекста)
 
-- Postgres Cluster `bigbug-dev` (CNPG) — apps root, I6; оператор генерирует
-  секрет `<cluster>-app` с кредами.
-- Redis CR (кэш вместо bare-Valkey) — apps root, I6.
+- Postgres Cluster `bigbug-dev` (CNPG) — apps root (I6, готово #59); оператор
+  генерирует секрет `<cluster>-app` с кредами.
+- Redis CR (кэш вместо bare-Valkey) — apps root (I6, готово #59).
 - k8s-секреты приложения (`bigbug-db-credentials`, `bigbug-fernet-key`,
-  ADR-0024) — apps root (I6), зависят от Postgres-кластера, не от base.
+  ADR-0024) — apps root (I6, готово #59), зависят от Postgres-кластера,
+  не от base.
 
 ## Teardown
 

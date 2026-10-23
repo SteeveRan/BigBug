@@ -4,7 +4,8 @@
 # @description BigBug infrastructure initialization (ADR-0022/0029/0033).
 #              Ensures TLS certs (ADR-0030), starts the GitLab compose zone,
 #              bootstraps the kind cluster, applies OpenTofu
-#              (base → apps → config/GitLab), updates application .env.
+#              (base → infra-apps (2 phases, incl. GitLab) → apps),
+#              updates application .env.
 #
 # Usage:
 #   ./infrastructure/init.sh
@@ -21,19 +22,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Compose files
-INFRA_COMPOSE="${SCRIPT_DIR}/docker-compose.yml"
+# Compose files (GitLab compose zone — ADR-0033)
+GITLAB_DIR="${SCRIPT_DIR}/gitlab"
+INFRA_COMPOSE="${GITLAB_DIR}/docker-compose.yml"
 
-# .env file (infrastructure only — application .env is managed separately)
-INFRA_ENV="${SCRIPT_DIR}/.env"
-INFRA_ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
+# .env file (gitlab compose zone only — application .env is managed separately)
+INFRA_ENV="${GITLAB_DIR}/.env"
+INFRA_ENV_EXAMPLE="${GITLAB_DIR}/.env.example"
 
-# Terraform (ADR-0029: base/apps roots; config root = GitLab only)
-TF_DIR="${SCRIPT_DIR}/terraform"
-TFVARS="${TF_DIR}/terraform.tfvars"
-TFVARS_EXAMPLE="${TF_DIR}/terraform.tfvars.example"
+# Terraform roots (ADR-0029: base/infra-apps/apps; GitLab config in infra-apps)
 TF_BASE_DIR="${SCRIPT_DIR}/terraform/base"
+TF_INFRA_APPS_DIR="${SCRIPT_DIR}/terraform/infra-apps"
 TF_APPS_DIR="${SCRIPT_DIR}/terraform/apps"
+TFVARS="${TF_INFRA_APPS_DIR}/terraform.tfvars"
+TFVARS_EXAMPLE="${TF_INFRA_APPS_DIR}/terraform.tfvars.example"
 
 # kind (ADR-0022: единый кластер bigbug-dev; harbor-кластер снесён — #62)
 KIND_DIR="${SCRIPT_DIR}/kind"
@@ -154,20 +156,20 @@ if (( ${#MISSING_DEPS[@]} > 0 )); then
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 2. Create infrastructure/.env from example if not exists
+# 2. Create infrastructure/gitlab/.env from example if not exists
 # ─────────────────────────────────────────────────────────────
-log "### Checking infrastructure environment ###"
+log "### Checking gitlab compose environment ###"
 
 if [[ ! -f "${INFRA_ENV}" ]]; then
     if [[ -f "${INFRA_ENV_EXAMPLE}" ]]; then
-        log "  Creating infrastructure/.env from infrastructure/.env.example..."
+        log "  Creating infrastructure/gitlab/.env from .env.example..."
         cp "${INFRA_ENV_EXAMPLE}" "${INFRA_ENV}"
     else
-        log_error "infrastructure/.env.example not found."
+        log_error "infrastructure/gitlab/.env.example not found."
         exit 1
     fi
 else
-    log "  infrastructure/.env already exists."
+    log "  infrastructure/gitlab/.env already exists."
 fi
 
 # Source infra .env to get GITLAB_TOKEN and GITLAB_ROOT_PASSWORD
@@ -188,7 +190,7 @@ log "### Starting infrastructure services ###"
 cd "${PROJECT_ROOT}"
 
 # Compose = GitLab zone only (gitlab + gitlab-runner — ADR-0033)
-compose_up_if_needed "${INFRA_COMPOSE}" 2 "infrastructure" "--env-file ${INFRA_ENV}"
+compose_up_if_needed "${INFRA_COMPOSE}" 2 "gitlab compose zone" "--env-file ${INFRA_ENV}"
 
 # ─────────────────────────────────────────────────────────────
 # 5. Wait for service readiness
@@ -229,7 +231,6 @@ fi
 # 7. Copy terraform.tfvars from example if not exists
 # ─────────────────────────────────────────────────────────────
 log "### Preparing OpenTofu variables ###"
-cd "${TF_DIR}"
 
 if [[ ! -f "${TFVARS}" ]]; then
     if [[ -f "${TFVARS_EXAMPLE}" ]]; then
@@ -244,17 +245,17 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 8. Verify / program GitLab PAT from infrastructure/.env
+# 8. Verify / program GitLab PAT from infrastructure/gitlab/.env
 #    (documented imperative exception from IaC — ADR-0033)
 # ─────────────────────────────────────────────────────────────
 log "### Checking GitLab PAT ###"
 
-# GITLAB_TOKEN comes from infrastructure/.env (sourced in step 2)
+# GITLAB_TOKEN comes from infrastructure/gitlab/.env (sourced in step 2)
 GITLAB_PAT="${GITLAB_TOKEN:-}"
 
 if [[ -z "${GITLAB_PAT}" ]]; then
-    log_error "GITLAB_TOKEN is empty or not set in infrastructure/.env."
-    log_error "Add GITLAB_TOKEN=<your-pat> to infrastructure/.env and re-run."
+    log_error "GITLAB_TOKEN is empty or not set in infrastructure/gitlab/.env."
+    log_error "Add GITLAB_TOKEN=<your-pat> to infrastructure/gitlab/.env and re-run."
     exit 1
 fi
 
@@ -262,7 +263,7 @@ log "  Token: ${GITLAB_PAT:0:8}..."
 
 # Check if the token is already valid (non-403 means works)
 log "  Checking if token is already valid..."
-GITLAB_CACERT="${KIND_DIR}/certs/gitlab.local/tls.crt"
+GITLAB_CACERT="$HOME/.local/state/bigbug/certs/gitlab.local/tls.crt"
 set +e
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
     --cacert "${GITLAB_CACERT}" \
@@ -296,9 +297,10 @@ sed -i "s|gitlab_token\s*=\s*\"[^\"]*\"|gitlab_token = \"${GITLAB_PAT}\"|" "${TF
 log "  gitlab_token written to terraform.tfvars."
 
 # ─────────────────────────────────────────────────────────────
-# 9. Run OpenTofu — base → apps → config (ADR-0029/0033; общий state
-#    backend ~/.local/state/bigbug для base/apps). keycloak-провайдер
-#    логинится при plan, поэтому apps идёт в 2 фазы: инсталляции, затем конфиг.
+# 9. Run OpenTofu — base → infra-apps → apps (ADR-0029/0033; общий state
+#    backend ~/.local/state/bigbug для base/infra-apps/apps). keycloak-провайдер
+#    логинится при plan, поэтому infra-apps идёт в 2 фазы: инсталляции, затем конфиг.
+#    Приложение (ns bigbug) — отдельный apps root, после infra-apps.
 # ─────────────────────────────────────────────────────────────
 log "### Running OpenTofu ###"
 
@@ -309,7 +311,7 @@ log "  Applying base layer (platform: ingress, operators)..."
 }
 
 log "  Applying apps layer — phase 1: installations (keycloak_init, harbor_init)..."
-(cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
+(cd "${TF_INFRA_APPS_DIR}" && "${TF_CMD}" init -input=false \
     && "${TF_CMD}" apply -auto-approve -input=false \
         -target=module.keycloak_init -target=module.harbor_init) || {
     log_error "apps layer (installations) failed."
@@ -320,14 +322,15 @@ log "  Waiting for Keycloak to answer (https)..."
 wait_for_service "Keycloak" "https://keycloak.local/realms/master" 180
 
 log "  Applying apps layer — full (realm, clients, harbor config)..."
-(cd "${TF_APPS_DIR}" && "${TF_CMD}" apply -auto-approve -input=false) || {
+(cd "${TF_INFRA_APPS_DIR}" && "${TF_CMD}" apply -auto-approve -input=false) || {
     log_error "apps layer (full) failed."
     exit 1
 }
 
-log "  Applying config root (GitLab)..."
-"${TF_CMD}" init -input=false && "${TF_CMD}" apply -auto-approve -input=false || {
-    log_error "config root apply failed."
+log "  Applying app-infra root (ns bigbug: CNPG, Redis, app secrets)..."
+(cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
+    && "${TF_CMD}" apply -auto-approve -input=false) || {
+    log_error "app-infra root apply failed."
     exit 1
 }
 

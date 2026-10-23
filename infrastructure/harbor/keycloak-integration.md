@@ -15,7 +15,7 @@
 
 ## Шаг 1: Создание OIDC Client в Keycloak
 
-> **Примечание:** Клиент `harbor` создаётся **автоматически** через OpenTofu при инициализации Keycloak ([`clients.tf`](../terraform/modules/keycloak/clients.tf)). Ручное создание не требуется. Секрет клиента задаётся в `terraform.tfvars` → `harbor_client_secret`.
+> **Примечание:** Клиент `harbor` создаётся **автоматически** через OpenTofu при инициализации Keycloak ([`clients.tf`](../terraform/infra-apps/modules/keycloak_conf/clients.tf)). Ручное создание не требуется. Секрет клиента задаётся в `terraform.tfvars` → `harbor_client_secret`.
 
 ### 1.1 Инициализация Keycloak через OpenTofu
 
@@ -278,8 +278,8 @@ curl -s -k -u admin:Harbor12345 \
 | Параметр | Значение | Источник |
 |----------|----------|----------|
 | Keycloak URL | `http://localhost:8180` | [`docker-compose.yml`](../docker-compose.yml) |
-| Realm | `bigbug` | [`realm.tf`](../terraform/modules/keycloak/realm.tf) |
-| Client ID | `harbor` | Создаётся автоматически через OpenTofu ([`clients.tf`](../terraform/modules/keycloak/clients.tf)) |
+| Realm | `bigbug` | [`realm.tf`](../terraform/infra-apps/modules/keycloak_conf/realm.tf) |
+| Client ID | `harbor` | Создаётся автоматически через OpenTofu ([`clients.tf`](../terraform/infra-apps/modules/keycloak_conf/clients.tf)) |
 | Client Secret | `<из terraform.tfvars>` | Задаётся в `harbor_client_secret` |
 | OIDC Endpoint | `http://localhost:8180/realms/bigbug` | Формируется из Keycloak URL + Realm |
 | Redirect URI | `https://harbor.local:30443/c/oidc/callback` | Стандартный путь Harbor OIDC callback |

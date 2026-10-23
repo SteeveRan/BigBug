@@ -1,7 +1,8 @@
 # Harbor chart values (ns harbor, issue #58). Chart 1.19.4 (harbor 2.15.4),
 # pinned in harbor.tf. Adapted from the retired infrastructure/harbor/harbor-values.yaml.
 # HTTPS per ADR-0030: TLS terminates on haproxy-ingress with the tofu-managed
-# `tls-harbor-local` secret (certs from ../../kind/certs.sh); pod-to-pod stays HTTP.
+# `tls-harbor-local` secret (certs from kind/certs.sh →
+# ~/.local/state/bigbug/certs); pod-to-pod stays HTTP.
 
 expose:
   type: ingress

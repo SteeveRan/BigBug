@@ -66,7 +66,8 @@ metrics:
 # Ingress host keycloak.local -> service port http (haproxy ingressClass
 # default from base; nodePort mapping in ../../kind/kind-config.yaml).
 # TLS per ADR-0030: terminates on ingress with the tofu-managed
-# `tls-keycloak-local` secret (certs from ../../kind/certs.sh); Harbor OIDC
+# `tls-keycloak-local` secret (certs from kind/certs.sh →
+# ~/.local/state/bigbug/certs); Harbor OIDC
 # (oidc_verify_cert: true) depends on keycloak presenting this cert.
 ingress:
   enabled: true

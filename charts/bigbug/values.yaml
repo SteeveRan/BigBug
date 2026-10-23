@@ -1,0 +1,144 @@
+# Default values for the bigbug chart (prod-oriented defaults).
+# Dev overrides (kind, https, Vite dev server) live in values-dev.yaml (ADR-0023).
+#
+# External-only dependencies: postgres/redis are NEVER deployed by this chart
+# (no subcharts, no STS — ADR-0023 §2). Credentials come from pre-existing
+# k8s Secrets (tofu-managed in dev — ADR-0024).
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ── Backend (FastAPI) ─────────────────────────────────────────
+backend:
+  image:
+    repository: bigbug-backend
+    tag: ""            # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  port: 8000
+
+  # Probe target (FastAPI /api/health mounted under the /api prefix)
+  healthPath: /api/health
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # Entrypoint command (entrypoint.sh scenario); overridden in values-dev.
+  # Extra args after "--" are appended to the uvicorn invocation
+  # (dev: --proxy-headers via values-dev).
+  command: ["app:start"]
+
+  # Extra volumes/mounts for the backend pod (rare; none by default)
+  extraVolumes: []
+  extraVolumeMounts: []
+
+  # CA bundle (ConfigMap with a PEM bundle key) mounted for https calls to
+  # self-signed *.local services; SSL_CERT_FILE/REQUESTS_CA_BUNDLE point at
+  # the mounted key. Empty = no mount, no env (compose-style http dev).
+  # Per ADR-0030 §4: only the bundle PATH goes here — the certs themselves
+  # are tofu-managed (ConfigMap bigbug-ca-bundle, ns bigbug).
+  caBundle:
+    configMapName: ""   # e.g. bigbug-ca-bundle
+    key: ca-bundle.crt
+    mountPath: /etc/bigbug-certs
+
+  # Non-secret env (plain values) — merged into the backend ConfigMap.
+  # CORS_ORIGINS lives here (ADR-0028 §3): JSON list of allowed browser origins.
+  env:
+    CORS_ORIGINS: '["http://localhost:5173", "http://localhost:3000"]'
+  # Secret env (secretKeyRef) — name of existing Secret per variable below
+  secretEnv:
+    # DATABASE_URL from the CNPG projection secret (ADR-0024)
+    DATABASE_URL:
+      secretName: bigbug-db-credentials
+      key: DATABASE_URL
+    # Fernet key for stored-credential encryption (ADR-0010)
+    ENCRYPTION_KEY:
+      secretName: bigbug-fernet-key
+      key: ENCRYPTION_KEY
+    # Backend OIDC client credentials (client lives in Keycloak, ADR-0024)
+    KEYCLOAK_CLIENT_ID:
+      secretName: bigbug-keycloak-oidc
+      key: client_id
+    KEYCLOAK_CLIENT_SECRET:
+      secretName: bigbug-keycloak-oidc
+      key: client_secret
+
+  # Keycloak endpoints (public config, not secret)
+  keycloak:
+    url: ""             # e.g. https://keycloak.local
+    publicUrl: ""       # browser-facing URL; defaults to .backend.keycloak.url
+    realm: bigbug
+
+# ── Frontend ──────────────────────────────────────────────────
+frontend:
+  image:
+    repository: bigbug-frontend
+    tag: ""            # defaults to .Chart.AppVersion
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  port: 80
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # Dev (values-dev): Node + Vite dev server instead of nginx (ADR-0023 §3).
+  # Vite command runs instead of the image default; hmr.wss switches the
+  # browser-facing HMR websocket to wss://<host> (TLS on ingress — ADR-0030 §6).
+  dev:
+    enabled: false
+    command: ["yarn", "dev", "--host"]
+    hmr:
+      wss: false
+      clientPort: 443
+    # VITE_API_URL the browser uses (empty = same-origin proxy)
+    apiUrl: ""
+    # comma-separated extra hosts Vite may serve (dev-stand: app.local)
+    allowedHosts: ""
+
+  # Extra volumes/mounts for the frontend pod (rare; none by default)
+  extraVolumes: []
+  extraVolumeMounts: []
+
+# ── Ingress ───────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: haproxy
+  backend:
+    host: api.local
+  frontend:
+    host: app.local
+  tls:
+    enabled: false      # values-dev: true with tofu-managed secrets (ADR-0030)
+    backendSecretName: tls-api-local
+    frontendSecretName: tls-app-local
+
+# ── Migration hook Job (pre-install,pre-upgrade) ──────────────
+migrations:
+  # Job runs entrypoint app:init (wait for DB → alembic upgrade head → seeds);
+  # backend app:start no longer migrates (ADR-0023 §4). Same image as backend.
+  backoffLimit: 4
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# ── Redis (external, redis-operator CR in dev) ────────────────
+redis:
+  host: ""              # e.g. bigbug-cache.bigbug.svc
+  port: 6379
+  db: 0

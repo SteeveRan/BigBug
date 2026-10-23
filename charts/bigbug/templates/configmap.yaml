@@ -1,0 +1,22 @@
+{{/*
+Non-secret backend env (ADR-0024 fitness: secrets only via secretKeyRef —
+this ConfigMap holds plain config only).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "bigbug.fullname" . }}-config
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+data:
+  REDIS_URL: {{ include "bigbug.redisUrl" . | quote }}
+  # single source of the default list: values.yaml backend.env.CORS_ORIGINS
+  CORS_ORIGINS: {{ required "backend.env.CORS_ORIGINS must be set (see values.yaml)" .Values.backend.env.CORS_ORIGINS | quote }}
+  {{- if .Values.backend.keycloak.url }}
+  KEYCLOAK_URL: {{ .Values.backend.keycloak.url | quote }}
+  KEYCLOAK_PUBLIC_URL: {{ (.Values.backend.keycloak.publicUrl | default .Values.backend.keycloak.url) | quote }}
+  {{- end }}
+  KEYCLOAK_REALM: {{ .Values.backend.keycloak.realm | quote }}
+  {{- range $k, $v := omit .Values.backend.env "CORS_ORIGINS" }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

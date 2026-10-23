@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     environment: Literal["development", "production", "test"] = "development"
     debug: bool = False
 
+    # CORS (ADR-0028 §3): allowed browser origins as a JSON list env var
+    # (e.g. CORS_ORIGINS='["https://app.local"]'). Defaults keep the compose-era
+    # localhost origins.
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+
     # Database
     database_url: str = "postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug"
 

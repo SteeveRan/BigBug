@@ -1,0 +1,56 @@
+# Dev overrides (kind bigbug-dev): https on ingress, Vite dev server, rate
+# limiting off. Source of code = dev image (no hostPath mounts — worktree
+# hot-reload via kind extraMounts was dropped: mounts belong to the
+# bootstrap worktree; deleting that worktree silently broke pods).
+# ADR-0022/0023/0030.
+
+backend:
+  image:
+    repository: bigbug-backend
+    tag: dev
+    pullPolicy: IfNotPresent
+
+  # --proxy-headers behind the TLS-terminating ingress (ADR-0030 §6)
+  command: ["app:start", "--", "--proxy-headers"]
+  env:
+    ENVIRONMENT: development
+    FORWARDED_ALLOW_IPS: "10.0.0.0/8"
+    RATE_LIMIT_ENABLED: "false"   # dev: e2e/local debugging must not hit login limits (compose parity)
+    CORS_ORIGINS: '["https://app.local"]'  # ADR-0030 §7
+  caBundle:
+    configMapName: bigbug-ca-bundle   # tofu-managed (apps root), ADR-0030 §4
+  keycloak:
+    url: https://keycloak.local
+    realm: bigbug
+
+frontend:
+  image:
+    repository: bigbug-frontend
+    tag: dev
+    pullPolicy: IfNotPresent
+
+  dev:
+    enabled: true
+    command: ["yarn", "dev", "--host"]
+    apiUrl: https://api.local
+    allowedHosts: app.local
+    hmr:
+      wss: true        # HMR websocket via https-ingress (ADR-0030 §6)
+      clientPort: 443
+
+  # Vite dev server port (values.yaml default 80 is the prod nginx port)
+  port: 5173
+
+ingress:
+  enabled: true
+  # hosts/className inherited from values.yaml; TLS on (tofu-managed secrets,
+  # ADR-0030 §5)
+  tls:
+    enabled: true
+    backendSecretName: tls-api-local
+    frontendSecretName: tls-app-local
+
+redis:
+  host: bigbug-cache.bigbug.svc
+  port: 6379
+  db: 0

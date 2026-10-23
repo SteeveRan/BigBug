@@ -1,0 +1,114 @@
+{{/*
+FastAPI backend Deployment. 1 replica, probes on /api/health, env from
+ConfigMap (plain) + Secrets (secretKeyRef — ADR-0024 fitness).
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bigbug.fullname" . }}-backend
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bigbug.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "bigbug.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      containers:
+        - name: backend
+          image: {{ include "bigbug.backendImage" . }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["/entrypoint.sh"]
+          args: {{ toYaml .Values.backend.command | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.port }}
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" . }}-config
+                  key: REDIS_URL
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" . }}-config
+                  key: CORS_ORIGINS
+            - name: KEYCLOAK_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" . }}-config
+                  key: KEYCLOAK_REALM
+            {{- if .Values.backend.keycloak.url }}
+            - name: KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" $ }}-config
+                  key: KEYCLOAK_URL
+            - name: KEYCLOAK_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" $ }}-config
+                  key: KEYCLOAK_PUBLIC_URL
+            {{- end }}
+            {{- range $name, $ref := .Values.backend.secretEnv }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ref.secretName }}
+                  key: {{ $ref.key }}
+            {{- end }}
+            {{- if .Values.backend.caBundle.configMapName }}
+            # SSL_CERT_FILE: httpx (app), REQUESTS_CA_BUNDLE: requests (transitive deps/tools)
+            - name: SSL_CERT_FILE
+              value: {{ printf "%s/%s" .Values.backend.caBundle.mountPath .Values.backend.caBundle.key }}
+            - name: REQUESTS_CA_BUNDLE
+              value: {{ printf "%s/%s" .Values.backend.caBundle.mountPath .Values.backend.caBundle.key }}
+            {{- end }}
+          {{- with .Values.backend.env }}
+          {{- range $k, $v := omit . "CORS_ORIGINS" }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+          {{- end }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.backend.healthPath }}
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.backend.healthPath }}
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.backend.caBundle.configMapName }}
+            - name: ca-bundle
+              mountPath: {{ .Values.backend.caBundle.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.backend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.backend.caBundle.configMapName }}
+        - name: ca-bundle
+          configMap:
+            name: {{ .Values.backend.caBundle.configMapName }}
+        {{- end }}
+        {{- with .Values.backend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

@@ -1,6 +1,6 @@
 /**
  * @file variables.tf
- * @description Input variables for the apps root.
+ * @description Input variables for the BigBug app-infra root.
  */
 
 variable "kubeconfig_path" {
@@ -21,109 +21,21 @@ variable "cnpg_storage_size" {
   default     = "5Gi"
 }
 
-variable "keycloak_hostname" {
-  description = "External hostname of Keycloak (ingress host, ADR-0022 addressing)"
-  type        = string
-  default     = "keycloak.local"
-}
-
-variable "keycloak_admin_username" {
-  description = "Keycloak bootstrap admin username (only used on first DB init)"
-  type        = string
-  default     = "admin"
-}
-
-variable "keycloak_admin_password" {
-  description = "Keycloak bootstrap admin password (only used on first DB init)"
-  type        = string
-  default     = "admin"
-}
-
-# ── Keycloak config (modules/keycloak, migrated from config root — #57/#58) ──
-
 variable "keycloak_url" {
   description = "Keycloak server URL (keycloakx in kind, https://keycloak.local — ADR-0030)"
   type        = string
   default     = "https://keycloak.local"
 }
 
-variable "realm_name" {
-  description = "Keycloak realm name"
-  type        = string
-  default     = "bigbug"
-}
-
 variable "backend_client_id" {
-  description = "OIDC client ID for BigBug backend"
+  description = "OIDC client ID for BigBug backend (client lives in infra-apps/keycloak_conf)"
   type        = string
   default     = "bigbug-backend"
 }
 
 variable "backend_client_secret" {
-  description = "OIDC client secret for BigBug backend"
+  description = "OIDC client secret for BigBug backend (must match keycloak_conf in infra-apps)"
   type        = string
   sensitive   = true
   default     = "bigbug-backend-secret"
-}
-
-variable "frontend_client_id" {
-  description = "OIDC client ID for BigBug frontend (SPA)"
-  type        = string
-  default     = "bigbug-frontend"
-}
-
-variable "frontend_redirect_uris" {
-  description = "Valid redirect URIs for frontend SPA client"
-  type        = list(string)
-  default     = ["http://localhost:5173/*", "http://localhost:3000/*"]
-}
-
-variable "harbor_client_id" {
-  description = "OIDC client ID for Harbor (created in Keycloak)"
-  type        = string
-  default     = "harbor"
-}
-
-variable "harbor_client_secret" {
-  description = "OIDC client secret for Harbor (created in Keycloak)"
-  type        = string
-  sensitive   = true
-  default     = "harbor-oidc-secret"
-}
-
-variable "harbor_redirect_uris" {
-  description = "Valid redirect URIs for Harbor OIDC client (https, no :30443 — ADR-0030 §8)"
-  type        = list(string)
-  default     = ["https://harbor.local/c/oidc/callback", "https://harbor.local/*"]
-}
-
-variable "harbor_post_logout_redirect_uris" {
-  description = "Post-logout redirect URIs for Harbor OIDC client"
-  type        = list(string)
-  default     = ["https://harbor.local/c/oidc/logout", "https://harbor.local/"]
-}
-
-variable "harbor_root_url" {
-  description = "Root URL for Harbor OIDC client"
-  type        = string
-  default     = "https://harbor.local"
-}
-
-variable "test_user_username" {
-  description = "Test user username in Keycloak"
-  type        = string
-  default     = "bigbug"
-}
-
-variable "test_user_password" {
-  description = "Test user password in Keycloak"
-  type        = string
-  sensitive   = true
-  default     = "bigbug"
-}
-
-variable "test_user_email" {
-  description = "Test user email in Keycloak"
-  type        = string
-  default     = "bigbug@example.com"
 }

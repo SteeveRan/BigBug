@@ -1,14 +1,9 @@
 /**
  * @file outputs.tf
- * @description Outputs for the apps root.
+ * @description Outputs for the BigBug app-infra root.
  */
 
-output "keycloak_url" {
-  description = "External Keycloak URL (ADR-0022 addressing)"
-  value       = "http://${var.keycloak_hostname}"
-}
-
-output "keycloak_namespace" {
-  description = "Namespace where keycloakx runs"
-  value       = module.keycloak_init.namespace
+output "bigbug_namespace" {
+  description = "Namespace holding the BigBug app infrastructure"
+  value       = module.bigbug_init.namespace
 }

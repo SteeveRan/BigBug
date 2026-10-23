@@ -6,7 +6,7 @@
 # postgres-backend, redis, backend API and frontend UI.
 #
 # Prerequisites:
-#   docker compose -f infrastructure/docker-compose.yml up -d
+#   docker compose -f infrastructure/gitlab/docker-compose.yml up -d
 #
 # Usage:
 #   docker compose up -d

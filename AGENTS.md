@@ -44,11 +44,11 @@ BigBug/
 │   ├── scripts/         # Format, lint, test scripts
 │   └── package.json     # Node dependencies
 ├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
-│   ├── docker-compose.yml    # GitLab zone (gitlab + gitlab-runner — compose-исключение, ADR-0033)
+│   ├── gitlab/               # GitLab compose zone (gitlab + gitlab-runner — compose-исключение, ADR-0033)
 │   ├── init.sh               # Initialization script (certs → compose → kind → base → apps → config)
 │   ├── update-env.sh         # Environment update script
 │   ├── kind/                 # kind-стенд: bootstrap/certs/trust scripts
-│   ├── terraform/            # Config root (GitLab-only) + base/ + apps/ (ADR-0029/0033)
+│   ├── terraform/            # OpenTofu roots: base/ + infra-apps/ (+GitLab) + apps/ (ADR-0029/0033)
 │   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
@@ -71,12 +71,12 @@ BigBug/
 | Frontend (React 19 + TypeScript + AntD 6 + RTK/RTK Query + Vite, Node.js) | [ADR-0002](docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) |
 | Auth (JWT + Keycloak OIDC) | [ADR-0003](docs/adr/common/0003-keycloak-oidc-dual-auth.md) |
 | Dev environment (kind-стенд) | [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) |
-| IaC (OpenTofu: base/apps/config root'ы) | [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) |
+| IaC (OpenTofu: base/infra-apps/apps root'ы) | [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) |
 | GitLab (compose-исключение, https) | [ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md) |
 | Keycloak в kind (keycloakx + CNPG) | [ADR-0034](docs/adr/infrastructure/0034-keycloak-dev-stand-keycloakx.md) |
 | Harbor в kind (chart + TLS) | [ADR-0035](docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) |
 
-**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): Keycloak (keycloakx в kind), Harbor (chart в kind за TLS-ingress), PostgreSQL 17 (CNPG), Valkey — всё в кластере `bigbug-dev`; **GitLab CE omnibus + gitlab-runner — compose-исключение** ([ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md), `https://gitlab.local:8443`, серт из `kind/certs.sh`).
+**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): Keycloak (keycloakx в kind), Harbor (chart в kind за TLS-ingress), PostgreSQL 17 (CNPG), Valkey — всё в кластере `bigbug-dev`; **GitLab CE omnibus + gitlab-runner — compose-исключение** ([ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md), `https://gitlab.local:8443`, серт из `kind/certs.sh` → `~/.local/state/bigbug/certs`).
 
 Актуальные версии — [`backend/pyproject.toml`](backend/pyproject.toml), [`frontend/package.json`](frontend/package.json).
 
@@ -134,7 +134,7 @@ See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
-See: [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — IaC-разрезка (base/apps/config root'ы, инструментальное ядро бывшего ADR-0013); [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
+See: [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — IaC-разрезка (base/infra-apps/apps root'ы, инструментальное ядро бывшего ADR-0013); [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions
 
@@ -212,7 +212,7 @@ See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 - `make dev-clean` / `make infra-clean` / `docker compose down -v` — гасят общий стенд (защищены CONFIRM-гвардом, обходить его нельзя)
 - `alembic downgrade` на общей БД `bigbug`
-- Tofu apply / пересоздание секретов / изменение `infrastructure/.env`
+- Tofu apply / пересоздание секретов / изменение `infrastructure/gitlab/.env`
 
 Нужен пересозданный секрет, свежее окружение или чистка — issue владельцу инфры, не самодеятельность.
 
@@ -318,7 +318,7 @@ See: [ADR-0007](docs/adr/common/0007-providers-v3-registry.md)
 ```bash
 # GitLab API доступен / токен валиден (https, self-signed — ADR-0030 §9/ADR-0033)
 curl -k -H "PRIVATE-TOKEN: glpat-xyz" https://gitlab.local:8443/api/v4/user
-curl --cacert infrastructure/kind/certs/gitlab.local/tls.crt \
+curl --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
      -H "PRIVATE-TOKEN: glpat-xyz" https://gitlab.local:8443/api/v4/personal_access_tokens/self
 
 # Harbor доступен / SSL
@@ -337,7 +337,7 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 
 ```bash
 # Сервисы не стартуют: логи, сеть, volumes
-docker compose -f infrastructure/docker-compose.yml logs gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml logs gitlab
 kubectl get pods -A --context kind-bigbug-dev          # keycloakx, harbor, ingress — в kind
 docker network inspect bigbug-network
 docker volume ls | grep bigbug
@@ -346,8 +346,8 @@ docker volume ls | grep bigbug
 lsof -i :8443; lsof -i :5432; lsof -i :8000
 
 # GitLab: полная загрузка занимает 2-5 минут; root password для fresh-инстанса
-docker compose -f infrastructure/docker-compose.yml logs -f gitlab
-docker compose -f infrastructure/docker-compose.yml exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
+docker compose -f infrastructure/gitlab/docker-compose.yml logs -f gitlab
+docker compose -f infrastructure/gitlab/docker-compose.yml exec gitlab grep 'Password:' /etc/gitlab/initial_root_password
 
 # OpenTofu: сброс state и повторная инициализация с нуля
 make infra-clean && make infra-init
