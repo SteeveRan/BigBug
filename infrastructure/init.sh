@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 #
 # @file init.sh
-# @description BigBug infrastructure initialization
-#              Starts infrastructure services, optionally deploys Harbor,
-#              applies OpenTofu (Keycloak → Harbor → GitLab),
-#              and updates application .env with OpenTofu outputs.
+# @description BigBug infrastructure initialization (ADR-0022/0029/0033).
+#              Ensures TLS certs (ADR-0030), starts the GitLab compose zone,
+#              bootstraps the kind cluster, applies OpenTofu
+#              (base → apps → config/GitLab), updates application .env.
 #
 # Usage:
 #   ./infrastructure/init.sh
 #
 # Prerequisites:
 #   - Docker 24+
+#   - kind, kubectl
 #   - OpenTofu 1.6+ (or Terraform 1.5+)
-#   - curl, jq
+#   - curl, jq, openssl
 #
 
 set -euo pipefail
@@ -96,12 +97,13 @@ wait_for_service() {
     local service="$1"
     local url="$2"
     local max_wait="${3:-120}"
+    local curl_extra="${4:-}"
 
     log "Waiting for ${service} at ${url} (timeout=${max_wait}s)..."
 
     local elapsed=0
     while (( elapsed < max_wait )); do
-        if curl -fsS -o /dev/null --connect-timeout 5 "${url}" 2>/dev/null; then
+        if curl -fsS ${curl_extra} -o /dev/null --connect-timeout 5 "${url}" 2>/dev/null; then
             log "  ${service} is ready (${elapsed}s)"
             return 0
         fi
@@ -120,7 +122,7 @@ log "### Checking dependencies ###"
 
 MISSING_DEPS=()
 
-for cmd in docker curl jq; do
+for cmd in docker curl jq openssl; do
     if ! command -v "${cmd}" &>/dev/null; then
         MISSING_DEPS+=("${cmd}")
     fi
@@ -173,28 +175,34 @@ fi
 source "${INFRA_ENV}"
 
 # ─────────────────────────────────────────────────────────────
-# 3. Start infrastructure services
+# 3. Ensure TLS certificates (ADR-0030) — GitLab omnibus mounts them
+# ─────────────────────────────────────────────────────────────
+log "### Ensuring TLS certificates ###"
+
+bash "${KIND_DIR}/certs.sh"   # idempotent: existing certs are kept
+
+# ─────────────────────────────────────────────────────────────
+# 4. Start infrastructure services
 # ─────────────────────────────────────────────────────────────
 log "### Starting infrastructure services ###"
 cd "${PROJECT_ROOT}"
 
-compose_up_if_needed "${INFRA_COMPOSE}" 4 "infrastructure" "--env-file ${INFRA_ENV}"
+# Compose = GitLab zone only (gitlab + gitlab-runner — ADR-0033)
+compose_up_if_needed "${INFRA_COMPOSE}" 2 "infrastructure" "--env-file ${INFRA_ENV}"
 
 # ─────────────────────────────────────────────────────────────
-# 4. Wait for service readiness
+# 5. Wait for service readiness
 # ─────────────────────────────────────────────────────────────
 log "### Waiting for service readiness ###"
 
-# Keycloak (keycloakx в kind, apps root) — https, trust-host.sh обязателен (ADR-0030)
-wait_for_service "Keycloak" "https://keycloak.local/realms/master" 180
-
-# GitLab — takes a while to boot
-wait_for_service "GitLab" "http://localhost:8080/users/sign_in" 600
+# GitLab — https omnibus (ADR-0030 §9), self-signed: -k in scripts, host
+# trust via trust-host.sh; takes a while to boot
+wait_for_service "GitLab" "https://gitlab.local:8443/users/sign_in" 600 "-k"
 
 log "  All infrastructure services are ready."
 
 # ─────────────────────────────────────────────────────────────
-# 5. kind cluster bigbug-dev (certs → bootstrap) — ADR-0022/0030
+# 6. kind cluster bigbug-dev (bootstrap) — ADR-0022/0030
 # ─────────────────────────────────────────────────────────────
 log "### Checking kind cluster '${KIND_CLUSTER}' ###"
 
@@ -202,10 +210,8 @@ if command -v kind &>/dev/null; then
     if kind get clusters 2>/dev/null | grep -q "^${KIND_CLUSTER}$"; then
         log "  Cluster '${KIND_CLUSTER}' already exists — skipping bootstrap."
     else
-        log "  Cluster not found. Running certs.sh + bootstrap.sh..."
+        log "  Cluster not found. Running bootstrap.sh (certs already ensured in step 3)..."
         if [[ -f "${KIND_DIR}/bootstrap.sh" ]]; then
-            [[ -f "${KIND_DIR}/certs/harbor.local/tls.crt" ]] \
-                || (cd "${KIND_DIR}" && bash certs.sh)
             (cd "${KIND_DIR}" && bash bootstrap.sh)
             log "  Cluster ready."
         else
@@ -220,7 +226,7 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 6. Copy terraform.tfvars from example if not exists
+# 7. Copy terraform.tfvars from example if not exists
 # ─────────────────────────────────────────────────────────────
 log "### Preparing OpenTofu variables ###"
 cd "${TF_DIR}"
@@ -238,7 +244,8 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────
-# 7. Verify / program GitLab PAT from infrastructure/.env
+# 8. Verify / program GitLab PAT from infrastructure/.env
+#    (documented imperative exception from IaC — ADR-0033)
 # ─────────────────────────────────────────────────────────────
 log "### Checking GitLab PAT ###"
 
@@ -255,10 +262,12 @@ log "  Token: ${GITLAB_PAT:0:8}..."
 
 # Check if the token is already valid (non-403 means works)
 log "  Checking if token is already valid..."
+GITLAB_CACERT="${KIND_DIR}/certs/gitlab.local/tls.crt"
 set +e
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    --cacert "${GITLAB_CACERT}" \
     --header "PRIVATE-TOKEN: ${GITLAB_PAT}" \
-    "http://localhost:8080/api/v4/user" 2>/dev/null)
+    "https://gitlab.local:8443/api/v4/user" 2>/dev/null)
 set -e
 
 if [[ "${HTTP_CODE}" != "403" ]]; then
@@ -287,9 +296,9 @@ sed -i "s|gitlab_token\s*=\s*\"[^\"]*\"|gitlab_token = \"${GITLAB_PAT}\"|" "${TF
 log "  gitlab_token written to terraform.tfvars."
 
 # ─────────────────────────────────────────────────────────────
-# 8. Run OpenTofu — base → apps (ADR-0029; общий state backend
-#    ~/.local/state/bigbug). keycloak-провайдер логинится при plan,
-#    поэтому apps идёт в 2 фазы: инсталляции, затем конфиг.
+# 9. Run OpenTofu — base → apps → config (ADR-0029/0033; общий state
+#    backend ~/.local/state/bigbug для base/apps). keycloak-провайдер
+#    логинится при plan, поэтому apps идёт в 2 фазы: инсталляции, затем конфиг.
 # ─────────────────────────────────────────────────────────────
 log "### Running OpenTofu ###"
 
@@ -325,7 +334,7 @@ log "  Applying config root (GitLab)..."
 log "  OpenTofu applied successfully."
 
 # ─────────────────────────────────────────────────────────────
-# 9. Update host-tool .env vars (e2e base URL, GitLab PAT)
+# 10. Update host-tool .env vars (e2e base URL, GitLab PAT)
 # ─────────────────────────────────────────────────────────────
 "${SCRIPT_DIR}/update-env.sh"
 
@@ -343,7 +352,7 @@ log "==========================================="
 log ""
 log "  Infrastructure services:"
 log "    Keycloak:  https://keycloak.local  (admin / admin)"
-log "    GitLab:    http://localhost:8080  (root / ${GITLAB_ROOT_PW_DISPLAY})"
+log "    GitLab:    https://gitlab.local:8443  (root / ${GITLAB_ROOT_PW_DISPLAY})"
 log "    Harbor:    https://harbor.local  (admin / Harbor12345)"
 log ""
 log "  GitLab PAT: ${GITLAB_TOKEN_DISPLAY}"

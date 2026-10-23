@@ -18,4 +18,6 @@ terraform {
 provider "gitlab" {
   token    = var.gitlab_token
   base_url = var.gitlab_url
+  # Self-signed cert from kind/certs.sh (ADR-0030 §9) — never skip verification
+  cacert_file = var.gitlab_ca_cert != "" ? var.gitlab_ca_cert : null
 }
