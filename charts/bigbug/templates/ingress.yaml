@@ -1,0 +1,44 @@
+{{/*
+Ingress: api.local → backend, app.local → frontend. TLS terminates on the
+ingress controller with tofu-managed secrets (ADR-0030 §5); pods stay http.
+*/}}
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "bigbug.fullname" . }}
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - secretName: {{ .Values.ingress.tls.backendSecretName }}
+      hosts:
+        - {{ .Values.ingress.backend.host }}
+    - secretName: {{ .Values.ingress.tls.frontendSecretName }}
+      hosts:
+        - {{ .Values.ingress.frontend.host }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.backend.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "bigbug.fullname" . }}-backend
+                port:
+                  number: 80
+    - host: {{ .Values.ingress.frontend.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "bigbug.fullname" . }}-frontend
+                port:
+                  number: 80
+{{- end }}

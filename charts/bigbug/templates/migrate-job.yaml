@@ -1,0 +1,39 @@
+{{/*
+Alembic migration hook Job (pre-install,pre-upgrade — ADR-0023 §4).
+Runs entrypoint app:init: wait for DB → alembic upgrade head → seeds, exit.
+The backend Deployment no longer migrates on start (wait-for-DB stays).
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "bigbug.fullname" . }}-migrate
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "bigbug.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: {{ include "bigbug.backendImage" . }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["/entrypoint.sh"]
+          args: ["app:init"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.secretEnv.DATABASE_URL.secretName }}
+                  key: DATABASE_URL
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
