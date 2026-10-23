@@ -70,6 +70,15 @@ ADMIN_PASSWORD=admin
 
 > Переменных `DATABASE_URL`/`REDIS_URL` в `.env` нет — compose собирает их сам из `POSTGRES_*` (см. `docker-compose.yml`). Конфигурация Keycloak/GitLab/GitHub — env-переменные бэкенда с дефолтами в `backend/app/config.py` (`keycloak_*`, `gitlab_url` — по умолчанию `http://gitlab.local:8080`, `gitlab_token`, `github_token`); в `.env` их задавать не обязательно. Runtime-конфиг SSO — в БД (ADR-0003).
 
+### Secret scanning (gitleaks)
+
+Репозиторий сканируется на утечки секретов: pre-commit hook (staged-only) + blocking GitHub Actions + `make secrets-scan` (полная история). Политика и процедура реагирования на утечку — [docs/development/security.md](security.md), решение — [ADR-0032](../adr/common/0032-adopt-gitleaks-secret-scanning.md).
+
+```bash
+pip install pre-commit
+pre-commit install   # включает gitleaks hook на каждый коммит
+```
+
 ### 3. Backend Setup
 
 ```bash

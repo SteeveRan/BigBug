@@ -70,6 +70,7 @@
 | [ADR-0029](infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) | proposed | In-cluster сущности через OpenTofu: root'ы `terraform/base` (платформа: ingress + только операторы CNPG/redis-operator, one-shot без внешних значений — на preprod как есть) и `terraform/apps` (инстансы сервисов + k8s-секреты приложения); кластер и hosts — императивно; 3 изолированных state'а, оркестрация init.sh | 2026-10-22 |
 | [ADR-0030](infrastructure/0030-dev-stand-https-self-signed-certs.md) | proposed | HTTPS на dev-стенде: per-service self-signed сертификаты через certs.sh (до бутстрапа, переживают пересоздание кластера), терминирование на haproxy-ingress, доверие — ConfigMap-инжект в поды + trust-host.sh пользователем; pod-to-pod HTTP; GitLab https://gitlab.local:8443 | 2026-10-23 |
 | [ADR-0031](backend/0031-uv-package-manager.md) | proposed | uv как менеджер окружений и пакетов backend: `uv sync` + коммитнутый `uv.lock`, dev-зависимости в PEP 735 `[dependency-groups]`, `.python-version` = 3.14, Docker-сборка `uv sync --frozen --no-dev` из пиннутого uv-образа | 2026-10-23 |
+| [ADR-0032](common/0032-adopt-gitleaks-secret-scanning.md) | proposed | Adopt gitleaks secret scanning: pre-commit (staged-only) + blocking CI + full-history scan, allowlist вместо inline-маркеров, ротация обязательна — история git не переписывается | 2026-10-23 |
 
 ## Правила для агентов
 
