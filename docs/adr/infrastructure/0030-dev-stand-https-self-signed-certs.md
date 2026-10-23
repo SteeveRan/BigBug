@@ -60,7 +60,7 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 | Хост: браузер, curl, httpx e2e, tofu config root | **скрипты для пользователя**: `certs.sh` (генерация, без sudo) и `trust-host.sh` (добавление в system trust store, sudo — осознанное действие пользователя; `untrust-host.sh` в teardown-симметрию) |
 | Docker daemon (push/pull harbor.local) | только через system trust store (после trust-host.sh + restart daemon). **`insecure-registries` убирается** — с HTTPS-сертификатами он больше не нужен, а его отсутствие гарантирует, что доверие реально работает |
 
-**5. TLS-секреты в кластере — apps root tofu.** `kubernetes_secret` (type `kubernetes.io/tls`) из файлов state-каталога (`pathexpand("~/.local/state/bigbug/certs/<host>/...")`) в `infrastructure/terraform/apps/` — паттерн [ADR-0024](../common/0024-k8s-secrets.md) (tofu управляет k8s-объектами); ingress'ы keycloakx/Harbor/app-chart ссылаются на секреты через values. **Base остаётся one-shot без внешних значений** (ADR-0029) — секреты из файлов нельзя помещать в base.
+**5. TLS-секреты в кластере — tofu (infra-apps/apps roots).** `kubernetes_secret` (type `kubernetes.io/tls`) из файлов state-каталога (`pathexpand("~/.local/state/bigbug/certs/<host>/...")`) в `infrastructure/terraform/infra-apps/` (keycloak/harbor) и `infrastructure/terraform/apps/` (api/app для приложения, #59) — паттерн [ADR-0024](../common/0024-k8s-secrets.md) (tofu управляет k8s-объектами); ingress'ы keycloakx/Harbor/app-chart ссылаются на секреты через values. **Base остаётся one-shot без внешних значений** (ADR-0029) — секреты из файлов нельзя помещать в base.
 
 **6. Сервисы за прокси обязаны видеть forwarded-заголовки** (иначе строят внутренние URL):
 - keycloakx: `proxy: forwarded` — уже настроено (#57);

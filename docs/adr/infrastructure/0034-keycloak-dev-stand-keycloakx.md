@@ -18,7 +18,7 @@ informed: SteeveRan
 
 ## Decision Outcome
 
-Chosen option: **keycloakx chart в kind-кластере `bigbug-dev`, БД — CNPG, вся конфигурация — OpenTofu apps root `infrastructure/terraform/apps/`**. Разделение: инсталляция — `keycloak_init`, API-конфигурация — `keycloak_conf` (двухфазный apply).
+Chosen option: **keycloakx chart в kind-кластере `bigbug-dev`, БД — CNPG, вся конфигурация — OpenTofu infra-apps root `infrastructure/terraform/infra-apps/` (до split #59 — apps root)**. Разделение: инсталляция — `keycloak_init`, API-конфигурация — `keycloak_conf` (двухфазный apply).
 
 ### Зафиксированные правила (фактическое состояние кода)
 
@@ -67,7 +67,7 @@ curl -fsS https://keycloak.local/realms/bigbug           # → 200, issuer JSON
 kubectl get secret -n keycloak --context kind-bigbug-dev tls-keycloak-local keycloak-admin-credentials
 ```
 
-`tofu plan` в `infrastructure/terraform/apps` после apply — no changes.
+`tofu plan` в `infrastructure/terraform/infra-apps` после apply — no changes.
 
 ## More Information
 
@@ -76,5 +76,5 @@ kubectl get secret -n keycloak --context kind-bigbug-dev tls-keycloak-local keyc
 * [ADR-0030](0030-dev-stand-https-self-signed-certs.md) — HTTPS, серты, §8 redirect URIs
 * [ADR-0024](../common/0024-k8s-secrets.md) — секреты через tofu
 * [ADR-0003](../common/0003-keycloak-oidc-dual-auth.md) — зачем clients (dual-mode auth приложения)
-* Код: [`infrastructure/terraform/apps/modules/keycloak_init/`](../../../infrastructure/terraform/apps/modules/keycloak_init/), [`keycloak_conf/`](../../../infrastructure/terraform/apps/modules/keycloak_conf/)
+* Код: [`infrastructure/terraform/infra-apps/modules/keycloak_init/`](../../../infrastructure/terraform/infra-apps/modules/keycloak_init/), [`keycloak_conf/`](../../../infrastructure/terraform/infra-apps/modules/keycloak_conf/)
 * Issues: #57 (переезд в kind), #58 (conf-split), #80 (этот ADR); архивация ADR-0013 — #62

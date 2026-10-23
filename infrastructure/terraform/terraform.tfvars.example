@@ -10,9 +10,10 @@
 #     with "api" scope. (init.sh also programs GITLAB_TOKEN from .env
 #     automatically via gitlab-rails runner — ADR-0033.)
 #
-# Keycloak and Harbor configuration moved to the apps root
-# (infrastructure/terraform/apps/) — all its variables have dev defaults in
-# variables.tf; override via apps/terraform.tfvars if needed.
+# Keycloak and Harbor configuration moved to the infra-apps root
+# (infrastructure/terraform/infra-apps/) — all its variables have dev defaults
+# in variables.tf; override via infra-apps/terraform.tfvars if needed.
+# BigBug app-infra lives in the apps root (infrastructure/terraform/apps/, #59).
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GitLab

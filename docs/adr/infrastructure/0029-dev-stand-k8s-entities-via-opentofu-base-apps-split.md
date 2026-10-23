@@ -8,6 +8,8 @@ decision-makers: SteeveRan
 
 > **Обновление 2026-10-23 (#58):** конфигурация Keycloak/Harbor через их API переехала из config root в `apps` (модули `*_conf`); config root остался только для GitLab. State всех root'ов вынесен в общий local backend `~/.local/state/bigbug/<root>/terraform.tfstate` (через `pathexpand` в `backend "local"`) — один стейт на все git-worktree одной машины. apps разбит на 4 модуля: `harbor_init`/`harbor_conf`, `keycloak_init`/`keycloak_conf`. Apply apps — двухфазный (сначала `*_init`, затем полный), потому что keycloak-провайдер логинится при plan, а Keycloak ставится тем же apply. Подробности — в конце документа.
 
+> **Обновление 2026-10-23 (#59): apps → infra-apps split.** Инфраструктура приложения BigBug (ns `bigbug`, module `bigbug_init`) вынесена из root'а `apps` в отдельный root `apps`; старый `apps` переименован в `infra-apps` (Keycloak/Harbor). Мотивация: инфра-слой (`infra-apps` ставит keycloakx/Harbor, его keycloak/harbor-провайдеры логинятся во внешние API при plan) — медленный и конкурентный; изменения в приложении не должны требовать его apply — иначе апплаи из разных ворктриев дерутся за state/lock. Связь roots — только значениями переменных (`backend_client_id/secret` из `keycloak_conf` → `bigbug_init`), не state-ссылками. State: `~/.local/state/bigbug/{base,infra-apps,apps}/`; переезд — `tofu state mv module.bigbug_init.*` из старого state в новый. Порядок apply: base → infra-apps (2 фазы) → apps → config.
+
 ## Context and Problem Statement
 
 [ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
@@ -33,13 +35,13 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 Императивным остаётся только то, что tofu сделать не может: `kind create cluster`, `/etc/hosts`, дождаться готовности API. Это `infrastructure/kind/bootstrap.sh`/`teardown.sh` — они сужаются до кластера + hosts, установка ingress переходит в `base`.
 
-«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (apps) → `tofu apply` (config). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
+«Кнопка» — оркестрация в `infrastructure/init.sh` (последовательность, не единый state): кластер → `tofu apply` (base) → `tofu apply` (infra-apps) → `tofu apply` (apps, update #59) → `tofu apply` (config). Каждый шаг идемпотентен, пересоздание кластера перекатывает только base/infra-apps/apps-state, не трогая state внешних API (Keycloak/GitLab живы и без кластера).
 
 ### Scope этого решения
 
 - haproxy-ingress переезжает из `bootstrap.sh` в `base` немедленно (issue #54 дорабатывается).
-- CNPG/redis-operator, Postgres Cluster CR, Redis CR, keycloakx, Harbor-chart, app-chart, k8s-секреты приложения добавляются в соответствующие root'ы отдельными issues — структура под них готова. Уточнение границы из #56: **base = операторы + платформенные сервисы; инстансы (Cluster CR, Redis CR, keycloakx, Harbor, app-chart) и k8s-секреты приложения ([ADR-0024](../common/0024-k8s-secrets.md)) — apps**.
-- Провайдеры: `helm` (hashicorp/helm) и `kubernetes` (hashicorp/kubernetes) в `base`/`apps`; аутентификация — через kubeconfig контекста `kind-bigbug-dev` (для preprod — kubeconfig кластера в переменной).
+- CNPG/redis-operator, Postgres Cluster CR, Redis CR, keycloakx, Harbor-chart, app-chart, k8s-секреты приложения добавляются в соответствующие root'ы отдельными issues — структура под них готова. Уточнение границы из #56: **base = операторы + платформенные сервисы; инстансы (Cluster CR, Redis CR, keycloakx, Harbor, app-chart) и k8s-секреты приложения ([ADR-0024](../common/0024-k8s-secrets.md)) — apps**. Уточнение #59: **root'а два** — `infra-apps` (инсталляции/конфиг Keycloak и Harbor) и `apps` (инфраструктура приложения BigBug, ns `bigbug`); см. update #59 выше.
+- Провайдеры: `helm` (hashicorp/helm) и `kubernetes` (hashicorp/kubernetes) в `base`/`infra-apps`/`apps`; аутентификация — через kubeconfig контекста `kind-bigbug-dev` (для preprod — kubeconfig кластера в переменной).
 
 ### Non-goals
 

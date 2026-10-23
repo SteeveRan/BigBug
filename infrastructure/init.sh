@@ -28,11 +28,12 @@ INFRA_COMPOSE="${SCRIPT_DIR}/docker-compose.yml"
 INFRA_ENV="${SCRIPT_DIR}/.env"
 INFRA_ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
 
-# Terraform (ADR-0029: base/apps roots; config root = GitLab only)
+# Terraform (ADR-0029: base/infra-apps/apps roots; config root = GitLab only)
 TF_DIR="${SCRIPT_DIR}/terraform"
 TFVARS="${TF_DIR}/terraform.tfvars"
 TFVARS_EXAMPLE="${TF_DIR}/terraform.tfvars.example"
 TF_BASE_DIR="${SCRIPT_DIR}/terraform/base"
+TF_INFRA_APPS_DIR="${SCRIPT_DIR}/terraform/infra-apps"
 TF_APPS_DIR="${SCRIPT_DIR}/terraform/apps"
 
 # kind (ADR-0022: единый кластер bigbug-dev; harbor-кластер снесён — #62)
@@ -297,8 +298,9 @@ log "  gitlab_token written to terraform.tfvars."
 
 # ─────────────────────────────────────────────────────────────
 # 9. Run OpenTofu — base → apps → config (ADR-0029/0033; общий state
-#    backend ~/.local/state/bigbug для base/apps). keycloak-провайдер
-#    логинится при plan, поэтому apps идёт в 2 фазы: инсталляции, затем конфиг.
+#    backend ~/.local/state/bigbug для base/infra-apps/apps). keycloak-провайдер
+#    логинится при plan, поэтому infra-apps идёт в 2 фазы: инсталляции, затем конфиг.
+#    Приложение (ns bigbug) — отдельный apps root, после infra-apps.
 # ─────────────────────────────────────────────────────────────
 log "### Running OpenTofu ###"
 
@@ -309,7 +311,7 @@ log "  Applying base layer (platform: ingress, operators)..."
 }
 
 log "  Applying apps layer — phase 1: installations (keycloak_init, harbor_init)..."
-(cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
+(cd "${TF_INFRA_APPS_DIR}" && "${TF_CMD}" init -input=false \
     && "${TF_CMD}" apply -auto-approve -input=false \
         -target=module.keycloak_init -target=module.harbor_init) || {
     log_error "apps layer (installations) failed."
@@ -320,8 +322,15 @@ log "  Waiting for Keycloak to answer (https)..."
 wait_for_service "Keycloak" "https://keycloak.local/realms/master" 180
 
 log "  Applying apps layer — full (realm, clients, harbor config)..."
-(cd "${TF_APPS_DIR}" && "${TF_CMD}" apply -auto-approve -input=false) || {
+(cd "${TF_INFRA_APPS_DIR}" && "${TF_CMD}" apply -auto-approve -input=false) || {
     log_error "apps layer (full) failed."
+    exit 1
+}
+
+log "  Applying app-infra root (ns bigbug: CNPG, Redis, app secrets)..."
+(cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
+    && "${TF_CMD}" apply -auto-approve -input=false) || {
+    log_error "app-infra root apply failed."
     exit 1
 }
 

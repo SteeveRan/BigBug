@@ -64,7 +64,7 @@ curl -fsS https://harbor.local/api/v2.0/systeminfo       # → 200 без -k
 kubectl get secret -n harbor --context kind-bigbug-dev tls-harbor-local harbor-ca-bundle
 ```
 
-`tofu plan` в `infrastructure/terraform/apps` после apply — no changes; OIDC auth-mode в Harbor UI — Keycloak.
+`tofu plan` в `infrastructure/terraform/infra-apps` после apply — no changes; OIDC auth-mode в Harbor UI — Keycloak.
 
 ## More Information
 
@@ -72,5 +72,5 @@ kubectl get secret -n harbor --context kind-bigbug-dev tls-harbor-local harbor-c
 * [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — apps root, harbor_init/conf split (update #58)
 * [ADR-0030](0030-dev-stand-https-self-signed-certs.md) — TLS-секреты, caBundle-исключение, docker-доверие
 * [ADR-0020](../backend/0020-image-builds-gold-app.md) — потребитель проектов (Gold/App Images, cosign, сканирование)
-* Код: [`infrastructure/terraform/apps/modules/harbor_init/`](../../../infrastructure/terraform/apps/modules/harbor_init/), [`harbor_conf/`](../../../infrastructure/terraform/apps/modules/harbor_conf/)
+* Код: [`infrastructure/terraform/infra-apps/modules/harbor_init/`](../../../infrastructure/terraform/infra-apps/modules/harbor_init/), [`harbor_conf/`](../../../infrastructure/terraform/infra-apps/modules/harbor_conf/)
 * Issues: #58 (переезд в bigbug-dev), #80 (этот ADR), #60 (webhook/https хвост), #62 (снос harbor-кластера, архивация ADR-0013)
