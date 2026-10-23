@@ -8,7 +8,9 @@ decision-makers: SteeveRan
 
 > **Обновление 2026-10-23 (#58):** конфигурация Keycloak/Harbor через их API переехала из config root в `apps` (модули `*_conf`); config root остался только для GitLab. State всех root'ов вынесен в общий local backend `~/.local/state/bigbug/<root>/terraform.tfstate` (через `pathexpand` в `backend "local"`) — один стейт на все git-worktree одной машины. apps разбит на 4 модуля: `harbor_init`/`harbor_conf`, `keycloak_init`/`keycloak_conf`. Apply apps — двухфазный (сначала `*_init`, затем полный), потому что keycloak-провайдер логинится при plan, а Keycloak ставится тем же apply. Подробности — в конце документа.
 
-> **Обновление 2026-10-23 (#59): apps → infra-apps split.** Инфраструктура приложения BigBug (ns `bigbug`, module `bigbug_init`) вынесена из root'а `apps` в отдельный root `apps`; старый `apps` переименован в `infra-apps` (Keycloak/Harbor). Мотивация: инфра-слой (`infra-apps` ставит keycloakx/Harbor, его keycloak/harbor-провайдеры логинятся во внешние API при plan) — медленный и конкурентный; изменения в приложении не должны требовать его apply — иначе апплаи из разных ворктриев дерутся за state/lock. Связь roots — только значениями переменных (`backend_client_id/secret` из `keycloak_conf` → `bigbug_init`), не state-ссылками. State: `~/.local/state/bigbug/{base,infra-apps,apps}/`; переезд — `tofu state mv module.bigbug_init.*` из старого state в новый. Порядок apply: base → infra-apps (2 фазы) → apps → config.
+> **Обновление 2026-10-23 (#59): apps → infra-apps split.** Инфраструктура приложения BigBug (ns `bigbug`, module `bigbug_init`) вынесена из root'а `apps` в отдельный root `apps`; старый `apps` переименован в `infra-apps` (Keycloak/Harbor). Мотивация: инфра-слой (`infra-apps` ставит keycloakx/Harbor, его keycloak/harbor-провайдеры логинятся во внешние API при plan) — медленный и конкурентный; изменения в приложении не должны требовать его apply — иначе апплаи из разных ворктриев дерутся за state/lock. Связь roots — только значениями переменных (`backend_client_id/secret` из `keycloak_conf` → `bigbug_init`), не state-ссылками. State: `~/.local/state/bigbug/{base,infra-apps,apps}/`; переезд — `tofu state mv module.bigbug_init.*` из старого state в новый. Порядок apply: base → infra-apps (2 фазы) → apps.
+
+> **Обновление 2026-10-23: config root упразднён.** GitLab base setup (group `bigbug-mirrors`, service-account — module `gitlab`, [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) §3) влит в `infra-apps`; каталог `terraform/` больше не root — остались только `base/`, `infra-apps/`, `apps/`. Причина: отдельный root ради одного модуля, к тому же без общего state-бэкенда. Три root'а, один общий state-шаблон.
 
 ## Context and Problem Statement
 
@@ -85,7 +87,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
      }
    }
    ```
-   `pathexpand` обязателен: внутри `backend`-блока `~` не раскрывается (tofu создаёт literal-каталог `~/`). Файл стейта создаётся только при первой записи — «No state file was found» до первого apply это норма, а не ошибка. Config root пока остаётся на локальном стейте в каталоге (GitLab-зона не трогалась).
+   `pathexpand` обязателен: внутри `backend`-блока `~` не раскрывается (tofu создаёт literal-каталог `~/`). Файл стейта создаётся только при первой записи — «No state file was found» до первого apply это норма, а не ошибка. Config root упразднён (update 2026-10-23 выше) — до слияния он оставался на локальном стейте в каталоге.
 
 2. **API-конфиг Keycloak/Harbor — в `apps`**, модулями `keycloak_conf`/`harbor_conf` (исходная таблица «config root: Keycloak realm/clients, Harbor projects/robots» устарела). Config root остаётся только для GitLab. Причина: harbor-конфиг неразрывно связан с инсталляцией (OIDC client secret из keycloak_conf → harbor_conf), а Keycloak в кластере — делить его конфиг между root'ами бессмысленно.
 
@@ -98,7 +100,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) разрастался: он одновременно про выбор IaC-инструмента, state и границу императивного, и про три сервиса (Keycloak, Harbor, GitLab). После ADR-0022/0029/0030 его сервисные решения разъехались с фактической топологией. Разборка (issue #80):
 
 1. **Сервисные решения вынесены в отдельные ADR** (каждый — фактическое состояние своей зоны):
-   - [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) — GitLab: compose-исключение, https://gitlab.local:8443, config root, PAT-исключение;
+   - [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) — GitLab: compose-исключение, https://gitlab.local:8443, PAT-исключение; base setup — module gitlab в infra-apps (config root упразднён);
    - [ADR-0034](0034-keycloak-dev-stand-keycloakx.md) — Keycloak: keycloakx + CNPG + keycloak_conf;
    - [ADR-0035](0035-harbor-dev-stand-chart.md) — Harbor: chart + harbor_conf.
 

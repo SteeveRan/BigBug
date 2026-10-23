@@ -1,6 +1,6 @@
 /**
  * @file variables.tf
- * @description Input variables for the apps root.
+ * @description Input variables for the infra-apps root.
  */
 
 variable "kubeconfig_path" {
@@ -126,4 +126,55 @@ variable "test_user_email" {
   description = "Test user email in Keycloak"
   type        = string
   default     = "bigbug@example.com"
+}
+
+# ── GitLab base setup (config root merged 2026-10-23, ADR-0033) ──────────────
+
+variable "gitlab_url" {
+  description = "GitLab instance URL (https omnibus — ADR-0030 §9)"
+  type        = string
+  default     = "https://gitlab.local:8443"
+}
+
+variable "gitlab_ca_cert" {
+  description = "Path to GitLab TLS cert (self-signed from kind/certs.sh → ~/.local/state/bigbug/certs, ADR-0030). Absolute default — shared per machine"
+  type        = string
+  default     = "~/.local/state/bigbug/certs/gitlab.local/tls.crt"
+}
+
+variable "gitlab_token" {
+  description = "GitLab root personal access token for provider authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "mirrors_group_name" {
+  description = "GitLab group name for mirror repositories"
+  type        = string
+  default     = "bigbug-mirrors"
+}
+
+variable "backend_user_name" {
+  description = "Display name for the backend service account user"
+  type        = string
+  default     = "BigBug Backend"
+}
+
+variable "backend_user_username" {
+  description = "Username for the backend service account"
+  type        = string
+  default     = "bigbug-backend"
+}
+
+variable "backend_user_email" {
+  description = "Email for the backend service account"
+  type        = string
+  default     = "bigbug-backend@localhost.localdomain"
+}
+
+variable "backend_user_password" {
+  description = "Password for the backend service account (auto-generated if null)"
+  type        = string
+  sensitive   = true
+  default     = null
 }

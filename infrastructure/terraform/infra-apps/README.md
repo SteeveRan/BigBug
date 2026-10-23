@@ -56,8 +56,8 @@ curl -fsS https://harbor.local/api/v2.0/systeminfo   # → 200 (без -k)
 ```
 
 Push/pull-проверка: `../../kind/test-push.sh`. После этого root'а — app-infra
-(`cd ../apps && tofu apply`) и config root (`cd ../.. && tofu apply`):
-projects/robots/webhooks против `https://harbor.local`.
+(`cd ../apps && tofu apply`): projects/robots/webhooks против
+`https://harbor.local`.
 
 ## Применение (порядок обязателен)
 
@@ -80,8 +80,9 @@ kubectl wait --context kind-bigbug-dev --for=condition=Ready \
   pod -l app.kubernetes.io/instance=keycloakx -n keycloak --timeout=300s
 ```
 
-После infra-apps — app-infra (`cd ../apps && tofu apply`) и config root
-(`cd ../.. && tofu apply`): realm/clients против `http://keycloak.local`.
+После infra-apps — app-infra (`cd ../apps && tofu apply`): realm/clients
+против `http://keycloak.local`. GitLab base setup (group, service-account) —
+часть этого root'а (module `gitlab`, ADR-0033 §3).
 
 ## Teardown
 

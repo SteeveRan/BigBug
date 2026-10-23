@@ -48,7 +48,7 @@ BigBug/
 │   ├── init.sh               # Initialization script (certs → compose → kind → base → apps → config)
 │   ├── update-env.sh         # Environment update script
 │   ├── kind/                 # kind-стенд: bootstrap/certs/trust scripts
-│   ├── terraform/            # Config root (GitLab-only) + base/ + apps/ (ADR-0029/0033)
+│   ├── terraform/            # OpenTofu roots: base/ + infra-apps/ (+GitLab) + apps/ (ADR-0029/0033)
 │   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
@@ -71,7 +71,7 @@ BigBug/
 | Frontend (React 19 + TypeScript + AntD 6 + RTK/RTK Query + Vite, Node.js) | [ADR-0002](docs/adr/frontend/0002-frontend-stack-react-antd-rtk.md) |
 | Auth (JWT + Keycloak OIDC) | [ADR-0003](docs/adr/common/0003-keycloak-oidc-dual-auth.md) |
 | Dev environment (kind-стенд) | [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) |
-| IaC (OpenTofu: base/apps/config root'ы) | [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) |
+| IaC (OpenTofu: base/infra-apps/apps root'ы) | [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) |
 | GitLab (compose-исключение, https) | [ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md) |
 | Keycloak в kind (keycloakx + CNPG) | [ADR-0034](docs/adr/infrastructure/0034-keycloak-dev-stand-keycloakx.md) |
 | Harbor в kind (chart + TLS) | [ADR-0035](docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) |
@@ -134,7 +134,7 @@ See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
-See: [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — IaC-разрезка (base/apps/config root'ы, инструментальное ядро бывшего ADR-0013); [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
+See: [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — IaC-разрезка (base/infra-apps/apps root'ы, инструментальное ядро бывшего ADR-0013); [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions
 

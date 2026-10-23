@@ -4,7 +4,9 @@
  *              (infra-apps root, ADR-0029): Keycloak stack (issue #57) —
  *              namespace, CNPG Postgres Cluster CR, keycloakx chart,
  *              realm/clients/roles/users config — Harbor (issue #58) —
- *              namespace, TLS secrets, chart release, API config.
+ *              namespace, TLS secrets, chart release, API config — and the
+ *              GitLab base setup (group, service-account; config root merged
+ *              2026-10-23, ADR-0033).
  *
  *              NOT the BigBug application itself: its infra (ns `bigbug`)
  *              lives in the separate `apps` root so app-ворктрии не дерутся
@@ -18,7 +20,8 @@
  *      same place as the tofu states)
  *   2. kind cluster `bigbug-dev` — ../../kind/bootstrap.sh
  *   3. base layer (CNPG operator + CRDs, haproxy-ingress, CoreDNS) — cd ../base && tofu apply
- *   4. this root: tofu init && tofu apply
+ *   4. this root: tofu init && tofu apply (GitLab part needs GitLab up —
+ *      init.sh starts the compose zone first)
  */
 
 # Certs dir lives outside the cluster lifecycle AND outside the worktree —
@@ -47,6 +50,10 @@ terraform {
       source  = "keycloak/keycloak"
       version = "~> 5.0"
     }
+    gitlab = {
+      source  = "gitlabhq/gitlab"
+      version = "~> 17.0"
+    }
   }
 }
 
@@ -73,6 +80,26 @@ provider "keycloak" {
   username  = var.keycloak_admin_username
   password  = var.keycloak_admin_password
   url       = var.keycloak_url
+}
+
+# ── GitLab base setup (config root merged 2026-10-23, ADR-0033) ──────────────
+# group bigbug-mirrors, backend service-account user, group membership.
+# Provider config lives inside modules/gitlab (module vars drive it).
+# GitLab PAT bootstrap (init.sh, gitlab-rails runner) is a documented
+# imperative exception from IaC (ADR-0033 §PAT).
+module "gitlab" {
+  source = "./modules/gitlab"
+
+  gitlab_url     = var.gitlab_url
+  gitlab_token   = var.gitlab_token
+  gitlab_ca_cert = var.gitlab_ca_cert != "" ? pathexpand(var.gitlab_ca_cert) : ""
+
+  mirrors_group_name = var.mirrors_group_name
+
+  backend_user_name     = var.backend_user_name
+  backend_user_username = var.backend_user_username
+  backend_user_email    = var.backend_user_email
+  backend_user_password = var.backend_user_password
 }
 
 # ── Harbor installation (ns, TLS secrets, chart) — issue #58 ────────────────

@@ -7,7 +7,7 @@
 This directory contains everything needed to spin up a complete BigBug development environment from scratch:
 
 - **Docker Compose** — GitLab zone only: GitLab CE omnibus + GitLab Runner ([ADR-0033](../docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md)); Keycloak/Harbor/app — в kind-кластере `bigbug-dev` ([ADR-0022](../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
-- **OpenTofu roots** ([ADR-0029](../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): `terraform/base` (платформа кластера), `terraform/infra-apps` (keycloakx + CNPG, Harbor chart + их API-конфиг), `terraform/apps` (инфраструктура приложения BigBug в ns `bigbug` — split 2026-10-23), `terraform/` config root (GitLab base setup — [ADR-0033](../docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md))
+- **OpenTofu roots** ([ADR-0029](../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): `terraform/base` (платформа кластера), `terraform/infra-apps` (keycloakx + CNPG, Harbor chart + их API-конфиг, GitLab base setup — config root влит 2026-10-23, [ADR-0033](../docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md)), `terraform/apps` (инфраструктура приложения BigBug в ns `bigbug` — split 2026-10-23)
 - **kind scripts** — cluster bootstrap, self-signed certs ([ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md)), host trust
 - **Automation scripts** — one-command environment initialization
 
@@ -54,7 +54,7 @@ This single command will:
 2. Ensure self-signed TLS certs (`kind/certs.sh` → `~/.local/state/bigbug/certs` — shared per machine, [ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md))
 3. Start the GitLab compose zone (gitlab + gitlab-runner)
 4. Wait for GitLab (`https://gitlab.local:8443`) and bootstrap the kind cluster `bigbug-dev`
-5. `tofu apply`: base (platform) → infra-apps (Keycloak/Harbor, two-phase) → apps (ns bigbug) → config root (GitLab)
+5. `tofu apply`: base (platform) → infra-apps (Keycloak/Harbor, two-phase + GitLab) → apps (ns bigbug)
 6. Verify / program the GitLab root PAT (`gitlab-rails runner` — ADR-0033 exception)
 7. Update `.env` with host-tool variables
 
@@ -71,11 +71,10 @@ After completion, access:
 
 ```
 infrastructure/
-├── terraform/             # Config root: GitLab base setup (ADR-0033)
+├── terraform/
 │   ├── base/              # Root: platform (ingress, operators) — ADR-0029
-│   ├── infra-apps/        # Root: keycloakx+CNPG, Harbor chart + API config — ADR-0029
-│   ├── apps/              # Root: BigBug app infra (ns bigbug: CNPG, Redis, secrets) — split from infra-apps
-│   └── modules/gitlab/    # GitLab module (group, service-account, membership)
+│   ├── infra-apps/        # Root: keycloakx+CNPG, Harbor chart + API config + GitLab base — ADR-0029/0033
+│   └── apps/              # Root: BigBug app infra (ns bigbug: CNPG, Redis, secrets) — split from infra-apps
 ├── kind/                  # kind cluster scripts: bootstrap, certs, trust
 ├── harbor/                # LEGACY (cluster эпоха) — подлежит сносу (#62)
 ├── gitlab-components/
@@ -101,23 +100,18 @@ Wait for all services to be healthy:
 docker compose -f infrastructure/gitlab/docker-compose.yml ps
 ```
 
-### 2. Apply OpenTofu (base → infra-apps → apps → config)
+### 2. Apply OpenTofu (base → infra-apps → apps)
 
 ```bash
 cd infrastructure/terraform/base && tofu init && tofu apply && cd ../..
 
 cd infrastructure/terraform/infra-apps
-cp ../terraform.tfvars.example apps/terraform.tfvars 2>/dev/null || true
+cp terraform.tfvars.example terraform.tfvars 2>/dev/null || true   # set gitlab_token (root PAT) — or let init.sh program it
 tofu init
 tofu apply -target=module.keycloak_init -target=module.harbor_init   # phase 1: installs
-tofu apply                                                           # phase 2: config
+tofu apply                                                           # phase 2: config + GitLab base setup
 
 cd ../apps && tofu init && tofu apply   # BigBug app infra (ns bigbug)
-
-cd ..   # config root (GitLab)
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars: set gitlab_token (GitLab root PAT)
-tofu init && tofu apply
 ```
 
 ### 3. Update Environment
@@ -215,7 +209,7 @@ Default ports can conflict with local services:
 
 ```bash
 # State lives in the shared local backend (ADR-0029 update #58):
-~/.local/state/bigbug/{base,infra-apps,apps,}/terraform.tfstate
+~/.local/state/bigbug/{base,infra-apps,apps}/terraform.tfstate
 
 # Backup
 cp ~/.local/state/bigbug/infra-apps/terraform.tfstate backups/terraform_infra_apps_$(date +%Y%m%d).tfstate

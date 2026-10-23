@@ -6,7 +6,7 @@ consulted: SteeveRan
 informed: SteeveRan
 ---
 
-# GitLab в dev-стенде: compose-исключение (CE omnibus + runner), https, config root
+# GitLab в dev-стенде: compose-исключение (CE omnibus + runner), https, base setup в infra-apps
 
 ## Context and Problem Statement
 
@@ -28,14 +28,14 @@ informed: SteeveRan
 
 ## Considered Options
 
-* GitLab CE omnibus + gitlab-runner в compose, TLS на omnibus-nginx, config root = GitLab-only tofu
+* GitLab CE omnibus + gitlab-runner в compose, TLS на omnibus-nginx, GitLab base setup — tofu (infra-apps, config root влит 2026-10-23)
 * Переезд GitLab в kind (chart `gitlab/gitlab`)
 * Переезд GitLab в kind (самописный StatefulSet)
 * Managed GitLab (gitlab.com / self-managed внешне)
 
 ## Decision Outcome
 
-Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastructure/gitlab/docker-compose.yml`** (compose-исключение ADR-0022 §4), HTTPS на omnibus-nginx, config root OpenTofu — GitLab-only.
+Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastructure/gitlab/docker-compose.yml`** (compose-исключение ADR-0022 §4), HTTPS на omnibus-nginx, GitLab base setup — module `gitlab` в infra-apps (config root влит 2026-10-23, был отдельным root'ом).
 
 ### Зафиксированные правила
 
@@ -43,7 +43,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 
 **2. TLS: `https://gitlab.local:8443`.** Omnibus `external_url 'https://gitlab.local:8443'`; серт — self-signed из `kind/certs.sh` (ADR-0030 §2/§3, файлы в `~/.local/state/bigbug/certs/gitlab.local/`), bind-mount `~/.local/state/bigbug/certs/gitlab.local/` → `/etc/gitlab/ssl/gitlab.local/` (read-only), порты `8443:8443` и `2222:22` (SSH). HTTP-слушателя нет. `letsencrypt` выключен явно. Доверие хоста — `trust-host.sh`; скрипты стенда (init.sh, healthcheck) используют `-k`/`--cacert`, но никогда не переходят на plain HTTP.
 
-**3. Config root OpenTofu = GitLab-only.** Root `infrastructure/terraform/` управляет ровно базовой настройкой GitLab через API (провайдер `gitlabhq/gitlab ~> 17.0`):
+**3. GitLab base setup — tofu в infra-apps.** Базовая настройка GitLab через API (провайдер `gitlabhq/gitlab ~> 17.0`) — module `gitlab` в `infrastructure/terraform/infra-apps/` (config root влит в infra-apps 2026-10-23; изначально — отдельный config root `terraform/`, до split #59 он был `apps`):
 
 | Ресурс | Файл | Содержимое |
 |---|---|---|
@@ -51,7 +51,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 | `gitlab_user.backend` | `modules/gitlab/users.tf` | service-account `bigbug-backend` (не root, `projects_limit=100`) |
 | `gitlab_group_membership.backend_mirrors` | `modules/gitlab/memberships.tf` | membership `maintainer` в группе |
 
-Модули `keycloak`/`harbor` из config root удалены (их конфиг — `terraform/apps/modules/{keycloak_conf,harbor_conf}`, ADR-0029 update #58). Провайдер ходит на `https://gitlab.local:8443` с `cacert_file` = серт из `~/.local/state/bigbug/certs/` — верификация self-signed не отключается (ADR-0028 §2). State-следы старых keycloak/harbor-ресурсов root'а не переносятся: существующие ресурсы заселены через apps, двойное управление хуже.
+Провайдер ходит на `https://gitlab.local:8443` с `cacert_file` = серт из `~/.local/state/bigbug/certs/` — верификация self-signed не отключается (ADR-0028 §2). Причина слияния: config root был единственным root'ом без общего state-бэкенда и отдельным apply-шагом ради одного модуля — смысла в изоляции нет; двухфазный apply infra-apps сохранён (gitlab-провайдер, как keycloak, логинится при plan — при `-target` на keycloak/harbor-модули он не активируется).
 
 **4. PAT bootstrap — постоянное задокументированное исключение из IaC.** Начальный root-PAT программируется `gitlab-rails runner` внутри контейнера (init.sh, шаг 8), только если токен из `infrastructure/gitlab/.env` отвечает 403. Почему императивно: gitlab-провайдер не умеет `set_token` (нельзя задать значение существующего PAT), а рабочие креды приложения (resource_providers) заводятся в UI — [ADR-0024](../common/0024-k8s-secrets.md). Это единственный императивный шаг в GitLab-зоне; PAT живёт 90 дней, re-bootstrap — повторный запуск init.sh.
 
@@ -60,7 +60,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 ### Consequences
 
 * Good, because compose — родная среда omnibus: нуль k8s-костылей, стабильные вольюмы, healthcheck
-* Good, because config root снова честный: один root — одна зона, никакого двойного управления realm'ом
+* Good, because никаких двойных управлений realm'ом; 2026-10-23: и отдельный config root упразднён (один модуль не оправдывал отдельный root)
 * Good, because весь GitLab-стек решения (размещение, TLS, IaC-граница, PAT-исключение) — в одном документе
 * Bad, because docker.sock у runner'а: CI-джобы не изолированы кластером (known limitation, согласован в ADR-0022 §4)
 * Bad, because PAT-исключение = один ручной артефакт в «декларативной» зоне; init.sh идемпотентен, но PAT не версионируется
@@ -90,7 +90,7 @@ curl -s --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
   -H "PRIVATE-TOKEN: $GITLAB_TOKEN" https://gitlab.local:8443/api/v4/user  # → 200
 ```
 
-4. Полный цикл с чистого места (владелец инфры): `make infra-init` — проходит; tofu config root apply — без keycloak/harbor-ресурсов.
+4. Полный цикл с чистого места (владелец инфры): `make infra-init` — проходит; infra-apps apply включает GitLab base setup (без keycloak/harbor-ресурсов в gitlab-модуле).
 
 ## Pros and Cons of the Options
 
@@ -121,7 +121,7 @@ curl -s --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
 
 * [ADR-0022](0022-dev-stand-on-kind.md) §4 — само compose-исключение и его обоснование
 * [ADR-0030](0030-dev-stand-https-self-signed-certs.md) §9 — GitLab HTTPS, серт из certs.sh
-* [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — base/apps/config-разрезка; update #58 — переезд Keycloak/Harbor-конфига в apps (config root стал GitLab-only)
+* [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — base/infra-apps/apps-разрезка; update #58 — переезд Keycloak/Harbor-конфига; update #59 — apps split
 * [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — исторический IaC-ADR; инструментальное ядро поглощено update-блоком ADR-0029 (#80), архивация — #62
 * [ADR-0024](../common/0024-k8s-secrets.md) — почему PAT не генерирует tofu
 * [ADR-0007](../common/0007-providers-v3-registry.md) / [ADR-0011](../backend/0011-gitlab-ci-pipelines-components.md) — интеграция приложения с GitLab API

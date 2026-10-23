@@ -29,13 +29,12 @@ INFRA_COMPOSE="${GITLAB_DIR}/docker-compose.yml"
 INFRA_ENV="${GITLAB_DIR}/.env"
 INFRA_ENV_EXAMPLE="${GITLAB_DIR}/.env.example"
 
-# Terraform (ADR-0029: base/infra-apps/apps roots; config root = GitLab only)
-TF_DIR="${SCRIPT_DIR}/terraform"
-TFVARS="${TF_DIR}/terraform.tfvars"
-TFVARS_EXAMPLE="${TF_DIR}/terraform.tfvars.example"
+# Terraform roots (ADR-0029: base/infra-apps/apps; GitLab config in infra-apps)
 TF_BASE_DIR="${SCRIPT_DIR}/terraform/base"
 TF_INFRA_APPS_DIR="${SCRIPT_DIR}/terraform/infra-apps"
 TF_APPS_DIR="${SCRIPT_DIR}/terraform/apps"
+TFVARS="${TF_INFRA_APPS_DIR}/terraform.tfvars"
+TFVARS_EXAMPLE="${TF_INFRA_APPS_DIR}/terraform.tfvars.example"
 
 # kind (ADR-0022: единый кластер bigbug-dev; harbor-кластер снесён — #62)
 KIND_DIR="${SCRIPT_DIR}/kind"
@@ -231,7 +230,6 @@ fi
 # 7. Copy terraform.tfvars from example if not exists
 # ─────────────────────────────────────────────────────────────
 log "### Preparing OpenTofu variables ###"
-cd "${TF_DIR}"
 
 if [[ ! -f "${TFVARS}" ]]; then
     if [[ -f "${TFVARS_EXAMPLE}" ]]; then
@@ -332,12 +330,6 @@ log "  Applying app-infra root (ns bigbug: CNPG, Redis, app secrets)..."
 (cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
     && "${TF_CMD}" apply -auto-approve -input=false) || {
     log_error "app-infra root apply failed."
-    exit 1
-}
-
-log "  Applying config root (GitLab)..."
-"${TF_CMD}" init -input=false && "${TF_CMD}" apply -auto-approve -input=false || {
-    log_error "config root apply failed."
     exit 1
 }
 
