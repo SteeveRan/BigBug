@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
@@ -14,6 +14,7 @@ from app.core.rbac import require_permission
 from app.core.security import get_password_hash
 from app.database import get_db
 from app.models.role import Role, UserRole
+from app.models.team import Team
 from app.models.user import User
 from app.schemas.auth import UserCreate, UserOut, UserUpdate
 from app.schemas.rbac import (
@@ -169,6 +170,20 @@ async def delete_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # WHY: teams.owner_user_id is FK ON DELETE RESTRICT and delete_team is a
+    # SOFT delete (is_deleted=True — the row STAYS), so even soft-deleted
+    # teams keep blocking the user delete in the DB. A naive DELETE dies with
+    # an IntegrityError → unhandled 500 that also poisons the keep-alive
+    # connection. Pre-check and answer 409 instead.
+    owned_teams = await db.execute(
+        select(func.count()).select_from(Team).where(Team.owner_user_id == user_id)
+    )
+    if owned_teams.scalar_one() > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User owns teams; delete or reassign them first",
+        )
 
     username = user.username
     await db.delete(user)

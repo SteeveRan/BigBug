@@ -140,7 +140,7 @@
 | `teams:write` | ✅ | | |
 | `teams:manage_members` | ✅ | | |
 
-Источник: [`backend/docker/seed_admin.py`](../../backend/docker/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
+Источник: [`backend/bin/seed_admin.py`](../../backend/bin/seed_admin.py) — словари `ADMIN_PERMISSIONS`, `OPERATOR_PERMISSIONS`, `VIEWER_PERMISSIONS` (декларируют канонический набор). С 2026-08-16 фактический сидинг в БД выполняет миграция [`20260816_1200_a1b2c3d4e5f6_seed_initial_data.py`](../../backend/alembic/versions/20260816_1200_a1b2c3d4e5f6_seed_initial_data.py) (вставляет 61 право и 110 связей и назначает их ролям: admin=61, operator=34, viewer=15). `seed_admin.py` списки декларирует, но сам их в БД не применяет — он создаёт только админ-пользователя; миграции для этого достаточно, поскольку entrypoint всегда выполняет `alembic upgrade head` до запуска сида.
 
 ## Права gitlab-project-management (2026-08-20, реализованы)
 

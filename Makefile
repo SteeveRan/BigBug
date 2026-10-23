@@ -139,8 +139,16 @@ test-unit-backend: ## Backend unit-тесты (tests/unit/)
 	./backend/scripts/test-unit.sh $(TEST_ARGS)
 
 .PHONY: test-e2e-backend
-test-e2e-backend: ## Backend e2e-тесты (требует запущенного dev-стека)
-	./backend/scripts/test-e2e.sh $(TEST_ARGS)
+test-e2e-backend: ## Backend e2e-тесты (требует запущенного dev-стенда kind; seed учёток входит)
+	@bash -c 'source backend/scripts/e2e-env.sh && ./backend/scripts/test-e2e.sh $(TEST_ARGS)'
+
+.PHONY: test-e2e-seed
+test-e2e-seed: ## Идемпотентный сид e2e-учёток в БД (ADR-0024 §3)
+	@bash -c 'source backend/scripts/e2e-env.sh && ./backend/scripts/seed-e2e.sh'
+
+.PHONY: coverage-backend-e2e
+coverage-backend-e2e: ## Покрытие кода e2e-прогоном + отчёт по эндпоинтам
+	@bash -c 'source backend/scripts/e2e-env.sh && ./backend/scripts/test-e2e-coverage.sh'
 
 .PHONY: test-all-backend
 test-all-backend: test-unit-backend test-e2e-backend ## Backend: unit + e2e
@@ -217,10 +225,6 @@ typecheck: typecheck-backend typecheck-frontend ## Проверка типов �
 .PHONY: coverage-backend-unit
 coverage-backend-unit: ## Покрытие кода backend (unit, pytest-cov)
 	./backend/scripts/test-unit.sh --cov=app --cov-report=term-missing
-
-.PHONY: coverage-backend-e2e
-coverage-backend-e2e: ## Покрытие кода e2e-прогоном + отчёт по эндпоинтам
-	./backend/scripts/test-e2e-coverage.sh
 
 .PHONY: coverage-frontend
 coverage-frontend: ## Покрытие кода frontend (vitest --coverage)

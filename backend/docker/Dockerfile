@@ -99,9 +99,10 @@ WORKDIR /app
 # the venv is read-only at runtime, which is desirable.
 COPY --from=builder /opt/venv /opt/venv
 
-# WHY: entrypoint.sh is copied separately (and outside /app) so a bind-mount
+# WHY: entrypoint.sh lives in bin/ (runtime tooling); docker/ holds only the
+# build recipe and is fully dockerignored. Copied outside /app so a bind-mount
 # of the source tree during development cannot override it.
-COPY --chown=app:app docker/entrypoint.sh /entrypoint.sh
+COPY --chown=app:app bin/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 COPY --chown=app:app . /app

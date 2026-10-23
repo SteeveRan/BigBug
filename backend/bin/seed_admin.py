@@ -38,74 +38,144 @@ from app.models.user import User
 # Admin: all permissions
 ADMIN_PERMISSIONS = [
     # Mirrors
-    "mirrors:read", "mirrors:write", "mirrors:delete", "mirrors:sync",
-    "mirrors:import", "mirrors:integrity_check", "mirrors:manage_orphaned",
+    "mirrors:read",
+    "mirrors:write",
+    "mirrors:delete",
+    "mirrors:sync",
+    "mirrors:import",
+    "mirrors:integrity_check",
+    "mirrors:manage_orphaned",
     # Projects
-    "projects:read", "projects:write", "projects:delete",
+    "projects:read",
+    "projects:write",
+    "projects:delete",
     # Helm
-    "helm:read", "helm:write", "helm:delete", "helm:sync", "helm:index",
+    "helm:read",
+    "helm:write",
+    "helm:delete",
+    "helm:sync",
+    "helm:index",
     # Docker
-    "docker:read", "docker:write", "docker:delete", "docker:sync", "docker:index",
+    "docker:read",
+    "docker:write",
+    "docker:delete",
+    "docker:sync",
+    "docker:index",
     # Gold Images
-    "gold_images:read", "gold_images:write", "gold_images:delete", "gold_images:build",
+    "gold_images:read",
+    "gold_images:write",
+    "gold_images:delete",
+    "gold_images:build",
     # App Images
-    "app_images:read", "app_images:write", "app_images:delete", "app_images:build",
+    "app_images:read",
+    "app_images:write",
+    "app_images:delete",
+    "app_images:build",
     # Pipelines
-    "pipelines:read", "pipelines:write", "pipelines:delete",
+    "pipelines:read",
+    "pipelines:write",
+    "pipelines:delete",
     # Users
-    "users:read", "users:write", "users:delete",
+    "users:read",
+    "users:write",
+    "users:delete",
     # Roles
-    "roles:read", "roles:write", "roles:delete",
+    "roles:read",
+    "roles:write",
+    "roles:delete",
     # System
     "system:config",
     # OIDC
-    "oidc:read", "oidc:write",
+    "oidc:read",
+    "oidc:write",
     # Audit
     "audit:read",
     # Source Groups
-    "source_groups:read", "source_groups:write", "source_groups:refresh",
+    "source_groups:read",
+    "source_groups:write",
+    "source_groups:refresh",
     # Sync Groups
-    "sync_groups:read", "sync_groups:write", "sync_groups:delete",
+    "sync_groups:read",
+    "sync_groups:write",
+    "sync_groups:delete",
     # Credentials
-    "credentials:read", "credentials:write",
+    "credentials:read",
+    "credentials:write",
     # Reports
     "reports:read",
     # Admin Panel
     "admin:panel:access",
     # Providers (V3)
-    "providers:read", "providers:write", "providers:delete", "providers:use",
-    "providers:read_all", "providers_system:write", "providers:share",
+    "providers:read",
+    "providers:write",
+    "providers:delete",
+    "providers:use",
+    "providers:read_all",
+    "providers_system:write",
+    "providers:share",
     # Teams
-    "teams:read", "teams:write", "teams:manage_members",
+    "teams:read",
+    "teams:write",
+    "teams:manage_members",
     # GitLab Projects
-    "gitlab_projects:read", "gitlab_projects:write", "gitlab_projects:delete",
+    "gitlab_projects:read",
+    "gitlab_projects:write",
+    "gitlab_projects:delete",
     "gitlab_projects:read_all",
     # Components
-    "components:read", "components:write", "components:delete", "components:push",
+    "components:read",
+    "components:write",
+    "components:delete",
+    "components:push",
 ]
 
 # Operator: read + write actions (no delete), no user/role/oidc/teams management
 OPERATOR_PERMISSIONS = [
-    "mirrors:read", "mirrors:write", "mirrors:sync", "mirrors:import", "mirrors:integrity_check",
-    "projects:read", "projects:write",
-    "helm:read", "helm:write", "helm:sync", "helm:index",
-    "docker:read", "docker:write", "docker:sync", "docker:index",
-    "gold_images:read", "gold_images:write", "gold_images:build",
-    "app_images:read", "app_images:write", "app_images:build",
-    "pipelines:read", "pipelines:write",
+    "mirrors:read",
+    "mirrors:write",
+    "mirrors:sync",
+    "mirrors:import",
+    "mirrors:integrity_check",
+    "projects:read",
+    "projects:write",
+    "helm:read",
+    "helm:write",
+    "helm:sync",
+    "helm:index",
+    "docker:read",
+    "docker:write",
+    "docker:sync",
+    "docker:index",
+    "gold_images:read",
+    "gold_images:write",
+    "gold_images:build",
+    "app_images:read",
+    "app_images:write",
+    "app_images:build",
+    "pipelines:read",
+    "pipelines:write",
     "audit:read",
     # Source Groups
-    "source_groups:read", "source_groups:write", "source_groups:refresh",
+    "source_groups:read",
+    "source_groups:write",
+    "source_groups:refresh",
     # Sync Groups
-    "sync_groups:read", "sync_groups:write",
+    "sync_groups:read",
+    "sync_groups:write",
     # Providers (V3)
-    "providers:read", "providers:write", "providers:use", "providers:share",
+    "providers:read",
+    "providers:write",
+    "providers:use",
+    "providers:share",
     # Teams
     "teams:read",
     # GitLab Projects
-    "gitlab_projects:read", "gitlab_projects:write",
+    "gitlab_projects:read",
+    "gitlab_projects:write",
     # Components
-    "components:read", "components:write", "components:push",
+    "components:read",
+    "components:write",
+    "components:push",
 ]
 
 # Viewer: read-only across all resources
@@ -163,7 +233,10 @@ async def _seed() -> int:
             .where(Role.name == "admin", User.is_active.is_(True))
         )
         result = await session.execute(stmt)
-        existing_admin = result.scalar_one_or_none()
+        # WHY first-or-none, not scalar_one_or_none: e2e seeds additional
+        # admin accounts (scripts/seed_e2e.py, issue #60) — multiple active
+        # admins are a valid state; any one of them proves bootstrapping done.
+        existing_admin = result.scalars().first()
 
         if existing_admin is not None:
             logger.info(

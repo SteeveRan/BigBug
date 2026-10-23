@@ -9,7 +9,7 @@
 # (resource_providers, set in UI at app deploy time) — tofu does not mint it.
 # This script keeps only the variables needed by tools running on the host,
 # outside the cluster:
-#   - BIGBUG_E2E_BASE_URL — e2e tests hit the ingress (http://api.local)
+#   - BIGBUG_E2E_BASE_URL — e2e tests hit the ingress (https://api.local, ADR-0030)
 #
 # Usage:
 #   ./infrastructure/update-env.sh
@@ -59,6 +59,7 @@ log "### Updating .env with host-tool variables ###"
 # in the app UI (resource_providers) at app deploy time — not here either.
 
 # e2e tests run on the host and reach the backend through the ingress host
-update_env_var "BIGBUG_E2E_BASE_URL" "http://api.local"
+# (https — ADR-0030; host trust via kind/trust-host.sh, manual step)
+update_env_var "BIGBUG_E2E_BASE_URL" "https://api.local"
 
 log "### .env update complete ###"

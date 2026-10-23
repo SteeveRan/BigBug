@@ -41,3 +41,4 @@ tests/
 # Docker-specific files (no need to copy themselves)
 Dockerfile
 .dockerignore
+docker/

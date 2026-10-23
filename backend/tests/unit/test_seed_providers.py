@@ -3,7 +3,7 @@
 @description Unit tests for the default provider seeder (stage 10): --dry-run writes
              nothing, double run yields zero duplicates, the four section-5.2 records
              are correct, they are protected, and no system provider is created.
-@dependencies backend/scripts/seed_providers.py, backend/tests/conftest.py
+@dependencies backend/bin/seed_providers.py, backend/tests/conftest.py
 """
 
 from sqlalchemy import func, select
@@ -17,7 +17,7 @@ from app.models.resource_provider import (
     ProviderSubtype,
     ResourceProvider,
 )
-from scripts.seed_providers import (
+from bin.seed_providers import (
     DEFAULT_PROVIDERS,
     HARBOR_SYSTEM_CREDENTIAL_NAME,
     HARBOR_SYSTEM_PROVIDER_NAME,
