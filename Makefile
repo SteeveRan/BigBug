@@ -44,7 +44,8 @@ KIND_CLUSTER   := bigbug-dev
 KUBE_CONTEXT   := kind-$(KIND_CLUSTER)
 APP_NAMESPACE  := bigbug
 APP_RELEASE    := bigbug
-DB_CLUSTER     := bigbug-dev  # CNPG Cluster CR name (tofu apps root, ≠ release name)
+# CNPG Cluster CR name (tofu apps root) — не совпадает с release name
+DB_CLUSTER     := bigbug-dev
 BACKEND_IMAGE  := bigbug-backend:dev
 FRONTEND_IMAGE := bigbug-frontend:dev
 
@@ -65,7 +66,8 @@ dev-up: ## Задеплоить приложение в kind (helm upgrade; ми
 
 .PHONY: dev-down
 dev-down: ## Удалить релиз bigbug из kind (данные CNPG/Redis сохраняются)
-	helm uninstall $(APP_RELEASE) -n $(APP_NAMESPACE) --kube-context $(KUBE_CONTEXT) --wait
+	@helm uninstall $(APP_RELEASE) -n $(APP_NAMESPACE) --kube-context $(KUBE_CONTEXT) --wait 2>&1 \
+		| grep -v 'release: not found' || echo "Релиз $(APP_RELEASE) уже удалён — ок."
 
 .PHONY: dev-clean
 dev-clean: dev-down ## dev-down + сброс app-данных (DROP SCHEMA в CNPG + flush Redis); только владелец инфры
