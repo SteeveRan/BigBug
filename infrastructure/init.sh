@@ -27,14 +27,16 @@ INFRA_COMPOSE="${SCRIPT_DIR}/docker-compose.yml"
 INFRA_ENV="${SCRIPT_DIR}/.env"
 INFRA_ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
 
-# Terraform
+# Terraform (ADR-0029: base/apps roots; config root = GitLab only)
 TF_DIR="${SCRIPT_DIR}/terraform"
 TFVARS="${TF_DIR}/terraform.tfvars"
 TFVARS_EXAMPLE="${TF_DIR}/terraform.tfvars.example"
+TF_BASE_DIR="${SCRIPT_DIR}/terraform/base"
+TF_APPS_DIR="${SCRIPT_DIR}/terraform/apps"
 
-# Harbor
-HARBOR_DIR="${SCRIPT_DIR}/harbor"
-HARBOR_CLUSTER="harbor"
+# kind (ADR-0022: единый кластер bigbug-dev; harbor-кластер снесён — #62)
+KIND_DIR="${SCRIPT_DIR}/kind"
+KIND_CLUSTER="bigbug-dev"
 
 # ─────────────────────────────────────────────────────────────
 # Logging
@@ -183,8 +185,8 @@ compose_up_if_needed "${INFRA_COMPOSE}" 4 "infrastructure" "--env-file ${INFRA_E
 # ─────────────────────────────────────────────────────────────
 log "### Waiting for service readiness ###"
 
-# Keycloak (keycloakx в kind, apps root) — endpoint keycloak.local
-wait_for_service "Keycloak" "http://keycloak.local/realms/master" 180
+# Keycloak (keycloakx в kind, apps root) — https, trust-host.sh обязателен (ADR-0030)
+wait_for_service "Keycloak" "https://keycloak.local/realms/master" 180
 
 # GitLab — takes a while to boot
 wait_for_service "GitLab" "http://localhost:8080/users/sign_in" 600
@@ -192,25 +194,29 @@ wait_for_service "GitLab" "http://localhost:8080/users/sign_in" 600
 log "  All infrastructure services are ready."
 
 # ─────────────────────────────────────────────────────────────
-# 5. Deploy Harbor in kind (only if cluster doesn't exist)
+# 5. kind cluster bigbug-dev (certs → bootstrap) — ADR-0022/0030
 # ─────────────────────────────────────────────────────────────
-log "### Checking Harbor (kind) ###"
+log "### Checking kind cluster '${KIND_CLUSTER}' ###"
 
 if command -v kind &>/dev/null; then
-    if kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
-        log "  Harbor kind cluster '${HARBOR_CLUSTER}' already exists — skipping deploy."
+    if kind get clusters 2>/dev/null | grep -q "^${KIND_CLUSTER}$"; then
+        log "  Cluster '${KIND_CLUSTER}' already exists — skipping bootstrap."
     else
-        log "  Harbor kind cluster not found. Running deploy.sh..."
-        if [[ -f "${HARBOR_DIR}/deploy.sh" ]]; then
-            (cd "${HARBOR_DIR}" && bash deploy.sh)
-            log "  Harbor deployed in kind."
+        log "  Cluster not found. Running certs.sh + bootstrap.sh..."
+        if [[ -f "${KIND_DIR}/bootstrap.sh" ]]; then
+            [[ -f "${KIND_DIR}/certs/harbor.local/tls.crt" ]] \
+                || (cd "${KIND_DIR}" && bash certs.sh)
+            (cd "${KIND_DIR}" && bash bootstrap.sh)
+            log "  Cluster ready."
         else
-            log_warn "  Harbor deploy.sh not found at ${HARBOR_DIR}/deploy.sh — skipping Harbor setup."
+            log_error "  bootstrap.sh not found at ${KIND_DIR}/bootstrap.sh"
+            exit 1
         fi
     fi
 else
-    log_warn "  kind is not installed — skipping Harbor deployment."
-    log_warn "  Install kind: https://kind.sigs.k8s.io/docs/user/quick-start/"
+    log_error "  kind is not installed — cannot set up the cluster."
+    log_error "  Install kind: https://kind.sigs.k8s.io/docs/user/quick-start/"
+    exit 1
 fi
 
 # ─────────────────────────────────────────────────────────────
@@ -281,21 +287,40 @@ sed -i "s|gitlab_token\s*=\s*\"[^\"]*\"|gitlab_token = \"${GITLAB_PAT}\"|" "${TF
 log "  gitlab_token written to terraform.tfvars."
 
 # ─────────────────────────────────────────────────────────────
-# 8. Run OpenTofu
+# 8. Run OpenTofu — base → apps (ADR-0029; общий state backend
+#    ~/.local/state/bigbug). keycloak-провайдер логинится при plan,
+#    поэтому apps идёт в 2 фазы: инсталляции, затем конфиг.
 # ─────────────────────────────────────────────────────────────
 log "### Running OpenTofu ###"
 
-log "  Initializing..."
-if ! "${TF_CMD}" init -input=false; then
-    log_error "OpenTofu init failed."
+log "  Applying base layer (platform: ingress, operators)..."
+(cd "${TF_BASE_DIR}" && "${TF_CMD}" init -input=false && "${TF_CMD}" apply -auto-approve -input=false) || {
+    log_error "base layer apply failed."
     exit 1
-fi
+}
 
-log "  Applying..."
-if ! "${TF_CMD}" apply -auto-approve -input=false; then
-    log_error "OpenTofu apply failed. Check output above."
+log "  Applying apps layer — phase 1: installations (keycloak_init, harbor_init)..."
+(cd "${TF_APPS_DIR}" && "${TF_CMD}" init -input=false \
+    && "${TF_CMD}" apply -auto-approve -input=false \
+        -target=module.keycloak_init -target=module.harbor_init) || {
+    log_error "apps layer (installations) failed."
     exit 1
-fi
+}
+
+log "  Waiting for Keycloak to answer (https)..."
+wait_for_service "Keycloak" "https://keycloak.local/realms/master" 180
+
+log "  Applying apps layer — full (realm, clients, harbor config)..."
+(cd "${TF_APPS_DIR}" && "${TF_CMD}" apply -auto-approve -input=false) || {
+    log_error "apps layer (full) failed."
+    exit 1
+}
+
+log "  Applying config root (GitLab)..."
+"${TF_CMD}" init -input=false && "${TF_CMD}" apply -auto-approve -input=false || {
+    log_error "config root apply failed."
+    exit 1
+}
 
 log "  OpenTofu applied successfully."
 
@@ -317,13 +342,11 @@ log "  ✅ Infrastructure initialization complete!"
 log "==========================================="
 log ""
 log "  Infrastructure services:"
-log "    Keycloak:  http://keycloak.local  (admin / admin)"
+log "    Keycloak:  https://keycloak.local  (admin / admin)"
 log "    GitLab:    http://localhost:8080  (root / ${GITLAB_ROOT_PW_DISPLAY})"
-if command -v kind &>/dev/null && kind get clusters 2>/dev/null | grep -q "^${HARBOR_CLUSTER}$"; then
 log "    Harbor:    https://harbor.local  (admin / Harbor12345)"
-fi
 log ""
 log "  GitLab PAT: ${GITLAB_TOKEN_DISPLAY}"
 log ""
-log "  Next: start the application with: docker compose up -d"
+log "  Next: make dev-build && make dev-up"
 log ""

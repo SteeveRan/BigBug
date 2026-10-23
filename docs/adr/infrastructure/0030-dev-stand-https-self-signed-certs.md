@@ -55,7 +55,7 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 
 | Потребитель | Механизм |
 |---|---|
-| Поды в кластере (backend → Keycloak OIDC/Harbor API) | **ConfigMap-инжект**: серты как k8s Secrets (см. §5) → маунт в под + `REQUESTS_CA_BUNDLE` env → per-provider `verify_ssl=True` работает со self-signed (ADR-0028 §2 сохраняет силу — проверку никто не отключает) |
+| Поды в кластере (backend → Keycloak OIDC/Harbor API) | **Secret/ConfigMap-инжект**: серты как k8s Secrets (см. §5) → маунт в под + `REQUESTS_CA_BUNDLE` env → per-provider `verify_ssl=True` работает со self-signed (ADR-0028 §2 сохраняет силу — проверку никто не отключает). Конкретный механизм зависит от чарта: Harbor берёт CA-бандл из **Secret** (`caBundleSecretName` — только Secret с ключом `ca.crt`, ConfigMap чарт не принимает — исключение к формулировке «ConfigMap-инжект») |
 | Harbor core → Keycloak OIDC | маунт серта Keycloak в harbor-под + `oidc_verify_cert: true` (не выключать проверку) |
 | Хост: браузер, curl, httpx e2e, tofu config root | **скрипты для пользователя**: `certs.sh` (генерация, без sudo) и `trust-host.sh` (добавление в system trust store, sudo — осознанное действие пользователя; `untrust-host.sh` в teardown-симметрию) |
 | Docker daemon (push/pull harbor.local) | только через system trust store (после trust-host.sh + restart daemon). **`insecure-registries` убирается** — с HTTPS-сертификатами он больше не нужен, а его отсутствие гарантирует, что доверие реально работает |
@@ -80,7 +80,7 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 
 * Good, because браузер/OIDC/docker-клиенты в dev работают по той же схеме, что в prod — mixed-content, secure-cookie и redirect-баги ловятся до прода
 * Good, because серты вне кластера: пересоздание стенда не инвалидирует доверие — полный цикл `infra-clean && infra-init` не требует повторного trust
-* Good, because `verify_ssl=True` по умолчанию работает везде (поды через ConfigMap-инжект, хост через system store) — ADR-0028 §2 не вырождается в тотальный `verify_ssl=False`
+* Good, because `verify_ssl=True` по умолчанию работает везде (поды через Secret/ConfigMap-инжект, хост через system store) — ADR-0028 §2 не вырождается в тотальный `verify_ssl=False`
 * Good, because per-service серты без CA — минимальная крипто-инфраструктура: нет единого CA, компромисс которого убил бы все хосты разом; каждый серт независим
 * Bad, because 5 сертов вместо одного wildcard: новый хост = новый серт (правда, хост добавляется и в hosts, и в ingress — шаг не пустой)
 * Bad, because доверие хоста — ручной шаг пользователя (`trust-host.sh` с sudo) — не автоматизирован намеренно: менять system trust store молча — плохо
