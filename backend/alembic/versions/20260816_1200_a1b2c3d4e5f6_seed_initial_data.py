@@ -7,12 +7,12 @@ Create Date: 2026-08-16 12:00:00.000000+00:00
 Consolidates the RBAC seed that was previously spread across seven Alembic
 revisions (bde12d699ca4, 745f271b2faf, b214fda62040, ce50f1e2d6af,
 cafe1234abcd, 3446791956ce, 0cce18c6c867) and the Python lists in
-``docker/seed_admin.py``.
+``bin/seed_admin.py``.
 
 Source of truth: ``docs/development/permissions.md`` (61 permissions) and
 the role assignment matrix in its "Распределение по ролям" section, which
 matches ``ADMIN_PERMISSIONS`` / ``OPERATOR_PERMISSIONS`` /
-``VIEWER_PERMISSIONS`` in ``backend/docker/seed_admin.py``.
+``VIEWER_PERMISSIONS`` in ``backend/bin/seed_admin.py``.
 
 The migration is idempotent: it inserts only rows whose ``name`` is not
 already present and skips role→permission links that already exist. The
@@ -22,8 +22,8 @@ downgrade removes the seeded rows in FK-safe order
 Legacy permissions (``integrations:*``, ``docker_registry:manage``,
 ``helm_repository:manage``, ``pipelines:manage``, ``credentials:use``) are
 intentionally NOT re-inserted: they were deleted in Providers V3 phase 5.
-Providers are seeded by ``scripts/seed_providers.py`` and the admin user by
-``docker/seed_admin.py`` — neither is duplicated here.
+Providers are seeded by ``bin/seed_providers.py`` and the admin user by
+``bin/seed_admin.py`` — neither is duplicated here.
 """
 
 from datetime import UTC, datetime

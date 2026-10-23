@@ -5,7 +5,7 @@
               to another user's private provider, and the phase-5 legacy-permission
               cleanup (seed_admin.py distribution + migration removal list).
 @dependencies backend/app/services/rbac_service.py, backend/app/services/providers/service.py,
-             backend/docker/seed_admin.py, backend/alembic/versions/*_seed_initial_data.py
+             backend/bin/seed_admin.py, backend/alembic/versions/*_seed_initial_data.py
 """
 
 import importlib.util
@@ -30,7 +30,7 @@ from app.services.providers.service import ProviderService
 from app.services.rbac_service import RBACService
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-SEED_ADMIN_PATH = BACKEND_DIR / "docker" / "seed_admin.py"
+SEED_ADMIN_PATH = BACKEND_DIR / "bin" / "seed_admin.py"
 SEED_MIGRATION_PATH = next((BACKEND_DIR / "alembic" / "versions").glob("*_seed_initial_data.py"))
 GITLAB_PROJECT_SEED_MIGRATION_PATH = next(
     (BACKEND_DIR / "alembic" / "versions").glob("*_seed_gitlab_project_permissions.py")

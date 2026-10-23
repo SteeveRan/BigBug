@@ -67,13 +67,11 @@ spec:
                   name: {{ $ref.secretName }}
                   key: {{ $ref.key }}
             {{- end }}
-            {{- if .Values.backend.caBundle.configMapName }}
-            # SSL_CERT_FILE: httpx (app), REQUESTS_CA_BUNDLE: requests (transitive deps/tools)
-            - name: SSL_CERT_FILE
-              value: {{ printf "%s/%s" .Values.backend.caBundle.mountPath .Values.backend.caBundle.key }}
-            - name: REQUESTS_CA_BUNDLE
-              value: {{ printf "%s/%s" .Values.backend.caBundle.mountPath .Values.backend.caBundle.key }}
-            {{- end }}
+            {{- /* SSL_CERT_FILE/REQUESTS_CA_BUNDLE are NOT set here: the
+                entrypoint (build_ca_bundle) exports them pointing at the
+                merged system+stand bundle in /run/bigbug-ca. Setting them to
+                the ConfigMap mount would REPLACE the whole trust store and
+                break public-host calls (api.github.com, …). */}}
           {{- with .Values.backend.env }}
           {{- range $k, $v := omit . "CORS_ORIGINS" }}
             - name: {{ $k }}
@@ -99,6 +97,11 @@ spec:
             - name: ca-bundle
               mountPath: {{ .Values.backend.caBundle.mountPath }}
               readOnly: true
+            # Writable scratch for the entrypoint's merged CA bundle
+            # (system roots + stand certs) — see backend/bin/entrypoint.sh
+            - name: merged-ca
+              mountPath: /run/bigbug-ca
+              readOnly: false
             {{- end }}
             {{- with .Values.backend.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -108,6 +111,8 @@ spec:
         - name: ca-bundle
           configMap:
             name: {{ .Values.backend.caBundle.configMapName }}
+        - name: merged-ca
+          emptyDir: {}
         {{- end }}
         {{- with .Values.backend.extraVolumes }}
         {{- toYaml . | nindent 8 }}

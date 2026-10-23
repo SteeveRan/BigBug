@@ -23,7 +23,7 @@ class PermissionName(StrEnum):
     """Canonical permission names (``resource:action``).
 
     These mirror the permission rows seeded by the Alembic migrations and the
-    declarative lists in ``docker/seed_admin.py``. Only the gitlab-project
+    declarative lists in ``bin/seed_admin.py``. Only the gitlab-project
     management permissions are declared here for now; the rest of the codebase
     passes permission strings inline to :func:`require_permission`.
     """

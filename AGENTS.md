@@ -206,7 +206,18 @@ See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 ### Роли
 
 - **Владелец инфры** — один ворктрий (по умолчанию `main`, `/home/vnosov/Projects/BigBug`). Только он запускает: `infra-init`, `infra-clean`, `dev-clean`, tofu-команды, пересоздание секретов, `down -v`.
-- **Feature-агенты** (все остальные ворктрии) — код, unit/integrations-тесты, lint, typecheck. Инфру не трогают.
+- **Feature-агенты** (все остальные ворктрии) — код, unit/integrations-тесты, lint, typecheck.
+
+### Разрешено feature-агентам: dev-образ и деплой приложения
+
+Изменение `backend/`/`frontend/`/`charts/bigbug/` доходит до живого стенда только через пересборку образа + helm upgrade — без этого e2e-прогон гоняет чужой/старый код. Поэтому feature-агенту **разрешено**:
+
+- собирать dev-образы: `docker build -t bigbug-backend:dev backend/` (и frontend аналогично);
+- заливать в kind: `kind load docker-image bigbug-backend:dev --name bigbug-dev`;
+- деплоить чарт: `helm upgrade --install bigbug charts/bigbug -n bigbug --kube-context kind-bigbug-dev -f charts/bigbug/values-dev.yaml`;
+- обновлять app-level ресурсы ns `bigbug` (ConfigMap bigbug-ca-bundle и т.п.) kubectl'ом из локальных сертов/state — без tofu apply.
+
+Стенд один на всех: образ `:dev` — последний загруженный. Перед e2e-прогоном пересобирайте образ со СВОИМ кодом и объявляйте стенд занятым (см. «E2E — по очереди»); конфликтов tofu-стейта нет — helm/kubectl стейт не шарят.
 
 ### Запрещено feature-агентам
 

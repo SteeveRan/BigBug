@@ -90,7 +90,7 @@ flowchart LR
     E --> F["a9f8e7d6c5b4<br>add_helm_mirror_fields<br>(head)"]
 ```
 
-- **Сиды**: канонические данные (роли, permissions, связи ролей) сидируются идемпотентными миграциями (`seed_initial_data`, `seed_gitlab_project_permissions`): вставляются только отсутствующие строки, `downgrade()` удаляет только свои. Динамические данные (админ-пользователь, встроенные провайдеры) — НЕ в миграциях: их создают `backend/docker/seed_admin.py` и `backend/scripts/seed_providers.py`, которые entrypoint запускает после `alembic upgrade head`.
+- **Сиды**: канонические данные (роли, permissions, связи ролей) сидируются идемпотентными миграциями (`seed_initial_data`, `seed_gitlab_project_permissions`): вставляются только отсутствующие строки, `downgrade()` удаляет только свои. Динамические данные (админ-пользователь, встроенные провайдеры) — НЕ в миграциях: их создают `backend/bin/seed_admin.py` и `backend/bin/seed_providers.py`, которые entrypoint запускает после `alembic upgrade head`.
 - Каждая миграция обязана иметь рабочий `downgrade()`.
 - Расхождение веток (несколько heads) разрешается `alembic merge` до push.
 - Регресс-тест цепочки: `backend/tests/unit/test_permission_seed_migration.py` прогоняет `alembic upgrade head` на throwaway PostgreSQL и проверяет содержимое `permissions`/`role_permissions` (см. Confirmation).

@@ -3,9 +3,9 @@
 @description E2E fixtures against a live dev backend over real HTTP. No sqlite,
               no ``Base.metadata.create_all``, no dependency overrides and no
               monkeypatching of ``app.core.secrets`` — every interaction goes
-              through the running dev stack (``docker compose up -d``).
+              through the running dev stand (kind, https://api.local).
 @dependencies httpx, pytest, pytest-asyncio, backend/tests/e2e/openapi_utils.py
-@relatedFiles ./openapi_utils.py, ../../scripts/test-e2e.sh
+@relatedFiles ./openapi_utils.py, ../../scripts/test-e2e.sh, ../../scripts/seed_e2e.py
 """
 
 from __future__ import annotations
@@ -20,6 +20,18 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncHTTPTransport
 
+from scripts.seed_e2e import (
+    E2E_ADMIN_PASSWORD as ADMIN_PASSWORD,
+)
+from scripts.seed_e2e import (
+    E2E_ADMIN_USERNAME as ADMIN_USERNAME,
+)
+from scripts.seed_e2e import (
+    E2E_OPERATOR_PASSWORD,
+    E2E_OPERATOR_USERNAME,
+    E2E_VIEWER_PASSWORD,
+    E2E_VIEWER_USERNAME,
+)
 from tests.e2e.openapi_utils import (
     CALLED_OPERATIONS,
     assert_matches_openapi,
@@ -41,10 +53,11 @@ __all__ = [
 # Base URL / environment
 # ──────────────────────────────────────────────────────────────────────────
 
-BASE_URL = os.environ.get("BIGBUG_E2E_BASE_URL", "http://localhost:8000").rstrip("/")
+BASE_URL = os.environ.get("BIGBUG_E2E_BASE_URL", "https://api.local").rstrip("/")
 
-ADMIN_USERNAME = os.environ.get("E2E_ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("E2E_ADMIN_PASSWORD", "admin")
+# E2E accounts are provisioned by scripts/seed-e2e.sh (ADR-0024 §3) before the
+# run; credentials are shared constants from scripts/seed_e2e.py — no env-provided
+# admin credentials (ADR-0024 policy: no real credentials in e2e).
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -66,7 +79,9 @@ def _server_available() -> Iterator[None]:
     except Exception as exc:  # noqa: BLE001 — wrap any connectivity failure
         pytest.exit(
             f"E2E backend is not reachable at {BASE_URL} ({exc}). "
-            "Start the dev stack first: docker compose up -d",
+            "Start the dev stand first: make infra-init (+ helm upgrade bigbug). "
+            "TLS error? Run infrastructure/kind/certs.sh (ADR-0030 §3) — "
+            "test-e2e.sh sets SSL_CERT_FILE automatically.",
             returncode=1,
         )
     yield
@@ -126,33 +141,9 @@ def _login_sync(username: str, password: str) -> str:
         return resp.json()["access_token"]
 
 
-def _create_user_sync(
-    admin_token: str,
-    *,
-    username: str,
-    password: str,
-    role: str,
-) -> tuple[int, str]:
-    """Create an ephemeral user via the admin API and return ``(id, token)``."""
-    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
-        resp = c.post(
-            "/api/admin/users",
-            headers=_auth(admin_token),
-            json={
-                "username": username,
-                "email": f"{username}@example.com",
-                "password": password,
-                "roles": [role],
-            },
-        )
-        assert resp.status_code == 201, f"Failed to create user '{username}': {resp.text}"
-        user_id = resp.json()["id"]
-        return user_id, _login_sync(username, password)
-
-
 @pytest.fixture(scope="session")
 def admin_token() -> str:
-    """Access token for the seeded admin (default ``admin/admin``)."""
+    """Access token for the seeded e2e-admin account (scripts/seed_e2e.py)."""
     return _login_sync(ADMIN_USERNAME, ADMIN_PASSWORD)
 
 
@@ -164,20 +155,12 @@ def admin_headers(admin_token: str) -> dict[str, str]:
 
 @pytest.fixture(scope="session")
 def viewer_token(admin_token: str) -> str:
-    """Access token for a seeded viewer user created via the real API.
+    """Access token for the seeded viewer account (scripts/seed-e2e.sh).
 
-    The seeded DB has only the admin user; a viewer is provisioned here and
-    torn down at the end of the session (soft data isolation).
+    The seed creates stable e2e-viewer/e2e-operator accounts; the token is
+    refreshed per session (no user teardown — accounts are idempotent).
     """
-    username = f"e2e-viewer-{uuid.uuid4().hex[:8]}"
-    user_id, token = _create_user_sync(
-        admin_token, username=username, password="e2e-viewer-password", role="viewer"
-    )
-    yield token
-
-    # Cleanup: remove the ephemeral viewer user.
-    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
-        c.delete(f"/api/admin/users/{user_id}", headers=_auth(admin_token))
+    return _login_sync(E2E_VIEWER_USERNAME, E2E_VIEWER_PASSWORD)
 
 
 @pytest.fixture
@@ -188,15 +171,8 @@ def viewer_headers(viewer_token: str) -> dict[str, str]:
 
 @pytest.fixture(scope="session")
 def operator_token(admin_token: str) -> str:
-    """Access token for a seeded operator user created via the real API."""
-    username = f"e2e-operator-{uuid.uuid4().hex[:8]}"
-    user_id, token = _create_user_sync(
-        admin_token, username=username, password="e2e-operator-password", role="operator"
-    )
-    yield token
-
-    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
-        c.delete(f"/api/admin/users/{user_id}", headers=_auth(admin_token))
+    """Access token for the seeded operator account (scripts/seed-e2e.sh)."""
+    return _login_sync(E2E_OPERATOR_USERNAME, E2E_OPERATOR_PASSWORD)
 
 
 @pytest.fixture

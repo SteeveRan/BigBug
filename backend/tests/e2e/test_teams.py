@@ -46,6 +46,9 @@ async def user_factory(client: AsyncClient, admin_headers: dict):
 
     yield factory
 
+    # WHY: teams soft-delete keeps the row; owner users referenced by a team
+    # are undeletable — delete_user now answers 409 (pre-checked, no 500).
+    # Owner-teamed users legitimately stay; names are unique per run.
     for user_id in created:
         await client.delete(f"/api/admin/users/{user_id}", headers=admin_headers)
 
