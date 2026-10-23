@@ -27,7 +27,7 @@ Chosen option: **Harbor chart в kind-кластере `bigbug-dev` (ns `harbor`
 | Сущность | Реализация |
 |---|---|
 | Namespace `harbor` | `kubernetes_namespace` |
-| TLS-секрет `tls-harbor-local` | `kubernetes_secret` (type `kubernetes.io/tls`) из `kind/certs/harbor.local/` (ADR-0030 §5) |
+| TLS-секрет `tls-harbor-local` | `kubernetes_secret` (type `kubernetes.io/tls`) из `~/.local/state/bigbug/certs/harbor.local/` (ADR-0030 §5) |
 | CA-бандл `harbor-ca-bundle` | Secret с ключом `ca.crt` = серт `keycloak.local` — чарт принимает только Secret (`caBundleSecretName`), монтируется в core/jobservice/registry trust stores |
 | Chart | `goharbor/harbor` 1.19.4 (Harbor 2.15.4, pinned, Renovate bumps), values `values/harbor.yaml`, Trivy и notary выключены, `wait = true`, timeout 600 |
 

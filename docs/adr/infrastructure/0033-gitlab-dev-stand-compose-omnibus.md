@@ -41,7 +41,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 
 **1. Compose-исключение.** `infrastructure/docker-compose.yml` содержит ровно два сервиса: `gitlab` (CE omnibus, PostgreSQL bundled внутрь образа) и `gitlab-runner` (docker.sock executor — known limitation: джобы бегут на хосте, не в кластере). Сеть `bigbug-network`, вольюмы `gitlab_*`. RAM-бюджет: `mem_limit: 4g`. Переезд в kind (chart `gitlab/gitlab` или managed) — отдельный ADR при необходимости (условие пересмотра ниже).
 
-**2. TLS: `https://gitlab.local:8443`.** Omnibus `external_url 'https://gitlab.local:8443'`; серт — self-signed из `kind/certs.sh` (ADR-0030 §2/§3), bind-mount `kind/certs/gitlab.local/` → `/etc/gitlab/ssl/gitlab.local/` (read-only), порты `8443:8443` и `2222:22` (SSH). HTTP-слушателя нет. `letsencrypt` выключен явно. Доверие хоста — `trust-host.sh`; скрипты стенда (init.sh, healthcheck) используют `-k`/`--cacert`, но никогда не переходят на plain HTTP.
+**2. TLS: `https://gitlab.local:8443`.** Omnibus `external_url 'https://gitlab.local:8443'`; серт — self-signed из `kind/certs.sh` (ADR-0030 §2/§3, файлы в `~/.local/state/bigbug/certs/gitlab.local/`), bind-mount `~/.local/state/bigbug/certs/gitlab.local/` → `/etc/gitlab/ssl/gitlab.local/` (read-only), порты `8443:8443` и `2222:22` (SSH). HTTP-слушателя нет. `letsencrypt` выключен явно. Доверие хоста — `trust-host.sh`; скрипты стенда (init.sh, healthcheck) используют `-k`/`--cacert`, но никогда не переходят на plain HTTP.
 
 **3. Config root OpenTofu = GitLab-only.** Root `infrastructure/terraform/` управляет ровно базовой настройкой GitLab через API (провайдер `gitlabhq/gitlab ~> 17.0`):
 
@@ -51,7 +51,7 @@ Chosen option: **GitLab CE omnibus + gitlab-runner остаются в `infrastr
 | `gitlab_user.backend` | `modules/gitlab/users.tf` | service-account `bigbug-backend` (не root, `projects_limit=100`) |
 | `gitlab_group_membership.backend_mirrors` | `modules/gitlab/memberships.tf` | membership `maintainer` в группе |
 
-Модули `keycloak`/`harbor` из config root удалены (их конфиг — `terraform/apps/modules/{keycloak_conf,harbor_conf}`, ADR-0029 update #58). Провайдер ходит на `https://gitlab.local:8443` с `cacert_file` = серт из `kind/certs/` — верификация self-signed не отключается (ADR-0028 §2). State-следы старых keycloak/harbor-ресурсов root'а не переносятся: существующие ресурсы заселены через apps, двойное управление хуже.
+Модули `keycloak`/`harbor` из config root удалены (их конфиг — `terraform/apps/modules/{keycloak_conf,harbor_conf}`, ADR-0029 update #58). Провайдер ходит на `https://gitlab.local:8443` с `cacert_file` = серт из `~/.local/state/bigbug/certs/` — верификация self-signed не отключается (ADR-0028 §2). State-следы старых keycloak/harbor-ресурсов root'а не переносятся: существующие ресурсы заселены через apps, двойное управление хуже.
 
 **4. PAT bootstrap — постоянное задокументированное исключение из IaC.** Начальный root-PAT программируется `gitlab-rails runner` внутри контейнера (init.sh, шаг 8), только если токен из `infrastructure/.env` отвечает 403. Почему императивно: gitlab-провайдер не умеет `set_token` (нельзя задать значение существующего PAT), а рабочие креды приложения (resource_providers) заводятся в UI — [ADR-0024](../common/0024-k8s-secrets.md). Это единственный императивный шаг в GitLab-зоне; PAT живёт 90 дней, re-bootstrap — повторный запуск init.sh.
 
@@ -86,7 +86,7 @@ docker compose -f infrastructure/docker-compose.yml ps                   # → 2
 
 ```bash
 curl -kfsS https://gitlab.local:8443/users/sign_in | head -1   # → <!DOCTYPE html> (после boots)
-curl -s --cacert infrastructure/kind/certs/gitlab.local/tls.crt \
+curl -s --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
   -H "PRIVATE-TOKEN: $GITLAB_TOKEN" https://gitlab.local:8443/api/v4/user  # → 200
 ```
 

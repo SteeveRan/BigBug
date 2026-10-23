@@ -262,7 +262,7 @@ log "  Token: ${GITLAB_PAT:0:8}..."
 
 # Check if the token is already valid (non-403 means works)
 log "  Checking if token is already valid..."
-GITLAB_CACERT="${KIND_DIR}/certs/gitlab.local/tls.crt"
+GITLAB_CACERT="${XDG_STATE_HOME:-$HOME/.local/state}/bigbug/certs/gitlab.local/tls.crt"
 set +e
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
     --cacert "${GITLAB_CACERT}" \

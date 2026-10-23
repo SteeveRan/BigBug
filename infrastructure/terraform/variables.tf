@@ -17,9 +17,9 @@ variable "gitlab_url" {
 }
 
 variable "gitlab_ca_cert" {
-  description = "Path to GitLab TLS cert (self-signed from kind/certs.sh, ADR-0030); resolved relative to this root dir"
+  description = "Path to GitLab TLS cert (self-signed from kind/certs.sh → ~/.local/state/bigbug/certs, ADR-0030). Absolute default — shared per machine"
   type        = string
-  default     = "../../kind/certs/gitlab.local/tls.crt"
+  default     = "~/.local/state/bigbug/certs/gitlab.local/tls.crt"
 }
 
 variable "gitlab_token" {

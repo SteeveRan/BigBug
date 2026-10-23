@@ -45,8 +45,8 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 **2. Сертификаты: per-service self-signed, без CA.** У каждого внешнего хоста — свой self-signed сертификат (SAN: hostname). Нет CA/wildcard — если у сервиса появятся свои требования (например, настоящий CA-подписанный серт), он встраивается индивидуально, не ломая остальных.
 
 **3. Генерация — императивно, на хосте, до стенда.** Скрипт `infrastructure/kind/certs.sh` (openssl, idempotent):
-- создаёт `infrastructure/kind/certs/<host>/{tls.crt,tls.key}` (каталог gitignored);
-- **серты стабильны**: переживают `infra-clean`/`infra-init` — доверие на хосте не перенастраивается после пересоздания кластера; удаляются только вручную или `certs.sh --reset` (осознанная ротация; после неё — повторный trust);
+- создаёт `${XDG_STATE_HOME:-~/.local/state}/bigbug/certs/<host>/{tls.crt,tls.key}` — **state-каталог рядом с tofu-стейтами** (`~/.local/state/bigbug/`), общий для всех git-worktree машины: серты живут вне и кластера, и репозитория/ворктрия (выучено на практике: ворктрий, из которого делали bootstrap, удалили — серты пропали, доверие молча сломалось);
+- **серты стабильны**: переживают `infra-clean`/`infra-init` и удаление ворктрия — доверие на хосте не перенастраивается после пересоздания кластера; удаляются только вручную или `certs.sh --reset` (осознанная ротация; после неё — повторный trust);
 - `bootstrap.sh` **проверяет наличие сертов до создания кластера** и падает с внятной ошибкой («запустите certs.sh»), если их нет — порядок `certs → bootstrap` обязателен.
 
 Обоснование императивности (та же граница, что кластер+hosts в [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): сертификаты нужны **до** кластера (bootstrap-чек, хост-доверие, docker daemon) и **вне его жизненного цикла**. Cert-manager + self-signed ClusterIssuer отклонён: он выдаёт сертификаты только внутри работающего кластера и пересоздаёт их вместе с кластером — доверие пришлось бы перенастраивать на каждом `infra-clean`.
@@ -60,7 +60,7 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 | Хост: браузер, curl, httpx e2e, tofu config root | **скрипты для пользователя**: `certs.sh` (генерация, без sudo) и `trust-host.sh` (добавление в system trust store, sudo — осознанное действие пользователя; `untrust-host.sh` в teardown-симметрию) |
 | Docker daemon (push/pull harbor.local) | только через system trust store (после trust-host.sh + restart daemon). **`insecure-registries` убирается** — с HTTPS-сертификатами он больше не нужен, а его отсутствие гарантирует, что доверие реально работает |
 
-**5. TLS-секреты в кластере — apps root tofu.** `kubernetes_secret` (type `kubernetes.io/tls`) из `file(".../certs/<host>/...")` в `infrastructure/terraform/apps/` — паттерн [ADR-0024](../common/0024-k8s-secrets.md) (tofu управляет k8s-объектами); ingress'ы keycloakx/Harbor/app-chart ссылаются на секреты через values. **Base остаётся one-shot без внешних значений** (ADR-0029) — секреты из файлов нельзя помещать в base.
+**5. TLS-секреты в кластере — apps root tofu.** `kubernetes_secret` (type `kubernetes.io/tls`) из файлов state-каталога (`pathexpand("~/.local/state/bigbug/certs/<host>/...")`) в `infrastructure/terraform/apps/` — паттерн [ADR-0024](../common/0024-k8s-secrets.md) (tofu управляет k8s-объектами); ingress'ы keycloakx/Harbor/app-chart ссылаются на секреты через values. **Base остаётся one-shot без внешних значений** (ADR-0029) — секреты из файлов нельзя помещать в base.
 
 **6. Сервисы за прокси обязаны видеть forwarded-заголовки** (иначе строят внутренние URL):
 - keycloakx: `proxy: forwarded` — уже настроено (#57);
@@ -94,13 +94,13 @@ Chosen option: **per-service self-signed сертификаты** (по одно
 
 ```bash
 ./infrastructure/kind/certs.sh                  # генерация
-ls infrastructure/kind/certs/keycloak.local/    # tls.crt tls.key
+ls ~/.local/state/bigbug/certs/keycloak.local/  # tls.crt tls.key
 make infra-clean && make infra-init             # полный цикл
 # серты не пересоздались (mtime прежний), доверие хоста не перенастраивалось
 curl -fsS https://keycloak.local/realms/master  # → 200 без -k
 ```
 
-2. Bootstrap-чек: `rm -rf infrastructure/kind/certs && ./infrastructure/kind/bootstrap.sh` → падает с сообщением «запустите certs.sh», кластер не создаётся.
+2. Bootstrap-чек: `mv ~/.local/state/bigbug/certs /tmp/bigbug-certs.bak && ./infrastructure/kind/bootstrap.sh` → падает с сообщением «запустите certs.sh», кластер не создаётся; вернуть каталог обратно.
 
 3. Поды доверяют сертам:
 

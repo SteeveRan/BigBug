@@ -55,7 +55,7 @@ services:
       - "2222:22"
     volumes:
       - gitlab_config:/etc/gitlab
-      - ../../kind/certs/gitlab.local:/etc/gitlab/ssl/gitlab.local:ro
+      - ${XDG_STATE_HOME:-$HOME/.local/state}/bigbug/certs/gitlab.local:/etc/gitlab/ssl/gitlab.local:ro
       - gitlab_logs:/var/log/gitlab
       - gitlab_data:/var/opt/gitlab
     networks:

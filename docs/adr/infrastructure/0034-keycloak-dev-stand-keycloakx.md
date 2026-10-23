@@ -27,7 +27,7 @@ Chosen option: **keycloakx chart в kind-кластере `bigbug-dev`, БД —
 | Сущность | Реализация |
 |---|---|
 | Namespace `keycloak` | `kubernetes_namespace` |
-| TLS-секрет `tls-keycloak-local` | `kubernetes_secret` (type `kubernetes.io/tls`) из `kind/certs/keycloak.local/` (ADR-0030 §5) |
+| TLS-секрет `tls-keycloak-local` | `kubernetes_secret` (type `kubernetes.io/tls`) из `~/.local/state/bigbug/certs/keycloak.local/` (ADR-0030 §5) |
 | Admin-секрет `keycloak-admin-credentials` | `kubernetes_secret` с `KC_BOOTSTRAP_ADMIN_*` (admin/admin; действует только при первой инициализации пустой БД) |
 | БД | CNPG `Cluster` CR: БД/owner `keycloak`, endpoint `keycloak-rw.keycloak.svc:5432`, креды — секрет оператора `keycloak-app` |
 | Chart | `codecentric/keycloakx` 7.4.0 (Keycloak 26.8.1, pinned, Renovate bumps), `wait = true` |

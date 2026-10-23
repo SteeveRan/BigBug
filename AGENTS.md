@@ -76,7 +76,7 @@ BigBug/
 | Keycloak в kind (keycloakx + CNPG) | [ADR-0034](docs/adr/infrastructure/0034-keycloak-dev-stand-keycloakx.md) |
 | Harbor в kind (chart + TLS) | [ADR-0035](docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) |
 
-**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): Keycloak (keycloakx в kind), Harbor (chart в kind за TLS-ingress), PostgreSQL 17 (CNPG), Valkey — всё в кластере `bigbug-dev`; **GitLab CE omnibus + gitlab-runner — compose-исключение** ([ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md), `https://gitlab.local:8443`, серт из `kind/certs.sh`).
+**Инфраструктурные сервисы dev-стенда** (детали — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)/[0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): Keycloak (keycloakx в kind), Harbor (chart в kind за TLS-ingress), PostgreSQL 17 (CNPG), Valkey — всё в кластере `bigbug-dev`; **GitLab CE omnibus + gitlab-runner — compose-исключение** ([ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md), `https://gitlab.local:8443`, серт из `kind/certs.sh` → `~/.local/state/bigbug/certs`).
 
 Актуальные версии — [`backend/pyproject.toml`](backend/pyproject.toml), [`frontend/package.json`](frontend/package.json).
 
@@ -318,7 +318,7 @@ See: [ADR-0007](docs/adr/common/0007-providers-v3-registry.md)
 ```bash
 # GitLab API доступен / токен валиден (https, self-signed — ADR-0030 §9/ADR-0033)
 curl -k -H "PRIVATE-TOKEN: glpat-xyz" https://gitlab.local:8443/api/v4/user
-curl --cacert infrastructure/kind/certs/gitlab.local/tls.crt \
+curl --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
      -H "PRIVATE-TOKEN: glpat-xyz" https://gitlab.local:8443/api/v4/personal_access_tokens/self
 
 # Harbor доступен / SSL

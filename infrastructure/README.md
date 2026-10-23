@@ -51,7 +51,7 @@ Direct invocation:
 This single command will:
 
 1. Check all dependencies (docker, kind, kubectl, tofu/terraform, curl, jq, openssl)
-2. Ensure self-signed TLS certs (`kind/certs.sh`, [ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md))
+2. Ensure self-signed TLS certs (`kind/certs.sh` → `~/.local/state/bigbug/certs` — shared per machine, [ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md))
 3. Start the GitLab compose zone (gitlab + gitlab-runner)
 4. Wait for GitLab (`https://gitlab.local:8443`) and bootstrap the kind cluster `bigbug-dev`
 5. `tofu apply`: base (platform) → apps (Keycloak/Harbor, two-phase) → config root (GitLab)
@@ -160,7 +160,7 @@ cd infrastructure/terraform/base && tofu destroy && cd ../apps && tofu destroy &
 
 ```bash
 # Certs must exist before compose up (init.sh runs certs.sh first)
-ls infrastructure/kind/certs/gitlab.local/     # tls.crt tls.key
+ls ~/.local/state/bigbug/certs/gitlab.local/     # tls.crt tls.key
 
 # Logs
 docker compose -f infrastructure/docker-compose.yml logs -f gitlab

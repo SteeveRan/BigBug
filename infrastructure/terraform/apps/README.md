@@ -49,7 +49,8 @@ curl -fsS http://keycloak.local/realms/master   # → 200
 
 Chart `goharbor/harbor` 1.19.4 (Harbor 2.15.4, pinned), values в
 `values/harbor.yaml`. Endpoint: `https://harbor.local` (TLS терминируется
-на haproxy-ingress, серт — секрет `tls-harbor-local` из `../../kind/certs/`,
+на haproxy-ingress, серт — секрет `tls-harbor-local` из
+`~/.local/state/bigbug/certs/`,
 ADR-0030). Trivy и notary выключены, chartmuseum в chart 1.19.x отсутствует
 (удалён upstream). Registry-endpoint для docker — `harbor.local` (порт не
 нужен, дефолт 443); доверие хоста — `../../kind/trust-host.sh` +
@@ -65,7 +66,8 @@ Push/pull-проверка: `../../kind/test-push.sh`. После apps — confi
 ## Применение (порядок обязателен)
 
 ```bash
-# 0. серты для *.local (до bootstrap; переживают infra-clean)
+# 0. серты для *.local (до bootstrap; живут в ~/.local/state/bigbug/certs —
+#    общие для всех ворктриев, переживают infra-clean)
 ../../kind/certs.sh && ../../kind/trust-host.sh   # trust-host требует sudo
 # 1. кластер + /etc/hosts
 ../../kind/bootstrap.sh
@@ -94,7 +96,7 @@ Keycloak) — для dev-стенда потеря данных допустим
 ## Apply order (после пересоздания кластера)
 
 ```bash
-./kind/certs.sh                      # 1. серты (переживают teardown)
+./kind/certs.sh                      # 1. серты (→ ~/.local/state/bigbug/certs, переживают teardown)
 ./kind/bootstrap.sh                  # 2. kind кластер + hosts
 cd terraform/base && tofu apply      # 3. платформа (ingress, операторы, coredns)
 cd terraform/apps && tofu apply -target=module.keycloak_init -target=module.harbor_init   # 4. инсталляции (chart'ы)

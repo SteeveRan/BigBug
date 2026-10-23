@@ -27,9 +27,9 @@ terraform {
 module "gitlab" {
   source = "./modules/gitlab"
 
-  gitlab_url   = var.gitlab_url
-  gitlab_token = var.gitlab_token
-  gitlab_ca_cert = var.gitlab_ca_cert
+  gitlab_url     = var.gitlab_url
+  gitlab_token   = var.gitlab_token
+  gitlab_ca_cert = var.gitlab_ca_cert != "" ? pathexpand(var.gitlab_ca_cert) : ""
 
   mirrors_group_name = var.mirrors_group_name
 

@@ -14,14 +14,17 @@
  *
  * Prerequisite (in order):
  *   1. certs for *.local + host trust — ../../kind/certs.sh && trust-host.sh
+ *      (certs live in ~/.local/state/bigbug/certs — shared per machine,
+ *      same place as the tofu states)
  *   2. kind cluster `bigbug-dev` — ../../kind/bootstrap.sh
  *   3. base layer (CNPG operator + CRDs, haproxy-ingress, CoreDNS) — cd ../base && tofu apply
  *   4. this root: tofu init && tofu apply
  */
 
-# Certs dir lives outside the cluster lifecycle (ADR-0030 §3)
+# Certs dir lives outside the cluster lifecycle AND outside the worktree —
+# next to the tofu states (ADR-0030 §3)
 locals {
-  certs_dir = "${path.module}/../../kind/certs"
+  certs_dir = pathexpand("~/.local/state/bigbug/certs")
 }
 
 terraform {

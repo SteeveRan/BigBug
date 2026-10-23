@@ -21,7 +21,8 @@
 gitlab_url   = "https://gitlab.local:8443"
 gitlab_token = "CHANGE-ME-root-personal-access-token"
 # gitlab_ca_cert — path to the self-signed cert from kind/certs.sh
-# (default ../../kind/certs/gitlab.local/tls.crt; override or set "" only
+# (default ~/.local/state/bigbug/certs/gitlab.local/tls.crt — shared per
+# machine, same dir as the tofu states; override or set "" only
 # if you manage GitLab TLS differently).
 
 mirrors_group_name = "bigbug-mirrors"
