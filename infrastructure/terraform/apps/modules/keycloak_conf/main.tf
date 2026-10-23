@@ -1,7 +1,7 @@
 /**
  * @file main.tf
  * @description Terraform provider configuration for Keycloak module
- * @provider mrparkers/keycloak ~> 4.0
+ * @provider keycloak/keycloak ~> 5.0
  */
 
 terraform {
@@ -9,8 +9,8 @@ terraform {
 
   required_providers {
     keycloak = {
-      source  = "mrparkers/keycloak"
-      version = "~> 4.0"
+      source  = "keycloak/keycloak"
+      version = "~> 5.0"
     }
   }
 }
