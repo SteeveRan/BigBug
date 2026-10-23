@@ -6,7 +6,7 @@
 # ─── Harbor Connection ───────────────────────────────────────────────────────
 
 variable "harbor_url" {
-  description = "Harbor instance URL (e.g. https://harbor.local)"
+  description = "Harbor instance URL (https per ADR-0030 §6)"
   type        = string
   default     = "https://harbor.local"
 }
@@ -39,8 +39,9 @@ variable "oidc_provider_name" {
 }
 
 variable "oidc_endpoint" {
-  description = "OIDC provider endpoint URL (e.g. http://keycloak.local/realms/bigbug)"
+  description = "OIDC provider endpoint URL (https per ADR-0030 §6)"
   type        = string
+  default     = "https://keycloak.local/realms/bigbug"
 }
 
 variable "oidc_client_id" {
@@ -68,9 +69,9 @@ variable "oidc_scope" {
 }
 
 variable "oidc_verify_cert" {
-  description = "Verify OIDC provider certificate (disable for local dev)"
+  description = "Verify OIDC provider certificate (true — harbor trusts keycloak.local cert via caBundle secret, ADR-0030 §4; never disable, ADR-0028 §2)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "oidc_auto_onboard" {

@@ -1,10 +1,11 @@
 # apps — app-инстансы в kind-кластере bigbug-dev
 
 App-слой [ADR-0029](../../../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md):
-инстансы приложений в собственных namespace. Сейчас — только стек Keycloak
-(issue #57). Платформа (ingress, операторы) — в `../base`; конфигурация
-сервисов через их API (realm, clients) — в `../..` (config root, ADR-0013).
-Ns `bigbug` приложения (backend/frontend/секреты) — не здесь, это app chart (I6).
+инстансы приложений в собственных namespace. Сейчас — стек Keycloak (issue #57)
+и Harbor (issue #58). Платформа (ingress, операторы) — в `../base`; конфигурация
+сервисов через их API (realm, clients, Harbor projects/robots) — в `../..`
+(config root, ADR-0013). Ns `bigbug` приложения (backend/frontend/секреты) —
+не здесь, это app chart (I6).
 
 ## Состав
 
@@ -27,14 +28,33 @@ Chart `codecentric/keycloakx` 7.4.0 (Keycloak 26.8.1, pinned). БД — CNPG
 curl -fsS http://keycloak.local/realms/master   # → 200
 ```
 
+### Harbor (ns `harbor`, issue #58)
+
+Chart `goharbor/harbor` 1.19.4 (Harbor 2.15.4, pinned), values в
+`values/harbor.yaml`. Endpoint: `https://harbor.local` (TLS терминируется
+на haproxy-ingress, серт — секрет `tls-harbor-local` из `../../kind/certs/`,
+ADR-0030). Trivy и notary выключены, chartmuseum в chart 1.19.x отсутствует
+(удалён upstream). Registry-endpoint для docker — `harbor.local` (порт не
+нужен, дефолт 443); доверие хоста — `../../kind/trust-host.sh` +
+restart docker (insecure-registries не используются, ADR-0030 §4). Health:
+
+```bash
+curl -fsS https://harbor.local/api/v2.0/systeminfo   # → 200 (без -k)
+```
+
+Push/pull-проверка: `../../kind/test-push.sh`. После apps — config root
+(`cd .. && tofu apply`): projects/robots/webhooks против `https://harbor.local`.
+
 ## Применение (порядок обязателен)
 
 ```bash
+# 0. серты для *.local (до bootstrap; переживают infra-clean)
+../../kind/certs.sh && ../../kind/trust-host.sh   # trust-host требует sudo
 # 1. кластер + /etc/hosts
 ../../kind/bootstrap.sh
-# 2. платформа (CNPG operator + CRD, haproxy-ingress)
+# 2. платформа (CNPG operator + CRD, haproxy-ingress, CoreDNS *.local hosts)
 cd ../base && tofu init && tofu apply && cd ../apps
-# 3. app-инстансы (этот root)
+# 3. app-инстансы (этот root; требует секретов из шага 0 — harbor-tls.tf)
 tofu init && tofu apply
 ```
 
@@ -53,3 +73,17 @@ kubectl wait --context kind-bigbug-dev --for=condition=Ready \
 `../../kind/teardown.sh` удаляет кластер вместе со всеми данными (Postgres,
 Keycloak) — для dev-стенда потеря данных допустима. State остаётся локально;
 после пересоздания кластера применяйте base заново, затем apps.
+
+## Apply order (после пересоздания кластера)
+
+```bash
+./kind/certs.sh                      # 1. серты (переживают teardown)
+./kind/bootstrap.sh                  # 2. kind кластер + hosts
+cd terraform/base && tofu apply      # 3. платформа (ingress, операторы, coredns)
+cd terraform/apps && tofu apply -target=module.keycloak_init -target=module.harbor_init   # 4. инсталляции (chart'ы)
+cd terraform/apps && tofu apply      # 5. конфиг (realm, клиенты, harbor projects) — keycloak-провайдер требует живой Keycloak
+```
+
+State: общий local backend `~/.local/state/bigbug/{base,apps}/` (все ворктрии видят один стейт).
+
+Примечание: шаг 4 отдельной фазой нужен потому, что keycloak-провайдер логинится при plan/apply — конфиг-модули применяются только когда Keycloak отвечает (шаги 4→5 можно объединить повторным apply: `tofu apply -target=module.keycloak_init` уже создан → полный apply проходит).

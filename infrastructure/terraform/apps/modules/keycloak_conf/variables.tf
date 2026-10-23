@@ -4,9 +4,9 @@
  */
 
 variable "keycloak_url" {
-  description = "Keycloak server URL (e.g. http://keycloak.local)"
+  description = "Keycloak server URL (https per ADR-0030)"
   type        = string
-  default     = "http://keycloak.local"
+  default     = "https://keycloak.local"
 }
 
 variable "keycloak_admin_username" {
@@ -68,27 +68,27 @@ variable "harbor_client_secret" {
 }
 
 variable "harbor_redirect_uris" {
-  description = "Harbor valid redirect URIs"
+  description = "Harbor valid redirect URIs (https, no :30443 — ADR-0030 §8)"
   type        = list(string)
   default = [
-    "https://harbor.local:30443/c/oidc/callback",
-    "https://harbor.local:30443/*",
+    "https://harbor.local/c/oidc/callback",
+    "https://harbor.local/*",
   ]
 }
 
 variable "harbor_post_logout_redirect_uris" {
-  description = "Harbor valid post logout redirect URIs"
+  description = "Harbor valid post logout redirect URIs (https, no :30443 — ADR-0030 §8)"
   type        = list(string)
   default = [
-    "https://harbor.local:30443/c/oidc/logout",
-    "https://harbor.local:30443/",
+    "https://harbor.local/c/oidc/logout",
+    "https://harbor.local/",
   ]
 }
 
 variable "harbor_root_url" {
-  description = "Harbor root URL"
+  description = "Harbor root URL (https, no :30443 — ADR-0030 §8)"
   type        = string
-  default     = "https://harbor.local:30443"
+  default     = "https://harbor.local"
 }
 
 variable "test_user_username" {

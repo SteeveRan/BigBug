@@ -14,6 +14,7 @@ readonly HOSTS=(
   "harbor.local"
   "app.local"
   "api.local"
+  "gitlab.local"
 )
 
 GREEN='\033[0;32m'

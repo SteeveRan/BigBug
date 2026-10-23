@@ -28,13 +28,15 @@ extraEnv: |
       secretKeyRef:
         name: keycloak-admin-credentials
         key: password
-  # Dev: http behind ingress, no TLS (ADR-0022)
+  # TLS behind haproxy-ingress (ingress terminates, pod stays http — ADR-0030)
   - name: KC_HOSTNAME
     value: ${keycloak_hostname}
   - name: KC_HOSTNAME_STRICT
     value: "false"
   - name: KC_HOSTNAME_STRICT_HTTPS
     value: "false"
+  - name: KC_PROXY_HEADERS
+    value: "xforwarded"
 
 database:
   # CNPG operator secret (source of truth), ns keycloak
@@ -62,11 +64,18 @@ metrics:
   enabled: true
 
 # Ingress host keycloak.local -> service port http (haproxy ingressClass
-# default from base; nodePort mapping in ../../kind/kind-config.yaml)
+# default from base; nodePort mapping in ../../kind/kind-config.yaml).
+# TLS per ADR-0030: terminates on ingress with the tofu-managed
+# `tls-keycloak-local` secret (certs from ../../kind/certs.sh); Harbor OIDC
+# (oidc_verify_cert: true) depends on keycloak presenting this cert.
 ingress:
   enabled: true
   ingressClassName: haproxy
   servicePort: http
+  tls:
+    - secretName: tls-keycloak-local
+      hosts:
+        - ${keycloak_hostname}
   rules:
     - host: ${keycloak_hostname}
       paths:
