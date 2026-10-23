@@ -31,7 +31,7 @@
 | [ADR-0018](common/0018-e2e-testing-strategy.md) | proposed | E2E-стратегия: backend — pytest-suite против живого dev-стенда (CI-политика, отчёт покрытия эндпоинтов), frontend — Cypress как planned direction; удаление `docs/development/testing.md` | 2026-10-22 |
 | [ADR-0019](common/0019-makefile-tooling-single-entrypoint.md) | proposed | Developer tooling: корневой Makefile — единая точка входа (тонкая обёртка, `make help`); mypy в backend, knip во frontend, vulture в backend | 2026-10-21 |
 | [ADR-0024](common/0024-k8s-secrets.md) | proposed | Secrets в k8s: OpenTofu (kubernetes provider) управляет Secret'ами dev-стенда; e2e — только seeded-учётки из отдельного скрипта | 2026-10-22 |
-| [ADR-0028](common/0028-security-transport-cors-jwt-ttl.md) | proposed | Модель безопасности транспорта и периметра: TLS на reverse proxy, per-provider `verify_ssl`, CORS (hardcode dev-origin'ов), JWT TTL/refresh без server-side отзыва | 2026-10-22 |
+| [ADR-0028](common/0028-security-transport-cors-jwt-ttl.md) | proposed | Модель безопасности транспорта и периметра: TLS на reverse proxy, per-provider `verify_ssl`, CORS (env `CORS_ORIGINS` — триггер выноса сработал на kind-стенде), JWT TTL/refresh без server-side отзыва | 2026-10-22 |
 
 ### backend
 
@@ -68,6 +68,7 @@
 | [ADR-0022](infrastructure/0022-dev-stand-on-kind.md) | proposed | Dev-стенд на kind: единый кластер `bigbug-dev`, haproxy-ingress, операторы CNPG + redis-operator (инстансы — в apps-слое), keycloakx; GitLab omnibus остаётся в compose (исключение) | 2026-10-22 |
 | [ADR-0023](infrastructure/0023-bigbug-helm-chart.md) | proposed | Helm chart приложения BigBug: backend + frontend, external postgres/redis (CNPG/redis-operator), hot-reload через extraMounts, миграции — helm hook Job | 2026-10-22 |
 | [ADR-0029](infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) | proposed | In-cluster сущности через OpenTofu: root'ы `terraform/base` (платформа: ingress + только операторы CNPG/redis-operator, one-shot без внешних значений — на preprod как есть) и `terraform/apps` (инстансы сервисов + k8s-секреты приложения); кластер и hosts — императивно; 3 изолированных state'а, оркестрация init.sh | 2026-10-22 |
+| [ADR-0030](infrastructure/0030-dev-stand-https-self-signed-certs.md) | proposed | HTTPS на dev-стенде: per-service self-signed сертификаты через certs.sh (до бутстрапа, переживают пересоздание кластера), терминирование на haproxy-ingress, доверие — ConfigMap-инжект в поды + trust-host.sh пользователем; pod-to-pod HTTP; GitLab https://gitlab.local:8443 | 2026-10-23 |
 
 ## Правила для агентов
 
