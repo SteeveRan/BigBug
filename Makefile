@@ -37,6 +37,10 @@ help: ## Показать все доступные команды
 ##@ dev — дев-сборка приложения (postgres, redis, backend, frontend)
 # =============================================================================
 
+.PHONY: dev-migrate-check
+dev-migrate-check: ## Чек миграций ветки на чистой копии БД (multi-agent pre-merge)
+	./backend/scripts/migrate-check.sh $(DB)
+
 .PHONY: dev-build
 dev-build: ## Собрать образы приложения
 	$(COMPOSE_APP) build
@@ -55,7 +59,24 @@ dev-down: ## Остановить дев-стек (контейнеры сохр
 
 .PHONY: dev-clean
 dev-clean: ## Остановить дев-стек и удалить вольюмы (postgres/redis)
+	@if [ "$(CONFIRM)" != "yes" ]; then \
+		echo "ОШИБКА: dev-clean удаляет вольюмы postgres/redis общего стенда."; \
+		echo "Разрешено только владельцу инфры (см. AGENTS.md: Multi-agent discipline)."; \
+		echo "Запускайте: make dev-clean CONFIRM=yes"; \
+		exit 1; \
+	fi
 	$(COMPOSE_APP) down -v --remove-orphans
+
+.PHONY: dev-db-create
+dev-db-create: ## Создать БД на ворктрий в общем postgres (DB=feat_<branch>)
+	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-create DB=feat_<branch>"; exit 1; fi
+	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "CREATE DATABASE $(DB)"
+
+.PHONY: dev-db-drop
+dev-db-drop: ## Удалить БД ворктрия (DB=feat_<branch>)
+	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-drop DB=feat_<branch>"; exit 1; fi
+	@if [ "$(DB)" = "bigbug" ]; then echo "ОШИБКА: нельзя удалять каноническую БД bigbug."; exit 1; fi
+	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "DROP DATABASE IF EXISTS $(DB)"
 
 # =============================================================================
 ##@ infra — зависимости (keycloak, gitlab, harbor)
@@ -74,7 +95,14 @@ infra-down: ## Остановить инфраструктурные серви�
 	$(COMPOSE_INFRA) down
 
 .PHONY: infra-clean
-infra-clean: infra-clean-compose infra-clean-harbor infra-clean-tofu ## Полная чистка инфраструктуры (все сервисы)
+infra-clean: ## Полная чистка инфраструктуры (все сервисы)
+	@if [ "$(CONFIRM)" != "yes" ]; then \
+		echo "ОШИБКА: infra-clean удаляет kind-кластеры, вольюмы и tofu-стейт."; \
+		echo "Разрешено только владельцу инфры (см. AGENTS.md: Multi-agent discipline)."; \
+		echo "Запускайте: make infra-clean CONFIRM=yes"; \
+		exit 1; \
+	fi
+	$(MAKE) infra-clean-compose infra-clean-harbor infra-clean-tofu
 
 .PHONY: infra-clean-compose
 infra-clean-compose: ## Остановить keycloak/gitlab/postgres и удалить их вольюмы
