@@ -2,20 +2,28 @@
  * @file main.tf
  * @description App instances in the bigbug-dev kind cluster (ADR-0029).
  *
- * Scope: Keycloak stack only (issue #57) — own namespace, own CNPG Postgres
- * Cluster CR, keycloakx chart release with chart-managed Ingress.
+ * Scope: Keycloak stack (issue #57) — namespace, CNPG Postgres Cluster CR,
+ * keycloakx chart, realm/clients/roles/users config (modules/keycloak) —
+ * and Harbor (issue #58) — namespace, TLS secrets, chart release,
+ * API config (modules/harbor). Both API configs migrated from the
+ * deprecated config root (ADR-0013); gitlab config stays there for now.
+ *
  * The app namespace `bigbug` (backend/frontend/cache/app secrets) is NOT
- * here — it belongs to the app chart (I6).
+ * here — it belongs to the app chart (I6, #59).
  *
  * Platform layer (ingress, operators) lives in ../base (separate state).
- * Service configuration via their APIs (realm, clients) lives in ../
- * (config root, ADR-0013).
  *
  * Prerequisite (in order):
- *   1. kind cluster `bigbug-dev` — ../kind/bootstrap.sh
- *   2. base layer (CNPG operator + CRDs) — cd ../base && tofu apply
- *   3. this root: tofu init && tofu apply
+ *   1. certs for *.local + host trust — ../../kind/certs.sh && trust-host.sh
+ *   2. kind cluster `bigbug-dev` — ../../kind/bootstrap.sh
+ *   3. base layer (CNPG operator + CRDs, haproxy-ingress, CoreDNS) — cd ../base && tofu apply
+ *   4. this root: tofu init && tofu apply
  */
+
+# Certs dir lives outside the cluster lifecycle (ADR-0030 §3)
+locals {
+  certs_dir = "${path.module}/../../kind/certs"
+}
 
 terraform {
   required_version = ">= 1.5.0"
@@ -32,6 +40,10 @@ terraform {
     harbor = {
       source  = "goharbor/harbor"
       version = "~> 3.12"
+    }
+    keycloak = {
+      source  = "mrparkers/keycloak"
+      version = "~> 4.0"
     }
   }
 }
@@ -54,16 +66,80 @@ provider "harbor" {
   password = "Harbor12345"
 }
 
-# Harbor API configuration (projects/robots/registries/replications/webhooks +
-# OIDC auth) — migrated from the deprecated config root (ADR-0013 module),
-# per the config-root decommission plan; issues #58/#62.
-module "harbor" {
-  source = "./modules/harbor"
-
-  harbor_password    = "Harbor12345"
-  oidc_client_secret = "harbor-oidc-secret"
+provider "keycloak" {
+  client_id = "admin-cli"
+  username  = var.keycloak_admin_username
+  password  = var.keycloak_admin_password
+  url       = var.keycloak_url
 }
 
-resource "kubernetes_namespace" "keycloak" {
-  metadata { name = "keycloak" }
+# ── Harbor installation (ns, TLS secrets, chart) — issue #58 ────────────────
+module "harbor_init" {
+  source = "./modules/harbor_init"
+
+  providers = {
+    kubernetes = kubernetes
+    helm       = helm
+  }
+
+  certs_dir = local.certs_dir
+}
+
+# ── Keycloak installation (ns, TLS/admin secrets, CNPG CR, chart) — #57 ─────
+module "keycloak_init" {
+  source = "./modules/keycloak_init"
+
+  providers = {
+    kubernetes = kubernetes
+    helm       = helm
+  }
+
+  certs_dir               = local.certs_dir
+  keycloak_hostname       = var.keycloak_hostname
+  keycloak_admin_username = var.keycloak_admin_username
+  keycloak_admin_password = var.keycloak_admin_password
+  cnpg_storage_size       = var.cnpg_storage_size
+}
+
+# ── Keycloak config (realm/clients/roles/users) — migrated from config root ──
+module "keycloak_conf" {
+  source = "./modules/keycloak_conf"
+
+  providers = {
+    keycloak = keycloak
+  }
+
+  keycloak_url            = var.keycloak_url
+  keycloak_admin_username = var.keycloak_admin_username
+  keycloak_admin_password = var.keycloak_admin_password
+  realm_name              = var.realm_name
+
+  backend_client_id     = var.backend_client_id
+  backend_client_secret = var.backend_client_secret
+
+  frontend_client_id     = var.frontend_client_id
+  frontend_redirect_uris = var.frontend_redirect_uris
+
+  harbor_client_id                 = var.harbor_client_id
+  harbor_client_secret             = var.harbor_client_secret
+  harbor_redirect_uris             = var.harbor_redirect_uris
+  harbor_post_logout_redirect_uris = var.harbor_post_logout_redirect_uris
+  harbor_root_url                  = var.harbor_root_url
+
+  test_user_username = var.test_user_username
+  test_user_password = var.test_user_password
+  test_user_email    = var.test_user_email
+}
+
+# ── Harbor config (projects/robots/registries/replications/webhooks +
+#    OIDC auth) — migrated from the deprecated config root; issues #58/#62 ────
+module "harbor_conf" {
+  source = "./modules/harbor_conf"
+
+  providers = {
+    harbor = harbor
+  }
+
+  harbor_password    = "Harbor12345"
+  oidc_client_secret = var.harbor_client_secret
 }

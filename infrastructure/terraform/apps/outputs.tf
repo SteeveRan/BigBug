@@ -10,5 +10,5 @@ output "keycloak_url" {
 
 output "keycloak_namespace" {
   description = "Namespace where keycloakx runs"
-  value       = kubernetes_namespace.keycloak.metadata[0].name
+  value       = module.keycloak_init.namespace
 }
