@@ -29,19 +29,19 @@ backend/
 ```bash
 cd backend
 
-# Создать виртуальное окружение
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# или
-.venv\Scripts\activate  # Windows
+# Установить uv (если ещё не установлен)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Установить зависимости
-pip install -e .
-
-# Или с помощью uv (быстрее)
-pip install uv
-uv pip install -e .
+# Установить зависимости из uv.lock (создаёт .venv автоматически)
+uv sync
 ```
+
+### Запуск инструментов
+
+Все скрипты (`backend/scripts/`) вызывают инструменты через `uv run`, который
+сам синхронизирует `.venv` с `uv.lock` — вручную активировать окружение не нужно.
+
+Для разовых команд: `uv run python -m pytest`, `uv run python -m alembic upgrade head`.
 
 ### Переменные окружения
 
@@ -575,8 +575,8 @@ APScheduler для периодических задач:
 ### Проблемы с импортами
 
 ```bash
-# Переустановить зависимости
-pip install -e .
+# Пересоздать окружение с нуля
+rm -rf .venv && uv sync
 ```
 
 ### База данных не подключается

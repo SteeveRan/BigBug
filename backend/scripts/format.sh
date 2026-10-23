@@ -7,33 +7,33 @@
 #
 # Требования:
 #   - Python 3.14+ с виртуальным окружением (backend/.venv)
-#   - установлен ruff: pip install ruff
+#   - установлен ruff: uv sync
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
 cd "$BACKEND_DIR"
 
 echo "=== Formatting with ruff format ==="
-if "$VENV_PYTHON" -m ruff format app/ tests/ 2>&1; then
+if "${VENV_PYTHON[@]}" -m ruff format app/ tests/ 2>&1; then
     echo "Formatting complete."
 else
     echo "ПРЕДУПРЕЖДЕНИЕ: ruff format завершился с ошибкой (код $?)."
-    echo "Убедитесь, что ruff установлен: pip install ruff"
+    echo "Убедитесь, что ruff установлен: uv sync"
 fi
 
 echo ""
 echo "=== Fixing with ruff check --fix ==="
-if "$VENV_PYTHON" -m ruff check --fix app/ tests/ 2>&1; then
+if "${VENV_PYTHON[@]}" -m ruff check --fix app/ tests/ 2>&1; then
     echo "No issues found."
 else
     echo "ПРЕДУПРЕЖДЕНИЕ: ruff check нашёл ошибки, которые не удалось исправить автоматически."

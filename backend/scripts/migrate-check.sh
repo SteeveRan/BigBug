@@ -17,11 +17,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 DB_NAME="${1:-bigbug_migrate_check}"
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
@@ -40,7 +41,7 @@ cd "$BACKEND_DIR"
 
 # Прогоняем alembic с БД чека: подменяем имя БД в DATABASE_URL из окружения,
 # остальное (хост/пользователь) берётся из backend/.env как обычно.
-CHECK_URL="$("$VENV_PYTHON" -c "
+CHECK_URL="$("${VENV_PYTHON[@]}" -c "
 import sys
 sys.path.insert(0, '.')
 from app.config import settings
@@ -49,10 +50,10 @@ head, sep, _tail = url.rpartition('/')
 print(head + sep + '${DB_NAME}')
 ")"
 echo "=== Alembic upgrade head → ${DB_NAME} ==="
-DATABASE_URL="$CHECK_URL" "$VENV_PYTHON" -m alembic upgrade head
+DATABASE_URL="$CHECK_URL" "${VENV_PYTHON[@]}" -m alembic upgrade head
 
 echo "=== Текущая ревизия ==="
-DATABASE_URL="$CHECK_URL" "$VENV_PYTHON" -m alembic current
+DATABASE_URL="$CHECK_URL" "${VENV_PYTHON[@]}" -m alembic current
 
 echo ""
 echo "=== OK: все миграции ветки накатываются на чистую БД (${DB_NAME}) ==="

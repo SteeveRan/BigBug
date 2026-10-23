@@ -17,13 +17,13 @@
 #
 # Требования:
 #   - Python 3.14+ с виртуальным окружением (backend/.venv)
-#   - установлен vulture (dev-зависимость: pip install -e '.[dev]')
+#   - установлен vulture (dev-зависимость: uv sync)
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="${BACKEND_DIR}/.venv/bin/python"
+VENV_PYTHON=(uv run --project "$BACKEND_DIR" python)
 WHITELIST="${BACKEND_DIR}/vulture-whitelist.py"
 REPORT_DIR="${BACKEND_DIR}/reports"
 REPORT_FILE="${REPORT_DIR}/vulture-report.txt"
@@ -32,9 +32,9 @@ REPORT_FILE="${REPORT_DIR}/vulture-report.txt"
 # аргументом командной строки (последний переданный --min-confidence побеждает).
 MIN_CONFIDENCE="${VULTURE_MIN_CONFIDENCE:-60}"
 
-if [ ! -x "$VENV_PYTHON" ]; then
-    echo "ОШИБКА: виртуальное окружение не найдено ($VENV_PYTHON)" >&2
-    echo "Создайте: python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'" >&2
+if ! command -v uv >/dev/null 2>&1; then
+    echo "ОШИБКА: uv не установлен"
+    echo "Установите: curl -LsSf https://astral.sh/uv/install.sh | sh"
     exit 1
 fi
 
@@ -55,7 +55,7 @@ echo "=== Running vulture (min-confidence ${MIN_CONFIDENCE}) ==="
 
 # vulture возвращает ExitCode.DeadCode (3) при наличии находок — не роняем скрипт.
 set +e
-"$VENV_PYTHON" -m vulture \
+"${VENV_PYTHON[@]}" -m vulture \
     --min-confidence "$MIN_CONFIDENCE" \
     --ignore-decorators '@router.*,@app.*' \
     --exclude 'alembic/versions*,*versions_backup*' \
