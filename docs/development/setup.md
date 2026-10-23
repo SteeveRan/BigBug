@@ -7,6 +7,7 @@
 - **Node.js** LTS ([ADR-0002](../adr/frontend/0002-frontend-stack-react-antd-rtk.md); dev-контейнеры собираются на node:20-alpine)
 - **Docker** & **Docker Compose** (compose-слой: GitLab; остальное — kind, [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md))
 - **Git**
+- **gitleaks** (сканирование секретов; `make secrets-scan`) — ставьте **свежий release**: `brew install gitleaks` или бинарник с [github.com/gitleaks/gitleaks/releases](https://github.com/gitleaks/gitleaks/releases) в PATH. ⚠️ Пакет `gitleaks` из apt дистрибутива устарел (старые правила дают неверные результаты) — не используйте его.
 
 ### Optional
 - **OpenTofu** (для Keycloak/GitLab инициализации)
@@ -26,6 +27,7 @@ make dev-up        # postgres, redis, backend, frontend
 make help          # полный список команд
 make test-all      # все тесты
 make lint          # линт обоих стеков
+make secrets-scan  # сканирование полной git-истории на секреты
 ```
 
 ### 1. Clone Repository
@@ -78,6 +80,8 @@ ADMIN_PASSWORD=admin
 pip install pre-commit
 pre-commit install   # включает gitleaks hook на каждый коммит
 ```
+
+Разовый полный скан истории: `make secrets-scan` (требует gitleaks в PATH — см. Required выше).
 
 ### 3. Backend Setup
 
