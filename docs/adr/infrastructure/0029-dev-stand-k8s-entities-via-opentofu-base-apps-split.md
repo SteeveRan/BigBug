@@ -90,3 +90,21 @@ OpenTofu управляет **всем содержимым kind-кластер�
 3. **apps = 4 модуля**: `harbor_init` (ns, TLS-секреты, chart), `harbor_conf` (API-конфиг), `keycloak_init` (ns, TLS/admin-секреты, CNPG CR, chart), `keycloak_conf` (realm/clients/roles/users). Провайдеры пробрасываются из root (`providers = {}`), в модулях собственных `provider`-блоков нет.
 
 Следствие: apply apps **двухфазный** — `tofu apply -target=module.keycloak_init -target=module.harbor_init`, затем полный apply. Причина: keycloak-провайдер выполняет логин при plan/apply, а Keycloak ставится тем же apply. После первой фазы повторный полный apply идемпотентен и проходит одной командой. init.sh (шаг 8) исполняет: base → apps(фаза 1) → wait Keycloak → apps(полный) → config.
+
+## Update 2026-10-23 (#80): поглощение инструментального ядра ADR-0013
+
+[ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) разрастался: он одновременно про выбор IaC-инструмента, state и границу императивного, и про три сервиса (Keycloak, Harbor, GitLab). После ADR-0022/0029/0030 его сервисные решения разъехались с фактической топологией. Разборка (issue #80):
+
+1. **Сервисные решения вынесены в отдельные ADR** (каждый — фактическое состояние своей зоны):
+   - [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) — GitLab: compose-исключение, https://gitlab.local:8443, config root, PAT-исключение;
+   - [ADR-0034](0034-keycloak-dev-stand-keycloakx.md) — Keycloak: keycloakx + CNPG + keycloak_conf;
+   - [ADR-0035](0035-harbor-dev-stand-chart.md) — Harbor: chart + harbor_conf.
+
+2. **Инструментальное ядро ADR-0013 поглощается этим ADR** (отдельный IaC-ADR не создаётся):
+   - *Выбор OpenTofu* — MPL 2.0 против BUSL 1.1 Terraform, drop-in совместимость с Terraform-провайдерами (keycloak/harbor/gitlab/helm/kubernetes) — см. Decision Drivers и Alternatives ADR-0013; rationale переносится сюда как есть.
+   - *State backend* — политика «общий local state `~/.local/state/bigbug/<root>/terraform.tfstate` для всех worktree машины» — update #58 выше; здесь не дублируется.
+   - *Граница «императивно vs декларативно»* — общий принцип: tofu управляет всем декларативным (k8s-сущности, API-конфигурация сервисов); императивно — только то, что tofu не может сделать сам или что должно жить вне жизненного цикла стенда (kind-кластер, /etc/hosts, self-signed серты). **Класс исключений**: bootstrap рабочих кредов через внутренние инструменты сервиса (GitLab PAT через `gitlab-rails runner`, ADR-0033 §4) — задокументированные постоянные исключения, а не грязь.
+
+3. **init flow не дублируется** ни здесь, ни в сервисных ADR — он живёт в [`infrastructure/init.sh`](../../../infrastructure/init.sh) + roadmap #61 (переписывание под kind-поток).
+
+4. После accept сервисных ADR человеком ADR-0013 архивируется (статус superseded, взаимные ссылки) — выполняет **#62**; этим issue он не архивируется.

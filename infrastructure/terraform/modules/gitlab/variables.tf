@@ -4,9 +4,15 @@
  */
 
 variable "gitlab_url" {
-  description = "GitLab instance URL (e.g. http://localhost:8080)"
+  description = "GitLab instance URL (https omnibus — ADR-0030 §9)"
   type        = string
-  default     = "http://localhost:8080"
+  default     = "https://gitlab.local:8443"
+}
+
+variable "gitlab_ca_cert" {
+  description = "Path to GitLab TLS cert (self-signed from kind/certs.sh); empty string disables CA pinning"
+  type        = string
+  default     = "../../kind/certs/gitlab.local/tls.crt"
 }
 
 variable "gitlab_token" {

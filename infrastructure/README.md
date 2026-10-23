@@ -6,10 +6,9 @@
 
 This directory contains everything needed to spin up a complete BigBug development environment from scratch:
 
-- **Docker Compose** — infrastructure services (Keycloak, GitLab, GitLab Runner)
-- **OpenTofu modules** — declarative Keycloak, Harbor, and GitLab **base setup** (groups, users, projects, tokens, memberships)
-- **Root OpenTofu config** — single `tofu apply` orchestrating all modules
-- **Harbor in kind** — local OCI registry for testing
+- **Docker Compose** — GitLab zone only: GitLab CE omnibus + GitLab Runner ([ADR-0033](../docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md)); Keycloak/Harbor/app — в kind-кластере `bigbug-dev` ([ADR-0022](../docs/adr/infrastructure/0022-dev-stand-on-kind.md))
+- **OpenTofu roots** ([ADR-0029](../docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): `terraform/base` (платформа кластера), `terraform/apps` (keycloakx + CNPG, Harbor chart + их API-конфиг), `terraform/` config root (GitLab base setup — [ADR-0033](../docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md))
+- **kind scripts** — cluster bootstrap, self-signed certs ([ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md)), host trust
 - **Automation scripts** — one-command environment initialization
 
 > **Provisioning GitLab CI/CD Components и пайплайнов теперь делает само приложение**
@@ -28,7 +27,8 @@ This directory contains everything needed to spin up a complete BigBug developme
 | _or_ Terraform | 1.5+ | [terraform.io](https://www.terraform.io/downloads) |
 | curl | any | package manager |
 | jq | 1.6+ | [jqlang.github.io](https://jqlang.github.io/jq/download/) |
-| kind | 0.20+ (optional) | [kind.sigs.k8s.io](https://kind.sigs.k8s.io/) — for Harbor |
+| kind | 0.20+ | [kind.sigs.k8s.io](https://kind.sigs.k8s.io/) |
+| kubectl, helm, openssl | any | package manager |
 
 ## Quick Start
 
@@ -50,34 +50,38 @@ Direct invocation:
 
 This single command will:
 
-1. Check all dependencies
-2. Start infrastructure services (Keycloak, GitLab, GitLab Runner) via `infrastructure/docker-compose.yml`
-3. Wait for Keycloak and GitLab to be healthy
-4. Deploy Harbor in kind (if kind is installed and cluster doesn't exist)
-5. Initialize all infrastructure via a single `tofu apply` (Keycloak → Harbor → GitLab)
-6. Update `.env` with generated tokens and secrets
-7. Start application services (backend + frontend) via root `docker-compose.yml`
+1. Check all dependencies (docker, kind, kubectl, tofu/terraform, curl, jq, openssl)
+2. Ensure self-signed TLS certs (`kind/certs.sh`, [ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md))
+3. Start the GitLab compose zone (gitlab + gitlab-runner)
+4. Wait for GitLab (`https://gitlab.local:8443`) and bootstrap the kind cluster `bigbug-dev`
+5. `tofu apply`: base (platform) → apps (Keycloak/Harbor, two-phase) → config root (GitLab)
+6. Verify / program the GitLab root PAT (`gitlab-rails runner` — ADR-0033 exception)
+7. Update `.env` with host-tool variables
 
 After completion, access:
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| Frontend UI | http://localhost:5173 | bigbug / bigbug |
-| Backend API | http://localhost:8000 | — |
-| Keycloak | http://localhost:8180 | admin / admin |
-| GitLab | http://localhost:8080 | root / see container logs |
+| Keycloak | https://keycloak.local | admin / admin |
+| Harbor | https://harbor.local | admin / Harbor12345 |
+| GitLab | https://gitlab.local:8443 | root / see `infrastructure/.env` |
+| Frontend UI / Backend API | https://app.local / https://api.local | bigbug / bigbug |
 
 ## Directory Structure
 
 ```
 infrastructure/
-├── terraform/           # Root OpenTofu module + sub-modules (keycloak, harbor, gitlab)
-├── harbor/              # Harbor deployment in kind
+├── terraform/             # Config root: GitLab base setup (ADR-0033)
+│   ├── base/              # Root: platform (ingress, operators) — ADR-0029
+│   ├── apps/              # Root: keycloakx+CNPG, Harbor chart + API config — ADR-0029
+│   └── modules/gitlab/    # GitLab module (group, service-account, membership)
+├── kind/                  # kind cluster scripts: bootstrap, certs, trust
+├── harbor/                # LEGACY (cluster эпоха) — подлежит сносу (#62)
 ├── gitlab-components/
-│   └── examples/        # GitLab CI/CD component templates (examples only — not used by the app)
-├── docker-compose.yml   # Infrastructure services (keycloak, gitlab, gitlab-runner)
-├── init.sh              # Full initialization script
-└── update-env.sh        # Update .env from OpenTofu outputs
+│   └── examples/          # GitLab CI/CD component templates (examples only — not used by the app)
+├── docker-compose.yml     # GitLab zone (gitlab + gitlab-runner) — ADR-0033
+├── init.sh                # Full initialization script
+└── update-env.sh          # Update .env with host-tool variables
 ```
 
 ## Manual Step-by-Step
@@ -96,20 +100,21 @@ Wait for all services to be healthy:
 docker compose -f infrastructure/docker-compose.yml ps
 ```
 
-### 2. Initialize Infrastructure via OpenTofu
+### 2. Apply OpenTofu (base → apps → config)
 
 ```bash
-cd infrastructure/terraform
+cd infrastructure/terraform/base && tofu init && tofu apply && cd ../..
 
-# Copy and customize variables
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars:
-#   - Set gitlab_token to your GitLab root PAT
-#   - Customize other values as needed
-
-# Apply all modules (Keycloak → Harbor → GitLab)
+cd infrastructure/terraform/apps
+cp ../terraform.tfvars.example apps/terraform.tfvars 2>/dev/null || true
 tofu init
-tofu apply
+tofu apply -target=module.keycloak_init -target=module.harbor_init   # phase 1: installs
+tofu apply                                                           # phase 2: config
+
+cd ..   # config root (GitLab)
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars: set gitlab_token (GitLab root PAT)
+tofu init && tofu apply
 ```
 
 ### 3. Update Environment
@@ -119,38 +124,9 @@ cd ../..
 ./infrastructure/update-env.sh
 ```
 
-### 4. Start Application
+## Harbor (in kind, apps root)
 
-```bash
-docker compose up -d
-```
-
-## Harbor (Optional)
-
-Harbor runs as a separate kind cluster for local OCI registry testing.
-
-### Deploy
-
-```bash
-./infrastructure/harbor/deploy.sh
-```
-
-The script automatically:
-- Checks dependencies (kind, kubectl, helm, docker)
-- Adds `harbor.local` to `/etc/hosts`
-- Configures Docker insecure registry
-- Creates a kind cluster with port mappings
-- Installs Harbor via Helm
-
-### Remove
-
-```bash
-# Remove cluster only
-./infrastructure/harbor/teardown.sh
-
-# Remove cluster + /etc/hosts entry
-./infrastructure/harbor/teardown.sh --all
-```
+Harbor runs in the `bigbug-dev` kind cluster behind the TLS ingress. Install/config live in `infrastructure/terraform/apps/modules/harbor_init|harbor_conf` — no separate deploy script. See [ADR-0035](../docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) and `terraform/apps/README.md`. Legacy `infrastructure/harbor/` (separate-cluster era) is pending removal — #62.
 
 ## Updating Configuration
 
@@ -169,29 +145,28 @@ cd ../..
 ## Destroying Environment
 
 ```bash
-# Stop application
-docker compose down
+# Stop GitLab compose zone (volumes preserved)
+docker compose -f infrastructure/docker-compose.yml down
 
-# Destroy OpenTofu-managed resources
-cd infrastructure/terraform && tofu destroy
+# Destroy OpenTofu-managed resources (per root)
+cd infrastructure/terraform/base && tofu destroy && cd ../apps && tofu destroy && cd .. && tofu destroy && cd ../..
 
-# Stop infrastructure and remove volumes
-docker compose -f infrastructure/docker-compose.yml down -v
+# Full cleanup (CONFIRM-guarded, owner only): make infra-clean
 ```
 
 ## Troubleshooting
 
-### Keycloak not reachable
+### GitLab not reachable / TLS errors
 
 ```bash
-# Check container status
-docker compose -f infrastructure/docker-compose.yml ps keycloak
+# Certs must exist before compose up (init.sh runs certs.sh first)
+ls infrastructure/kind/certs/gitlab.local/     # tls.crt tls.key
 
-# Check logs
-docker compose -f infrastructure/docker-compose.yml logs keycloak
+# Logs
+docker compose -f infrastructure/docker-compose.yml logs -f gitlab
 
-# Keycloak needs postgres-keycloak to be healthy first
-docker compose -f infrastructure/docker-compose.yml restart postgres-keycloak keycloak
+# Readiness (self-signed: -k in scripts, host trust via kind/trust-host.sh)
+curl -k https://gitlab.local:8443/users/sign_in
 ```
 
 ### GitLab takes too long to start
@@ -203,7 +178,7 @@ GitLab CE requires significant resources and can take 5+ minutes on first boot.
 docker compose -f infrastructure/docker-compose.yml logs -f gitlab
 
 # Check readiness endpoint
-curl -v http://localhost:8080/users/sign_in
+curl -vk https://gitlab.local:8443/users/sign_in
 ```
 
 ### OpenTofu state issues
@@ -226,21 +201,19 @@ Default ports can conflict with local services:
 
 | Port | Service | Change via |
 |------|---------|------------|
-| 5432 | postgres-backend | root `docker-compose.yml` |
-| 5433 | postgres-keycloak | `infrastructure/docker-compose.yml` |
-| 6379 | redis | root `docker-compose.yml` |
-| 8080 | gitlab | `infrastructure/docker-compose.yml` + `terraform.tfvars` |
-| 8180 | keycloak | `infrastructure/docker-compose.yml` + `terraform.tfvars` |
-| 8000 | backend | root `docker-compose.yml` |
-| 5173 | frontend | root `docker-compose.yml` |
+| 5432 | postgres-backend (CNPG CR in kind) | terraform/apps |
+| 6379 | redis (CR in kind) | terraform/apps |
+| 8443 | gitlab (https, ADR-0033) | `infrastructure/docker-compose.yml` |
+| 2222 | gitlab ssh | `infrastructure/docker-compose.yml` |
+| 80/443 | ingress (keycloak.local, harbor.local, app.local, api.local) | kind extraPortMappings |
+| 8000/5173 | backend/frontend (app chart in kind) | charts/bigbug |
 
 ### Terraform state files
 
 ```bash
-# State files are now centralized:
-infrastructure/terraform/terraform.tfstate
-infrastructure/terraform/terraform.tfstate.backup
+# State lives in the shared local backend (ADR-0029 update #58):
+~/.local/state/bigbug/{base,apps,}/terraform.tfstate
 
 # Backup
-cp infrastructure/terraform/terraform.tfstate backups/terraform_$(date +%Y%m%d).tfstate
+cp ~/.local/state/bigbug/apps/terraform.tfstate backups/terraform_apps_$(date +%Y%m%d).tfstate
 ```

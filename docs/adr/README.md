@@ -71,6 +71,9 @@
 | [ADR-0030](infrastructure/0030-dev-stand-https-self-signed-certs.md) | proposed | HTTPS на dev-стенде: per-service self-signed сертификаты через certs.sh (до бутстрапа, переживают пересоздание кластера), терминирование на haproxy-ingress, доверие — ConfigMap-инжект в поды + trust-host.sh пользователем; pod-to-pod HTTP; GitLab https://gitlab.local:8443 | 2026-10-23 |
 | [ADR-0031](backend/0031-uv-package-manager.md) | proposed | uv как менеджер окружений и пакетов backend: `uv sync` + коммитнутый `uv.lock`, dev-зависимости в PEP 735 `[dependency-groups]`, `.python-version` = 3.14, Docker-сборка `uv sync --frozen --no-dev` из пиннутого uv-образа | 2026-10-23 |
 | [ADR-0032](common/0032-adopt-gitleaks-secret-scanning.md) | proposed | Adopt gitleaks secret scanning: pre-commit (staged-only) + blocking CI + full-history scan, allowlist вместо inline-маркеров, ротация обязательна — история git не переписывается | 2026-10-23 |
+| [ADR-0033](infrastructure/0033-gitlab-dev-stand-compose-omnibus.md) | proposed | GitLab в dev-стенде: compose-исключение (CE omnibus + gitlab-runner, docker.sock executor), TLS https://gitlab.local:8443 (серт из certs.sh), config root OpenTofu = GitLab-only, PAT bootstrap — задокументированное императивное исключение | 2026-10-23 |
+| [ADR-0034](infrastructure/0034-keycloak-dev-stand-keycloakx.md) | proposed | Keycloak в dev-стенде (фактическое): keycloakx 7.4.0 в kind, БД — CNPG, realm/clients/roles/users через apps root (keycloak_init/keycloak_conf, двухфазный apply), admin-секреты через tofu | 2026-10-23 |
+| [ADR-0035](infrastructure/0035-harbor-dev-stand-chart.md) | proposed | Harbor в dev-стенде (фактическое): chart 1.19.4 в kind за TLS-ingress, OIDC secret из keycloak_conf, projects/robots/registries/replication/webhooks через harbor_conf | 2026-10-23 |
 
 ## Правила для агентов
 
