@@ -1,10 +1,10 @@
 """
 @file test_sync_scheduler.py
 @description Unit tests for SyncScheduler — job scheduling, removal, error handling,
-             concurrency control, and invalid cron validation.
+              and invalid cron validation. Jobs are enqueue-only (ADR-0039):
+              each pass takes the job-pass lock and enqueues one taskiq task.
 @dependencies pytest, pytest-asyncio, unittest.mock, apscheduler
-@relatedFiles ../../app/services/sync_scheduler.py, ../../app/services/mirror.py,
-              ../../app/services/sync_group.py
+@relatedFiles ../../app/services/sync_scheduler.py, ../../app/tasks/sync_tasks.py
 """
 
 import asyncio
@@ -276,174 +276,92 @@ class TestInvalidCron:
 
 
 # ---------------------------------------------------------------------------
-# Test semaphore / concurrency
+# Test job coroutines — enqueue-only (ADR-0039)
 # ---------------------------------------------------------------------------
 
 
-class TestConcurrency:
-    """Tests for asyncio.Semaphore-based concurrency control."""
-
-    def test_semaphore_created_with_correct_value(self):
-        """_get_semaphore creates a semaphore with the group's concurrency."""
-        factory, _ = _mock_session_factory()
-        scheduler = SyncScheduler(factory)
-
-        sem = scheduler._get_semaphore(1, 5)
-        assert isinstance(sem, asyncio.Semaphore)
-        assert sem._value == 5  # internal counter
-
-    def test_semaphore_reused_for_same_group(self):
-        """_get_semaphore returns the same semaphore for the same group."""
-        factory, _ = _mock_session_factory()
-        scheduler = SyncScheduler(factory)
-
-        sem1 = scheduler._get_semaphore(1, 5)
-        sem2 = scheduler._get_semaphore(1, 10)  # concurrency ignored after creation
-        assert sem1 is sem2
-
-    def test_semaphore_minimum_one(self):
-        """Concurrency is clamped to at least 1."""
-        factory, _ = _mock_session_factory()
-        scheduler = SyncScheduler(factory)
-
-        sem = scheduler._get_semaphore(1, 0)
-        assert sem._value == 1
-
-        sem2 = scheduler._get_semaphore(2, -5)
-        assert sem2._value == 1
-
-
-# ---------------------------------------------------------------------------
-# Test error handling in job coroutines
-# ---------------------------------------------------------------------------
-
-
-class TestJobErrorHandling:
-    """Tests that individual mirror errors don't break the whole group."""
+class TestJobBodiesEnqueueOnly:
+    """Job coroutines must lock the pass and enqueue a task — never run logic."""
 
     @pytest.mark.asyncio
-    async def test_run_sync_handles_mirror_error_gracefully(self):
-        """One failing mirror doesn't prevent other mirrors from syncing."""
-        factory, mock_db = _mock_session_factory()
-
-        from app.models.mirror import Mirror
-
-        mirrors = [
-            MagicMock(spec=Mirror, id=1),
-            MagicMock(spec=Mirror, id=2),
-            MagicMock(spec=Mirror, id=3),
-        ]
-
-        # First mirror succeeds, second fails, third succeeds
-        call_count = 0
-
-        async def _trigger_sync(db, mirror_id, user_id, username):
-            nonlocal call_count
-            call_count += 1
-            if mirror_id == 2:
-                raise RuntimeError("Simulated gitlab failure")
-            return MagicMock()
+    async def test_run_sync_for_group_enqueues_task(self):
+        """_run_sync_for_group acquires the pass lock and enqueues sync_group_task."""
+        factory, _ = _mock_session_factory()
+        scheduler = SyncScheduler(factory)
 
         with (
             patch(
-                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-                new_callable=AsyncMock,
-                return_value=mirrors,
-            ),
+                "app.services.sync_scheduler.job_pass_lock",
+                return_value=contextlib.nullcontext(enter_result=True),
+            ) as mock_lock,
             patch(
-                "app.services.sync_scheduler.MirrorService.trigger_sync",
-                side_effect=_trigger_sync,
-            ),
-            patch(
-                "app.services.sync_scheduler.SyncScheduler._resolve_user_id",
-                new_callable=AsyncMock,
-                return_value=1,
-            ),
+                "app.services.sync_scheduler.sync_group_task",
+            ) as mock_task,
+            patch("app.services.sync_scheduler.enqueue", new_callable=AsyncMock) as mock_enqueue,
         ):
-            scheduler = SyncScheduler(factory)
-            await scheduler._run_sync_for_group(1, 3)
+            await scheduler._run_sync_for_group(1, 5)
 
-            # All three mirrors should have been attempted
-            assert call_count == 3
+            mock_lock.assert_called_once_with("sync_group_1")
+            mock_enqueue.assert_awaited_once_with(mock_task, 1, 5)
 
     @pytest.mark.asyncio
-    async def test_run_freshness_handles_mirror_error_gracefully(self):
-        """One failing freshness check doesn't prevent other mirrors from
-        being checked."""
-        factory, mock_db = _mock_session_factory()
-
-        from app.models.mirror import Mirror
-
-        mirrors = [
-            MagicMock(spec=Mirror, id=1),
-            MagicMock(spec=Mirror, id=2),
-        ]
-
-        call_count = 0
-
-        async def _check_freshness(db, mirror_id, username):
-            nonlocal call_count
-            call_count += 1
-            if mirror_id == 1:
-                raise RuntimeError("Simulated provider failure")
-            return MagicMock()
+    async def test_run_freshness_for_group_enqueues_task(self):
+        """_run_freshness_for_group acquires the pass lock and enqueues
+        freshness_group_task."""
+        factory, _ = _mock_session_factory()
+        scheduler = SyncScheduler(factory)
 
         with (
             patch(
-                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-                new_callable=AsyncMock,
-                return_value=mirrors,
-            ),
+                "app.services.sync_scheduler.job_pass_lock",
+                return_value=contextlib.nullcontext(enter_result=True),
+            ) as mock_lock,
             patch(
-                "app.services.sync_scheduler.MirrorService.check_freshness",
-                side_effect=_check_freshness,
-            ),
+                "app.services.sync_scheduler.freshness_group_task",
+            ) as mock_task,
+            patch("app.services.sync_scheduler.enqueue", new_callable=AsyncMock) as mock_enqueue,
         ):
-            scheduler = SyncScheduler(factory)
-            await scheduler._run_freshness_for_group(1, 2)
+            await scheduler._run_freshness_for_group(2, 3)
 
-            assert call_count == 2
+            mock_lock.assert_called_once_with("freshness_group_2")
+            mock_enqueue.assert_awaited_once_with(mock_task, 2, 3)
 
     @pytest.mark.asyncio
-    async def test_run_sync_empty_mirrors_noop(self):
-        """When a group has no mirrors, _run_sync_for_group logs and returns."""
-        factory, mock_db = _mock_session_factory()
+    async def test_lock_skip_prevents_double_enqueue(self):
+        """When the pass lock is held elsewhere, no task is enqueued."""
+        factory, _ = _mock_session_factory()
+        scheduler = SyncScheduler(factory)
 
         with (
             patch(
-                "app.services.sync_scheduler.MirrorService.get_mirrors_by_group",
-                new_callable=AsyncMock,
-                return_value=[],
+                "app.services.sync_scheduler.job_pass_lock",
+                return_value=contextlib.nullcontext(enter_result=False),
+            ),
+            patch("app.services.sync_scheduler.enqueue", new_callable=AsyncMock) as mock_enqueue,
+        ):
+            await scheduler._run_sync_for_group(1, 5)
+            await scheduler._run_freshness_for_group(1, 5)
+
+        mock_enqueue.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_run_sync_for_group_no_business_logic(self):
+        """No service/session work in the job body — MirrorService is untouched."""
+        factory, _ = _mock_session_factory()
+        scheduler = SyncScheduler(factory)
+
+        with (
+            patch(
+                "app.services.sync_scheduler.job_pass_lock",
+                return_value=contextlib.nullcontext(enter_result=True),
             ),
             patch(
-                "app.services.sync_scheduler.MirrorService.trigger_sync",
+                "app.services.mirror.MirrorService.trigger_sync",
                 new_callable=AsyncMock,
             ) as mock_trigger,
+            patch("app.services.sync_scheduler.enqueue", new_callable=AsyncMock),
         ):
-            scheduler = SyncScheduler(factory)
-            await scheduler._run_sync_for_group(1, 3)
+            await scheduler._run_sync_for_group(1, 5)
 
-            mock_trigger.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# Test _resolve_user_id
-# ---------------------------------------------------------------------------
-
-
-class TestResolveUserID:
-    """Tests for _resolve_user_id caching and fallback."""
-
-    @pytest.mark.asyncio
-    async def test_resolve_returns_cached_value(self):
-        """Second call returns cached user_id without querying DB."""
-        factory, mock_db = _mock_session_factory()
-        scheduler = SyncScheduler(factory)
-
-        # Pre-cache
-        scheduler._system_user_id = 42
-
-        user_id = await scheduler._resolve_user_id(mock_db)
-        assert user_id == 42
-        # No DB queries should be executed
-        mock_db.execute.assert_not_called()
+        mock_trigger.assert_not_called()
+        factory.assert_not_called()
