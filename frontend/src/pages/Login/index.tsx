@@ -17,7 +17,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [login, { isLoading }] = useLoginMutation();
-  const { ready, enabled, login: ssoLogin } = useKeycloakAuth();
+  const { ready, enabled, providers, login: ssoLogin } = useKeycloakAuth();
 
   // Propagate error query param from SSO callback failures.
   useEffect(() => {
@@ -89,14 +89,18 @@ export function LoginPage() {
             </Flex>
           </form>
 
-          {/* SSO button — shown only when the backend reports SSO is enabled
-              and the config has finished loading. */}
-          {ready && enabled && (
+          {/* SSO buttons — one per enabled provider; shown only when the
+              backend reports SSO is enabled and the list is non-empty. */}
+          {ready && enabled && providers.length > 0 && (
             <>
               <Divider>or</Divider>
-              <Button block size="large" onClick={ssoLogin}>
-                Sign in with SSO
-              </Button>
+              <Flex vertical gap="small">
+                {providers.map((provider) => (
+                  <Button key={provider.id} block size="large" onClick={() => ssoLogin(provider)}>
+                    Sign in with {provider.name}
+                  </Button>
+                ))}
+              </Flex>
             </>
           )}
         </Flex>

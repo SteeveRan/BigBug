@@ -371,10 +371,13 @@ export interface ScopeItemRequest {
   provider_id?: number;
 }
 
-// ──── OIDC Configuration Types ─────────────────────────────────────────────
+// ──── OIDC Provider Types (multi-provider, see issue #98/#99) ──────────────
 
-export interface OIDCConfig {
+/** Admin view of one OIDC provider row. */
+export interface OIDCProvider {
   id: number;
+  name: string;
+  /** Full issuer URI (RFC 8414), e.g. https://kc.example.com/realms/myrealm */
   issuer_url: string;
   client_id: string;
   client_secret: string; // будет "********" в ответе
@@ -382,18 +385,38 @@ export interface OIDCConfig {
   enabled: boolean;
   public_url: string | null;
   role_mapping: Record<string, string>;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface OIDCConfigUpdate {
-  issuer_url?: string;
-  client_id?: string;
+export interface OIDCProviderCreate {
+  name: string;
+  issuer_url: string;
+  client_id: string;
   client_secret?: string;
   frontend_client_id?: string;
   enabled?: boolean;
   public_url?: string | null;
   role_mapping?: Record<string, string>;
+  sort_order?: number;
+}
+
+export type OIDCProviderUpdate = Partial<OIDCProviderCreate>;
+
+/** Public (non-admin) bootstrap entry for one SSO provider. */
+export interface SSOProviderPublic {
+  id: number;
+  name: string;
+  url: string;
+  realm: string;
+  client_id: string;
+}
+
+/** GET /auth/sso/config — master-switch + list of enabled providers. */
+export interface SSOConfig {
+  enabled: boolean;
+  providers: SSOProviderPublic[];
 }
 
 // ──── Pipeline Run Types ──────────────────────────────────────────────────

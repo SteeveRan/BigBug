@@ -47,13 +47,26 @@ beforeEach(() => {
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
+const providerA = {
+  id: 1,
+  name: 'Provider A',
+  url: 'https://kc.example.com',
+  realm: 'r1',
+  client_id: 'c1',
+};
+const providerB = {
+  id: 2,
+  name: 'Provider B',
+  url: 'https://other.example.com',
+  realm: 'r2',
+  client_id: 'c2',
+};
+
 const mockSsoConfig = (overrides: Record<string, unknown> = {}) => {
   (useGetSsoConfigQuery as ReturnType<typeof vi.fn>).mockReturnValue({
     data: {
       enabled: true,
-      url: 'https://kc.example.com',
-      realm: 'myrealm',
-      client_id: 'myclient',
+      providers: [providerA],
       ...overrides,
     },
     isLoading: false,
@@ -64,7 +77,7 @@ const mockSsoConfig = (overrides: Record<string, unknown> = {}) => {
 
 // ─── Tests ───────────────────────────────────────────────────────────────
 describe('useKeycloakAuth', () => {
-  it('returns ready=true when config is loaded (SSO enabled)', async () => {
+  it('returns ready=true with providers when SSO is enabled', async () => {
     mockSsoConfig();
 
     const { result } = renderHook(() => useKeycloakAuth());
@@ -74,10 +87,11 @@ describe('useKeycloakAuth', () => {
     });
 
     expect(result.current.enabled).toBe(true);
+    expect(result.current.providers).toEqual([providerA]);
     expect(result.current.error).toBeNull();
   });
 
-  it('returns ready=true but enabled=false when config.enabled=false', async () => {
+  it('returns enabled=false when config.enabled=false (master switch)', async () => {
     mockSsoConfig({ enabled: false });
 
     const { result } = renderHook(() => useKeycloakAuth());
@@ -87,6 +101,20 @@ describe('useKeycloakAuth', () => {
     });
 
     expect(result.current.enabled).toBe(false);
+    expect(result.current.providers).toEqual([]);
+  });
+
+  it('returns enabled=false when the provider list is empty', async () => {
+    mockSsoConfig({ providers: [] });
+
+    const { result } = renderHook(() => useKeycloakAuth());
+
+    await waitFor(() => {
+      expect(result.current.ready).toBe(true);
+    });
+
+    expect(result.current.enabled).toBe(false);
+    expect(result.current.providers).toEqual([]);
   });
 
   it('returns ready=true but enabled=false when config is null (error)', async () => {
@@ -106,8 +134,8 @@ describe('useKeycloakAuth', () => {
     expect(result.current.enabled).toBe(false);
   });
 
-  it('login() build a redirect URL and sets window.location.href', async () => {
-    mockSsoConfig();
+  it('login(provider) builds a redirect URL for that provider', async () => {
+    mockSsoConfig({ providers: [providerA, providerB] });
 
     const { result } = renderHook(() => useKeycloakAuth());
 
@@ -117,13 +145,13 @@ describe('useKeycloakAuth', () => {
 
     // login() redirects the browser — catches the "never" promise
     try {
-      await result.current.login();
+      await result.current.login(providerB);
     } catch {
       // Expected
     }
 
     expect(window.location.href).toContain(
-      'https://kc.example.com/realms/myrealm/protocol/openid-connect/auth'
+      'https://other.example.com/realms/r2/protocol/openid-connect/auth'
     );
     expect(window.location.href).toContain('response_type=code');
     expect(window.location.href).toContain('code_challenge_method=S256');
@@ -132,7 +160,7 @@ describe('useKeycloakAuth', () => {
     );
   });
 
-  it('login() is a no-op when SSO is not enabled', async () => {
+  it('login() is a no-op when no provider is given', async () => {
     mockSsoConfig({ enabled: false });
 
     const { result } = renderHook(() => useKeycloakAuth());
@@ -141,18 +169,19 @@ describe('useKeycloakAuth', () => {
       expect(result.current.ready).toBe(true);
     });
 
-    await result.current.login();
+    await result.current.login(undefined as never);
     expect(window.location.href).toBe('');
   });
 
-  it('handleCallback() extracts code from URL and verifier from sessionStorage', () => {
+  it('handleCallback() extracts code, verifier and provider_id (state wins)', () => {
     mockSsoConfig();
 
-    // Simulate callback URL
-    window.location.search = '?code=auth-code-123&session_state=abc';
+    // Simulate callback URL with state carrying the provider_id
+    window.location.search = '?code=auth-code-123&state=2';
 
-    // Pre-populate sessionStorage with a verifier
+    // Pre-populate sessionStorage with a verifier and a (stale) provider id
     mockStorage['sso_code_verifier'] = 'my-verifier';
+    mockStorage['sso_provider_id'] = '1';
 
     const { result } = renderHook(() => useKeycloakAuth());
 
@@ -163,7 +192,23 @@ describe('useKeycloakAuth', () => {
       code: 'auth-code-123',
       redirect_uri: `${DEFAULT_ORIGIN}/sso/callback`,
       code_verifier: 'my-verifier',
+      provider_id: 2,
+      state: '2',
     });
+  });
+
+  it('handleCallback() falls back to sessionStorage provider_id when state is absent', () => {
+    mockSsoConfig();
+
+    window.location.search = '?code=auth-code-123';
+    mockStorage['sso_code_verifier'] = 'my-verifier';
+    mockStorage['sso_provider_id'] = '7';
+
+    const { result } = renderHook(() => useKeycloakAuth());
+
+    const payload = result.current.handleCallback();
+    expect('provider_id' in payload && payload.provider_id).toBe(7);
+    expect('state' in payload && payload.state).toBe('7');
   });
 
   it('handleCallback() returns error when ?error=access_denied is present', () => {
@@ -195,7 +240,7 @@ describe('useKeycloakAuth', () => {
   it('handleCallback() returns error when verifier is not in sessionStorage', () => {
     mockSsoConfig();
 
-    window.location.search = '?code=some-code';
+    window.location.search = '?code=some-code&state=1';
 
     const { result } = renderHook(() => useKeycloakAuth());
 
@@ -203,5 +248,19 @@ describe('useKeycloakAuth', () => {
 
     expect('error' in payload).toBe(true);
     expect((payload as { error: string }).error).toContain('code_verifier not found');
+  });
+
+  it('handleCallback() returns error when provider_id is missing entirely', () => {
+    mockSsoConfig();
+
+    window.location.search = '?code=some-code';
+    mockStorage['sso_code_verifier'] = 'my-verifier';
+
+    const { result } = renderHook(() => useKeycloakAuth());
+
+    const payload = result.current.handleCallback();
+
+    expect('error' in payload).toBe(true);
+    expect((payload as { error: string }).error).toContain('provider_id missing');
   });
 });

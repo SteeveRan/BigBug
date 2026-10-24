@@ -5,6 +5,8 @@ import {
   computeCodeChallenge,
   redirectToKeycloakLogin,
   SSO_VERIFIER_KEY,
+  SSO_PROVIDER_KEY,
+  buildState,
   base64UrlEncode,
 } from '../../services/keycloak';
 
@@ -117,13 +119,14 @@ describe('redirectToKeycloakLogin', () => {
     vi.stubGlobal('location', { href: '', assign: vi.fn() });
   });
 
-  it('stores the code_verifier in sessionStorage', async () => {
+  it('stores the code_verifier and provider_id in sessionStorage', async () => {
     try {
       await redirectToKeycloakLogin(
         'https://kc.example.com',
         'r',
         'c',
-        'https://app.example.com/callback'
+        'https://app.example.com/callback',
+        7
       );
     } catch {
       // Promise<never> — не должно выполняться после редиректа
@@ -134,15 +137,17 @@ describe('redirectToKeycloakLogin', () => {
     expect(storedValue).toBeDefined();
     expect(storedValue!.length).toBeGreaterThan(0);
     expect(storedValue).not.toContain('=');
+    expect(mockStorage[SSO_PROVIDER_KEY]).toBe('7');
   });
 
-  it('builds a URL with PKCE parameters', async () => {
+  it('builds a URL with PKCE parameters and state=provider_id', async () => {
     try {
       await redirectToKeycloakLogin(
         'https://kc.example.com',
         'r',
         'c',
-        'https://app.example.com/sso/callback'
+        'https://app.example.com/sso/callback',
+        42
       );
     } catch {
       // ожидаемо
@@ -158,5 +163,13 @@ describe('redirectToKeycloakLogin', () => {
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('scope')).toBe('openid profile email');
     expect(url.searchParams.get('code_challenge')).toBeTruthy();
+    expect(url.searchParams.get('state')).toBe('42');
+  });
+});
+
+describe('buildState', () => {
+  it('returns the provider id as a string', () => {
+    expect(buildState(1)).toBe('1');
+    expect(buildState(123)).toBe('123');
   });
 });

@@ -18,7 +18,7 @@ import './api/helm-charts';
 import './api/docker-images';
 import './api/admin-users';
 import './api/admin-rbac';
-import './api/oidc-config';
+import './api/oidc-providers';
 import './api/pipelines';
 import './api/pipeline-configs';
 import './api/components';
@@ -143,8 +143,13 @@ export {
   useRemoveRoleScopeItemMutation,
 } from './api/admin-rbac';
 
-// OIDC Config
-export { useGetOidcConfigQuery, useUpdateOidcConfigMutation } from './api/oidc-config';
+// OIDC Providers (admin CRUD)
+export {
+  useGetOidcProvidersQuery,
+  useCreateOidcProviderMutation,
+  useUpdateOidcProviderMutation,
+  useDeleteOidcProviderMutation,
+} from './api/oidc-providers';
 
 // Pipeline Runs
 export {
