@@ -59,7 +59,7 @@ jobs:
 
       - uses: terraform-linters/setup-tflint@v5
         with:
-          tflint_version: ">= 0.65"
+          tflint_version: v0.65.0
 
       - name: tofu fmt -check
         run: tofu fmt -check -recursive infrastructure/terraform
