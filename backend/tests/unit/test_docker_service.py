@@ -1,5 +1,5 @@
 """
-@file test_docker_service.py
+@file
 @description Unit tests for DockerRegistryService — import_source_from_url,
              index_source, _fetch_tags, _resolve_manifest_digest,
              _normalize_registry_url.
