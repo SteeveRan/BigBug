@@ -66,6 +66,10 @@ CI-шаблоны — in-code пресеты `gold_image` и `app_image` из [A
 
 ### Расписания: APScheduler
 
+> **Примечание (ADR-0039)**: исполнение тел джоб переезжает в task-очередь (taskiq + Redis Streams);
+> APScheduler остаётся только планировщиком (enqueue-only). Семантика расписаний не меняется —
+> `SyncSchedule` / `BuildSchedule` остаются доменными данными PostgreSQL.
+
 `SchedulerService` (`backend/app/services/scheduler.py`) — один in-process `AsyncIOScheduler` (запускается в lifespan `main.py`) с job-ами `sync_all`, `build_all` (cron из `settings.default_build_cron`), `cleanup`. Job `build_all` каждое срабатывание сканирует все `BuildSchedule.is_enabled=True` и для каждого проверяет `next_run_at > now` — per-image cron фактически эмулируется проверкой `next_run_at` на общем тике, а не отдельным APScheduler-job на расписание.
 
 Ограничение (осознанное): планировщик триггерит сборку с фиксированными `version_tag="latest"`, `arch="amd64"` — параметризованные scheduled-сборки (версия из git tag, matrix arch) не реализованы; при появлении сценария — расширение `BuildSchedule` отдельным решением.
