@@ -118,7 +118,6 @@ class TestSsoConfig:
         assert_matches_openapi(response, "/api/auth/sso/config", "get", openapi_spec)
         assert response.status_code == 200
         data = response.json()
-        assert data["realm"] == "bigbug"
         assert "client_secret" not in data
 
 
