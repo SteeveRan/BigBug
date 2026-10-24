@@ -128,7 +128,7 @@ See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 | `dev-*` | `make dev-up`, `make dev-down`, `make dev-clean` (dev-build — сборка dev-образов) |
 | `infra-*` | `make infra-up`, `make infra-init`, `make infra-clean` |
 | `test-*` | `make test-unit-backend`, `make test-e2e-backend`, `make test-all` |
-| `lint-*`/`format-*`/`typecheck-*` | `make lint`, `make format`, `make typecheck` |
+| `lint-*`/`format-*`/`typecheck-*` | `make lint`, `make lint-infra`, `make format`, `make typecheck` |
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
@@ -459,11 +459,14 @@ make test-unit-frontend TEST_ARGS="-f Pipelines -t 'should trigger'"
 
 **Агентам**: использовать `make` (скрипты загружают правильное окружение):
 ```bash
+make lint        # ruff check + eslint + lint-infra (tofu fmt -check, tflint, tofu validate, yamllint)
+make lint-infra  # инфра-срез: lint-terraform (tofu + tflint) + lint-helm (yamllint)
 make format      # ruff format + prettier
-make lint        # ruff check + eslint
 make typecheck   # mypy + tsc --noEmit
 make dead-code   # vulture + knip
 ```
+
+CI: GitHub Actions workflow [`.github/workflows/lint.yml`](.github/workflows/lint.yml) гоняет те же проверки параллельными джобами (backend, frontend, terraform: tofu 1.13.2 + tflint >= 0.65, helm-yaml: yamllint >= 1.38) на `push` в `main` и всех `pull_request`. Инфра-линтинг конфигурируется `.tflint.hcl` и `.yamllint` в корне (см. [ADR-0038](docs/adr/common/0038-linting-infra-tflint-yamllint.md)).
 
 ### Adding New API Endpoint
 

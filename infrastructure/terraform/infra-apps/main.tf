@@ -142,10 +142,8 @@ module "keycloak_conf" {
     keycloak = keycloak
   }
 
-  keycloak_url            = var.keycloak_url
-  keycloak_admin_username = var.keycloak_admin_username
-  keycloak_admin_password = var.keycloak_admin_password
-  realm_name              = var.realm_name
+  keycloak_url = var.keycloak_url
+  realm_name   = var.realm_name
 
   backend_client_id     = var.backend_client_id
   backend_client_secret = var.backend_client_secret
@@ -173,6 +171,5 @@ module "harbor_conf" {
     harbor = harbor
   }
 
-  harbor_password    = "Harbor12345"
   oidc_client_secret = var.harbor_client_secret
 }

@@ -1,0 +1,104 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      # lint.sh проглатывает exit-код ruff (всегда 0) — в CI нужен жёсткий фейл
+      - name: ruff check
+        working-directory: backend
+        run: uv run --project . python -m ruff check app/ tests/
+
+      - name: mypy
+        run: ./backend/scripts/type-check.sh
+
+  frontend:
+    name: Frontend lint (eslint + tsc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable corepack (yarn Berry)
+        run: corepack enable
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: yarn install --immutable
+
+      - name: eslint
+        working-directory: frontend
+        run: yarn run lint
+
+      - name: tsc --noEmit
+        working-directory: frontend
+        run: yarn run type-check
+
+  terraform:
+    name: OpenTofu lint (fmt + tflint + validate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: opentofu/setup-tofu@v1
+        with:
+          tofu_version: 1.13.2
+
+      - uses: terraform-linters/setup-tflint@v5
+        with:
+          tflint_version: ">= 0.65"
+
+      - name: tofu fmt -check
+        run: tofu fmt -check -recursive infrastructure/terraform
+
+      - name: tflint --recursive
+        run: tflint --recursive
+
+      - name: tofu validate (base, infra-apps, apps)
+        run: |
+          set -e
+          for root in base infra-apps apps; do
+            echo ">>> tofu validate: $root"
+            (cd "infrastructure/terraform/$root" \
+              && tofu init -backend=false -input=false >/dev/null \
+              && tofu validate)
+          done
+
+  helm-yaml:
+    name: Helm values lint (yamllint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install yamllint
+        run: pip install "yamllint>=1.38"
+
+      - name: yamllint
+        run: |
+          set -e
+          files=$(find infrastructure -name '*.yaml' | sort)
+          [ -n "$files" ] && yamllint $files

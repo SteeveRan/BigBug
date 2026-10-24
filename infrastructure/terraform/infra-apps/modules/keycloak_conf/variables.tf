@@ -9,19 +9,6 @@ variable "keycloak_url" {
   default     = "https://keycloak.local"
 }
 
-variable "keycloak_admin_username" {
-  description = "Keycloak admin username"
-  type        = string
-  default     = "admin"
-  sensitive   = true
-}
-
-variable "keycloak_admin_password" {
-  description = "Keycloak admin password"
-  type        = string
-  sensitive   = true
-}
-
 variable "realm_name" {
   description = "Keycloak realm name"
   type        = string

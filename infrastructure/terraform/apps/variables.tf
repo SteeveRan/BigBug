@@ -21,12 +21,6 @@ variable "cnpg_storage_size" {
   default     = "5Gi"
 }
 
-variable "keycloak_url" {
-  description = "Keycloak server URL (keycloakx in kind, https://keycloak.local — ADR-0030)"
-  type        = string
-  default     = "https://keycloak.local"
-}
-
 variable "backend_client_id" {
   description = "OIDC client ID for BigBug backend (client lives in infra-apps/keycloak_conf)"
   type        = string
