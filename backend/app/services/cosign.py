@@ -37,6 +37,9 @@ class CosignService:
         Returns: {"signed": True, "image": image_reference}
         """
         try:
+            # shortcut: cosign has no custom-CA flag, provider trust_store_id
+            # is not injected (system trust only); upgrade when cosign grows a
+            # CA-bundle flag (ADR-0037 known gaps).
             process = await asyncio.create_subprocess_exec(
                 "cosign",
                 "sign",

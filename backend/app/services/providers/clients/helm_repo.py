@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import ssl
+
 import httpx
 import yaml
 
@@ -23,6 +25,7 @@ class HelmRepoClient:
         verify_ssl: bool = True,
         index_path: str = "/index.yaml",
         transport: httpx.AsyncBaseTransport | None = None,
+        ssl_context: bool | str | ssl.SSLContext | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.index_url = f"{self.base_url}{index_path}"
@@ -30,12 +33,14 @@ class HelmRepoClient:
         self._username = username
         self._verify_ssl = verify_ssl
         self._transport = transport
+        self._ssl_context = ssl_context
 
     def _client(self) -> httpx.AsyncClient:
         return make_client(
             verify_ssl=self._verify_ssl,
             transport=self._transport,
             auth=build_auth(self._secret, self._username),
+            ssl_context=self._ssl_context,
         )
 
     async def _fetch_index(self) -> dict:

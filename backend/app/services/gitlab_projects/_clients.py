@@ -18,12 +18,17 @@ from app.core.secrets import decrypt_secret
 from app.models.resource_provider import ProviderSubtype, ResourceProvider
 
 
-def get_provider_gitlab_client(provider: ResourceProvider) -> gitlab.Gitlab:
+def get_provider_gitlab_client(
+    provider: ResourceProvider, ssl_verify: bool | str | None = None
+) -> gitlab.Gitlab:
     """Create a python-gitlab client for a ResourceProvider (git/gitlab).
 
     The provider's secret lives in its linked credential (Providers V3:
     secrets are stored only in ``credentials``). Public providers without a
-    credential get an anonymous client.
+    credential get an anonymous client. ``ssl_verify`` (ADR-0037) overrides the
+    provider flag when given — callers with a DB session pass
+    ``trust_store_tls.provider_ssl_verify(db, provider)`` to trust a bound
+    TrustStore; ``None`` keeps the plain bool flag.
     """
     token: str | None = None
     if provider.credential is not None and provider.credential.encrypted_secret:
@@ -31,7 +36,7 @@ def get_provider_gitlab_client(provider: ResourceProvider) -> gitlab.Gitlab:
     return gitlab.Gitlab(
         url=provider.base_url,
         private_token=token,
-        ssl_verify=provider.verify_ssl,
+        ssl_verify=provider.verify_ssl if ssl_verify is None else ssl_verify,
         user_agent="BigBug/1.0",
     )
 

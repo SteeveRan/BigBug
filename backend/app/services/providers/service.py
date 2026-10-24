@@ -37,6 +37,7 @@ from app.services.providers.clients.git_github import GitHubClient
 from app.services.providers.clients.git_gitlab import GitLabClient
 from app.services.providers.clients.helm_repo import HelmRepoClient
 from app.services.providers.registry import get_spec
+from app.services.trust_store_tls import provider_httpx_verify
 
 # Status flags (unified convention, matches integrations.py)
 STATUS_OK = 0
@@ -581,43 +582,44 @@ class ProviderService:
 
     async def _dispatch_test(self, provider: ResourceProvider, secret: str | None) -> dict:
         subtype = provider.subtype
+        verify = await provider_httpx_verify(self.db, provider)
         if subtype == ProviderSubtype.github:
             return await GitHubClient(
                 api_url=(provider.config or {}).get("api_url", "https://api.github.com"),
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
+                ssl_context=verify,
             ).test_connection()
         if subtype == ProviderSubtype.gitlab:
             return await GitLabClient(
                 base_url=provider.base_url,
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
+                ssl_context=verify,
             ).test_connection()
         if subtype == ProviderSubtype.generic_git:
             return await GenericGitClient(
                 base_url=provider.base_url,
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
+                ssl_context=verify,
             ).test_connection()
         if subtype == ProviderSubtype.harbor:
             return await HarborClient(
                 base_url=provider.base_url,
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
+                ssl_context=verify,
             ).test_connection()
         if subtype == ProviderSubtype.helm_repo:
             return await HelmRepoClient(
                 base_url=provider.base_url,
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
                 index_path=(provider.config or {}).get("index_path", "/index.yaml"),
+                ssl_context=verify,
             ).test_connection()
         # docker subtypes
         return await registry_client_for_subtype(
             subtype.value,
             base_url=provider.base_url,
             secret=secret,
-            verify_ssl=provider.verify_ssl,
+            ssl_context=verify,
         ).test_connection()
 
     async def _dispatch(
@@ -628,12 +630,16 @@ class ProviderService:
         params: dict,
     ) -> dict:
         subtype = provider.subtype
+        # ADR-0037: verify (False / env-system / store SSLContext) injected into
+        # every client — previously GenericGitClient/HarborClient here also lost
+        # the plain verify_ssl flag.
+        verify = await provider_httpx_verify(self.db, provider)
         items: list[dict] = []
         if subtype == ProviderSubtype.github:
             client = GitHubClient(
                 api_url=(provider.config or {}).get("api_url", "https://api.github.com"),
                 secret=secret,
-                verify_ssl=provider.verify_ssl,
+                ssl_context=verify,
             )
             if action == ProviderCapability.list_groups:
                 items = await client.list_groups()
@@ -644,9 +650,7 @@ class ProviderService:
                     await client.get_commit(params.get("repo_external_id", ""), params.get("ref"))
                 ]
         elif subtype == ProviderSubtype.gitlab:
-            client = GitLabClient(
-                base_url=provider.base_url, secret=secret, verify_ssl=provider.verify_ssl
-            )
+            client = GitLabClient(base_url=provider.base_url, secret=secret, ssl_context=verify)
             if action == ProviderCapability.list_groups:
                 items = await client.list_groups()
             elif action == ProviderCapability.list_repositories:
@@ -656,11 +660,11 @@ class ProviderService:
                     await client.get_commit(params.get("repo_external_id", ""), params.get("ref"))
                 ]
         elif subtype == ProviderSubtype.generic_git:
-            client = GenericGitClient(base_url=provider.base_url, secret=secret)
+            client = GenericGitClient(base_url=provider.base_url, secret=secret, ssl_context=verify)
             if action == ProviderCapability.list_repositories:
                 items = await client.list_repositories(params.get("group_external_id", ""))
         elif subtype == ProviderSubtype.harbor:
-            client = HarborClient(base_url=provider.base_url, secret=secret)
+            client = HarborClient(base_url=provider.base_url, secret=secret, ssl_context=verify)
             if action == ProviderCapability.list_projects:
                 items = await client.list_projects()
             elif action == ProviderCapability.list_repositories:
@@ -670,12 +674,13 @@ class ProviderService:
                 base_url=provider.base_url,
                 secret=secret,
                 index_path=(provider.config or {}).get("index_path", "/index.yaml"),
+                ssl_context=verify,
             )
             if action == ProviderCapability.list_charts:
                 items = await client.list_charts((provider.config or {}).get("chart_allowlist"))
         else:
             client = registry_client_for_subtype(
-                subtype.value, base_url=provider.base_url, secret=secret
+                subtype.value, base_url=provider.base_url, secret=secret, ssl_context=verify
             )
             if action == ProviderCapability.list_repositories:
                 repos = await client.list_repositories(

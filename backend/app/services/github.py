@@ -120,6 +120,10 @@ class GitHubService:
                 return Github(token, **kwargs)
             return Github(**kwargs)
 
+        # shortcut: PyGithub has no custom-CA API, provider trust_store_id is
+        # ignored here (system trust or verify_ssl=false only); upgrade when
+        # a PyGithub release adds ssl_verify/CA support (ADR-0037 known gaps).
+
         # Backward-compatible fallback
         if settings.github_token:
             return Github(settings.github_token)

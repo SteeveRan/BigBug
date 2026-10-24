@@ -25,6 +25,7 @@ from app.models.resource_provider import (
     ProviderSubtype,
     ResourceProvider,
 )
+from app.services.trust_store_tls import provider_ssl_verify
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ class OrphanedMirrorService:
                 gl = _gitlab_module.Gitlab(
                     url=provider.base_url,
                     private_token=token,
-                    ssl_verify=provider.verify_ssl,
+                    ssl_verify=await provider_ssl_verify(db, provider),
                     user_agent="BigBug/1.0",
                 )
 

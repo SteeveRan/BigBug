@@ -124,6 +124,7 @@ class TestInit:
         mock_gitlab_cls.assert_called_once_with(
             url="https://gitlab.example.com",
             private_token="test-token-123",
+            ssl_verify=True,
         )
 
     @pytest.mark.asyncio
@@ -142,6 +143,7 @@ class TestInit:
         mock_gitlab_cls.assert_called_once_with(
             url="https://gitlab.com",
             private_token="test-token-123",
+            ssl_verify=True,
         )
 
     @pytest.mark.asyncio
@@ -166,6 +168,7 @@ class TestInit:
         mock_gitlab_cls.assert_called_once_with(
             url="https://gitlab.com",
             private_token="test-token-123",
+            ssl_verify=True,
         )
 
     def test_repr_hides_token(self):
@@ -1112,6 +1115,7 @@ class TestAnonymousMode:
         mock_gitlab_cls.assert_called_once_with(
             url="https://gitlab.com",
             private_token=None,
+            ssl_verify=True,
         )
 
     @pytest.mark.asyncio

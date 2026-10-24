@@ -51,6 +51,7 @@ from app.services.audit import AuditService
 from app.services.pipeline import trigger_pipeline  # standalone async function
 from app.services.source_providers import create_source_provider
 from app.services.source_repository import resolve_repo_provider
+from app.services.trust_store_tls import provider_ssl_verify
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +136,7 @@ async def _get_source_repo_or_404(db: AsyncSession, sr_id: int) -> SourceReposit
     return repo
 
 
-async def _build_repo_provider(repo: SourceRepository) -> Any:
+async def _build_repo_provider(repo: SourceRepository, db: AsyncSession | None = None) -> Any:
     """Build the V2 provider client for a repo from its ResourceProvider."""
     provider_obj, secret = await resolve_repo_provider(repo)
     if provider_obj is None:
@@ -143,7 +144,7 @@ async def _build_repo_provider(repo: SourceRepository) -> Any:
             f"SourceRepository {repo.id} has no linked provider",
             status_code=400,
         )
-    return await create_source_provider(provider_obj, secret)
+    return await create_source_provider(provider_obj, secret, db)
 
 
 async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
@@ -159,12 +160,15 @@ async def _get_sync_group_or_404(db: AsyncSession, sg_id: int) -> SyncGroup:
     return sg
 
 
-def _target_gitlab_client(pipeline: PipelineModel) -> _gitlab_module.Gitlab:
+def _target_gitlab_client(
+    pipeline: PipelineModel, ssl_verify: bool | str | None = None
+) -> _gitlab_module.Gitlab:
     """Build a python-gitlab client for a Pipeline's target.
 
     Providers V3 (phase 7A): the target is ``pipeline.provider``
     (gitlab/system/internal ResourceProvider). Credential must be eager-loaded
-    by the caller.
+    by the caller. ``ssl_verify`` (ADR-0037) overrides the provider flag when
+    given (bundle path of a bound TrustStore).
     """
     provider = pipeline.provider
     if provider is None:
@@ -180,7 +184,7 @@ def _target_gitlab_client(pipeline: PipelineModel) -> _gitlab_module.Gitlab:
     return _gitlab_module.Gitlab(
         url=provider.base_url,
         private_token=token,
-        ssl_verify=provider.verify_ssl,
+        ssl_verify=provider.verify_ssl if ssl_verify is None else ssl_verify,
         user_agent="BigBug/1.0",
     )
 
@@ -650,7 +654,7 @@ class MirrorService:
                 credential = getattr(provider_obj, "credential", None)
                 if credential is not None and credential.encrypted_secret:
                     credential_secret = decrypt_secret(credential.encrypted_secret)
-                gh_provider = await create_source_provider(provider_obj, credential_secret)
+                gh_provider = await create_source_provider(provider_obj, credential_secret, db)
 
                 # Extract owner/repo from source_url
                 # source_url examples: https://github.com/owner/repo.git
@@ -1416,7 +1420,7 @@ class MirrorService:
         error_message: str | None = None
 
         try:
-            gh_provider = await create_source_provider(provider_obj, credential_secret)
+            gh_provider = await create_source_provider(provider_obj, credential_secret, db)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await gh_provider.get_commit_info(repo_external_id)
 
@@ -1702,7 +1706,7 @@ class MirrorService:
         source_sha: str | None = None
 
         try:
-            provider = await create_source_provider(src_provider_obj, src_secret)
+            provider = await create_source_provider(src_provider_obj, src_secret, db)
             repo_external_id = sr.full_name or sr.external_id
             commit_info = await provider.get_commit_info(repo_external_id)
             source_sha = commit_info.get("sha")
@@ -1740,7 +1744,9 @@ class MirrorService:
                 status_code=400,
             )
         pipeline_cfg = mirror.sync_group.pipeline
-        gl = _target_gitlab_client(pipeline_cfg)
+        gl = _target_gitlab_client(
+            pipeline_cfg, ssl_verify=await provider_ssl_verify(db, pipeline_cfg.provider)
+        )
 
         # ── Fetch target HEAD commit via python-gitlab ──────────────
         target_sha: str | None = None

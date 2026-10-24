@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import ssl
+
 import httpx
 
 from app.core.http import ssl_verify
@@ -46,15 +48,20 @@ def make_client(
     transport: httpx.AsyncBaseTransport | None = None,
     auth: httpx.Auth | None = None,
     headers: dict[str, str] | None = None,
+    ssl_context: bool | str | ssl.SSLContext | None = None,
 ) -> httpx.AsyncClient:
     """Build an ``httpx.AsyncClient`` with a stable timeout.
 
     ``transport`` is injectable so tests can use ``httpx.MockTransport`` without
     monkey-patching network calls. ``headers`` are applied to every request.
+    ``ssl_context`` (ADR-0037) overrides the default computation when given:
+    an :class:`ssl.SSLContext` built from a provider trust store, a CA bundle
+    path, or ``False``.
     """
+    verify = ssl_context if ssl_context is not None else (ssl_verify() if verify_ssl else False)
     return httpx.AsyncClient(
         timeout=DEFAULT_TIMEOUT,
-        verify=ssl_verify() if verify_ssl else False,
+        verify=verify,
         transport=transport,
         auth=auth,
         headers=headers,

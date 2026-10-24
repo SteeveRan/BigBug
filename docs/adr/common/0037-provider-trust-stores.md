@@ -101,13 +101,13 @@ erDiagram
 
 ### Confirmation
 
-* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе; валидный серт, подписанный им, проходит, системный — отклоняется), а провайдер без стора — системный контекст. Появится с реализацией #90 как `backend/tests/unit/test_provider_trust_store_ssl.py` (имя зафиксировано для #90):
+* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе), а провайдер без стора — системный контекст; `verify_ssl=false` главнее стора. Реализован в #90 как `backend/tests/unit/test_trust_store_tls.py`:
 
 ```bash
-make test-unit-backend TEST_ARGS="tests/unit/test_provider_trust_store_ssl.py -v"
+make test-unit-backend TEST_ARGS="tests/unit/test_trust_store_tls.py -v"
 ```
 
-Ожидаемый результат: зелёный; при удалении инъекции контекста из `_http.py` — падает.
+Ожидаемый результат: зелёный; при удалении инъекции контекста из `_http.py`/`trust_store_tls.py` — падает.
 
 * **RESTRICT + 409** (unit): тест удаляет стор, на который ссылается провайдер → `IntegrityError`/`DomainError` транслируется в 409 с перечнем провайдеров. Появится как кейс в `backend/tests/unit/test_trust_store_service.py` (имя для #89):
 

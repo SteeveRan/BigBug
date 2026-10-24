@@ -341,6 +341,7 @@ async def push_pipeline_ci(
     bound pipelines project (host-validated)."""
     from app.services.gitlab_projects._clients import get_provider_gitlab_client
     from app.services.gitlab_projects._files import upsert_file
+    from app.services.trust_store_tls import provider_ssl_verify
 
     pipeline = await get_pipeline_config(db, pipeline_id)
     if pipeline is None:
@@ -361,7 +362,7 @@ async def push_pipeline_ci(
     provider = project.provider
     if provider is None:
         raise DomainError("Pipeline project has no provider", 404)
-    gl = get_provider_gitlab_client(provider)
+    gl = get_provider_gitlab_client(provider, ssl_verify=await provider_ssl_verify(db, provider))
     result = await upsert_file(
         gl,
         project.full_path,

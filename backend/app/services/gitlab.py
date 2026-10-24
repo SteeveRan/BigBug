@@ -94,7 +94,9 @@ class GitLabService:
     # Client factory
     # ------------------------------------------------------------------
 
-    def _get_client(self, provider: ResourceProvider | None = None) -> gitlab.Gitlab:
+    def _get_client(
+        self, provider: ResourceProvider | None = None, ssl_verify: bool | str | None = None
+    ) -> gitlab.Gitlab:
         """
         Build a python-gitlab client.
 
@@ -102,6 +104,9 @@ class GitLabService:
         1. ``provider`` — use its base_url and *decrypted* credential secret.
         2. ``settings.gitlab_url`` and ``settings.gitlab_token`` (fallback).
         3. ``settings.gitlab_url`` without auth.
+
+        ``ssl_verify`` (ADR-0037) overrides the provider flag when given
+        (bundle path of a bound TrustStore).
         """
         if provider is not None:
             token: str | None = None
@@ -110,7 +115,7 @@ class GitLabService:
             return gitlab.Gitlab(
                 provider.base_url,
                 private_token=token or None,
-                ssl_verify=provider.verify_ssl,
+                ssl_verify=provider.verify_ssl if ssl_verify is None else ssl_verify,
             )
 
         # Backward-compatible fallback

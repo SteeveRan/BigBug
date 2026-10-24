@@ -309,10 +309,17 @@ class GitLabSourceProvider(BaseSourceProvider):
             base_url = self.provider.credential.base_url.rstrip("/")
 
         self._base_url = base_url
+        # ADR-0037: adapter carries the resolved trust (False / bundle path /
+        # True); provider-shaped namespaces without the attr fall back to
+        # system trust (True) — they are test doubles, not ORM rows.
+        self._ssl_verify = getattr(self.provider, "ssl_verify", None)
+        if self._ssl_verify is None:
+            self._ssl_verify = getattr(self.provider, "verify_ssl", True)
         # Anonymous client — no private_token, public resources only
         self._client = gitlab.Gitlab(
             url=base_url,
             private_token=self.credential_secret,
+            ssl_verify=self._ssl_verify,
         )
 
     def __repr__(self) -> str:
