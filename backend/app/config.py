@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     keycloak_jwks_cache_ttl_seconds: int = 600
 
     # GitLab
+    # WHY: default points at the dev-stand GitLab (https omnibus — ADR-0033,
+    # port 8080 is the internal puma port the runner uses); runtime config
+    # lives in resource_providers (ADR-0007).
     gitlab_url: str = "http://gitlab.local:8080"
     gitlab_token: str = ""
 

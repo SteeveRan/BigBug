@@ -29,6 +29,11 @@ resource "kubernetes_manifest" "cnpg_cluster_bigbug" {
         initdb = {
           database = "bigbug"
           owner    = "bigbug"
+          # Post-init: app role may create per-worktree DBs (multi-agent
+          # discipline — make dev-db-create / migrate-check.sh, issue #62).
+          postInitSQL = [
+            "ALTER ROLE bigbug CREATEDB",
+          ]
         }
       }
       storage = {

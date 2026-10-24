@@ -3,8 +3,8 @@
 # Layout rationale:
 #   * `builder` stage resolves and installs dependencies from uv.lock into a
 #     self-contained virtualenv at /opt/venv. Keeping deps outside /app means
-#     bind-mounting the source tree at runtime (compose dev mode) does NOT
-#     shadow the installed packages.
+#     bind-mounting the source tree at runtime does NOT shadow the installed
+#     packages.
 #   * `runtime` stage starts from a clean slim image, copies only the venv
 #     plus app sources, runs as a non-root user and uses tini as PID 1 so
 #     uvicorn receives signals correctly.

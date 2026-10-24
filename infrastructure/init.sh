@@ -5,7 +5,7 @@
 #              Ensures TLS certs (ADR-0030), starts the GitLab compose zone,
 #              bootstraps the kind cluster, applies OpenTofu
 #              (base → infra-apps (2 phases, incl. GitLab) → apps),
-#              updates application .env.
+#              applies OpenTofu (base → infra-apps (2 phases, incl. GitLab) → apps).
 #
 # Usage:
 #   ./infrastructure/init.sh
@@ -15,6 +15,8 @@
 #   - kind, kubectl
 #   - OpenTofu 1.6+ (or Terraform 1.5+)
 #   - curl, jq, openssl
+#   - host trust (https-хосты стенда): infrastructure/kind/trust-host.sh —
+#     ручной шаг пользователя (ADR-0030), fresh-машина: certs.sh → trust-host.sh → init.sh
 #
 
 set -euo pipefail
@@ -335,11 +337,6 @@ log "  Applying app-infra root (ns bigbug: CNPG, Redis, app secrets)..."
 }
 
 log "  OpenTofu applied successfully."
-
-# ─────────────────────────────────────────────────────────────
-# 10. Update host-tool .env vars (e2e base URL, GitLab PAT)
-# ─────────────────────────────────────────────────────────────
-"${SCRIPT_DIR}/update-env.sh"
 
 # ─────────────────────────────────────────────────────────────
 # Done

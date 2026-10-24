@@ -15,8 +15,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-# Compose-обёртки (корневой compose живёт до #62 — снос compose-приложения)
-COMPOSE_APP   := docker compose
+# Compose-обёртка (GitLab compose-зона — ADR-0033; приложение живёт в kind/helm)
 COMPOSE_INFRA := docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env
 
 # Директории
@@ -84,16 +83,23 @@ dev-clean: dev-down ## dev-down + сброс app-данных (DROP SCHEMA в CN
 	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec $(APP_RELEASE)-cache-0 -- redis-cli flushall
 
 .PHONY: dev-db-create
-dev-db-create: ## Создать БД на ворктрий в общем postgres (DB=feat_<branch>)
+dev-db-create: ## Создать БД на ворктрий в CNPG (DB=feat_<branch>)
 	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-create DB=feat_<branch>"; exit 1; fi
-	# shortcut: зависит от compose-контейнера postgres-backend; переедет на CNPG в #62 (снос compose)
-	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "CREATE DATABASE $(DB)"
+	$(MAKE) dev-db-psql ARGS="CREATE DATABASE $(DB)"
 
 .PHONY: dev-db-drop
 dev-db-drop: ## Удалить БД ворктрия (DB=feat_<branch>)
 	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-drop DB=feat_<branch>"; exit 1; fi
 	@if [ "$(DB)" = "bigbug" ]; then echo "ОШИБКА: нельзя удалять каноническую БД bigbug."; exit 1; fi
-	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "DROP DATABASE IF EXISTS $(DB)"
+	$(MAKE) dev-db-psql ARGS="DROP DATABASE IF EXISTS $(DB)"
+
+.PHONY: dev-db-psql
+dev-db-psql: ## Выполнить SQL в CNPG bigbug (ARGS="SQL") — kubectl exec в pod
+	@if [ -z "$(ARGS)" ]; then echo "Использование: make dev-db-psql ARGS='SELECT 1'"; exit 1; fi
+	@PGPOD=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get pod -l cnpg.io/cluster=$(DB_CLUSTER) -o jsonpath='{.items[0].metadata.name}'); \
+	PGPW=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get secret $(DB_CLUSTER)-app -o jsonpath='{.data.password}' | base64 -d); \
+	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec "$$PGPOD" -c postgres -- env PGPASSWORD="$$PGPW" \
+		psql -h localhost -U bigbug -d bigbug -c "$(ARGS)"
 
 # =============================================================================
 ##@ infra — kind-стенд (tofu: base/infra-apps/apps) + GitLab compose-зона
