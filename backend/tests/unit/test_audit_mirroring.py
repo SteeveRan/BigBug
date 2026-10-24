@@ -865,9 +865,12 @@ async def test_create_source_repository_launches_background_fetch(
             new_callable=AsyncMock,
         ) as mock_detect,
         patch(
-            "app.api.mirroring.fetch_metadata_background",
-            new_callable=AsyncMock,
+            "app.api.mirroring.fetch_metadata_task",
         ) as mock_fetch,
+        patch(
+            "app.api.mirroring.enqueue",
+            new_callable=AsyncMock,
+        ) as mock_enqueue,
     ):
         mock_detect.return_value = "main"
 
@@ -881,15 +884,15 @@ async def test_create_source_repository_launches_background_fetch(
         f"Expected 201, got {response.status_code}: {response.json().get('detail', response.text)}"
     )
 
-    # Verify _fetch_metadata_background was called with the new repo's id
+    # Verify the metadata task was enqueued with the new repo's id
     data = response.json()
-    mock_fetch.assert_called_once()
-    # The call receives (repo_id,) — a single integer argument
-    call_args = mock_fetch.call_args[0]
-    assert len(call_args) == 1
-    assert call_args[0] == data["id"], (
-        f"Expected _fetch_metadata_background({data['id']}), "
-        f"got _fetch_metadata_background({call_args[0]})"
+    mock_enqueue.assert_awaited_once()
+    call_args = mock_enqueue.await_args[0]
+    assert len(call_args) == 2
+    assert call_args[0] is mock_fetch
+    assert call_args[1] == data["id"], (
+        f"Expected fetch_metadata_task({data['id']}) enqueued, "
+        f"got fetch_metadata_task({call_args[1]})"
     )
 
 

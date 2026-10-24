@@ -15,7 +15,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -61,9 +60,10 @@ from app.services.release import ReleaseService
 from app.services.source_group import SourceGroupService
 from app.services.source_repository import (
     SourceRepositoryService,
-    fetch_metadata_background,
 )
 from app.services.sync_group import SyncGroupService
+from app.tasks.enqueue import enqueue
+from app.tasks.metadata_tasks import fetch_metadata_task
 
 router = APIRouter()
 
@@ -424,8 +424,8 @@ async def create_source_repository(
         current_user=current_user,
     )
 
-    # Launch background metadata fetch (runs in its own session)
-    asyncio.create_task(fetch_metadata_background(repo.id))
+    # Enqueue background metadata fetch (survives API pod restart, ADR-0039)
+    await enqueue(fetch_metadata_task, repo.id)
 
     return SourceRepositoryDetailOut.model_validate(repo)
 
