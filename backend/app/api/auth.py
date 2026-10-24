@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime
 from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -26,15 +25,20 @@ from app.schemas.auth import (
     LoginRequest,
     OIDCExchangeRequest,
     RefreshRequest,
-    SSOConfig,
     TokenResponse,
     UserOut,
 )
-from app.schemas.oidc_config import OIDCConfigOut, OIDCConfigPublic, OIDCConfigUpdate
+from app.schemas.oidc_provider import (
+    OIDCProviderCreate,
+    OIDCProviderOut,
+    OIDCProviderUpdate,
+    SSOConfig,
+    SSOProvider,
+)
 from app.schemas.rbac import UserPermissionsOut
 from app.services.audit import AuditService
 from app.services.oidc import KeycloakOIDCService, parse_realm_from_issuer
-from app.services.oidc_config import OIDCConfigService
+from app.services.oidc_providers import OIDCProviderService
 from app.services.rbac_service import RBACService
 
 logger = logging.getLogger(__name__)
@@ -156,35 +160,41 @@ async def get_my_permissions(
 @router.get("/sso/config", response_model=SSOConfig)
 async def sso_config(db: AsyncSession = Depends(get_db)):
     """
-    Expose the public OIDC parameters needed to bootstrap keycloak-js.
-
-    Reads from the database-backed OIDC config with automatic fallback to
-    environment variables when the DB row doesn't exist yet.
+    Expose the public OIDC parameters needed to bootstrap the SSO buttons
+    (list contract, ADR-0037): one entry per enabled provider.
 
     ``realm`` and ``url`` are computed by the backend from the full issuer URI
-    (RFC 8414) and ``public_url``. SSO is considered enabled only when the
-    issuer is a full realm URI, so legacy values (no ``/realms/`` segment)
-    disable the button instead of crashing.
+    (RFC 8414) and ``public_url`` per ADR-0036. Providers whose issuer has no
+    parsable ``/realms/`` segment are skipped (warning logged); the global
+    master-switch turns the whole list off.
     """
-    service = OIDCConfigService(db)
-    config = await service.get_active_config_cached()
+    if not settings.sso_enabled:
+        return SSOConfig(enabled=False, providers=[])
 
-    realm = parse_realm_from_issuer(config.issuer_url)
-    if realm is None:
-        logger.warning(
-            "oidc_issuer_missing_realm_segment",
-            extra={"issuer_url": config.issuer_url},
+    service = OIDCProviderService(db)
+    providers = await service.get_enabled_providers_cached()
+
+    entries: list[SSOProvider] = []
+    for p in providers:
+        realm = parse_realm_from_issuer(p.issuer_url)
+        if realm is None:
+            logger.warning(
+                "oidc_issuer_missing_realm_segment",
+                extra={"provider_id": p.id, "issuer_url": p.issuer_url},
+            )
+            continue
+        origin = p.public_url or p.issuer_url
+        url = urlunsplit(urlsplit(origin)[:2] + ("", "", ""))
+        entries.append(
+            SSOProvider(
+                id=p.id,
+                name=p.name,
+                url=url,
+                realm=realm,
+                client_id=p.frontend_client_id,
+            )
         )
-        return SSOConfig(enabled=False, url="", realm="", client_id=config.frontend_client_id)
-
-    origin = config.public_url or config.issuer_url
-    url = urlunsplit(urlsplit(origin)[:2] + ("", "", ""))
-    return SSOConfig(
-        enabled=config.enabled,
-        url=url,
-        realm=realm,
-        client_id=config.frontend_client_id,
-    )
+    return SSOConfig(enabled=bool(entries), providers=entries)
 
 
 @router.post("/oidc/exchange", response_model=TokenResponse)
@@ -195,11 +205,26 @@ async def oidc_exchange(
     _rl: None = Depends(rate_limit(settings.rate_limit_oidc_exchange)),
 ):
     """
-    Complete the SSO login: exchange the authorization code at Keycloak,
-    validate the returned ID token, provision/update the local user, and issue
-    the application's own JWTs (so the rest of the API stays auth-scheme-agnostic).
+    Complete the SSO login: exchange the authorization code at the provider
+    identified by ``provider_id``, validate the returned ID token,
+    provision/update the local user, and issue the application's own JWTs (so
+    the rest of the API stays auth-scheme-agnostic).
+
+    The ``state`` parameter the frontend received back from Keycloak must carry
+    the same ``provider_id`` — a mismatch is treated as a CSRF/broken-flow
+    error and rejected with 401.
     """
-    service = KeycloakOIDCService(db)
+    if data.state_provider_id != data.provider_id:
+        logger.warning(
+            "oidc_exchange_state_provider_mismatch",
+            extra={"provider_id": data.provider_id, "state": data.state},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="OIDC state does not match the selected provider",
+        )
+
+    service = KeycloakOIDCService(db, provider_id=data.provider_id)
     try:
         tokens = await service.exchange_code(
             code=data.code,
@@ -251,60 +276,42 @@ async def oidc_exchange(
     )
 
 
-# ── Admin OIDC configuration ────────────────────────────────────────
+# ── Admin OIDC providers (multi-provider, ADR-0037) ─────────────────
 
 
 @router.get(
-    "/admin/oidc-config",
-    response_model=OIDCConfigOut,
+    "/admin/oidc-providers",
+    response_model=list[OIDCProviderOut],
     dependencies=[Depends(require_permission("oidc:read"))],
 )
-async def get_oidc_config(db: AsyncSession = Depends(get_db)):
+async def list_oidc_providers(db: AsyncSession = Depends(get_db)):
     """
-    Return the full OIDC configuration (admin only).
+    Return all OIDC providers (admin only), ordered for the SSO button list.
 
-    Returns a disabled default when SSO hasn't been configured yet.
     ``client_secret`` is masked — the real encrypted value is never
     returned via the API.
     """
-    service = OIDCConfigService(db)
-    config = await service.get_config()
-    if config is None:
-        # No DB row yet — return a placeholder so the admin UI can render.
-        now = datetime.now(tz=UTC)
-        return OIDCConfigOut(
-            id=0,
-            issuer_url="",
-            client_id="",
-            client_secret="********",
-            frontend_client_id="",
-            enabled=False,
-            public_url=None,
-            role_mapping={},
-            created_at=now,
-            updated_at=now,
-        )
-    return config
+    service = OIDCProviderService(db)
+    return await service.list_providers()
 
 
-@router.patch(
-    "/admin/oidc-config",
-    response_model=OIDCConfigOut,
+@router.post(
+    "/admin/oidc-providers",
+    response_model=OIDCProviderOut,
+    status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission("oidc:write"))],
 )
-async def update_oidc_config(
-    data: OIDCConfigUpdate,
-    db: AsyncSession = Depends(get_db),
-):
+async def create_oidc_provider(data: OIDCProviderCreate, db: AsyncSession = Depends(get_db)):
     """
-    Update the OIDC configuration (admin only).
+    Register a new OIDC provider (admin only).
 
-    ``client_secret`` is encrypted at rest via Fernet.  Updating any field
+    ``client_secret`` is encrypted at rest via Fernet.  Creating a provider
     immediately invalidates the process-wide cache so the OIDC service
-    picks up the new values on the next request.
+    picks up the new provider on the next request.
     """
-    service = OIDCConfigService(db)
-    config = await service.update_config(
+    service = OIDCProviderService(db)
+    return await service.create_provider(
+        name=data.name,
         issuer_url=data.issuer_url,
         client_id=data.client_id,
         client_secret=data.client_secret,
@@ -312,24 +319,58 @@ async def update_oidc_config(
         enabled=data.enabled,
         public_url=data.public_url,
         role_mapping=data.role_mapping,
+        sort_order=data.sort_order,
     )
-    return config
 
 
-@router.get(
-    "/admin/oidc-config/public",
-    response_model=OIDCConfigPublic,
-    dependencies=[Depends(require_permission("oidc:read"))],
+@router.patch(
+    "/admin/oidc-providers/{provider_id}",
+    response_model=OIDCProviderOut,
+    dependencies=[Depends(require_permission("oidc:write"))],
 )
-async def get_oidc_config_public(db: AsyncSession = Depends(get_db)):
-    """Return the OIDC config subset for admin UI previews (no secret)."""
-    service = OIDCConfigService(db)
-    config = await service.get_config()
-    if config is None:
-        return OIDCConfigPublic(
-            enabled=False,
-            issuer_url="",
-            frontend_client_id="",
-            public_url=None,
+async def update_oidc_provider(
+    provider_id: int,
+    data: OIDCProviderUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update one OIDC provider (admin only, PATCH semantics).
+
+    ``client_secret`` is encrypted at rest via Fernet.  Updating any field
+    immediately invalidates the process-wide cache so the OIDC service
+    picks up the new values on the next request.
+    """
+    service = OIDCProviderService(db)
+    row = await service.update_provider(
+        provider_id,
+        name=data.name,
+        issuer_url=data.issuer_url,
+        client_id=data.client_id,
+        client_secret=data.client_secret,
+        frontend_client_id=data.frontend_client_id,
+        enabled=data.enabled,
+        public_url=data.public_url,
+        role_mapping=data.role_mapping,
+        sort_order=data.sort_order,
+    )
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"OIDC provider {provider_id} not found",
         )
-    return config
+    return row
+
+
+@router.delete(
+    "/admin/oidc-providers/{provider_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission("oidc:write"))],
+)
+async def delete_oidc_provider(provider_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete one OIDC provider (admin only)."""
+    service = OIDCProviderService(db)
+    if not await service.delete_provider(provider_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"OIDC provider {provider_id} not found",
+        )

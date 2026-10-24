@@ -22,15 +22,20 @@ class OIDCExchangeRequest(BaseModel):
     code: str
     redirect_uri: str
     code_verifier: str
+    # Which configured OIDC provider issued the authorization code (ADR-0037).
+    provider_id: int
+    # OIDC state parameter echoed back by Keycloak on the callback; the
+    # frontend puts the provider_id into it, the backend requires the same
+    # value here (CSRF-binding the flow to the chosen provider).
+    state: str = ""
 
-
-class SSOConfig(BaseModel):
-    """Public OIDC parameters the frontend needs to bootstrap keycloak-js."""
-
-    enabled: bool
-    url: str
-    realm: str
-    client_id: str
+    @property
+    def state_provider_id(self) -> int | None:
+        """provider_id extracted from the state parameter, None when absent."""
+        part = self.state.split(".", 1)[0] if self.state else ""
+        if not part.isdigit():
+            return None
+        return int(part)
 
 
 class UserOut(BaseModel):

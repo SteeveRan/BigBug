@@ -66,10 +66,9 @@ exchange", потому что это один код-путь (никаких �
   `frontend_client_id`, `public_url`, `role_mapping`, `enabled` (per-provider),
   `sort_order`. Семантика `issuer_url`/`public_url` — по [ADR-0036]
   (0036-oidc-issuer-semantics-rfc-8414.md), без изменений.
-* Master-switch `enabled` — глобальный boolean поверх per-provider флагов (место
-  хранения — implementation choice: settings-строка vs отдельная конфиг-строка;
-  требование — один boolean + одна проверка). Master-switch off → `/sso/config`
-  возвращает `enabled=false` и пустой список.
+* Master-switch `enabled` — env `SSO_ENABLED` (settings, default `true`), глобальный
+  boolean поверх per-provider флагов: один boolean + одна проверка в `/sso/config`,
+  без миграции и админ-API (incident «kill all SSO» — правка env + рестарт).
 * `GET /api/auth/sso/config` — **list-контракт** (breaking change для фронтенда):
   `{enabled, providers: [{id, name, url, realm, client_id}]}`. `url`/`realm`
   вычисляются бэкендом per ADR-0036. Провайдер без парсируемого realm → исключается из
@@ -85,8 +84,7 @@ exchange", потому что это один код-путь (никаких �
   (сегодняшний глобальный single-key кэш при двух realm'ах коллизирует).
 * Миграция Alembic поверх текущей головы: создать `oidc_providers`, перенести значения
   singleton-строки `oidc_config` в один провайдер **как есть** (без enrichment
-  `issuer_url` — per ADR-0036), сохранить/представить master-switch (implementation
-  choice), дропнуть `oidc_config`.
+  `issuer_url` — per ADR-0036), дропнуть `oidc_config`.
 
 ### Consequences
 
@@ -124,8 +122,8 @@ exchange", потому что это один код-путь (никаких �
 * Good, because CRUD и permission-модель переиспользуются как есть.
 * Bad, because breaking change контрактов `/sso/config` и admin API (фронтенд в том же
   релизе).
-* Bad, because master-switch надо куда-то положить (одна boolean-строка/колонка —
-  дёшево, но не бесплатно).
+* Bad, because master-switch живёт в env (`SSO_ENABLED`) — переключение требует
+  рестарта, а не клика в UI (сознательный minimum-code tradeoff).
 
 ### Singleton как «default» + таблица extras
 

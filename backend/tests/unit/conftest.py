@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.oidc_config import _CachedOIDCConfig
+from app.services.oidc_providers import CachedOIDCProvider
 
 # Valid Fernet key generated for test purposes.
 _VALID_FERNET_KEY = "Z0lZSjZpc3gyMDI1Y29vbHByb2plY3RmZXJuZXRrZXk="
@@ -34,13 +34,15 @@ def _patch_encryption_key():
 
 
 @pytest.fixture
-def test_oidc_config() -> _CachedOIDCConfig:
+def test_oidc_config() -> CachedOIDCProvider:
     """
-    Provide a static OIDC configuration snapshot matching the default
+    Provide a static OIDC provider snapshot matching the default
     settings-based values used in the OIDC unit tests (issuer, audience,
     frontend client id etc.).
     """
-    return _CachedOIDCConfig(
+    return CachedOIDCProvider(
+        id=1,
+        name="Keycloak",
         issuer_url="http://localhost:8180/realms/bigbug",
         client_id="bigbug-backend",
         client_secret="",

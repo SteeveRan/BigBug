@@ -57,8 +57,8 @@
 | 45 | `roles:write` | Создание/изменение ролей (включая scope) | A | — | только бэкенд |
 | 46 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
 | 47 | `system:config` | Изменение конфигурации системы (cleanup) | A | — | только бэкенд |
-| 48 | `oidc:read` | Просмотр OIDC/OAuth2 конфигурации | A, V | `/admin/authentication` | ✅ |
-| 49 | `oidc:write` | Управление OIDC/OAuth2 конфигурацией | A | — | только бэкенд |
+| 48 | `oidc:read` | Просмотр OIDC-провайдеров (multi-provider, ADR-0037) | A, V | `/admin/authentication` | ✅ |
+| 49 | `oidc:write` | Управление OIDC-провайдерами: CRUD `/admin/oidc-providers` | A | — | только бэкенд |
 | 50 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
 | 51 | `admin:panel:access` | Доступ к Admin Panel (отдельный интерфейс) | A | Header кнопка «Admin Panel» → `AdminLayout` | ✅ |
 | 52 | `providers:read` | list/get public+system (+ private свои) | A, O, V | `/settings/providers` | ✅ |

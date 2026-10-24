@@ -28,7 +28,7 @@ from app.services.oidc import (
     _JWKSCache,
     parse_realm_from_issuer,
 )
-from app.services.oidc_config import _CachedOIDCConfig
+from app.services.oidc_providers import CachedOIDCProvider
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,19 @@ def _build_jwks(public_pem: str) -> dict:
     jwk_dict = key.to_dict()
     jwk_dict["kid"] = "test-key-001"
     return {"keys": [jwk_dict]}
+
+
+def _public_pem(private_pem: str) -> str:
+    """Derive the public PEM from a private PEM."""
+    key = serialization.load_pem_private_key(private_pem.encode("ascii"), password=None)
+    return (
+        key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
 
 
 def _sign_id_token(
@@ -155,7 +168,7 @@ class TestIssuerSemantics:
 
     def test_issuer_with_origin_substitutes_public_url(self):
         issuer = KeycloakOIDCService._issuer(
-            _CachedOIDCConfig(
+            CachedOIDCProvider(
                 issuer_url="https://kc.local/realms/prod",
                 public_url="https://auth.example.com",
             )
@@ -164,13 +177,13 @@ class TestIssuerSemantics:
 
     def test_issuer_without_public_url(self):
         issuer = KeycloakOIDCService._issuer(
-            _CachedOIDCConfig(issuer_url="https://kc.local/realms/prod", public_url=None)
+            CachedOIDCProvider(issuer_url="https://kc.local/realms/prod", public_url=None)
         )
         assert issuer == "https://kc.local/realms/prod"
 
     @pytest.mark.asyncio
     async def test_is_configured_false_for_legacy_issuer(self, db_session, caplog):
-        config = _CachedOIDCConfig(
+        config = CachedOIDCProvider(
             issuer_url="https://keycloak.local",  # legacy: no /realms/ segment
             frontend_client_id="bigbug-frontend",
             enabled=True,
@@ -183,7 +196,7 @@ class TestIssuerSemantics:
 
     @pytest.mark.asyncio
     async def test_is_configured_true_for_full_issuer(self, db_session):
-        config = _CachedOIDCConfig(
+        config = CachedOIDCProvider(
             issuer_url="https://kc.local/realms/myrealm",
             frontend_client_id="bigbug-frontend",
             enabled=True,
@@ -193,24 +206,20 @@ class TestIssuerSemantics:
         assert await service.is_configured() is True
 
     @pytest.mark.asyncio
-    async def test_exchange_code_uses_issuer_url_only(
-        self, db_session, mock_http_client
-    ):
+    async def test_exchange_code_uses_issuer_url_only(self, db_session, mock_http_client):
         """token_url is built from issuer_url alone (no realm suffix appended)."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"access_token": "at"}
         mock_http_client.post.return_value = mock_response
 
-        config = _CachedOIDCConfig(
+        config = CachedOIDCProvider(
             issuer_url="https://kc.local/realms/myrealm",
             frontend_client_id="bigbug-frontend",
             enabled=True,
             public_url=None,
         )
-        service = KeycloakOIDCService(
-            db_session, http_client=mock_http_client, _oidc_config=config
-        )
+        service = KeycloakOIDCService(db_session, http_client=mock_http_client, _oidc_config=config)
         await service.exchange_code("code-1", "http://localhost/cb", "vrfy")
 
         url = mock_http_client.post.call_args.args[0]
@@ -223,15 +232,13 @@ class TestIssuerSemantics:
         mock_response.raise_for_status = MagicMock()
         mock_http_client.get.return_value = mock_response
 
-        config = _CachedOIDCConfig(
+        config = CachedOIDCProvider(
             issuer_url="https://kc.local/realms/myrealm",
             frontend_client_id="bigbug-frontend",
             enabled=True,
             public_url=None,
         )
-        service = KeycloakOIDCService(
-            db_session, http_client=mock_http_client, _oidc_config=config
-        )
+        service = KeycloakOIDCService(db_session, http_client=mock_http_client, _oidc_config=config)
         await service._get_jwks()
 
         url = mock_http_client.get.call_args.args[0]
@@ -244,25 +251,36 @@ class TestIssuerSemantics:
 class TestJWKSCache:
     def test_cache_miss_when_empty(self):
         cache = _JWKSCache(ttl_seconds=60)
-        assert cache.get() is None
+        assert cache.get("https://kc.local/realms/a/certs") is None
 
     def test_cache_hit(self):
         cache = _JWKSCache(ttl_seconds=60)
         keys = {"keys": [{"kty": "RSA"}]}
-        cache.set(keys)
-        assert cache.get() is keys
+        cache.set("https://kc.local/realms/a/certs", keys)
+        assert cache.get("https://kc.local/realms/a/certs") is keys
 
     def test_cache_expired_after_ttl(self):
         cache = _JWKSCache(ttl_seconds=0)
-        cache.set({"keys": [{"kty": "RSA"}]})
+        cache.set("https://kc.local/realms/a/certs", {"keys": [{"kty": "RSA"}]})
         time.sleep(0.001)
-        assert cache.get() is None
+        assert cache.get("https://kc.local/realms/a/certs") is None
 
     def test_clear(self):
         cache = _JWKSCache(ttl_seconds=60)
-        cache.set({"keys": [{"kty": "RSA"}]})
+        cache.set("https://kc.local/realms/a/certs", {"keys": [{"kty": "RSA"}]})
         cache.clear()
-        assert cache.get() is None
+        assert cache.get("https://kc.local/realms/a/certs") is None
+
+    def test_providers_isolated(self):
+        """Two providers (realms) must never share cached keys (ADR-0037)."""
+        cache = _JWKSCache(ttl_seconds=60)
+        keys_a = {"keys": [{"kid": "a"}]}
+        keys_b = {"keys": [{"kid": "b"}]}
+        cache.set("https://kc.local/realms/a/protocol/openid-connect/certs", keys_a)
+        cache.set("https://kc.local/realms/b/protocol/openid-connect/certs", keys_b)
+        assert cache.get("https://kc.local/realms/a/protocol/openid-connect/certs") is keys_a
+        assert cache.get("https://kc.local/realms/b/protocol/openid-connect/certs") is keys_b
+        assert cache.get("https://kc.local/realms/c/protocol/openid-connect/certs") is None
 
 
 # ─── exchange_code ──────────────────────────────────────────────────────────
@@ -333,7 +351,7 @@ async def test_validate_id_token_success(
 
     # Pre-load the cache so no HTTP call to Keycloak is needed.
     jwks_cache = _JWKSCache(ttl_seconds=600)
-    jwks_cache.set(jwks)
+    jwks_cache.set(test_oidc_config.issuer_url + "/protocol/openid-connect/certs", jwks)
 
     service = KeycloakOIDCService(
         db_session,
@@ -358,7 +376,7 @@ async def test_validate_id_token_expired(db_session, rsa_keys, mock_http_client,
     jwks = _build_jwks(public_pem)
 
     jwks_cache = _JWKSCache(ttl_seconds=600)
-    jwks_cache.set(jwks)
+    jwks_cache.set(test_oidc_config.issuer_url + "/protocol/openid-connect/certs", jwks)
 
     service = KeycloakOIDCService(
         db_session,
@@ -381,7 +399,7 @@ async def test_validate_id_token_bad_signature(
     jwks = _build_jwks(public_pem)
 
     jwks_cache = _JWKSCache(ttl_seconds=600)
-    jwks_cache.set(jwks)
+    jwks_cache.set(test_oidc_config.issuer_url + "/protocol/openid-connect/certs", jwks)
 
     service = KeycloakOIDCService(
         db_session,
@@ -651,3 +669,100 @@ class TestExtractClaims:
             }
         )
         assert claims.roles == frozenset({"admin"})
+
+
+# ─── multi-provider (ADR-0037) ──────────────────────────────────────────────
+
+
+class TestMultiProvider:
+    """Per-provider config lookup and JWKS isolation between providers."""
+
+    @pytest.mark.asyncio
+    async def test_jwks_cached_per_provider_url(self, db_session, mock_http_client):
+        """Two providers with different realms get separate JWKS entries."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"keys": [{"kid": "realm-a"}]}
+        mock_response.raise_for_status = MagicMock()
+        mock_http_client.get.return_value = mock_response
+
+        cache = _JWKSCache(ttl_seconds=600)
+        provider_a = CachedOIDCProvider(
+            id=1,
+            issuer_url="https://kc.local/realms/a",
+            frontend_client_id="fe-a",
+            enabled=True,
+        )
+        provider_b = CachedOIDCProvider(
+            id=2,
+            issuer_url="https://kc.local/realms/b",
+            frontend_client_id="fe-b",
+            enabled=True,
+        )
+
+        service_a = KeycloakOIDCService(
+            db_session,
+            http_client=mock_http_client,
+            jwks_cache=cache,
+            _oidc_config=provider_a,
+        )
+        service_b = KeycloakOIDCService(
+            db_session,
+            http_client=mock_http_client,
+            jwks_cache=cache,
+            _oidc_config=provider_b,
+        )
+        await service_a._get_jwks()
+        await service_b._get_jwks()
+
+        urls = [call.args[0] for call in mock_http_client.get.call_args_list]
+        assert urls == [
+            "https://kc.local/realms/a/protocol/openid-connect/certs",
+            "https://kc.local/realms/b/protocol/openid-connect/certs",
+        ]
+        # Isolation: realm A's cached keys never served for realm B.
+        assert cache.get("https://kc.local/realms/a/protocol/openid-connect/certs") == {
+            "keys": [{"kid": "realm-a"}]
+        }
+
+    @pytest.mark.asyncio
+    async def test_token_of_realm_a_rejected_under_provider_b(
+        self, db_session, rsa_keys, mock_http_client
+    ):
+        """A token from realm A fails validation under provider B's config."""
+        private_pem, public_pem = rsa_keys
+        id_token = _sign_id_token(private_pem)  # iss = .../realms/bigbug
+
+        cache = _JWKSCache(ttl_seconds=600)
+        # Realm B's JWKS holds a different (real) signing key than realm A's —
+        # signature verification must fail under provider B's config.
+        wrong_priv, _ = _build_rsa_keypair()
+        cache.set(
+            "http://localhost:8180/realms/other/protocol/openid-connect/certs",
+            _build_jwks(_public_pem(wrong_priv)),
+        )
+
+        provider_b = CachedOIDCProvider(
+            id=2,
+            issuer_url="http://localhost:8180/realms/other",
+            frontend_client_id="bigbug-frontend",
+            enabled=True,
+        )
+        service_b = KeycloakOIDCService(
+            db_session,
+            http_client=mock_http_client,
+            jwks_cache=cache,
+            _oidc_config=provider_b,
+        )
+        with pytest.raises(OIDCInvalidTokenError):
+            await service_b.validate_id_token(id_token)
+
+    @pytest.mark.asyncio
+    async def test_disabled_provider_not_configured(self, db_session):
+        provider = CachedOIDCProvider(
+            id=3,
+            issuer_url="https://kc.local/realms/a",
+            frontend_client_id="fe",
+            enabled=False,
+        )
+        service = KeycloakOIDCService(db_session, _oidc_config=provider)
+        assert await service.is_configured() is False

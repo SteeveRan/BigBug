@@ -19,7 +19,7 @@ class AuditLog(Base):
     )  # create/update/delete/login/logout/sync/build
     resource_type = Column(
         String, nullable=False, index=True
-    )  # mirror/helm_source/docker_source/user/role/integration/pipeline/oidc_config
+    )  # mirror/helm_source/docker_source/user/role/integration/pipeline/oidc_provider
     resource_id = Column(Integer, nullable=True)
     resource_name = Column(String, nullable=True)  # денормализовано
     details = Column(

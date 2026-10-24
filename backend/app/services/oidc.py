@@ -45,7 +45,7 @@ from app.models.role import Role, UserRole
 from app.models.user import User
 
 if TYPE_CHECKING:
-    from app.services.oidc_config import _CachedOIDCConfig
+    from app.services.oidc_providers import CachedOIDCProvider
 
 logger = logging.getLogger(__name__)
 
@@ -102,44 +102,45 @@ class OIDCClaims:
 
 class _JWKSCache:
     """
-    Tiny in-memory TTL cache for a realm's JSON Web Key Set.
+    In-memory TTL cache for realms' JSON Web Key Sets, keyed by JWKS URL.
 
     Split into its own class so the caching policy (and key rotation window) is
     testable in isolation and the service stays focused on the OIDC flow.
+    Keying per URL (per provider/realm) keeps two realms isolated — a global
+    single-key cache would collide across providers (ADR-0037).
     """
 
     def __init__(self, ttl_seconds: int) -> None:
         self._ttl = ttl_seconds
-        self._keys: dict | None = None
-        self._fetched_at: float = 0.0
+        self._entries: dict[str, tuple[dict, float]] = {}
 
-    def get(self) -> dict | None:
+    def get(self, jwks_url: str) -> dict | None:
         # WHY: treat the cache as a miss once the TTL elapses so rotated signing
         # keys are picked up without a process restart.
-        if self._keys is None:
+        entry = self._entries.get(jwks_url)
+        if entry is None:
             return None
-        if (time.monotonic() - self._fetched_at) > self._ttl:
+        keys, fetched_at = entry
+        if (time.monotonic() - fetched_at) > self._ttl:
             return None
-        return self._keys
+        return keys
 
-    def set(self, keys: dict) -> None:
-        self._keys = keys
-        self._fetched_at = time.monotonic()
+    def set(self, jwks_url: str, keys: dict) -> None:
+        self._entries[jwks_url] = (keys, time.monotonic())
 
     def clear(self) -> None:
-        self._keys = None
-        self._fetched_at = 0.0
+        self._entries.clear()
 
 
 class KeycloakOIDCService:
     """
-    Orchestrates the server-side half of the SSO login.
+    Orchestrates the server-side half of the SSO login for one provider.
 
     A single instance is cheap to build per request; the JWKS cache is shared at
-    module level via :data:`_jwks_cache` so token validations across requests
-    reuse the fetched keys.
+    module level via :data:`_jwks_cache` (keyed per JWKS URL) so token
+    validations across requests reuse the fetched keys.
 
-    Configuration is read from the DB-backed :class:`OIDCConfigService` with a
+    Configuration comes from the DB-backed :class:`OIDCProviderService` with a
     60-second TTL cache; the ``_oidc_config`` parameter lets tests inject an
     override without touching the database.
     """
@@ -148,38 +149,47 @@ class KeycloakOIDCService:
         self,
         db: AsyncSession,
         *,
+        provider_id: int = 0,
         http_client: httpx.AsyncClient | None = None,
         jwks_cache: _JWKSCache | None = None,
-        _oidc_config: _CachedOIDCConfig | None = None,
+        _oidc_config: CachedOIDCProvider | None = None,
     ) -> None:
         self._db = db
+        self._provider_id = provider_id
         # Allow injecting a client/cache/config in tests; default to module
         # singletons / DB lookup.
         self._http_client = http_client
         self._jwks_cache = jwks_cache or _jwks_cache
         self._injected_oidc_config = _oidc_config
 
-    async def _get_oidc_config(self) -> _CachedOIDCConfig:
+    async def _get_oidc_config(self) -> CachedOIDCProvider:
         """
-        Return the active OIDC configuration snapshot.
+        Return the OIDC provider snapshot this instance works against.
 
         Uses an injected override when available (tests), otherwise reads
-        from the DB-backed cache with a 60-second TTL.  Falls back to
-        ``settings.*`` when no DB row exists.
+        from the DB-backed cache.
         """
         if self._injected_oidc_config is not None:
             return self._injected_oidc_config
 
-        from app.services.oidc_config import OIDCConfigService
+        from app.services.oidc_providers import OIDCProviderService
 
-        service = OIDCConfigService(self._db)
-        return await service.get_active_config_cached()
+        service = OIDCProviderService(self._db)
+        provider = await service.get_provider_cached(self._provider_id)
+        if provider is None:
+            from app.core.exceptions import OIDCExchangeError
+
+            raise OIDCExchangeError(f"Unknown or deleted OIDC provider: {self._provider_id}")
+        return provider
 
     # --- public API -----------------------------------------------------------
 
     async def is_configured(self) -> bool:
-        """Return ``True`` when OIDC is enabled and the issuer is a full realm URI."""
-        config = await self._get_oidc_config()
+        """Return ``True`` when the provider is enabled and the issuer is a full realm URI."""
+        try:
+            config = await self._get_oidc_config()
+        except OIDCExchangeError:
+            return False
         if not config.enabled:
             return False
         if parse_realm_from_issuer(config.issuer_url) is None:
@@ -326,12 +336,12 @@ class KeycloakOIDCService:
         )
 
     async def _get_jwks(self) -> dict:
-        cached = self._jwks_cache.get()
-        if cached is not None:
-            return cached
-
         config = await self._get_oidc_config()
         jwks_url = f"{config.issuer_url}/protocol/openid-connect/certs"
+
+        cached = self._jwks_cache.get(jwks_url)
+        if cached is not None:
+            return cached
 
         try:
             async with self._client() as client:
@@ -341,11 +351,11 @@ class KeycloakOIDCService:
             logger.warning("oidc_jwks_fetch_failed", extra={"error": str(exc)})
             raise OIDCInvalidTokenError("Could not load signing keys") from exc
         keys = response.json()
-        self._jwks_cache.set(keys)
+        self._jwks_cache.set(jwks_url, keys)
         return keys
 
     @staticmethod
-    def _issuer(config: _CachedOIDCConfig) -> str:
+    def _issuer(config: CachedOIDCProvider) -> str:
         # IMPORTANT: Keycloak with KC_HOSTNAME_STRICT=false determines the iss
         # claim from the Host header of the initiating request. The browser
         # connects via the public URL, so the token carries the public issuer.
