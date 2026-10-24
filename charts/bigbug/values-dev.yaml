@@ -23,6 +23,10 @@ backend:
     url: https://keycloak.local
     realm: bigbug
 
+# taskiq worker (ADR-0039): image/env from backend blocks; dev overrides none
+worker:
+  replicaCount: 1
+
 frontend:
   image:
     repository: bigbug-frontend
