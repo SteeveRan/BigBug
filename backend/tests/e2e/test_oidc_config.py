@@ -89,11 +89,28 @@ class TestUpdateOidcConfig:
         response = await client.patch(
             ADMIN_OIDC,
             headers=admin_headers,
-            json={"issuer_url": "https://keycloak-updated.example.com"},
+            json={"issuer_url": "https://keycloak-updated.example.com/realms/myrealm"},
         )
         assert_matches_openapi(response, ADMIN_OIDC, "patch", openapi_spec)
         assert response.status_code == 200
-        assert response.json()["issuer_url"] == "https://keycloak-updated.example.com"
+        assert (
+            response.json()["issuer_url"]
+            == "https://keycloak-updated.example.com/realms/myrealm"
+        )
+
+    async def test_admin_update_issuer_url_without_realm_segment(
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        _restore_oidc_config,
+    ):
+        """An issuer without /realms/<realm> is rejected as incomplete config."""
+        response = await client.patch(
+            ADMIN_OIDC,
+            headers=admin_headers,
+            json={"issuer_url": "https://kc.example.com"},
+        )
+        assert response.status_code == 422
 
     async def test_admin_update_invalid_type(
         self, client: AsyncClient, admin_headers: dict, openapi_spec: dict

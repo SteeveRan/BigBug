@@ -4,6 +4,7 @@
              provision_or_update_user, and role synchronisation.
 """
 
+import logging
 import time
 from unittest.mock import AsyncMock, MagicMock
 
@@ -25,7 +26,9 @@ from app.services.oidc import (
     KeycloakOIDCService,
     OIDCClaims,
     _JWKSCache,
+    parse_realm_from_issuer,
 )
+from app.services.oidc_config import _CachedOIDCConfig
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -120,6 +123,119 @@ async def seeded_roles(db_session: AsyncSession):
         roles[name.value] = role
     await db_session.commit()
     return roles
+
+
+# ─── issuer semantics (RFC 8414) ────────────────────────────────────────────
+
+
+class TestIssuerSemantics:
+    """Realm parsing and URL building from the full issuer URI."""
+
+    def test_parse_realm_standard(self):
+        assert parse_realm_from_issuer("https://kc.local/realms/myrealm") == "myrealm"
+
+    def test_parse_realm_non_standard_name(self):
+        assert parse_realm_from_issuer("http://kc:8080/realms/prod-42_x") == "prod-42_x"
+
+    def test_parse_realm_issuer_with_trailing_slash(self):
+        assert parse_realm_from_issuer("https://kc.local/realms/myrealm/") == "myrealm"
+
+    def test_parse_realm_deep_path_takes_first_segment(self):
+        # /realms/ deep in the path is NOT a realm issuer — first segment rules.
+        assert parse_realm_from_issuer("https://kc.local/auth/realms/myrealm") is None
+
+    def test_parse_realm_no_realm_segment(self):
+        assert parse_realm_from_issuer("https://keycloak.local") is None
+
+    def test_parse_realm_empty(self):
+        assert parse_realm_from_issuer("") is None
+
+    def test_parse_realm_empty_segment(self):
+        assert parse_realm_from_issuer("https://kc.local/realms/") is None
+
+    def test_issuer_with_origin_substitutes_public_url(self):
+        issuer = KeycloakOIDCService._issuer(
+            _CachedOIDCConfig(
+                issuer_url="https://kc.local/realms/prod",
+                public_url="https://auth.example.com",
+            )
+        )
+        assert issuer == "https://auth.example.com/realms/prod"
+
+    def test_issuer_without_public_url(self):
+        issuer = KeycloakOIDCService._issuer(
+            _CachedOIDCConfig(issuer_url="https://kc.local/realms/prod", public_url=None)
+        )
+        assert issuer == "https://kc.local/realms/prod"
+
+    @pytest.mark.asyncio
+    async def test_is_configured_false_for_legacy_issuer(self, db_session, caplog):
+        config = _CachedOIDCConfig(
+            issuer_url="https://keycloak.local",  # legacy: no /realms/ segment
+            frontend_client_id="bigbug-frontend",
+            enabled=True,
+            public_url=None,
+        )
+        service = KeycloakOIDCService(db_session, _oidc_config=config)
+        with caplog.at_level(logging.WARNING):
+            assert await service.is_configured() is False
+        assert "oidc_issuer_missing_realm_segment" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_is_configured_true_for_full_issuer(self, db_session):
+        config = _CachedOIDCConfig(
+            issuer_url="https://kc.local/realms/myrealm",
+            frontend_client_id="bigbug-frontend",
+            enabled=True,
+            public_url=None,
+        )
+        service = KeycloakOIDCService(db_session, _oidc_config=config)
+        assert await service.is_configured() is True
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_uses_issuer_url_only(
+        self, db_session, mock_http_client
+    ):
+        """token_url is built from issuer_url alone (no realm suffix appended)."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"access_token": "at"}
+        mock_http_client.post.return_value = mock_response
+
+        config = _CachedOIDCConfig(
+            issuer_url="https://kc.local/realms/myrealm",
+            frontend_client_id="bigbug-frontend",
+            enabled=True,
+            public_url=None,
+        )
+        service = KeycloakOIDCService(
+            db_session, http_client=mock_http_client, _oidc_config=config
+        )
+        await service.exchange_code("code-1", "http://localhost/cb", "vrfy")
+
+        url = mock_http_client.post.call_args.args[0]
+        assert url == "https://kc.local/realms/myrealm/protocol/openid-connect/token"
+
+    @pytest.mark.asyncio
+    async def test_jwks_url_built_from_issuer(self, db_session, mock_http_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"keys": []}
+        mock_response.raise_for_status = MagicMock()
+        mock_http_client.get.return_value = mock_response
+
+        config = _CachedOIDCConfig(
+            issuer_url="https://kc.local/realms/myrealm",
+            frontend_client_id="bigbug-frontend",
+            enabled=True,
+            public_url=None,
+        )
+        service = KeycloakOIDCService(
+            db_session, http_client=mock_http_client, _oidc_config=config
+        )
+        await service._get_jwks()
+
+        url = mock_http_client.get.call_args.args[0]
+        assert url == "https://kc.local/realms/myrealm/protocol/openid-connect/certs"
 
 
 # ─── _JWKSCache ─────────────────────────────────────────────────────────────

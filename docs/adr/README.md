@@ -74,6 +74,7 @@
 | [ADR-0033](infrastructure/0033-gitlab-dev-stand-compose-omnibus.md) | proposed | GitLab в dev-стенде: compose-исключение (CE omnibus + gitlab-runner, docker.sock executor), TLS https://gitlab.local:8443 (серт из certs.sh), config root OpenTofu = GitLab-only, PAT bootstrap — задокументированное императивное исключение | 2026-10-23 |
 | [ADR-0034](infrastructure/0034-keycloak-dev-stand-keycloakx.md) | proposed | Keycloak в dev-стенде (фактическое): keycloakx 7.4.0 в kind, БД — CNPG, realm/clients/roles/users через apps root (keycloak_init/keycloak_conf, двухфазный apply), admin-секреты через tofu | 2026-10-23 |
 | [ADR-0035](infrastructure/0035-harbor-dev-stand-chart.md) | proposed | Harbor в dev-стенде (фактическое): chart 1.19.4 в kind за TLS-ingress, OIDC secret из keycloak_conf, projects/robots/registries/replication/webhooks через harbor_conf | 2026-10-23 |
+| [ADR-0036](backend/0036-oidc-issuer-semantics-rfc-8414.md) | proposed | OIDC issuer semantics (RFC 8414): `issuer_url` хранит полный URI realm, realm парсится из пути, `public_url` — только origin-подстановка iss; legacy-строки без `/realms/` — SSO disabled без миграции | 2026-10-24 |
 
 ## Правила для агентов
 

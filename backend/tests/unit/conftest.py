@@ -41,7 +41,7 @@ def test_oidc_config() -> _CachedOIDCConfig:
     frontend client id etc.).
     """
     return _CachedOIDCConfig(
-        issuer_url="http://localhost:8180",
+        issuer_url="http://localhost:8180/realms/bigbug",
         client_id="bigbug-backend",
         client_secret="",
         frontend_client_id="bigbug-frontend",

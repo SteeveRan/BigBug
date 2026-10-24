@@ -26,13 +26,12 @@ import time
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.http import ssl_verify
 
 from app.config import settings
 from app.core.exceptions import (
@@ -40,6 +39,7 @@ from app.core.exceptions import (
     OIDCInvalidTokenError,
     OIDCProvisioningError,
 )
+from app.core.http import ssl_verify
 from app.core.rbac import RoleName
 from app.models.role import Role, UserRole
 from app.models.user import User
@@ -52,6 +52,41 @@ logger = logging.getLogger(__name__)
 # Roles we understand locally. Any Keycloak realm role outside this set is
 # ignored when syncing — the local RBAC model only knows these three.
 _KNOWN_ROLES: frozenset[str] = frozenset(r.value for r in RoleName)
+
+
+def parse_realm_from_issuer(issuer_url: str) -> str | None:
+    """
+    Extract the realm name from a full RFC 8414 issuer URI.
+
+    ``issuer_url`` stores the complete realm issuer, e.g.
+    ``https://kc.local/realms/myrealm``. Returns the non-empty ``<realm>``
+    segment, or ``None`` when the URL has no parsable ``/realms/<segment>``
+    path (legacy/incomplete config).
+    """
+    if not issuer_url:
+        return None
+    try:
+        parts = urlsplit(issuer_url)
+    except ValueError:
+        return None
+    segments = [s for s in parts.path.split("/") if s]
+    # /realms must be the first path segment and be followed by a non-empty name.
+    if len(segments) >= 2 and segments[0] == "realms":
+        return segments[1]
+    return None
+
+
+def issuer_with_origin(origin_url: str, issuer_url: str) -> str:
+    """
+    Rebuild the issuer with a substituted origin (scheme + host[:port]).
+
+    Keycloak with ``KC_HOSTNAME_STRICT=false`` puts the *public* origin into the
+    iss claim, which may differ from the admin-entered issuer host. The path
+    always comes from ``issuer_url``.
+    """
+    origin = urlsplit(origin_url)
+    issuer = urlsplit(issuer_url)
+    return urlunsplit((origin.scheme, origin.netloc, issuer.path, "", ""))
 
 
 @dataclass(frozen=True)
@@ -109,9 +144,6 @@ class KeycloakOIDCService:
     override without touching the database.
     """
 
-    # Hard-coded — the realm is not (yet) configurable via the DB.
-    _REALM: str = "bigbug"
-
     def __init__(
         self,
         db: AsyncSession,
@@ -146,9 +178,17 @@ class KeycloakOIDCService:
     # --- public API -----------------------------------------------------------
 
     async def is_configured(self) -> bool:
-        """Return ``True`` when OIDC is both enabled and has an issuer URL."""
+        """Return ``True`` when OIDC is enabled and the issuer is a full realm URI."""
         config = await self._get_oidc_config()
-        return config.enabled and bool(config.issuer_url)
+        if not config.enabled:
+            return False
+        if parse_realm_from_issuer(config.issuer_url) is None:
+            logger.warning(
+                "oidc_issuer_missing_realm_segment",
+                extra={"issuer_url": config.issuer_url},
+            )
+            return False
+        return True
 
     async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> dict:
         """
@@ -169,7 +209,7 @@ class KeycloakOIDCService:
             "code_verifier": code_verifier,
             "client_id": config.frontend_client_id,
         }
-        token_url = f"{config.issuer_url}/realms/{self._REALM}/protocol/openid-connect/token"
+        token_url = f"{config.issuer_url}/protocol/openid-connect/token"
 
         try:
             async with self._client() as client:
@@ -291,7 +331,7 @@ class KeycloakOIDCService:
             return cached
 
         config = await self._get_oidc_config()
-        jwks_url = f"{config.issuer_url}/realms/{self._REALM}/protocol/openid-connect/certs"
+        jwks_url = f"{config.issuer_url}/protocol/openid-connect/certs"
 
         try:
             async with self._client() as client:
@@ -310,8 +350,7 @@ class KeycloakOIDCService:
         # claim from the Host header of the initiating request. The browser
         # connects via the public URL, so the token carries the public issuer.
         # We must validate against the same issuer.
-        public_url = config.public_url or config.issuer_url
-        return f"{public_url}/realms/{KeycloakOIDCService._REALM}"
+        return issuer_with_origin(config.public_url or config.issuer_url, config.issuer_url)
 
     @staticmethod
     def _extract_claims(payload: dict) -> OIDCClaims:

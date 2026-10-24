@@ -101,3 +101,18 @@ _Avoid_: noise, ложное срабатывание
 **Allowlist**:
 Набор правил в `.gitleaks.toml` (пути, stopwords), исключающий известные false positives из сканирования; единственный легальный способ подавить срабатывание.
 _Avoid_: ignore, whitelist, exclusion
+
+### OIDC / SSO
+
+**Issuer URL**:
+Полный URI realm по RFC 8414 (например, `https://keycloak.local/realms/myrealm`), хранится в `oidc_config.issuer_url`. Token/jwks endpoints строятся из него напрямую, realm парсится из сегмента пути `/realms/<realm>`.
+_Avoid_: base URL, realm URL без пути, отдельное поле realm
+
+**Public URL**:
+Происхождение (scheme+host), под которым браузер видит Keycloak; используется только как origin-подстановка ожидаемого iss-claim (Keycloak с `KC_HOSTNAME_STRICT=false` кладёт в iss публичный хост).
+_Avoid_: external URL, frontend URL
+
+**Realm**:
+Изолированное пространство пользователей/клиентов в Keycloak; в BigBug не хранится отдельно, а выводится из Issuer URL.
+_Avoid_: tenant (в контексте Keycloak), hard-coded bigbug
+
