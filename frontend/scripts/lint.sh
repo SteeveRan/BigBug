@@ -20,15 +20,19 @@ export NVM_DIR="$HOME/.nvm"
 cd "$FRONTEND_DIR"
 
 echo "=== Running ESLint ==="
-yarn run lint 2>/dev/null && echo "✓ ESLint check passed" || {
-    echo "ПРЕДУПРЕЖДЕНИЕ: ESLint не прошёл или не настроен"
-}
+if ! yarn run lint; then
+    echo "ОШИБКА: ESLint не прошёл"
+    exit 1
+fi
+echo "✓ ESLint check passed"
 
 echo ""
 echo "=== Running TypeScript type check ==="
-yarn run type-check 2>/dev/null && echo "✓ TypeScript type check passed" || {
-    echo "ПРЕДУПРЕЖДЕНИЕ: TypeScript type check не прошёл"
-}
+if ! yarn run type-check; then
+    echo "ОШИБКА: TypeScript type check не прошёл"
+    exit 1
+fi
+echo "✓ TypeScript type check passed"
 
 echo ""
 echo "=== Done ==="

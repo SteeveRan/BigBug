@@ -1,0 +1,8 @@
+# yamllint config for BigBug infra YAML (Helm values, compose, kind config).
+# default minus line-length/document-start: existing values files don't fit
+# a hard column budget, and `---` headers add noise without value (issue #78).
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable

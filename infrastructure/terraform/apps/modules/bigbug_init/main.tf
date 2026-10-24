@@ -51,9 +51,3 @@ variable "backend_client_secret" {
   sensitive   = true
   default     = "bigbug-backend-secret"
 }
-
-variable "keycloak_url" {
-  description = "Keycloak URL the backend calls server-to-server (https — ADR-0030)"
-  type        = string
-  default     = "https://keycloak.local"
-}

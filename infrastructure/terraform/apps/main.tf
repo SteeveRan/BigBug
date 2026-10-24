@@ -56,5 +56,4 @@ module "bigbug_init" {
   cnpg_storage_size     = var.cnpg_storage_size
   backend_client_id     = var.backend_client_id
   backend_client_secret = var.backend_client_secret
-  keycloak_url          = var.keycloak_url
 }

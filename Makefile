@@ -227,8 +227,25 @@ lint-backend: ## Линтинг backend (ruff check)
 lint-frontend: ## Линтинг frontend (eslint)
 	./frontend/scripts/lint.sh
 
+.PHONY: lint-terraform
+lint-terraform: ## Линтинг OpenTofu (fmt -check + tflint --recursive + validate; base/infra-apps/apps)
+	@set -e; tofu fmt -check -recursive infrastructure/terraform; \
+	tflint --recursive; \
+	for root in base infra-apps apps; do \
+		echo ">>> tofu validate: $$root"; \
+		(cd infrastructure/terraform/$$root && tofu init -backend=false -input=false >/dev/null && tofu validate); \
+	done
+
+.PHONY: lint-helm
+lint-helm: ## Линтинг Helm values YAML (yamllint по infrastructure/**/*.yaml)
+	@set -e; files=$$(find infrastructure -name '*.yaml' | sort); \
+	[ -n "$$files" ] && yamllint $$files
+
+.PHONY: lint-infra
+lint-infra: lint-terraform lint-helm ## Линтинг инфраструктуры (tofu + tflint + yamllint)
+
 .PHONY: lint
-lint: lint-backend lint-frontend ## Линтинг обоих стеков
+lint: lint-backend lint-frontend lint-infra ## Линтинг обоих стеков + инфраструктуры
 
 .PHONY: format-backend
 format-backend: ## Форматирование backend (ruff format + fix)

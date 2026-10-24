@@ -11,19 +11,6 @@ variable "harbor_url" {
   default     = "https://harbor.local"
 }
 
-variable "harbor_username" {
-  description = "Harbor admin username"
-  type        = string
-  default     = "admin"
-  sensitive   = true
-}
-
-variable "harbor_password" {
-  description = "Harbor admin password"
-  type        = string
-  sensitive   = true
-}
-
 # ─── OIDC / Keycloak Integration ─────────────────────────────────────────────
 
 variable "auth_mode" {
