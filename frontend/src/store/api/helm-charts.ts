@@ -1,6 +1,6 @@
 /**
  * @file api/helm-charts.ts
- * @description Helm Charts CRUD + index/mirror/versions/logs + Sync Schedules
+ * @description Helm Charts CRUD + index/sync/versions/logs + Sync Schedules
  * @dependencies api/base.ts
  */
 
@@ -50,18 +50,18 @@ export const helmChartsApi = api.injectEndpoints({
       invalidatesTags: ['HelmChart'],
     }),
 
-    // ── Index / Mirror ─────────────────────────────────────────────────
+    // ── Index / Sync ───────────────────────────────────────────────────
 
     indexHelmChart: builder.mutation<HelmSyncLog, number>({
       query: (id) => ({ url: `/helm-charts/${id}/index`, method: 'POST' }),
       invalidatesTags: (_result, _error, id) => [{ type: 'HelmChart', id }],
     }),
-    mirrorHelmChart: builder.mutation<
+    syncHelmChart: builder.mutation<
       HelmSyncLog,
       { id: number; chart_name: string; version: string }
     >({
       query: ({ id, chart_name, version }) => ({
-        url: `/helm-charts/${id}/mirror?chart_name=${encodeURIComponent(chart_name)}&version=${encodeURIComponent(version)}`,
+        url: `/helm-charts/${id}/sync?chart_name=${encodeURIComponent(chart_name)}&version=${encodeURIComponent(version)}`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, { id }) => [{ type: 'HelmChart', id }, 'HelmChart'],
@@ -134,7 +134,7 @@ export const {
   useUpdateHelmChartMutation,
   useDeleteHelmChartMutation,
   useIndexHelmChartMutation,
-  useMirrorHelmChartMutation,
+  useSyncHelmChartMutation,
   useGetHelmChartVersionsQuery,
   useGetHelmChartLogsQuery,
   useGetHelmSyncSchedulesQuery,

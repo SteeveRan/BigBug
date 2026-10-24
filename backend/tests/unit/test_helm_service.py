@@ -299,7 +299,7 @@ async def test_import_source_duplicate_name(helm_service, db_session: AsyncSessi
         )
 
 
-# ─── Index does NOT mark synced (mirror-only semantics) ─────────────────────
+# ─── Index does NOT mark synced (sync-only semantics) ─────────────────────
 
 
 @pytest.mark.asyncio
@@ -389,14 +389,14 @@ async def test_mark_helm_version_synced_unknown_version_is_noop(
     await mark_helm_version_synced(db_session, source.id, "does-not-exist", "0.0.1")
 
 
-# ─── mirror_chart ───────────────────────────────────────────────────────────
+# ─── sync_chart ───────────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_mirror_chart_unknown_version_raises(helm_service, db_session: AsyncSession):
-    """mirror_chart requires an indexed version."""
+async def test_sync_chart_unknown_version_raises(helm_service, db_session: AsyncSession):
+    """sync_chart requires an indexed version."""
     source = HelmChartSource(
-        name="mirror-unknown",
+        name="sync-unknown",
         repo_url="https://charts.example.com/index.yaml",
         gitlab_project_id="12345",
     )
@@ -404,14 +404,14 @@ async def test_mirror_chart_unknown_version_raises(helm_service, db_session: Asy
     await db_session.commit()
 
     with pytest.raises(NotFoundError, match="not found"):
-        await helm_service.mirror_chart(source, "nginx", "1.0.0", db_session)
+        await helm_service.sync_chart(source, "nginx", "1.0.0", db_session)
 
 
 @pytest.mark.asyncio
-async def test_mirror_chart_no_gitlab_project_raises(helm_service, db_session: AsyncSession):
-    """mirror_chart requires a GitLab project id."""
+async def test_sync_chart_no_gitlab_project_raises(helm_service, db_session: AsyncSession):
+    """sync_chart requires a GitLab project id."""
     source = HelmChartSource(
-        name="mirror-no-project",
+        name="sync-no-project",
         repo_url="https://charts.example.com/index.yaml",
     )
     db_session.add(source)
@@ -429,14 +429,14 @@ async def test_mirror_chart_no_gitlab_project_raises(helm_service, db_session: A
     await db_session.commit()
 
     with pytest.raises(BadRequestError, match="GitLab project"):
-        await helm_service.mirror_chart(source, "nginx", "15.1.0", db_session)
+        await helm_service.sync_chart(source, "nginx", "15.1.0", db_session)
 
 
 @pytest.mark.asyncio
-async def test_mirror_chart_triggers_pipeline(helm_service, db_session: AsyncSession):
-    """mirror_chart creates a pending/running sync log and triggers the pipeline."""
+async def test_sync_chart_triggers_pipeline(helm_service, db_session: AsyncSession):
+    """sync_chart creates a pending/running sync log and triggers the pipeline."""
     source = HelmChartSource(
-        name="mirror-ok",
+        name="sync-ok",
         repo_url="https://charts.example.com/index.yaml",
         gitlab_project_id="12345",
         target_repo_url="oci://harbor.local/bigbug",
@@ -467,7 +467,7 @@ async def test_mirror_chart_triggers_pipeline(helm_service, db_session: AsyncSes
         patch.object(helm_service, "_get_client", return_value=fake_gl),
         patch("app.services.helm.get_default_gitlab_provider", new=AsyncMock(return_value=None)),
     ):
-        log = await helm_service.mirror_chart(
+        log = await helm_service.sync_chart(
             source, "nginx", "15.1.0", db_session, triggered_by="user:test"
         )
         await db_session.commit()

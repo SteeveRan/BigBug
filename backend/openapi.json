@@ -13990,77 +13990,6 @@
         ]
       }
     },
-    "/api/docker-images/{source_id}/mirror": {
-      "post": {
-        "description": "Mirror a Docker image from the external source to the target registry.",
-        "operationId": "mirror_image_api_docker_images__source_id__mirror_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_id",
-            "required": true,
-            "schema": {
-              "title": "Source Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Image name to mirror",
-            "in": "query",
-            "name": "image_name",
-            "required": true,
-            "schema": {
-              "description": "Image name to mirror",
-              "title": "Image Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Image tag to mirror",
-            "in": "query",
-            "name": "tag",
-            "required": false,
-            "schema": {
-              "default": "latest",
-              "description": "Image tag to mirror",
-              "title": "Tag",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DockerSyncLogOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Mirror Image",
-        "tags": [
-          "docker-images"
-        ]
-      }
-    },
     "/api/docker-images/{source_id}/schedule": {
       "get": {
         "description": "Get all sync schedules for a Docker image source.",
@@ -14279,6 +14208,77 @@
           }
         ],
         "summary": "Update Docker Sync Schedule",
+        "tags": [
+          "docker-images"
+        ]
+      }
+    },
+    "/api/docker-images/{source_id}/sync": {
+      "post": {
+        "description": "Sync a Docker image from the external source to the target registry.",
+        "operationId": "sync_image_api_docker_images__source_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Image name to sync",
+            "in": "query",
+            "name": "image_name",
+            "required": true,
+            "schema": {
+              "description": "Image name to sync",
+              "title": "Image Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Image tag to sync",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "default": "latest",
+              "description": "Image tag to sync",
+              "title": "Tag",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DockerSyncLogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Image",
         "tags": [
           "docker-images"
         ]
@@ -16303,76 +16303,6 @@
         ]
       }
     },
-    "/api/helm-charts/{source_id}/mirror": {
-      "post": {
-        "description": "Mirror one Helm chart version into the target repository.\n\nTriggers a GitLab CI pipeline (helm-sync-template) which performs the\nactual copy. ``is_synced`` on the version is only set once the webhook\nreports the pipeline succeeded.",
-        "operationId": "mirror_chart_api_helm_charts__source_id__mirror_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_id",
-            "required": true,
-            "schema": {
-              "title": "Source Id",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Chart name to mirror",
-            "in": "query",
-            "name": "chart_name",
-            "required": true,
-            "schema": {
-              "description": "Chart name to mirror",
-              "title": "Chart Name",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Chart version to mirror",
-            "in": "query",
-            "name": "version",
-            "required": true,
-            "schema": {
-              "description": "Chart version to mirror",
-              "title": "Version",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HelmSyncLogOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Mirror Chart",
-        "tags": [
-          "helm-charts"
-        ]
-      }
-    },
     "/api/helm-charts/{source_id}/schedule": {
       "get": {
         "description": "Get all sync schedules for a Helm chart source.",
@@ -16591,6 +16521,76 @@
           }
         ],
         "summary": "Update Helm Sync Schedule",
+        "tags": [
+          "helm-charts"
+        ]
+      }
+    },
+    "/api/helm-charts/{source_id}/sync": {
+      "post": {
+        "description": "Sync one Helm chart version into the target repository.\n\nTriggers a GitLab CI pipeline (helm-sync-template) which performs the\nactual copy. ``is_synced`` on the version is only set once the webhook\nreports the pipeline succeeded.",
+        "operationId": "sync_chart_api_helm_charts__source_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Chart name to sync",
+            "in": "query",
+            "name": "chart_name",
+            "required": true,
+            "schema": {
+              "description": "Chart name to sync",
+              "title": "Chart Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Chart version to sync",
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "description": "Chart version to sync",
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HelmSyncLogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Sync Chart",
         "tags": [
           "helm-charts"
         ]

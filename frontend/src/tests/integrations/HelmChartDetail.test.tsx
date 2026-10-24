@@ -31,7 +31,7 @@ vi.mock('../../store/api', async () => {
     useGetHelmChartVersionsQuery: vi.fn(),
     useGetHelmChartLogsQuery: vi.fn(),
     useIndexHelmChartMutation: vi.fn(),
-    useMirrorHelmChartMutation: vi.fn(),
+    useSyncHelmChartMutation: vi.fn(),
     useUpdateHelmChartMutation: vi.fn(),
   };
 });
@@ -41,12 +41,12 @@ import {
   useGetHelmChartVersionsQuery,
   useGetHelmChartLogsQuery,
   useIndexHelmChartMutation,
-  useMirrorHelmChartMutation,
+  useSyncHelmChartMutation,
   useUpdateHelmChartMutation,
 } from '../../store/api';
 
 const mockIndexFn = vi.fn();
-const mockMirrorFn = vi.fn();
+const mockSyncFn = vi.fn();
 const mockUpdateFn = vi.fn();
 
 function createTestStore() {
@@ -120,7 +120,7 @@ describe('HelmChartDetailPage', () => {
     store = createTestStore();
     vi.clearAllMocks();
     mockIndexFn.mockReset();
-    mockMirrorFn.mockReset();
+    mockSyncFn.mockReset();
     mockUpdateFn.mockReset();
     (useGetHelmChartQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockChart,
@@ -141,8 +141,8 @@ describe('HelmChartDetailPage', () => {
       mockIndexFn,
       { isLoading: false },
     ]);
-    (useMirrorHelmChartMutation as ReturnType<typeof vi.fn>).mockReturnValue([
-      mockMirrorFn,
+    (useSyncHelmChartMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      mockSyncFn,
       { isLoading: false },
     ]);
     (useUpdateHelmChartMutation as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -263,39 +263,39 @@ describe('HelmChartDetailPage', () => {
     expect(screen.getByText('No sync history yet')).toBeInTheDocument();
   });
 
-  it('shows the Mirror button when gitlab project is configured and permission granted', () => {
+  it('shows the Sync button when gitlab project is configured and permission granted', () => {
     renderPage();
-    const mirrorButton = screen.getByRole('button', { name: /Mirror/ });
-    expect(mirrorButton).toBeInTheDocument();
-    expect(mirrorButton).not.toBeDisabled();
+    const syncButton = screen.getByRole('button', { name: /Синхронизировать/ });
+    expect(syncButton).toBeInTheDocument();
+    expect(syncButton).not.toBeDisabled();
   });
 
-  it('disables the Mirror button when no gitlab project is configured', () => {
+  it('disables the Sync button when no gitlab project is configured', () => {
     (useGetHelmChartQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { ...mockChart, gitlab_project_id: null },
       isLoading: false,
       isError: false,
     });
     renderPage();
-    const mirrorButton = screen.getByRole('button', { name: /Mirror/ });
-    expect(mirrorButton).toBeDisabled();
+    const syncButton = screen.getByRole('button', { name: /Синхронизировать/ });
+    expect(syncButton).toBeDisabled();
   });
 
-  it('opens mirror dialog and calls the mutation with selected chart/version', async () => {
+  it('opens sync dialog and calls the mutation with selected chart/version', async () => {
     const user = userEvent.setup();
-    mockMirrorFn.mockReturnValue({
+    mockSyncFn.mockReturnValue({
       unwrap: () => Promise.resolve({ status_flag: STATUS_FLAG.OK }),
     });
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /Mirror/ }));
+    await user.click(screen.getByRole('button', { name: /Синхронизировать/ }));
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByText('Mirror Chart')).toBeInTheDocument();
+    expect(dialog.getByText('Синхронизация чарта')).toBeInTheDocument();
 
-    await user.click(dialog.getByRole('button', { name: 'Mirror' }));
+    await user.click(dialog.getByRole('button', { name: 'Синхронизировать' }));
 
-    expect(mockMirrorFn).toHaveBeenCalledWith({
+    expect(mockSyncFn).toHaveBeenCalledWith({
       id: 1,
       chart_name: 'nginx-ingress',
       version: '4.0.1',

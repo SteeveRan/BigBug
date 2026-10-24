@@ -192,8 +192,8 @@ export function DockerImagesPage() {
       },
     },
     {
-      title: 'Mirroring Status',
-      key: 'mirroring_status',
+      title: 'Sync Status',
+      key: 'sync_status',
       width: 140,
       render: (_: unknown, record: DockerImageSource) => {
         if (!record.target_registry_url) {
@@ -393,9 +393,9 @@ export function DockerImagesPage() {
               <Typography.Text type="secondary">Registry to pull tags from</Typography.Text>
             </Flex>
 
-            {/* Mirror target selection */}
+            {/* Sync target selection */}
             <Flex vertical gap={4}>
-              <Typography.Text strong>Mirror Target</Typography.Text>
+              <Typography.Text strong>Sync Target</Typography.Text>
               <Select
                 style={{ width: '100%' }}
                 options={targetOptions}
@@ -405,7 +405,7 @@ export function DockerImagesPage() {
                   const target = analysis.available_targets.find((t) => t.id === val);
                   setTargetProject((target?.config?.default_project as string | undefined) ?? '');
                 }}
-                placeholder="Select a mirror target..."
+                placeholder="Select a sync target..."
                 notFoundContent="No internal Harbor target configured"
               />
             </Flex>
@@ -425,7 +425,7 @@ export function DockerImagesPage() {
               <Alert
                 type="warning"
                 showIcon
-                title="No internal Harbor target configured — mirroring will be unavailable"
+                title="No internal Harbor target configured — sync will be unavailable"
               />
             )}
 

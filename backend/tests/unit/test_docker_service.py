@@ -1,5 +1,5 @@
 """
-@file test_docker_service.py
+@file 
 @description Unit tests for DockerRegistryService — import_source_from_url,
              index_source, _fetch_tags, _resolve_manifest_digest,
              _normalize_registry_url.
@@ -228,7 +228,7 @@ async def test_index_source_creates_tags(docker_service, db_session: AsyncSessio
 
 @pytest.mark.asyncio
 async def test_index_source_does_not_mark_tags_synced(docker_service, db_session: AsyncSession):
-    """Indexing records tags as pending; is_synced stays False (mirror-only)."""
+    """Indexing records tags as pending; is_synced stays False (sync-only)."""
     source = DockerImageSource(
         name="pending-docker",
         registry_url="https://registry.local/v2",
@@ -494,7 +494,7 @@ class TestGetInternalDockerTargets:
             db_session,
             name="generic-target",
             subtype=ProviderSubtype.generic_registry,
-            base_url="https://mirror.local",
+            base_url="https://sync-provider.local",
             direction=ProviderDirection.internal,
         )
         external_hub = await _docker_provider(
@@ -556,7 +556,7 @@ class TestGetInternalDockerTargets:
         assert names.index(high.name) < names.index(low.name)
 
 
-# ─── mirror_image ────────────────────────────────────────────────────────────
+# ─── sync_image ────────────────────────────────────────────────────────────
 
 
 class _FakeProcess:
@@ -569,7 +569,7 @@ class _FakeProcess:
         return self._stdout, self._stderr
 
 
-class TestMirrorImage:
+class TestSyncImage:
     async def _make_source(
         self,
         db_session: AsyncSession,
@@ -594,7 +594,7 @@ class TestMirrorImage:
         self, docker_service, db_session: AsyncSession, monkeypatch
     ):
         """crane argv uses refs without the /v2 suffix; rc=0 marks success."""
-        source = await self._make_source(db_session, name="mirror-ok")
+        source = await self._make_source(db_session, name="sync-ok")
         captured: dict = {}
 
         async def fake_exec(*args, **kwargs):
@@ -603,7 +603,7 @@ class TestMirrorImage:
 
         monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
-        log = await docker_service.mirror_image(source, "library/nginx", "latest", db_session)
+        log = await docker_service.sync_image(source, "library/nginx", "latest", db_session)
 
         assert log.status_flag == 0
         assert captured["args"] == (
@@ -620,14 +620,14 @@ class TestMirrorImage:
         self, docker_service, db_session: AsyncSession, monkeypatch
     ):
         """A non-zero crane exit records the stderr output and marks failed."""
-        source = await self._make_source(db_session, name="mirror-fail")
+        source = await self._make_source(db_session, name="sync-fail")
 
         async def fake_exec(*args, **kwargs):
             return _FakeProcess(1, b"", b"manifest unknown")
 
         monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
-        log = await docker_service.mirror_image(source, "nginx", "1.25", db_session)
+        log = await docker_service.sync_image(source, "nginx", "1.25", db_session)
 
         assert log.status_flag == 1
         assert log.log_output == "manifest unknown"
@@ -637,7 +637,7 @@ class TestMirrorImage:
         self, docker_service, db_session: AsyncSession, monkeypatch
     ):
         """FileNotFoundError from subprocess maps to ExternalServiceError."""
-        source = await self._make_source(db_session, name="mirror-no-crane")
+        source = await self._make_source(db_session, name="sync-no-crane")
 
         async def fake_exec(*args, **kwargs):
             raise FileNotFoundError("crane")
@@ -645,7 +645,7 @@ class TestMirrorImage:
         monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
         with pytest.raises(ExternalServiceError, match="crane"):
-            await docker_service.mirror_image(source, "nginx", "latest", db_session)
+            await docker_service.sync_image(source, "nginx", "latest", db_session)
 
     @pytest.mark.asyncio
     async def test_insecure_flag_when_target_verify_ssl_false(
@@ -663,7 +663,7 @@ class TestMirrorImage:
         await db_session.commit()
 
         source = await self._make_source(
-            db_session, name="mirror-insecure", target_provider_id=target.id
+            db_session, name="sync-insecure", target_provider_id=target.id
         )
         captured: dict = {}
 
@@ -673,7 +673,7 @@ class TestMirrorImage:
 
         monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
-        await docker_service.mirror_image(source, "nginx", "1.25", db_session)
+        await docker_service.sync_image(source, "nginx", "1.25", db_session)
         assert "--insecure" in captured["args"]
 
     @pytest.mark.asyncio
@@ -703,7 +703,7 @@ class TestMirrorImage:
         await db_session.commit()
 
         source = await self._make_source(
-            db_session, name="mirror-creds", target_provider_id=target.id
+            db_session, name="sync-creds", target_provider_id=target.id
         )
         captured: dict = {}
 
@@ -713,7 +713,7 @@ class TestMirrorImage:
 
         monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
 
-        await docker_service.mirror_image(source, "nginx", "latest", db_session)
+        await docker_service.sync_image(source, "nginx", "latest", db_session)
 
         env = captured["kwargs"]["env"]
         assert "DOCKER_CONFIG" in env

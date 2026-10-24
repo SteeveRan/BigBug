@@ -139,7 +139,7 @@ class TestDockerSourceValidation:
             ("patch", "/api/docker-images/abc", "/api/docker-images/{source_id}"),
             ("delete", "/api/docker-images/abc", "/api/docker-images/{source_id}"),
             ("post", "/api/docker-images/abc/index", "/api/docker-images/{source_id}/index"),
-            ("post", "/api/docker-images/abc/mirror", "/api/docker-images/{source_id}/mirror"),
+            ("post", "/api/docker-images/abc/sync", "/api/docker-images/{source_id}/sync"),
         ],
     )
     async def test_invalid_path_param_422(

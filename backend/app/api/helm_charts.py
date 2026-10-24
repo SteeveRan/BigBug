@@ -137,18 +137,18 @@ async def index_source(
     return sync_log
 
 
-# ──── Mirror ────────────────────────────────────────────────────────────────
+# ──── Sync ─────────────────────────────────────────────────────────────────
 
 
-@router.post("/{source_id}/mirror", response_model=HelmSyncLogOut)
-async def mirror_chart(
+@router.post("/{source_id}/sync", response_model=HelmSyncLogOut)
+async def sync_chart(
     source_id: int,
-    chart_name: str = Query(..., description="Chart name to mirror"),
-    version: str = Query(..., description="Chart version to mirror"),
+    chart_name: str = Query(..., description="Chart name to sync"),
+    version: str = Query(..., description="Chart version to sync"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_permission("helm:sync")),
 ) -> HelmSyncLog:
-    """Mirror one Helm chart version into the target repository.
+    """Sync one Helm chart version into the target repository.
 
     Triggers a GitLab CI pipeline (helm-sync-template) which performs the
     actual copy. ``is_synced`` on the version is only set once the webhook
@@ -163,12 +163,12 @@ async def mirror_chart(
     if not source.gitlab_project_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Source has no GitLab project configured for mirroring.",
+            detail="Source has no GitLab project configured for syncing.",
         )
 
     from app.services.helm import helm_service
 
-    log = await helm_service.mirror_chart(
+    log = await helm_service.sync_chart(
         source=source,
         chart_name=chart_name,
         version=version,

@@ -641,7 +641,7 @@ class DockerRegistryService:
 
                 if existing:
                     # Indexing only refreshes metadata; it never marks a tag
-                    # as synced. Synced is set solely by mirror_image after a
+                    # as synced. Synced is set solely by sync_image after a
                     # real crane copy (or its webhook path).
                     existing.digest = digest  # type: ignore[assignment]
                 else:
@@ -732,7 +732,7 @@ class DockerRegistryService:
         await _add(source.provider_id, _provider_host(source.registry_url))
         return auths
 
-    async def mirror_image(
+    async def sync_image(
         self,
         source: DockerImageSource,
         image_name: str,
@@ -740,7 +740,7 @@ class DockerRegistryService:
         db: AsyncSession,
         triggered_by: str = "manual",
     ) -> DockerSyncLog:
-        """Mirror a Docker image from the external source registry to the target registry.
+        """Sync a Docker image from the external source registry to the target registry.
 
         Uses crane CLI tool for copying images between registries.
 
