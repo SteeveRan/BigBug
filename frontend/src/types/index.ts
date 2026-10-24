@@ -1475,3 +1475,50 @@ export interface BulkOperationResponse {
   failed: number;
   results: BulkOperationResultItem[];
 }
+
+// ============================================================
+// Trust Store Types (ADR-0037)
+// ============================================================
+
+export interface TrustStoreCertificate {
+  id: number;
+  name: string;
+  pem: string;
+  fingerprint: string;
+  created_at: string;
+}
+
+export interface TrustStore {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  certificates: TrustStoreCertificate[];
+}
+
+export interface TrustStoreCreate {
+  name: string;
+  description?: string | null;
+}
+
+export interface TrustStoreUpdate {
+  name?: string;
+  description?: string | null;
+}
+
+export interface TrustStoreCertificateIn {
+  name: string;
+  pem: string;
+}
+
+export interface TrustStoreCertificatesIn {
+  name?: string;
+  pem?: string;
+  certificates?: TrustStoreCertificateIn[];
+}
+
+export interface TrustStoreUsage {
+  trust_store_id: number;
+  providers: string[];
+}

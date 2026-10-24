@@ -12,6 +12,7 @@ import {
   SunOutlined,
   MoonOutlined,
   DeploymentUnitOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -53,6 +54,15 @@ export function AdminLayout() {
     { key: '/admin/permissions', icon: <KeyOutlined />, label: 'Permissions' },
     { key: '/admin/teams', icon: <TeamOutlined />, label: 'Teams' },
     { key: '/admin/credentials', icon: <ApiOutlined />, label: 'Credentials' },
+    ...(hasPermission('trust_stores:read')
+      ? [
+          {
+            key: '/admin/trust-stores',
+            icon: <SafetyCertificateOutlined />,
+            label: 'Trust Stores',
+          },
+        ]
+      : []),
     ...(hasPermission('providers_system:write') || hasPermission('providers:read_all')
       ? [{ key: '/admin/providers', icon: <DeploymentUnitOutlined />, label: 'System Providers' }]
       : []),
