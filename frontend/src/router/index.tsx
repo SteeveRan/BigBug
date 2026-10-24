@@ -29,6 +29,7 @@ import { ProviderDetailPage } from '../pages/Settings/Providers/ProviderDetail';
 import { ProfilePage } from '../pages/Profile';
 import { AdminTeams } from '../pages/Admin/Teams';
 import { TeamDetailPage } from '../pages/Admin/Teams/TeamDetail';
+import { AdminTrustStores } from '../pages/Admin/TrustStores';
 
 // Git Mirroring V2 lazy imports
 const GitMirroringMirrors = lazy(() => import('@/pages/GitMirroring/Mirrors'));
@@ -496,6 +497,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="teams:write">
               <TeamDetailPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="trust-stores"
+          element={
+            <PermissionGate permission="trust_stores:read">
+              <AdminTrustStores />
             </PermissionGate>
           }
         />

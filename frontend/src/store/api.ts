@@ -29,6 +29,7 @@ import './api/providers';
 import './api/teams';
 import './api/credentials';
 import './api/gitlab-projects';
+import './api/trust-stores';
 
 // ═════════════════════════════════════════════════════════════════════════
 // Реэкспорт ВСЕХ хуков — чтобы потребители (страницы, компоненты, тесты)
@@ -307,3 +308,15 @@ export {
   useDeleteCredentialMutation,
   useTestCredentialMutation,
 } from './api/credentials';
+
+// Trust Stores
+export {
+  useGetTrustStoresQuery,
+  useGetTrustStoreQuery,
+  useCreateTrustStoreMutation,
+  useUpdateTrustStoreMutation,
+  useDeleteTrustStoreMutation,
+  useGetTrustStoreUsageQuery,
+  useAddTrustStoreCertificatesMutation,
+  useDeleteTrustStoreCertificateMutation,
+} from './api/trust-stores';
