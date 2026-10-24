@@ -20,6 +20,13 @@ locals {
   ingress_host = data.external.kind_gateway.result.gateway
 }
 
+# Kubeadm (kind) creates kube-system/coredns at cluster start; adopting it
+# declaratively — import block is a no-op once the resource is in state.
+import {
+  to = kubernetes_config_map_v1.coredns
+  id = "kube-system/coredns"
+}
+
 resource "kubernetes_config_map_v1" "coredns" {
   metadata {
     name      = "coredns"

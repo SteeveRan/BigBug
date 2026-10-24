@@ -69,8 +69,6 @@ git clone https://github.com/user/BigBug.git
 cd BigBug
 
 # 2. Full initialization (certs → trust → GitLab + kind + OpenTofu)
-./infrastructure/kind/certs.sh
-./infrastructure/kind/trust-host.sh     # sudo, host trust for https hosts (ADR-0030)
 ./infrastructure/init.sh
 
 # 3. Build dev images and deploy the app (helm chart bigbug, ADR-0023)
@@ -81,29 +79,25 @@ make dev-up
 ### Manual Step-by-Step
 
 ```bash
-# 1. TLS certs + host trust (self-signed per-service certs — ADR-0030)
-./infrastructure/kind/certs.sh
-./infrastructure/kind/trust-host.sh
+# 1. TLS certs + host trust + GitLab compose zone (init.sh does all: certs → trust → compose)
+./infrastructure/init.sh
 
-# 2. Start the GitLab compose zone (compose exception — ADR-0033)
-docker compose -f infrastructure/gitlab/docker-compose.yml \
-  --env-file infrastructure/gitlab/.env up -d
+# 1. TLS certs + host trust + GitLab + kind (init.sh does: certs → trust → GitLab compose → kind)
+./infrastructure/init.sh
 
-# 3. Bootstrap the kind cluster bigbug-dev (ADR-0022)
-cd infrastructure/kind && ./bootstrap.sh && cd ../..
-
-# 4. OpenTofu: base → infra-apps (2 phases) → apps (ADR-0029)
+# 2. OpenTofu: base → infra-apps (2 phases) → apps (ADR-0029) — init.sh runs this too;
+#    manual split (if needed step-by-step):
 cd infrastructure/terraform/base && tofu init && tofu apply && cd ../..
 cd infrastructure/terraform/infra-apps && tofu init \
   && tofu apply -target=module.keycloak_init -target=module.harbor_init \
   && tofu apply && cd ../..
 cd infrastructure/terraform/apps && tofu init && tofu apply && cd ../..
 
-# 5. Build dev images and deploy the app
+# 3. Build dev images and deploy the app
 make dev-build
 make dev-up
 
-# 6. Access UI
+# 4. Access UI
 open https://app.local
 # Login: bigbug / bigbug
 ```

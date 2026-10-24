@@ -101,7 +101,7 @@ make dev-build     # dev-образы → kind
 make dev-up        # helm chart bigbug (миграции — pre-upgrade hook job, ADR-0023)
 ```
 
-Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0029](../adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) (IaC), [ADR-0030](../adr/infrastructure/0030-dev-stand-https-self-signed-certs.md) (https + trust-цепочка fresh-машины: certs.sh → trust-host.sh → infra-init); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
+Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0029](../adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) (IaC), [ADR-0030](../adr/infrastructure/0030-dev-stand-https-self-signed-certs.md) (https; trust проставляется автоматически в init.sh после генерации сертов, ручной вариант — `make infra-trust`); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 

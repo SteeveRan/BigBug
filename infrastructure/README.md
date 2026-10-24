@@ -57,7 +57,7 @@ This single command will:
 5. `tofu apply`: base (platform) → infra-apps (Keycloak/Harbor, two-phase + GitLab) → apps (ns bigbug)
 6. Verify / program the GitLab root PAT (`gitlab-rails runner` — ADR-0033 exception)
 
-> Host trust для https-хостов — ручной шаг пользователя: `kind/trust-host.sh` (sudo). Fresh-машина: `certs.sh` → `trust-host.sh` → `infra-init` ([ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md)).
+> Host trust для https-хостов проставляется автоматически (`init.sh` вызывает `trust-host.sh` после генерации сертов). Ручной запуск: `make infra-trust` ([ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md)).
 >
 > Next: `make dev-build && make dev-up` — dev-образы и деплой приложения ([ADR-0023](../docs/adr/infrastructure/0023-bigbug-helm-chart.md)).
 
@@ -93,7 +93,7 @@ If you prefer to run each step manually:
 
 ```bash
 ./infrastructure/kind/certs.sh
-./infrastructure/kind/trust-host.sh   # host trust, sudo (ADR-0030)
+# Host trust already done by init.sh (trust-host.sh after cert generation)
 docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env up -d
 ```
 

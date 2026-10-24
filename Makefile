@@ -114,6 +114,16 @@ infra-up: ## Запустить GitLab compose-зону (kind-стенд не «
 infra-init: ## Полная инициализация: certs → gitlab compose → kind bootstrap → tofu base/infra-apps/apps → .env
 	./infrastructure/init.sh
 
+.PHONY: infra-trust
+infra-trust: ## Доверие хоста сертам dev-стенда (sudo; https-хосты без -k — ADR-0030; idempotent)
+	sudo ./infrastructure/kind/trust-host.sh
+
+.PHONY: fresh-up
+fresh-up: ## Полный цикл с нуля: infra-init (certs+trust → gitlab → kind → tofu) → dev-build → dev-up
+	$(MAKE) infra-init
+	$(MAKE) dev-build
+	$(MAKE) dev-up
+
 .PHONY: infra-down
 infra-down: ## Остановить GitLab compose-зону (вольюмы живы; kind/tofu-стенд продолжает работать)
 	$(COMPOSE_INFRA) down
@@ -129,8 +139,14 @@ infra-clean: ## Полная чистка: tofu destroy (apps→infra-apps→bas
 	$(MAKE) infra-clean-tofu infra-clean-kind
 
 .PHONY: infra-clean-tofu
-infra-clean-tofu: ## tofu destroy трёх root'ов (порядок apps → infra-apps → base, кластер ещё жив)
+infra-clean-tofu: ## tofu destroy трёх root'ов (порядок apps → infra-apps → base, кластер ещё жив); infra-apps скипается, если GitLab не запущен (gitlab_* ресурсы недостижимы, in-cluster часть умрёт с kind)
 	@set -e; for root in apps infra-apps base; do \
+		if [ "$$root" = "infra-apps" ] && \
+		   [ "$$(curl -sk -o /dev/null -w '%{http_code}' https://gitlab.local:8443/-/health 2>/dev/null || true)" != "200" ]; then \
+			echo ">>> GitLab (https://gitlab.local:8443) не запущен — destroy infra-apps пропущен:"; \
+			echo ">>> gitlab_* ресурсы недостижимы, in-cluster часть (keycloak/harbor/CNPG) умрёт с kind-кластером."; \
+			continue; \
+		fi; \
 		echo ">>> tofu destroy: $$root"; \
 		(cd infrastructure/terraform/$$root && tofu init -input=false && tofu destroy -auto-approve -input=false); \
 	done

@@ -137,9 +137,9 @@ variable "gitlab_url" {
 }
 
 variable "gitlab_ca_cert" {
-  description = "Path to GitLab TLS cert (self-signed from kind/certs.sh → ~/.local/state/bigbug/certs, ADR-0030). Absolute default — shared per machine"
+  description = "Path to the stand CA (kind/certs.sh → ~/.local/state/bigbug/certs/ca.crt, ADR-0030 §2 rev #62). Absolute default — shared per machine"
   type        = string
-  default     = "~/.local/state/bigbug/certs/gitlab.local/tls.crt"
+  default     = "~/.local/state/bigbug/certs/ca.crt"
 }
 
 variable "gitlab_token" {
@@ -173,7 +173,7 @@ variable "backend_user_email" {
 }
 
 variable "backend_user_password" {
-  description = "Password for the backend service account (auto-generated if null)"
+  description = "Password for the backend service account. Leave null to auto-generate (random_password, persisted in state)"
   type        = string
   sensitive   = true
   default     = null

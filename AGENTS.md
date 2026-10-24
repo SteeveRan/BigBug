@@ -445,7 +445,7 @@ make dev-build     # 2. собрать dev-образы и залить в kind
 make dev-up        # 3. задеплоить приложение (helm chart bigbug)
 ```
 
-**Fresh-машина** (порядок обязателен, ADR-0030): `infrastructure/kind/certs.sh` → `infrastructure/kind/trust-host.sh` (sudo, доверие хоста) → `make infra-init`.
+**Fresh-машина** (порядок обязателен, ADR-0030): `make infra-init` (сам генерит серты и добавляет их в trust store через trust-host.sh) → `make dev-build` → `make dev-up`. Или всё сразу: `make fresh-up`.
 
 ### Run Tests
 

@@ -129,13 +129,14 @@ start_app() {
     exec uvicorn "${uvicorn_args[@]}"
 }
 
-# WHY: No CA bundle mounted (k8s mounts the stand bundle at EXTRA_CA_DIR) →
+# WHY: No CA bundle mounted (k8s mounts the stand CA at EXTRA_CA_DIR) →
 # system trust store as-is. SSL_CERT_FILE/REQUESTS_CA_BUNDLE REPLACE the trust
 # store entirely, so the exported bundle must be complete: system roots
-# (public CAs: api.github.com, …) + stand certs (self-signed keycloak.local /
-# harbor.local / gitlab.local). Merged into a writable emptyDir
-# (/run/bigbug-ca) at every container start; exported for both httpx (app)
-# and requests (transitive deps). Never verify=False (ADR-0030 §4).
+# (public CAs: api.github.com, …) + the stand CA (single CA signs all host
+# certs — keycloak.local / harbor.local / gitlab.local, ADR-0030 §2 rev. #62).
+# Merged into a writable emptyDir (/run/bigbug-ca) at every container start;
+# exported for both httpx (app) and requests (transitive deps). Never
+# verify=False (ADR-0030 §4).
 build_ca_bundle() {
     local extra_dir="/etc/bigbug-certs"
     local out="/run/bigbug-ca/ca-bundle.crt"

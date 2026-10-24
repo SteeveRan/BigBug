@@ -20,12 +20,12 @@
 set -euo pipefail
 
 # TLS: ПОЛНЫЙ бандл — системные корни (github/gitlab.com и пр. публичные хосты)
-# + серты стенда (ADR-0030 §4). Один только стендовый бандл подменяет store
-# целиком и ломает внешние вызовы — как SSL_CERT_FILE в поде до фикса.
+# + CA стенда (ADR-0030 §4; все серты хостов подписаны единым CA — certs.sh).
+# Один только стендовый бандл подменяет store целиком и ломает внешние вызовы.
 BIGBUG_CERTS_DIR="${BIGBUG_CERTS_DIR:-$HOME/.local/state/bigbug/certs}"
-if [ -d "$BIGBUG_CERTS_DIR" ] && ls "$BIGBUG_CERTS_DIR"/*/tls.crt >/dev/null 2>&1; then
+if [ -f "${BIGBUG_CERTS_DIR}/ca.crt" ]; then
     _HOST_BUNDLE="$(mktemp /tmp/bigbug-host-bundle.XXXXXX.pem)"
-    cat /etc/ssl/certs/ca-certificates.crt "$BIGBUG_CERTS_DIR"/*/tls.crt > "$_HOST_BUNDLE"
+    cat /etc/ssl/certs/ca-certificates.crt "${BIGBUG_CERTS_DIR}/ca.crt" > "$_HOST_BUNDLE"
     export SSL_CERT_FILE="${SSL_CERT_FILE:-$_HOST_BUNDLE}"
 fi
 
