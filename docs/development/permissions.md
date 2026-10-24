@@ -159,6 +159,15 @@
 
 Новое scope-правило: `require_scope_permission(permission, "gitlab_project")` по таблице `role_scope_gitlab_projects` (миграция [`20260820_0001_7f3a2c1b4d5e_add_gitlab_projects.py`](../../backend/alembic/versions/20260820_0001_7f3a2c1b4d5e_add_gitlab_projects.py) — реализована).
 
+## Права trust-stores (2026-10-24, спроектированы — не сидируются и не проверяются до реализации #2)
+
+Спроектированы в [ADR-0037](../adr/common/0037-provider-trust-stores.md) (provider trust stores), реализация backend — issue [#2](https://github.com/SteeveRan/BigBug/issues/2). До появления миграции сида и `require_permission()` в API прав в БД нет — не использовать в `PermissionGate` до реализации.
+
+| Permission | Назначение | Admin | Operator | Viewer | Статус |
+|---|---|:--:|:--:|:--:|---|
+| `trust_stores:read` | Просмотр трастсторов и их сертификатов (нужно operator'у для привязки стора к провайдеру) | ✅ | ✅ | | planned (#2) |
+| `trust_stores:write` | Создание/изменение/удаление трастсторов и сертификатов | ✅ | | | planned (#2) |
+
 ## Легаси-права (удалены в фазе 5)
 
 Эти permissions были созданы предыдущими миграциями и удалены чистящей миграцией фазы 5 (`20260815_0000_b8d4e5f6a7c9_remove_legacy_permissions.py` (удалена при сбросе миграций)). Физически отсутствуют в БД после `alembic upgrade head`.
@@ -193,6 +202,7 @@
 
 | Дата | Изменение |
 |------|-----------|
+| 2026-10-24 | Спроектированы `trust_stores:read`/`trust_stores:write` в [ADR-0037](../adr/common/0037-provider-trust-stores.md); в БД/коде отсутствуют до реализации #2 — отдельная секция, не в сводной таблице. |
 | 2026-10-22 | Ревизия из security-audit: `roles:read` — проставлен frontend-usage (маршруты `/admin/roles`, `/admin/roles/:roleId`, `/admin/permissions`); gitlab-project-management — убрана пометка «планируемая» (миграция `20260820_0001` существует); зафиксировано непокрытие `mirrors:integrity_check`/`mirrors:manage_orphaned` на backend. |
 | 2026-08-15 | Root-cause fix RBAC: добавлена миграция `20260815_1108_0cce18c6c867_seed_providers_teams_permissions`, реально сидящая `providers:*`/`teams:*`/`credentials:write` в `permissions` + `role_permissions` (ранее были только в `seed_admin.py`, но не в БД). |
 | 2026-08-15 | Фаза 7F Providers V3: выпил legacy-таблиц/роутеров (`api/integrations/`, `services/integrations.py`, instance-модели, `source_providers`). Роутеры `/settings/providers`, `/admin/credentials`, `/settings/teams`, `/admin/teams` — окончательные. `source_groups:read` привязан к `/git-mirroring/sources`. |
