@@ -20,8 +20,9 @@
 Для быстрого подъёма окружения используйте корневой [`Makefile`](../../Makefile):
 
 ```bash
-make infra-init    # keycloak → harbor → gitlab + OpenTofu (первый раз)
-make dev-up        # postgres, redis, backend, frontend
+make infra-init    # certs → GitLab compose → kind → tofu base/infra-apps/apps (первый раз)
+make dev-build     # dev-образы bigbug-{backend,frontend}:dev → kind
+make dev-up        # деплой приложения (helm chart bigbug)
 
 # Остальное — по мере необходимости:
 make help          # полный список команд
@@ -39,38 +40,7 @@ cd BigBug
 
 ### 2. Environment Configuration
 
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
-
-**Минимальные настройки** (`.env`) — ключи выверены с [`/.env.example`](../../.env.example):
-
-```bash
-# PostgreSQL (compose собирает из них DATABASE_URL для backend)
-POSTGRES_USER=bigbug
-POSTGRES_PASSWORD=bigbug
-POSTGRES_DB=bigbug
-
-# Backend API
-SECRET_KEY=your-secret-key-here              # generate with: openssl rand -hex 32
-ENCRYPTION_KEY=                              # generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENVIRONMENT=development                      # не FERNET_KEY — см. ADR-0010
-DB_WAIT_TIMEOUT=60
-
-# Rate limiting (на dev-стенде выключен, чтобы e2e не упирались в лимит логина)
-RATE_LIMIT_ENABLED=false
-RATE_LIMIT_LOGIN=5/minute
-RATE_LIMIT_OIDC_EXCHANGE=3/minute
-RATE_LIMIT_GLOBAL=1000/minute
-
-# Initial admin (создаётся автоматически при первом старте)
-ADMIN_USERNAME=admin
-ADMIN_EMAIL=admin@bigbug.local
-ADMIN_PASSWORD=admin
-```
-
-> Переменных `DATABASE_URL`/`REDIS_URL` в `.env` нет — compose собирает их сам из `POSTGRES_*` (см. `docker-compose.yml`). Конфигурация Keycloak/GitLab/GitHub — env-переменные бэкенда с дефолтами в `backend/app/config.py` (`keycloak_*`, `gitlab_url` — по умолчанию `http://gitlab.local:8080`, `gitlab_token`, `github_token`); в `.env` их задавать не обязательно. Runtime-конфиг SSO — в БД (ADR-0003).
+Корневого `.env` больше нет: секреты приложения доставляются в кластер k8s-секретами через tofu apps root ([ADR-0024](../adr/common/0024-k8s-secrets.md)), GitLab compose-зона читает свой `infrastructure/gitlab/.env` (создаётся `init.sh` из `infrastructure/gitlab/.env.example`). Локальная разработка без Docker — переменные в `backend/.env` (см. [backend guide](backend.md#переменные-окружения)).
 
 ### Secret scanning (gitleaks)
 
@@ -120,47 +90,33 @@ yarn --version
 node --version
 ```
 
-### 5. Infrastructure Setup (Docker Compose)
-
-**Option A: Split compose files** (recommended)
+### 5. Infrastructure Setup (kind-стенд + GitLab compose-зона)
 
 ```bash
-# Start infrastructure services
-make infra-up
+# Полный цикл (владелец инфры, первый раз — свежая машина):
+make infra-init    # certs → GitLab compose → kind bootstrap → tofu base/infra-apps/apps
 
-# Initialize infrastructure (optional, with OpenTofu)
-make infra-init
-
-# Start application services
-make dev-up
+# Далее приложение:
+make dev-build     # dev-образы → kind
+make dev-up        # helm chart bigbug (миграции — pre-upgrade hook job, ADR-0023)
 ```
 
-**Option B: Single-shot via init.sh**
-
-```bash
-make infra-init    # = ./infrastructure/init.sh
-```
-
-Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0013](../adr/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (IaC); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
+Подробности dev-стенда — [ADR-0022](../adr/infrastructure/0022-dev-stand-on-kind.md) (kind), [ADR-0029](../adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) (IaC), [ADR-0030](../adr/infrastructure/0030-dev-stand-https-self-signed-certs.md) (https + trust-цепочка fresh-машины: certs.sh → trust-host.sh → infra-init); полный список make-команд — [ADR-0019](../adr/common/0019-makefile-tooling-single-entrypoint.md) и `make help`.
 
 ### 6. Verify Installation
 
 ```bash
-# Check all services
-docker compose -f infrastructure/gitlab/docker-compose.yml ps
-docker compose ps
+# kind-стенд: все поды
+kubectl get pods -A --context kind-bigbug-dev
 
-# Test backend
-curl http://localhost:8000/docs
+# GitLab compose-зона
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env ps
 
-# Test frontend
-curl http://localhost:5173
-
-# Test Keycloak
-curl http://localhost:8180/realms/bigbug
-
-# Test GitLab
-curl http://localhost:8080/-/health
+# Health-чеки (https-хосты за ingress — ADR-0030; без доверия хоста — добавьте -k)
+curl https://api.local/api/health
+curl -k https://keycloak.local/realms/bigbug
+curl -k https://harbor.local/api/v2.0/systeminfo
+curl -k https://gitlab.local:8443/-/health
 ```
 
 ## Development Workflows
@@ -188,21 +144,20 @@ cd frontend
 # Run dev server with HMR
 yarn dev
 
-# Open in browser: http://localhost:5173
+# Open in browser: http://localhost:5173 (или https://app.local — ingress)
 ```
 
 ### Full Stack Development
 
 ```bash
-# Terminal 1: Backend
-cd backend && uv run uvicorn app.main:app --reload
+# Terminal 1: Infrastructure logs (GitLab compose-зона)
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env logs -f
 
-# Terminal 2: Frontend
-cd frontend && yarn dev
-
-# Terminal 3: Infrastructure logs
-docker compose -f infrastructure/gitlab/docker-compose.yml logs -f
+# Terminal 2: kind-стенд pod'ы
+kubectl get pods -A --context kind-bigbug-dev -w
 ```
+
+Приложение в dev-стенде — helm chart (`make dev-build && make dev-up`), не локальный uvicorn/vite; локальный запуск backend/frontend — для отладки против CNPG/Redis через port-forward (см. `backend/scripts/e2e-env.sh`).
 
 ## Common Tasks
 
@@ -286,10 +241,10 @@ uv sync
 
 **Database connection failed**:
 ```bash
-# Check PostgreSQL is running
-docker compose ps postgres-backend
+# CNPG-под в kind-стенде
+kubectl get pods -n bigbug --context kind-bigbug-dev -l cnpg.io/cluster=bigbug-dev
 
-# Check DATABASE_URL in .env
+# DATABASE_URL (e2e-env.sh экспортирует через kubectl port-forward)
 echo $DATABASE_URL
 ```
 
@@ -324,33 +279,27 @@ yarn dev --port 5174
 
 **API connection issues**:
 ```bash
-# Check backend is running
-curl http://localhost:8000/docs
-
-# Check proxy in vite.config.ts
+# Check backend pod / ingress
+kubectl get pods -n bigbug --context kind-bigbug-dev
+curl https://api.local/api/health
 ```
 
-### Docker Issues
+### kind / GitLab Issues
 
 **Services not starting**:
 ```bash
-# Check logs
-docker compose -f infrastructure/gitlab/docker-compose.yml logs keycloak
+# kind-стенд (ADR-0022)
+kubectl get pods -A --context kind-bigbug-dev
+kubectl logs -n bigbug --context kind-bigbug-dev deploy/bigbug-backend
 
-# Restart specific service
-docker compose -f infrastructure/gitlab/docker-compose.yml restart keycloak
-
-# Remove volumes and restart (осторожно: удаляет данные)
-docker compose -f infrastructure/gitlab/docker-compose.yml down -v
-docker compose -f infrastructure/gitlab/docker-compose.yml up -d
+# GitLab compose-зона (ADR-0033)
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env logs -f gitlab
 ```
 
 **Port conflicts**:
 ```bash
 # Find what's using the port
-lsof -i :8000
-
-# Change port in docker-compose or .env
+lsof -i :8443; lsof -i :80; lsof -i :443
 ```
 
 ## Next Steps
