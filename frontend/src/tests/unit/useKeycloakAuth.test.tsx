@@ -193,6 +193,7 @@ describe('useKeycloakAuth', () => {
       redirect_uri: `${DEFAULT_ORIGIN}/sso/callback`,
       code_verifier: 'my-verifier',
       provider_id: 2,
+      state: '2',
     });
   });
 
@@ -207,6 +208,7 @@ describe('useKeycloakAuth', () => {
 
     const payload = result.current.handleCallback();
     expect('provider_id' in payload && payload.provider_id).toBe(7);
+    expect('state' in payload && payload.state).toBe('7');
   });
 
   it('handleCallback() returns error when ?error=access_denied is present', () => {

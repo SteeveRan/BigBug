@@ -86,7 +86,13 @@ export function useKeycloakAuth() {
    * provider_id and returns the payload for POST /auth/oidc/exchange.
    */
   const handleCallback = useCallback(():
-    | { code: string; redirect_uri: string; code_verifier: string; provider_id: number }
+    | {
+        code: string;
+        redirect_uri: string;
+        code_verifier: string;
+        provider_id: number;
+        state: string;
+      }
     | { error: string } => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -117,6 +123,7 @@ export function useKeycloakAuth() {
       redirect_uri: SSO_REDIRECT_URI,
       code_verifier: verifier,
       provider_id: providerId,
+      state: providerIdRaw!,
     };
   }, []);
 

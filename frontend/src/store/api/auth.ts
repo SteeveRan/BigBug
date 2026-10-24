@@ -46,6 +46,7 @@ export const authApi = api.injectEndpoints({
         redirect_uri: string;
         code_verifier: string;
         provider_id: number;
+        state: string;
       }
     >({
       query: (body) => ({
