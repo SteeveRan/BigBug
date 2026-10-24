@@ -18,7 +18,7 @@ vi.mock('../../store/api', async () => {
     useGetDockerImageTagsQuery: vi.fn(),
     useGetDockerImageLogsQuery: vi.fn(),
     useGetDockerSyncSchedulesQuery: vi.fn(),
-    useMirrorDockerImageMutation: vi.fn(),
+    useSyncDockerImageMutation: vi.fn(),
     useIndexDockerImageMutation: vi.fn(),
     useUpdateDockerImageMutation: vi.fn(),
     useCreateDockerSyncScheduleMutation: vi.fn(),
@@ -33,7 +33,7 @@ import {
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useGetDockerSyncSchedulesQuery,
-  useMirrorDockerImageMutation,
+  useSyncDockerImageMutation,
   useIndexDockerImageMutation,
   useUpdateDockerImageMutation,
   useCreateDockerSyncScheduleMutation,
@@ -42,7 +42,7 @@ import {
   useBatchDeleteDockerTagsMutation,
 } from '../../store/api';
 
-const mockMirrorFn = vi.fn();
+const mockSyncFn = vi.fn();
 
 function createTestStore() {
   const store = configureStore({
@@ -118,13 +118,13 @@ function renderDetail(store: ReturnType<typeof createTestStore>) {
   );
 }
 
-describe('DockerImageDetailMirror', () => {
+describe('DockerImageDetailSync', () => {
   let store: ReturnType<typeof createTestStore>;
 
   beforeEach(() => {
     store = createTestStore();
     vi.clearAllMocks();
-    mockMirrorFn.mockReset();
+    mockSyncFn.mockReset();
     (useGetDockerImageQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: sourceWithTarget,
       isLoading: false,
@@ -142,8 +142,8 @@ describe('DockerImageDetailMirror', () => {
       data: [],
       isLoading: false,
     });
-    (useMirrorDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
-      mockMirrorFn,
+    (useSyncDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      mockSyncFn,
       { isLoading: false },
     ]);
     (useIndexDockerImageMutation as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -172,50 +172,50 @@ describe('DockerImageDetailMirror', () => {
     ]);
   });
 
-  it('shows the Mirror button when the source has a target and permission is granted', () => {
+  it('shows the Sync button when the source has a target and permission is granted', () => {
     renderDetail(store);
-    const mirrorButton = screen.getByRole('button', { name: /Mirror/ });
-    expect(mirrorButton).toBeInTheDocument();
-    expect(mirrorButton).not.toBeDisabled();
+    const syncButton = screen.getByRole('button', { name: /Синхронизировать/ });
+    expect(syncButton).toBeInTheDocument();
+    expect(syncButton).not.toBeDisabled();
   });
 
-  it('disables the Mirror button when the source has no target', () => {
+  it('disables the Sync button when the source has no target', () => {
     (useGetDockerImageQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: sourceWithoutTarget,
       isLoading: false,
       isError: false,
     });
     renderDetail(store);
-    const mirrorButton = screen.getByRole('button', { name: /Mirror/ });
-    expect(mirrorButton).toBeDisabled();
+    const syncButton = screen.getByRole('button', { name: /Синхронизировать/ });
+    expect(syncButton).toBeDisabled();
   });
 
-  it('opens the mirror dialog and calls the mutation with the selected tag', async () => {
+  it('opens the sync dialog and calls the mutation with the selected tag', async () => {
     const user = userEvent.setup();
-    mockMirrorFn.mockReturnValue({
+    mockSyncFn.mockReturnValue({
       unwrap: () => Promise.resolve({ status_flag: STATUS_FLAG.OK }),
     });
     renderDetail(store);
 
-    await user.click(screen.getByRole('button', { name: /Mirror/ }));
+    await user.click(screen.getByRole('button', { name: /Синхронизировать/ }));
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByText('Mirror Image')).toBeInTheDocument();
+    expect(dialog.getByText('Синхронизация образа')).toBeInTheDocument();
 
-    // The tag Select is populated with the tags; click Mirror to submit the
+    // The tag Select is populated with the tags; click Sync to submit the
     // default (first) tag.
-    await user.click(dialog.getByRole('button', { name: 'Mirror' }));
+    await user.click(dialog.getByRole('button', { name: 'Синхронизировать' }));
 
-    expect(mockMirrorFn).toHaveBeenCalledWith({
+    expect(mockSyncFn).toHaveBeenCalledWith({
       id: 42,
       image_name: 'library/nginx',
       tag: 'latest',
     });
   });
 
-  it('hides the Mirror button without docker:sync permission', () => {
+  it('hides the Sync button without docker:sync permission', () => {
     store.dispatch(setPermissions([]));
     renderDetail(store);
-    expect(screen.queryByRole('button', { name: /Mirror/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Синхронизировать/ })).not.toBeInTheDocument();
   });
 });

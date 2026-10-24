@@ -264,18 +264,18 @@ async def index_source(
     return sync_log
 
 
-# ──── Mirror ────────────────────────────────────────────────────────────────
+# ──── Sync ─────────────────────────────────────────────────────────────────
 
 
-@router.post("/{source_id}/mirror", response_model=DockerSyncLogOut)
-async def mirror_image(
+@router.post("/{source_id}/sync", response_model=DockerSyncLogOut)
+async def sync_image(
     source_id: int,
-    image_name: str = Query(..., description="Image name to mirror"),
-    tag: str = Query("latest", description="Image tag to mirror"),
+    image_name: str = Query(..., description="Image name to sync"),
+    tag: str = Query("latest", description="Image tag to sync"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_permission("docker:sync")),
 ) -> DockerSyncLog:
-    """Mirror a Docker image from the external source to the target registry."""
+    """Sync a Docker image from the external source to the target registry."""
     source = await db.get(DockerImageSource, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Docker image source not found")
@@ -289,7 +289,7 @@ async def mirror_image(
     from app.services.docker import docker_service
 
     try:
-        log = await docker_service.mirror_image(
+        log = await docker_service.sync_image(
             source=source,
             image_name=image_name,
             tag=tag,

@@ -1,6 +1,6 @@
 /**
  * @file HelmChartDetail.tsx
- * @description Страница деталей Helm Chart: source info, версии, история синхронизации + модальное окно Mirror
+ * @description Страница деталей Helm Chart: source info, версии, история синхронизации + модальное окно синхронизации
  * @dependencies antd, @ant-design/icons, Redux store
  */
 import { useParams, useNavigate } from 'react-router';
@@ -33,7 +33,7 @@ import {
   useGetHelmChartVersionsQuery,
   useGetHelmChartLogsQuery,
   useIndexHelmChartMutation,
-  useMirrorHelmChartMutation,
+  useSyncHelmChartMutation,
   useUpdateHelmChartMutation,
 } from '../../store/api';
 import { HelmChartSourceDetail, HelmChartVersion, HelmSyncLog } from '../../types';
@@ -50,7 +50,7 @@ export function HelmChartDetailPage() {
   const { data: versions = [] } = useGetHelmChartVersionsQuery(chartId);
   const { data: logs = [] } = useGetHelmChartLogsQuery(chartId);
   const [indexChart, { isLoading: indexing }] = useIndexHelmChartMutation();
-  const [mirrorChart, { isLoading: mirroring }] = useMirrorHelmChartMutation();
+  const [syncChart, { isLoading: syncing }] = useSyncHelmChartMutation();
   const [updateChart] = useUpdateHelmChartMutation();
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -58,20 +58,20 @@ export function HelmChartDetailPage() {
   const [gitlabProjectId, setGitlabProjectId] = useState('');
   const [savingTarget, setSavingTarget] = useState(false);
 
-  const [mirrorDialogOpen, setMirrorDialogOpen] = useState(false);
-  const [mirrorChartName, setMirrorChartName] = useState<string | undefined>();
-  const [mirrorVersion, setMirrorVersion] = useState<string | undefined>();
-  const [mirrorError, setMirrorError] = useState<string | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncChartName, setSyncChartName] = useState<string | undefined>();
+  const [syncVersion, setSyncVersion] = useState<string | undefined>();
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const c = chart as HelmChartSourceDetail | undefined;
   const versionList = versions as HelmChartVersion[];
 
-  // Unique chart names for the first mirror selector.
+  // Unique chart names for the first sync selector.
   const chartNameOptions = Array.from(new Set(versionList.map((v) => v.chart_name))).map(
     (name) => ({ label: name, value: name })
   );
   const versionOptions = versionList
-    .filter((v) => v.chart_name === mirrorChartName)
+    .filter((v) => v.chart_name === syncChartName)
     .map((v) => ({ label: v.version, value: v.version }));
 
   // ── Loading / Not Found ──────────────────────────────────────────────────
@@ -118,34 +118,34 @@ export function HelmChartDetailPage() {
     }
   };
 
-  const handleOpenMirror = () => {
-    setMirrorError(null);
+  const handleOpenSync = () => {
+    setSyncError(null);
     const first = versionList[0];
-    setMirrorChartName(first?.chart_name);
-    setMirrorVersion(first?.version);
-    setMirrorDialogOpen(true);
+    setSyncChartName(first?.chart_name);
+    setSyncVersion(first?.version);
+    setSyncDialogOpen(true);
   };
 
-  const handleMirror = async () => {
-    if (!mirrorChartName || !mirrorVersion) return;
-    setMirrorError(null);
+  const handleSync = async () => {
+    if (!syncChartName || !syncVersion) return;
+    setSyncError(null);
     try {
-      const result = await mirrorChart({
+      const result = await syncChart({
         id: chartId,
-        chart_name: mirrorChartName,
-        version: mirrorVersion,
+        chart_name: syncChartName,
+        version: syncVersion,
       }).unwrap();
-      message.success('Mirror started');
-      setMirrorDialogOpen(false);
+      message.success('Синхронизация запущена');
+      setSyncDialogOpen(false);
       if (result.status_flag === 1) {
-        message.error('Mirror failed');
+        message.error('Синхронизация не удалась');
       }
     } catch (err: unknown) {
       const detail =
         err && typeof err === 'object' && 'data' in err
           ? (err as { data?: { detail?: string } }).data?.detail
           : undefined;
-      setMirrorError(detail || 'Failed to start mirror');
+      setSyncError(detail || 'Не удалось запустить синхронизацию');
     }
   };
 
@@ -302,17 +302,17 @@ export function HelmChartDetailPage() {
           <Tooltip
             title={
               c.gitlab_project_id
-                ? 'Mirror a chart version into the target repository'
-                : 'No GitLab project configured for mirroring'
+                ? 'Синхронизировать версию чарта в целевой репозиторий'
+                : 'No GitLab project configured for syncing'
             }
           >
             <Button
               icon={<CloudUploadOutlined />}
-              onClick={handleOpenMirror}
-              loading={mirroring}
+              onClick={handleOpenSync}
+              loading={syncing}
               disabled={!c.gitlab_project_id}
             >
-              Mirror
+              Синхронизировать
             </Button>
           </Tooltip>
         </PermissionGate>
@@ -444,22 +444,22 @@ export function HelmChartDetailPage() {
             onChange={(e) => setTargetRepoUrl(e.target.value)}
           />
           <Input
-            placeholder="GitLab Project ID (numeric, for mirror pipelines)"
+            placeholder="GitLab Project ID (числовой, для sync-пайплайнов)"
             value={gitlabProjectId}
             onChange={(e) => setGitlabProjectId(e.target.value)}
           />
         </Flex>
       </Modal>
 
-      {/* ── Mirror Modal ─────────────────────────────────────────────────────── */}
+      {/* ── Sync Modal ──────────────────────────────────────────────────────── */}
       <Modal
-        title="Mirror Chart"
-        open={mirrorDialogOpen}
-        onOk={handleMirror}
-        onCancel={() => setMirrorDialogOpen(false)}
-        confirmLoading={mirroring}
-        okButtonProps={{ disabled: !mirrorChartName || !mirrorVersion }}
-        okText="Mirror"
+        title="Синхронизация чарта"
+        open={syncDialogOpen}
+        onOk={handleSync}
+        onCancel={() => setSyncDialogOpen(false)}
+        confirmLoading={syncing}
+        okButtonProps={{ disabled: !syncChartName || !syncVersion }}
+        okText="Синхронизировать"
         cancelText="Cancel"
       >
         <Flex vertical gap={8}>
@@ -468,10 +468,10 @@ export function HelmChartDetailPage() {
             placeholder="Select chart"
             showSearch
             optionFilterProp="label"
-            value={mirrorChartName}
+            value={syncChartName}
             onChange={(val) => {
-              setMirrorChartName(val);
-              setMirrorVersion(undefined);
+              setSyncChartName(val);
+              setSyncVersion(undefined);
             }}
             options={chartNameOptions}
           />
@@ -480,12 +480,12 @@ export function HelmChartDetailPage() {
             placeholder="Select version"
             showSearch
             optionFilterProp="label"
-            value={mirrorVersion}
-            onChange={(val) => setMirrorVersion(val)}
+            value={syncVersion}
+            onChange={(val) => setSyncVersion(val)}
             options={versionOptions}
-            disabled={!mirrorChartName}
+            disabled={!syncChartName}
           />
-          {mirrorError && <Alert type="error" title={mirrorError} showIcon />}
+          {syncError && <Alert type="error" title={syncError} showIcon />}
         </Flex>
       </Modal>
     </Flex>

@@ -41,7 +41,7 @@ import {
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useIndexDockerImageMutation,
-  useMirrorDockerImageMutation,
+  useSyncDockerImageMutation,
   useUpdateDockerImageMutation,
   useGetDockerSyncSchedulesQuery,
   useCreateDockerSyncScheduleMutation,
@@ -69,7 +69,7 @@ export function DockerImageDetailPage() {
   const { data: logs = [] } = useGetDockerImageLogsQuery(sourceId);
   const { data: schedules = [] } = useGetDockerSyncSchedulesQuery(sourceId);
   const [indexImage, { isLoading: indexing }] = useIndexDockerImageMutation();
-  const [mirrorImage, { isLoading: mirroring }] = useMirrorDockerImageMutation();
+  const [syncImage, { isLoading: syncing }] = useSyncDockerImageMutation();
 
   // Batch tag deletion
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
@@ -81,9 +81,9 @@ export function DockerImageDetailPage() {
 
   const [updateSource] = useUpdateDockerImageMutation();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [mirrorDialogOpen, setMirrorDialogOpen] = useState(false);
-  const [mirrorTag, setMirrorTag] = useState('');
-  const [mirrorError, setMirrorError] = useState<string | null>(null);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncTag, setSyncTag] = useState('');
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     target_registry_url: '',
     target_project: '',
@@ -140,33 +140,33 @@ export function DockerImageDetailPage() {
     }
   };
 
-  const handleOpenMirror = () => {
-    setMirrorError(null);
-    setMirrorTag((tags as DockerImageTag[])[0]?.tag ?? 'latest');
-    setMirrorDialogOpen(true);
+  const handleOpenSync = () => {
+    setSyncError(null);
+    setSyncTag((tags as DockerImageTag[])[0]?.tag ?? 'latest');
+    setSyncDialogOpen(true);
   };
 
-  const handleMirror = async () => {
+  const handleSync = async () => {
     if (!s) return;
-    setMirrorError(null);
+    setSyncError(null);
     try {
       const repo = (tags as DockerImageTag[])[0]?.image_name ?? s.name;
-      const result = await mirrorImage({
+      const result = await syncImage({
         id: sourceId,
         image_name: repo,
-        tag: mirrorTag || 'latest',
+        tag: syncTag || 'latest',
       }).unwrap();
-      message.success('Mirror started');
-      setMirrorDialogOpen(false);
+      message.success('Синхронизация запущена');
+      setSyncDialogOpen(false);
       if (result.status_flag === 1) {
-        message.error('Mirror failed');
+        message.error('Синхронизация не удалась');
       }
     } catch (err: unknown) {
       const detail =
         err && typeof err === 'object' && 'data' in err
           ? (err as { data?: { detail?: string } }).data?.detail
           : undefined;
-      setMirrorError(detail || 'Failed to start mirror');
+      setSyncError(detail || 'Не удалось запустить синхронизацию');
     }
   };
 
@@ -489,17 +489,17 @@ export function DockerImageDetailPage() {
           <Tooltip
             title={
               s.target_registry_url
-                ? 'Mirror a tag to the target registry'
-                : 'No mirror target configured on this source'
+                ? 'Синхронизировать тег в целевой registry'
+                : 'У источника не настроен целевой registry'
             }
           >
             <Button
               icon={<CloudUploadOutlined />}
-              onClick={handleOpenMirror}
-              loading={mirroring}
+              onClick={handleOpenSync}
+              loading={syncing}
               disabled={!s.target_registry_url}
             >
-              Mirror
+              Синхронизировать
             </Button>
           </Tooltip>
         </PermissionGate>
@@ -784,21 +784,21 @@ export function DockerImageDetailPage() {
         </Typography.Text>
       </Modal>
 
-      {/* ── Mirror Modal ────────────────────────────────────────────────────── */}
+      {/* ── Sync Modal ──────────────────────────────────────────────────────── */}
       <Modal
-        title="Mirror Image"
-        open={mirrorDialogOpen}
-        onOk={handleMirror}
-        onCancel={() => setMirrorDialogOpen(false)}
-        confirmLoading={mirroring}
-        okText="Mirror"
+        title="Синхронизация образа"
+        open={syncDialogOpen}
+        onOk={handleSync}
+        onCancel={() => setSyncDialogOpen(false)}
+        confirmLoading={syncing}
+        okText="Синхронизировать"
         cancelText="Cancel"
       >
         <Flex vertical gap={8}>
           <Typography.Text>
-            Mirror{' '}
+            Синхронизировать{' '}
             <Typography.Text code>
-              {(tags as DockerImageTag[])[0]?.image_name ?? s.name}:{mirrorTag || 'latest'}
+              {(tags as DockerImageTag[])[0]?.image_name ?? s.name}:{syncTag || 'latest'}
             </Typography.Text>{' '}
             →{' '}
             <Typography.Text code>
@@ -810,14 +810,14 @@ export function DockerImageDetailPage() {
             placeholder="Select tag"
             showSearch
             optionFilterProp="label"
-            value={mirrorTag || undefined}
-            onChange={(val) => setMirrorTag(val)}
+            value={syncTag || undefined}
+            onChange={(val) => setSyncTag(val)}
             options={(tags as DockerImageTag[]).map((t) => ({
               label: t.tag,
               value: t.tag,
             }))}
           />
-          {mirrorError && <Alert type="error" title={mirrorError} showIcon />}
+          {syncError && <Alert type="error" title={syncError} showIcon />}
         </Flex>
       </Modal>
     </Flex>

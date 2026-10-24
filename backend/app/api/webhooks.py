@@ -99,7 +99,7 @@ async def gitlab_webhook(
                 if pipeline_status == "success":
                     source.last_synced_at = datetime.now(UTC)  # type: ignore[assignment]
 
-            # Mark the exact mirrored version as synced (mirror action only —
+            # Mark the exact synced version as synced (sync action only —
             # index runs leave chart_name/chart_version empty here).
             if (
                 pipeline_status == "success"

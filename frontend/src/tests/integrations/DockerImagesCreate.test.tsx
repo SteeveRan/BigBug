@@ -133,7 +133,7 @@ describe('DockerImagesCreate', () => {
     const { dialog } = await openAndAnalyze();
 
     expect(await dialog.findByText('Source Registry')).toBeInTheDocument();
-    expect(dialog.getByText('Mirror Target')).toBeInTheDocument();
+    expect(dialog.getByText('Sync Target')).toBeInTheDocument();
   });
 
   it('sends target fields and repository_path in the create payload', async () => {
@@ -144,10 +144,10 @@ describe('DockerImagesCreate', () => {
 
     const { user, dialog } = await openAndAnalyze();
 
-    expect(await dialog.findByText('Mirror Target')).toBeInTheDocument();
+    expect(await dialog.findByText('Sync Target')).toBeInTheDocument();
 
     // antd Select interactions: click the target select then pick the option.
-    const targetSelect = dialog.getByText('Mirror Target').closest('div')?.parentElement;
+    const targetSelect = dialog.getByText('Sync Target').closest('div')?.parentElement;
     expect(targetSelect).toBeTruthy();
 
     await user.click(dialog.getByRole('button', { name: 'Add Image' }));

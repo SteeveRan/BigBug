@@ -71,7 +71,7 @@ async def mark_helm_version_synced(
 
 
 class HelmService:
-    """Service for indexing Helm chart repositories and mirroring chart versions.
+    """Service for indexing Helm chart repositories and syncing chart versions.
 
     Fetches the index.yaml from a chart repository and creates/updates
     HelmChartVersion entries in the database. Mirroring a single version
@@ -228,7 +228,7 @@ class HelmService:
 
         Indexing only records available versions; it never marks a version as
         synced (``is_synced`` stays False / status stays pending). Only a
-        successful mirror via :meth:`mirror_chart` (confirmed by the webhook)
+        successful sync via :meth:`sync_chart` (confirmed by the webhook)
         flips ``is_synced``.
         """
         for chart_name, versions in entries.items():
@@ -310,7 +310,7 @@ class HelmService:
         )
         return result.scalar_one_or_none()
 
-    async def mirror_chart(
+    async def sync_chart(
         self,
         source: HelmChartSource,
         chart_name: str,
@@ -318,7 +318,7 @@ class HelmService:
         db: AsyncSession,
         triggered_by: str = "manual",
     ) -> HelmSyncLog:
-        """Mirror one chart version into the target Helm repository.
+        """Sync one chart version into the target Helm repository.
 
         Triggers a GitLab CI pipeline (helm-sync-template) which performs the
         actual ``helm pull`` / ``helm push``. The log stores ``chart_name`` /
@@ -332,9 +332,7 @@ class HelmService:
             )
 
         if not source.gitlab_project_id:
-            raise BadRequestError(
-                "Helm chart source has no GitLab project configured for mirroring"
-            )
+            raise BadRequestError("Helm chart source has no GitLab project configured for syncing")
 
         now = datetime.now(UTC)
         log = HelmSyncLog(

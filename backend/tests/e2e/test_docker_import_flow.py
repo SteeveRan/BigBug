@@ -3,7 +3,7 @@
 @description E2E test for the Docker Hub → Harbor import flow (docker-import-fix):
               analyze returns ``available_targets`` after the Harbor system provider
               seed, create a source bound to an internal target provider, index real
-              Docker Hub tags (skip when there is no network), and mirror via crane
+              Docker Hub tags (skip when there is no network), and sync via crane
               (skip when the binary is absent).
 @dependencies backend/tests/e2e/conftest.py
 """
@@ -127,10 +127,10 @@ class TestDockerImportFlow:
         finally:
             await client.delete(f"/api/docker-images/{source_id}", headers=admin_headers)
 
-    async def test_mirror_requires_crane_or_skips(
+    async def test_sync_requires_crane_or_skips(
         self, client: AsyncClient, admin_headers: dict, unique_name: str
     ):
-        """Mirror endpoint reaches crane; when the binary is absent the call is a 502.
+        """Sync endpoint reaches crane; when the binary is absent the call is a 502.
 
         crane lives in the backend container, not the test host, so we gate on its
         local presence only to make the intent explicit — the real assertion is the
@@ -147,7 +147,7 @@ class TestDockerImportFlow:
         try:
             # No target registry → 400 before crane is ever invoked.
             response = await client.post(
-                f"/api/docker-images/{source_id}/mirror",
+                f"/api/docker-images/{source_id}/sync",
                 headers=admin_headers,
                 params={"image_name": "library/nginx", "tag": "latest"},
             )
@@ -155,6 +155,6 @@ class TestDockerImportFlow:
         finally:
             await client.delete(f"/api/docker-images/{source_id}", headers=admin_headers)
 
-        # Document the crane prerequisite for the actual mirror path.
+        # Document the crane prerequisite for the actual sync path.
         if shutil.which("crane") is None:
             pytest.skip("crane binary is not available in the test environment")

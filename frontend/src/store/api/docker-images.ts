@@ -61,12 +61,12 @@ export const dockerImagesApi = api.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { id }) => [{ type: 'DockerImage', id }],
     }),
-    mirrorDockerImage: builder.mutation<
+    syncDockerImage: builder.mutation<
       DockerSyncLog,
       { id: number; image_name: string; tag: string }
     >({
       query: ({ id, image_name, tag }) => ({
-        url: `/docker-images/${id}/mirror?image_name=${encodeURIComponent(image_name)}&tag=${encodeURIComponent(tag)}`,
+        url: `/docker-images/${id}/sync?image_name=${encodeURIComponent(image_name)}&tag=${encodeURIComponent(tag)}`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, { id }) => [{ type: 'DockerImage', id }, 'DockerImage'],
@@ -156,7 +156,7 @@ export const {
   useUpdateDockerImageMutation,
   useDeleteDockerImageMutation,
   useIndexDockerImageMutation,
-  useMirrorDockerImageMutation,
+  useSyncDockerImageMutation,
   useGetDockerImageTagsQuery,
   useGetDockerImageLogsQuery,
   useBatchDeleteDockerTagsMutation,

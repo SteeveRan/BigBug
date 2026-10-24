@@ -75,7 +75,7 @@ class SchedulerService:
                         )
                         source = source_result.scalar_one_or_none()
                         if source and source.target_registry_url:
-                            # Mirroring mode: copy unsynced tags to target registry
+                            # Sync mode: copy unsynced tags to target registry
                             tags_result = await db.execute(
                                 select(DockerImageTag).where(
                                     DockerImageTag.source_id == source.id,
@@ -86,7 +86,7 @@ class SchedulerService:
 
                             for tag in tags:
                                 try:
-                                    await docker_service.mirror_image(
+                                    await docker_service.sync_image(
                                         source=source,
                                         image_name=tag.image_name,
                                         tag=tag.tag,
@@ -95,11 +95,11 @@ class SchedulerService:
                                     )
                                 except Exception as e:
                                     logger.error(
-                                        f"Failed to mirror {tag.image_name}:{tag.tag}: {e}"
+                                        f"Failed to sync {tag.image_name}:{tag.tag}: {e}"
                                     )
 
                             logger.info(
-                                f"Mirrored {len(tags)} tag(s) for docker source {source.id}"
+                                f"Synced {len(tags)} tag(s) for docker source {source.id}"
                             )
                         elif source:
                             # No target configured: refresh (re-index) tags
