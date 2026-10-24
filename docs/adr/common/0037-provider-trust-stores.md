@@ -14,7 +14,7 @@ informed: SteeveRan
 
 Вопрос: как дать админу точечный контроль над источником доверия для исходящего TLS провайдеров, не отключая проверку целиком и не превращая платформу в менеджер сертификатов?
 
-Issue: [#88](https://github.com/SteeveRan/BigBug/issues/88) (решение согласовано на grilling-сессии), реализация — #2/#3 (backend), #4/#5 (frontend).
+Issue: [#88](https://github.com/SteeveRan/BigBug/issues/88) (решение согласовано на grilling-сессии), реализация — [#89](https://github.com/SteeveRan/BigBug/issues/89)/[#90](https://github.com/SteeveRan/BigBug/issues/90) (backend), [#91](https://github.com/SteeveRan/BigBug/issues/91)/[#92](https://github.com/SteeveRan/BigBug/issues/92) (frontend).
 
 ## Decision Drivers
 
@@ -101,7 +101,7 @@ erDiagram
 
 ### Confirmation
 
-* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе; валидный серт, подписанный им, проходит, системный — отклоняется), а провайдер без стора — системный контекст. Появится с реализацией #2/#3 как `backend/tests/unit/test_provider_trust_store_ssl.py` (имя зафиксировано для #2):
+* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе; валидный серт, подписанный им, проходит, системный — отклоняется), а провайдер без стора — системный контекст. Появится с реализацией #90 как `backend/tests/unit/test_provider_trust_store_ssl.py` (имя зафиксировано для #90):
 
 ```bash
 make test-unit-backend TEST_ARGS="tests/unit/test_provider_trust_store_ssl.py -v"
@@ -109,7 +109,7 @@ make test-unit-backend TEST_ARGS="tests/unit/test_provider_trust_store_ssl.py -v
 
 Ожидаемый результат: зелёный; при удалении инъекции контекста из `_http.py` — падает.
 
-* **RESTRICT + 409** (unit): тест удаляет стор, на который ссылается провайдер → `IntegrityError`/`DomainError` транслируется в 409 с перечнем провайдеров. Появится как кейс в `backend/tests/unit/test_trust_store_service.py` (имя для #2):
+* **RESTRICT + 409** (unit): тест удаляет стор, на который ссылается провайдер → `IntegrityError`/`DomainError` транслируется в 409 с перечнем провайдеров. Появится как кейс в `backend/tests/unit/test_trust_store_service.py` (имя для #89):
 
 ```bash
 make test-unit-backend TEST_ARGS="tests/unit/test_trust_store_service.py -v"

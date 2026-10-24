@@ -161,7 +161,7 @@
 
 ## Права trust-stores (2026-10-24, спроектированы — не сидируются и не проверяются до реализации #2)
 
-Спроектированы в [ADR-0037](../adr/common/0037-provider-trust-stores.md) (provider trust stores), реализация backend — issue [#2](https://github.com/SteeveRan/BigBug/issues/2). До появления миграции сида и `require_permission()` в API прав в БД нет — не использовать в `PermissionGate` до реализации.
+Спроектированы в [ADR-0037](../adr/common/0037-provider-trust-stores.md) (provider trust stores), реализация backend — issue [#89](https://github.com/SteeveRan/BigBug/issues/89)/[#90](https://github.com/SteeveRan/BigBug/issues/90). До появления миграции сида и `require_permission()` в API прав в БД нет — не использовать в `PermissionGate` до реализации.
 
 | Permission | Назначение | Admin | Operator | Viewer | Статус |
 |---|---|:--:|:--:|:--:|---|
