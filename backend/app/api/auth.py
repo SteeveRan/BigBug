@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
@@ -32,7 +33,7 @@ from app.schemas.auth import (
 from app.schemas.oidc_config import OIDCConfigOut, OIDCConfigPublic, OIDCConfigUpdate
 from app.schemas.rbac import UserPermissionsOut
 from app.services.audit import AuditService
-from app.services.oidc import KeycloakOIDCService
+from app.services.oidc import KeycloakOIDCService, parse_realm_from_issuer
 from app.services.oidc_config import OIDCConfigService
 from app.services.rbac_service import RBACService
 
@@ -160,16 +161,28 @@ async def sso_config(db: AsyncSession = Depends(get_db)):
     Reads from the database-backed OIDC config with automatic fallback to
     environment variables when the DB row doesn't exist yet.
 
-    SSO is considered enabled only when a frontend client ID and a public URL
-    are configured, so the frontend can hide the button in pure-local deployments.
+    ``realm`` and ``url`` are computed by the backend from the full issuer URI
+    (RFC 8414) and ``public_url``. SSO is considered enabled only when the
+    issuer is a full realm URI, so legacy values (no ``/realms/`` segment)
+    disable the button instead of crashing.
     """
     service = OIDCConfigService(db)
     config = await service.get_active_config_cached()
 
+    realm = parse_realm_from_issuer(config.issuer_url)
+    if realm is None:
+        logger.warning(
+            "oidc_issuer_missing_realm_segment",
+            extra={"issuer_url": config.issuer_url},
+        )
+        return SSOConfig(enabled=False, url="", realm="", client_id=config.frontend_client_id)
+
+    origin = config.public_url or config.issuer_url
+    url = urlunsplit(urlsplit(origin)[:2] + ("", "", ""))
     return SSOConfig(
         enabled=config.enabled,
-        url=config.public_url or "",
-        realm="bigbug",  # realm is hard-coded; not configurable via DB
+        url=url,
+        realm=realm,
         client_id=config.frontend_client_id,
     )
 

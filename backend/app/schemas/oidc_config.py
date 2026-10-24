@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
+
+from app.services.oidc import parse_realm_from_issuer
 
 
 class OIDCConfigOut(BaseModel):
@@ -51,6 +54,25 @@ class OIDCConfigUpdate(BaseModel):
     enabled: bool | None = None
     public_url: str | None = None
     role_mapping: dict[str, str] | None = None
+
+    @field_validator("issuer_url")
+    @classmethod
+    def _validate_issuer_url(cls, v: str | None) -> str | None:
+        # Empty string / None are valid (SSO unconfigured); a non-empty value
+        # must be a full RFC 8414 realm issuer, e.g.
+        # https://kc.example.com/realms/myrealm.
+        if not v:
+            return v
+        parts = urlsplit(v)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise ValueError("issuer_url must be an absolute http(s) URL")
+        if parts.query or parts.fragment:
+            raise ValueError("issuer_url must not contain a query or fragment")
+        if parse_realm_from_issuer(v) is None:
+            raise ValueError(
+                'issuer_url must be a full realm issuer URI with a "/realms/<realm>" path'
+            )
+        return v
 
 
 class OIDCConfigPublic(BaseModel):

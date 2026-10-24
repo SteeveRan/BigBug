@@ -12825,7 +12825,7 @@
     },
     "/api/auth/sso/config": {
       "get": {
-        "description": "Expose the public OIDC parameters needed to bootstrap keycloak-js.\n\nReads from the database-backed OIDC config with automatic fallback to\nenvironment variables when the DB row doesn't exist yet.\n\nSSO is considered enabled only when a frontend client ID and a public URL\nare configured, so the frontend can hide the button in pure-local deployments.",
+        "description": "Expose the public OIDC parameters needed to bootstrap keycloak-js.\n\nReads from the database-backed OIDC config with automatic fallback to\nenvironment variables when the DB row doesn't exist yet.\n\n``realm`` and ``url`` are computed by the backend from the full issuer URI\n(RFC 8414) and ``public_url``. SSO is considered enabled only when the\nissuer is a full realm URI, so legacy values (no ``/realms/`` segment)\ndisable the button instead of crashing.",
         "operationId": "sso_config_api_auth_sso_config_get",
         "responses": {
           "200": {
