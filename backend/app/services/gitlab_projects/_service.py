@@ -30,6 +30,7 @@ from app.services.gitlab_projects._clients import (
     _get_gitlab_provider_or_404,
     get_provider_gitlab_client,
 )
+from app.services.trust_store_tls import provider_ssl_verify
 
 # Status flags (unified convention 0-4)
 STATUS_OK = 0
@@ -199,7 +200,9 @@ class GitlabProjectService:
             if not await self._is_team_member(data.team_id, user.id):
                 raise DomainError("you must be a member of the target team", 422)
 
-        gl = get_provider_gitlab_client(provider)
+        gl = get_provider_gitlab_client(
+            provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+        )
         namespace_id = await self._resolve_namespace(gl, data.namespace_path, data.create_namespace)
 
         try:
@@ -291,7 +294,9 @@ class GitlabProjectService:
         # Mirror name/description/visibility into GitLab.
         provider = project.provider
         if provider is not None and (data.name or data.description or data.gitlab_visibility):
-            gl = get_provider_gitlab_client(provider)
+            gl = get_provider_gitlab_client(
+                provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+            )
             try:
                 gl_project = gl.projects.get(project.full_path)
                 if data.name:
@@ -356,7 +361,9 @@ class GitlabProjectService:
         if hard:
             provider = project.provider
             if provider is not None:
-                gl = get_provider_gitlab_client(provider)
+                gl = get_provider_gitlab_client(
+                    provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+                )
                 try:
                     gl_project = gl.projects.get(project.full_path)
                     gl_project.delete()
@@ -384,7 +391,9 @@ class GitlabProjectService:
         provider = await self._get_provider_or_404(provider_id)
         await self._ensure_can_use_provider(provider, user)
 
-        gl = get_provider_gitlab_client(provider)
+        gl = get_provider_gitlab_client(
+            provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+        )
         try:
             gl_project = gl.projects.get(full_path)
         except gitlab.GitlabError as exc:
@@ -433,7 +442,9 @@ class GitlabProjectService:
         if provider is None:
             raise DomainError("Project has no provider", 404)
 
-        gl = get_provider_gitlab_client(provider)
+        gl = get_provider_gitlab_client(
+            provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+        )
         try:
             gl_project = gl.projects.get(project.full_path)
         except gitlab.GitlabError as exc:
@@ -466,7 +477,12 @@ class GitlabProjectService:
         provider = project.provider
         if provider is None:
             raise DomainError("Project has no provider", 404)
-        return get_provider_gitlab_client(provider), provider
+        return (
+            get_provider_gitlab_client(
+                provider, ssl_verify=await provider_ssl_verify(self.db, provider)
+            ),
+            provider,
+        )
 
     async def list_files(
         self, project_id: int, user: User, ref: str, path: str | None

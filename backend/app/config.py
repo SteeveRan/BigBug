@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # Stale threshold
     default_stale_threshold_days: int = 30
 
+    # Writable scratch for regenerable caches (trust-store PEM bundles,
+    # ADR-0037). /tmp is safe: the cache is content-checked and rewritten on
+    # every regeneration, nothing persistent lives here.
+    data_dir: str = "/tmp/bigbug"
+
     # Soft-delete cleanup
     soft_delete_retention_days: int = 30
     cleanup_cron_hour: int = 3

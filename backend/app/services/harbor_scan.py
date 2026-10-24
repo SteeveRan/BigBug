@@ -20,7 +20,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
-from app.core.http import ssl_verify
 from app.core.secrets import decrypt_secret
 from app.models.credential import Credential
 from app.models.image_version import ImageVersion
@@ -29,6 +28,7 @@ from app.models.resource_provider import (
     ProviderSubtype,
     ResourceProvider,
 )
+from app.services.trust_store_tls import provider_httpx_verify
 
 logger = logging.getLogger(__name__)
 
@@ -118,10 +118,15 @@ async def _get_harbor_provider(db: AsyncSession, provider_id: int) -> ResourcePr
 
 
 async def _get_harbor_client(
+    db: AsyncSession,
     provider: ResourceProvider,
     credential: Credential | None = None,
 ) -> httpx.AsyncClient:
-    """Create an authenticated httpx AsyncClient for a Harbor provider."""
+    """Create an authenticated httpx AsyncClient for a Harbor provider.
+
+    ``verify=`` comes from the ADR-0037 trust semantics: ``False``,
+    an SSLContext from a bound TrustStore, or the env/system default.
+    """
     username = credential.username if credential else None
     password = None
     if credential is not None and credential.encrypted_secret:
@@ -130,7 +135,7 @@ async def _get_harbor_client(
     return httpx.AsyncClient(
         base_url=(provider.base_url or "").rstrip("/"),
         auth=auth,
-        verify=ssl_verify() if provider.verify_ssl else False,
+        verify=await provider_httpx_verify(db, provider),
         timeout=30.0,
     )
 
@@ -174,7 +179,7 @@ class HarborScanService:
         )
 
         # Trigger scan via Harbor API
-        async with await _get_harbor_client(provider, credential) as client:
+        async with await _get_harbor_client(db, provider, credential) as client:
             scan_url = (
                 f"/api/v2.0/projects/{project_name}"
                 f"/repositories/{repository_name}"
@@ -238,7 +243,7 @@ class HarborScanService:
         )
 
         # Get artifact with scan overview
-        async with await _get_harbor_client(provider, credential) as client:
+        async with await _get_harbor_client(db, provider, credential) as client:
             artifact_url = (
                 f"/api/v2.0/projects/{project_name}"
                 f"/repositories/{repository_name}"

@@ -316,6 +316,15 @@ class GenericGitSourceProvider(BaseSourceProvider):
 
     # -- BaseSourceProvider interface ---------------------------------------
 
+    def _tls_env(self) -> dict[str, str]:
+        """``GIT_SSL_CAINFO`` for git subprocesses (ADR-0037).
+
+        The bundle path is materialized by ``create_source_provider`` (needs a
+        DB session); providers built without it fall back to env/system trust.
+        """
+        path = getattr(self.provider, "ca_bundle_path", None)
+        return {"GIT_SSL_CAINFO": path} if path else {}
+
     async def check_access(self) -> bool:
         """
         Verify that the repository is accessible with the given credential.
@@ -338,7 +347,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
         # In practice, the provider configuration stores URLs via source groups.
         # We'll just attempt a basic connectivity test.
         target_url = _build_auth_url("https://github.com", self.credential_secret)
-        env_override: dict[str, str] = {}
+        env_override: dict[str, str] = self._tls_env()
 
         returncode, stdout, stderr = await _run_git(
             "ls-remote",
@@ -455,7 +464,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
             clone_url = _build_auth_url(url, self.credential_secret)
 
         tmpdir = tempfile.mkdtemp(prefix="bigbug_git_clone_")
-        env_override: dict[str, str] = {}
+        env_override: dict[str, str] = self._tls_env()
 
         try:
             # Clone bare
@@ -598,7 +607,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
         clone_url = (
             url if not url.startswith("https://") else _build_auth_url(url, self.credential_secret)
         )
-        env_override: dict[str, str] = {}
+        env_override: dict[str, str] = self._tls_env()
 
         if ref is None:
             # Need to discover the default branch first
@@ -737,7 +746,7 @@ class GenericGitSourceProvider(BaseSourceProvider):
         Returns:
             ``True`` if all common refs have matching SHAs.
         """
-        env_override: dict[str, str] = {}
+        env_override: dict[str, str] = self._tls_env()
 
         # Get source refs
         source_refs: dict[str, str] = {}

@@ -1,5 +1,6 @@
 import json
 import re
+import ssl
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +24,7 @@ from app.models.resource_provider import (
     ResourceProvider,
 )
 from app.services.gitlab import get_default_gitlab_provider
+from app.services.trust_store_tls import TlsVerify, provider_httpx_verify, provider_ssl_verify
 
 if TYPE_CHECKING:
     pass
@@ -158,7 +160,9 @@ class HelmService:
         source.status_text = "indexing"
 
         try:
-            index = await self._fetch_index(source.repo_url)
+            index = await self._fetch_index(
+                source.repo_url, verify=await self._source_verify(db, source)
+            )
         except Exception as e:
             sync_log.status_flag = 1
             sync_log.status_text = "failed"
@@ -195,12 +199,19 @@ class HelmService:
         await db.flush()
         return sync_log
 
-    async def _fetch_index(self, repo_url: str) -> dict[str, Any]:
-        """Download and parse index.yaml."""
+    async def _fetch_index(
+        self, repo_url: str, verify: bool | str | ssl.SSLContext | None = None
+    ) -> dict[str, Any]:
+        """Download and parse index.yaml.
+
+        ``verify`` (ADR-0037) overrides the default env/system trust when given
+        — resolved from the source's linked provider TrustStore.
+        """
         headers: dict[str, str] = {"Accept": "application/x-yaml, application/yaml, text/yaml"}
 
+        effective_verify = verify if verify is not None else ssl_verify()
         async with httpx.AsyncClient(
-            timeout=30.0, follow_redirects=True, verify=ssl_verify()
+            timeout=30.0, follow_redirects=True, verify=effective_verify
         ) as client:
             try:
                 response = await client.get(repo_url, headers=headers)
@@ -217,6 +228,18 @@ class HelmService:
             raise ExternalServiceError("Helm repo", "index.yaml does not contain 'entries' key")
 
         return data
+
+    async def _source_verify(self, db: AsyncSession, source: HelmChartSource) -> TlsVerify | None:
+        """httpx ``verify=`` from the source's linked provider, or None.
+
+        None keeps the default env/system trust (source without provider).
+        """
+        if source.provider_id is None:
+            return None
+        provider = await db.get(ResourceProvider, source.provider_id)
+        if provider is None:
+            return None
+        return await provider_httpx_verify(db, provider)
 
     async def _sync_chart_entries(
         self,
@@ -276,8 +299,14 @@ class HelmService:
         """Re-index an existing Helm chart source."""
         return await self.index_source(source, db)
 
-    def _get_client(self, provider: ResourceProvider | None = None) -> gitlab.Gitlab:
-        """Build a python-gitlab client (provider-first, settings fallback)."""
+    def _get_client(
+        self, provider: ResourceProvider | None = None, ssl_verify: bool | str | None = None
+    ) -> gitlab.Gitlab:
+        """Build a python-gitlab client (provider-first, settings fallback).
+
+        ``ssl_verify`` (ADR-0037) overrides the provider flag when given
+        (bundle path of a bound TrustStore).
+        """
         if provider is not None:
             token: str | None = None
             if provider.credential is not None and provider.credential.encrypted_secret:
@@ -285,7 +314,7 @@ class HelmService:
             return gitlab.Gitlab(
                 provider.base_url,
                 private_token=token or None,
-                ssl_verify=provider.verify_ssl,
+                ssl_verify=provider.verify_ssl if ssl_verify is None else ssl_verify,
             )
         if settings.gitlab_url:
             return gitlab.Gitlab(
@@ -349,7 +378,9 @@ class HelmService:
 
         provider = await get_default_gitlab_provider(db)
         try:
-            gl = self._get_client(provider)
+            gl = self._get_client(
+                provider, ssl_verify=await provider_ssl_verify(db, provider) if provider else None
+            )
             gl_project = gl.projects.get(source.gitlab_project_id)
             pipeline = gl_project.pipelines.create(
                 {

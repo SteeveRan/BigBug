@@ -132,6 +132,8 @@ See: [`/docs/development/frontend.md`](docs/development/frontend.md)
 | `coverage-*` | `make coverage-all` |
 | `dead-code-*` | `make dead-code` |
 
+**Форматирование — quality gate**: `ruff format --check` (backend) и `prettier --check` (frontend) входят в `make lint` и CI. Правило для агентов: **форматируй файлы, которые трогаешь** (`ruff format <путь>` / `prettier --write <путь>`); не запускай `ruff format app tests` на весь репо в feature-диффах — это drive-by (проверка `--check` всё равно провалится на чужих файлах, чинить их нужно отдельным коммитом `make format`).
+
 See: [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — IaC-разрезка (base/infra-apps/apps root'ы, инструментальное ядро бывшего ADR-0013); [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md) — dev-стенд на kind; troubleshooting инфраструктуры — ниже.
 
 ## Key Conventions

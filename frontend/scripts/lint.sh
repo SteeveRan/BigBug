@@ -35,4 +35,13 @@ fi
 echo "✓ TypeScript type check passed"
 
 echo ""
+echo "=== Running Prettier check ==="
+if ! yarn run format:check; then
+    echo "ОШИБКА: Prettier check не прошёл"
+    echo "Для исправления: ./scripts/format.sh (или make format-frontend)"
+    exit 1
+fi
+echo "✓ Prettier check passed"
+
+echo ""
 echo "=== Done ==="

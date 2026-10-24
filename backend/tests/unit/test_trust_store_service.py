@@ -80,9 +80,7 @@ class TestCertificates:
         svc = TrustStoreService(db_session)
         store = await svc.create_store(name="chain")
         # 3 certificates: CA1, CA2, CA1 again — unique row names via -N suffix.
-        await svc.add_certificates(
-            store.id, [("chain", _pem_text(PEM_CA1, PEM_CA2, PEM_CA1))]
-        )
+        await svc.add_certificates(store.id, [("chain", _pem_text(PEM_CA1, PEM_CA2, PEM_CA1))])
         store = await svc.get_store(store.id)
         assert len(store.certificates) == 3
         assert {c.name for c in store.certificates} == {"chain-1", "chain-2", "chain-3"}
