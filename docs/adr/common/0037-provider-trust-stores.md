@@ -64,7 +64,7 @@ erDiagram
 Трастстор — данные в БД; при выполнении запроса PEM материализуется в объект, понятный конкретному клиенту:
 
 * **httpx-клиенты** (`providers/clients/*` через `_http.py`): `ssl.SSLContext`, собранный из PEM в памяти (`ssl.create_default_context(cadata=...)`) — без промежуточных файлов; точка встраивания — существующий хелпер `app/core/http.py::ssl_verify()`, который сегодня возвращает путь env-бандла или `True`.
-* **python-gitlab и git CLI** (git-mirroring, git-клиенты): нужен путь до файла на диске — бандл-кеш: `resolve_bundle_path(trust_store)` собирает PEM всех сертификатов стора в файл, регенерирует по хешу содержимого (изменился стор → изменился хеш → перезапись файла); путь передаётся как `REQUESTS_CA_BUNDLE`-аналог (`ssl_ca_certs` / `GIT_SSL_CAINFO`).
+* **python-gitlab и git CLI** (git-mirroring, git-клиенты): нужен путь до файла на диске — бандл-кеш: `resolve_bundle_path(trust_store)` собирает PEM всех сертификатов стора в файл `<DATA_DIR>/trust_stores/<id>.pem`, регенерирует при изменении/отсутствии (содержимое сверяется с БД перед каждым resolve — stale trust невозможен); путь передаётся как `REQUESTS_CA_BUNDLE`-аналог (`ssl_ca_certs` / `GIT_SSL_CAINFO`). Каталог — подо-локальный writable scratch (emptyDir `data-scratch` в `charts/bigbug`, `DATA_DIR=/data`): файл-сирота после удаления стора живёт не дольше пода, явная чистка при `delete_store` **не делается** — она покрывала бы только под, обслужавший удаление. Триггер пересмотра: если `DATA_DIR` переедет на общий персистентный том (реплики > 1), сироты станут вечными — тогда в `TrustStoreService.delete_store` возвращается удаление файла (одна строка).
 
 ### RBAC
 
@@ -153,4 +153,4 @@ make test-unit-backend TEST_ARGS="tests/unit/test_trust_store_service.py -v"
 * Код (точки встраивания, текущее состояние): `backend/app/models/resource_provider.py` (`verify_ssl`), `backend/app/core/http.py` (`ssl_verify()` — env-бандл, предшественник трастстора), `backend/app/services/providers/clients/_http.py`
 * Permissions: `trust_stores:read`/`trust_stores:write` — [docs/development/permissions.md](../../development/permissions.md); термин Trust Store — [GLOSSARY.md](../../../GLOSSARY.md)
 * Происхождение: issue [#88](https://github.com/SteeveRan/BigBug/issues/88) — решения согласованы на grilling-сессии (включая RESTRICT вместо SET NULL, отказ от шифрования PEM, материализацию в память для httpx / в файл для git)
-* Триггеры пересмотра: потребность в CRL/OCSP или клиентских mTLS-сертификатах; покрытие gaps (PyGithub/crane/cosign) станет требованием, а не известным ограничением
+* Триггеры пересмотра: потребность в CRL/OCSP или клиентских mTLS-сертификатах; покрытие gaps (PyGithub/crane/cosign) станет требованием, а не известным ограничением; перенос `DATA_DIR` на общий персистентный том (см. «Материализация PEM»)

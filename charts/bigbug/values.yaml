@@ -50,7 +50,10 @@ backend:
 
   # Non-secret env (plain values) — merged into the backend ConfigMap.
   # CORS_ORIGINS lives here (ADR-0028 §3): JSON list of allowed browser origins.
+  # DATA_DIR: writable scratch (emptyDir data-scratch) for regenerable caches
+  # (trust-store PEM bundles, ADR-0037).
   env:
+    DATA_DIR: /data
     CORS_ORIGINS: '["http://localhost:5173", "http://localhost:3000"]'
   # Secret env (secretKeyRef) — name of existing Secret per variable below
   secretEnv:

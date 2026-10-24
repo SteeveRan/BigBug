@@ -125,11 +125,14 @@ class TrustStoreService:
         store = await self._get_or_404(store_id)
         providers = await self.get_usage(store_id)
         if providers:
-            raise DomainError(
-                f"Trust store is in use by providers: {', '.join(providers)}", 409
-            )
+            raise DomainError(f"Trust store is in use by providers: {', '.join(providers)}", 409)
         await self.db.delete(store)
         await self.db.commit()
+        # Bundle files (settings.data_dir/trust_stores/<id>.pem) are NOT
+        # deleted here: the cache lives on a pod-local volume, so a cleanup
+        # here would only cover this one pod anyway. Leftover files are
+        # garbage, never stale trust — content is re-checked against the DB
+        # on every resolve (trust_store_tls.resolve_bundle_path).
 
     async def _ensure_name_free(self, name: str) -> None:
         existing = await self.db.execute(
