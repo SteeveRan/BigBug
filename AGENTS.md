@@ -459,7 +459,16 @@ make test-unit-frontend TEST_ARGS="-f Pipelines -t 'should trigger'"
 
 ### Code Quality Checks
 
-**Агентам**: использовать `make` (скрипты загружают правильное окружение):
+**Агентам: гоняйте срез по стеку, который трогали.** Агрегатные таргеты (`make lint`, `make typecheck`, `make format`) включают все стеки; упавший frontend-срез из-за отсутствующего `node_modules` в worktree — не повод красить проверку чужого стека. Канонический набор для backend-фичи:
+
+```bash
+make lint-backend        # ruff check + ruff format --check (backend-срез)
+make typecheck-backend   # mypy (backend-срез)
+make test-unit-backend   # backend unit
+```
+
+Для frontend-фичи — зеркально: `lint-frontend`, `typecheck-frontend`, `test-unit-frontend` / `test-integrations-frontend`. Агрегаты (`make lint`, `make typecheck`) — для полных изменений или перед мержем. Прямые вызовы ruff/mypy/eslint через `.venv/bin` или `node_modules/.bin` вместо make-таргетов запрещены: скрипты загружают правильное окружение.
+
 ```bash
 make lint        # ruff check + eslint + lint-infra (tofu fmt -check, tflint, tofu validate, yamllint)
 make lint-infra  # инфра-срез: lint-terraform (tofu + tflint) + lint-helm (yamllint)
