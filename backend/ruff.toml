@@ -40,6 +40,7 @@ ignore = []
 [lint.per-file-ignores]
 "__init__.py" = ["F401"]            # неиспользуемые импорты в __init__.py — норма
 "tests/**" = ["S101"]               # assert в тестах — норма
+"tests/unit/_trust_certs_fixtures.py" = ["E501"]  # сгенерированные PEM-фикстуры
 "alembic/**" = ["INP001"]           # alembic файлы без __init__.py
 "app/api/**" = ["B008"]             # FastAPI Depends() в аргументах — стандартный паттерн DI
 "app/core/rbac.py" = ["B008"]      # FastAPI Depends() в зависимостях RBAC

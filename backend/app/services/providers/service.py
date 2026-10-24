@@ -188,6 +188,7 @@ class ProviderService:
         base_url: str | None = None,
         config: dict | None = None,
         credential_id: int | None = None,
+        trust_store_id: int | None = None,
         visibility: ProviderVisibility = ProviderVisibility.owner,
         team_id: int | None = None,
     ) -> ResourceProvider:
@@ -246,6 +247,7 @@ class ProviderService:
             base_url=base_url,
             config=config or {},
             credential_id=credential_id,
+            trust_store_id=trust_store_id,
             owner_user_id=owner_user_id,
             team_id=team_id if visibility == ProviderVisibility.team else None,
             is_protected=(category == ProviderCategory.system),
@@ -269,6 +271,7 @@ class ProviderService:
         base_url: str | None = None,
         config: dict | None = None,
         credential_id: int | None = None,
+        trust_store_id: int | None = None,
         is_active: bool | None = None,
         is_default: bool | None = None,
         verify_ssl: bool | None = None,
@@ -292,6 +295,8 @@ class ProviderService:
             provider.config = config
         if credential_id is not None:
             provider.credential_id = credential_id
+        if trust_store_id is not None:
+            provider.trust_store_id = trust_store_id
         if is_active is not None:
             provider.is_active = is_active
         if verify_ssl is not None:

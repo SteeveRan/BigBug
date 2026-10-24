@@ -24,6 +24,7 @@ from app.api import (
     reports,
     schedules,
     teams,
+    trust_stores,
     webhooks,
 )
 from app.config import settings
@@ -86,6 +87,7 @@ app.include_router(audit.router, prefix="/api/admin/audit-logs", tags=["audit"])
 app.include_router(mirroring.router, prefix="/api/mirroring", tags=["mirroring"])
 app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
 app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
+app.include_router(trust_stores.router, prefix="/api/trust-stores", tags=["trust-stores"])
 app.include_router(health_check.router, prefix="/api", tags=["health-check"])
 app.include_router(orphaned.router, prefix="/api/mirroring", tags=["orphaned"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])

@@ -6879,6 +6879,17 @@
             ],
             "title": "Team Id"
           },
+          "trust_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Store Id"
+          },
           "visibility": {
             "$ref": "#/components/schemas/ProviderVisibility",
             "default": "owner"
@@ -7062,6 +7073,17 @@
               }
             ],
             "title": "Team Name"
+          },
+          "trust_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Store Id"
           },
           "updated_at": {
             "format": "date-time",
@@ -7366,6 +7388,17 @@
               }
             ],
             "title": "Team Id"
+          },
+          "trust_store_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trust Store Id"
           },
           "verify_ssl": {
             "anyOf": [
@@ -9724,6 +9757,231 @@
           "count"
         ],
         "title": "TopSyncMirrorItem",
+        "type": "object"
+      },
+      "TrustStoreCertificateIn": {
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pem": {
+            "minLength": 1,
+            "title": "Pem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "pem"
+        ],
+        "title": "TrustStoreCertificateIn",
+        "type": "object"
+      },
+      "TrustStoreCertificateOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pem": {
+            "title": "Pem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "pem",
+          "fingerprint",
+          "created_at"
+        ],
+        "title": "TrustStoreCertificateOut",
+        "type": "object"
+      },
+      "TrustStoreCertificatesIn": {
+        "description": "Body for POST /{id}/certificates: either a single {name, pem} or a list.",
+        "properties": {
+          "certificates": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TrustStoreCertificateIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificates"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pem"
+          }
+        },
+        "title": "TrustStoreCertificatesIn",
+        "type": "object"
+      },
+      "TrustStoreCreate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "TrustStoreCreate",
+        "type": "object"
+      },
+      "TrustStoreOut": {
+        "properties": {
+          "certificates": {
+            "items": {
+              "$ref": "#/components/schemas/TrustStoreCertificateOut"
+            },
+            "title": "Certificates",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrustStoreOut",
+        "type": "object"
+      },
+      "TrustStoreUpdate": {
+        "description": "Partial update — only supplied fields are applied.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "TrustStoreUpdate",
+        "type": "object"
+      },
+      "TrustStoreUsageOut": {
+        "properties": {
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "trust_store_id": {
+            "title": "Trust Store Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "trust_store_id"
+        ],
+        "title": "TrustStoreUsageOut",
         "type": "object"
       },
       "UpdateAppImageRequest": {
@@ -21780,6 +22038,379 @@
         "summary": "List Team Providers",
         "tags": [
           "teams"
+        ]
+      }
+    },
+    "/api/trust-stores": {
+      "get": {
+        "operationId": "list_trust_stores_api_trust_stores_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrustStoreOut"
+                  },
+                  "title": "Response List Trust Stores Api Trust Stores Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Trust Stores",
+        "tags": [
+          "trust-stores"
+        ]
+      },
+      "post": {
+        "operationId": "create_trust_store_api_trust_stores_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustStoreCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustStoreOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Trust Store",
+        "tags": [
+          "trust-stores"
+        ]
+      }
+    },
+    "/api/trust-stores/{store_id}": {
+      "delete": {
+        "operationId": "delete_trust_store_api_trust_stores__store_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Trust Store",
+        "tags": [
+          "trust-stores"
+        ]
+      },
+      "get": {
+        "operationId": "get_trust_store_api_trust_stores__store_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustStoreOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Trust Store",
+        "tags": [
+          "trust-stores"
+        ]
+      },
+      "patch": {
+        "operationId": "update_trust_store_api_trust_stores__store_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustStoreUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustStoreOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Trust Store",
+        "tags": [
+          "trust-stores"
+        ]
+      }
+    },
+    "/api/trust-stores/{store_id}/certificates": {
+      "post": {
+        "description": "Add one certificate ({name, pem}) or a chain (multi-block PEM is split\ninto separate rows).",
+        "operationId": "add_certificates_api_trust_stores__store_id__certificates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrustStoreCertificatesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TrustStoreCertificateOut"
+                  },
+                  "title": "Response Add Certificates Api Trust Stores  Store Id  Certificates Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Add Certificates",
+        "tags": [
+          "trust-stores"
+        ]
+      }
+    },
+    "/api/trust-stores/{store_id}/certificates/{certificate_id}": {
+      "delete": {
+        "description": "Remove one certificate (e.g. a rotated intermediate CA).",
+        "operationId": "delete_certificate_api_trust_stores__store_id__certificates__certificate_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "certificate_id",
+            "required": true,
+            "schema": {
+              "title": "Certificate Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Delete Certificate",
+        "tags": [
+          "trust-stores"
+        ]
+      }
+    },
+    "/api/trust-stores/{store_id}/usage": {
+      "get": {
+        "operationId": "get_trust_store_usage_api_trust_stores__store_id__usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "store_id",
+            "required": true,
+            "schema": {
+              "title": "Store Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustStoreUsageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Trust Store Usage",
+        "tags": [
+          "trust-stores"
         ]
       }
     },

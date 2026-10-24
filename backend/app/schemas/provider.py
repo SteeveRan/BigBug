@@ -95,6 +95,7 @@ class ProviderCreate(BaseModel):
     base_url: str | None = Field(None, max_length=500)
     config: dict[str, Any] = Field(default_factory=dict)
     credential_id: int | None = None
+    trust_store_id: int | None = None
     visibility: ProviderVisibility = ProviderVisibility.owner
     team_id: int | None = None
 
@@ -140,6 +141,7 @@ class ProviderUpdate(BaseModel):
     base_url: str | None = Field(None, max_length=500)
     config: dict[str, Any] | None = None
     credential_id: int | None = None
+    trust_store_id: int | None = None
     is_active: bool | None = None
     is_default: bool | None = None
     verify_ssl: bool | None = None
@@ -179,6 +181,7 @@ class ProviderOut(BaseModel):
     base_url: str | None = None
     config: dict[str, Any]
     credential_id: int | None = None
+    trust_store_id: int | None = None
     owner_user_id: int | None = None
     visibility: ProviderVisibility = ProviderVisibility.owner
     team_id: int | None = None

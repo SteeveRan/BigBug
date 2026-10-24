@@ -186,6 +186,7 @@ async def create_provider(
             base_url=data.base_url,
             config=data.config,
             credential_id=data.credential_id,
+            trust_store_id=data.trust_store_id,
             visibility=data.visibility,
             team_id=data.team_id,
         )
@@ -230,6 +231,7 @@ async def update_provider(
             base_url=data.base_url,
             config=data.config,
             credential_id=data.credential_id,
+            trust_store_id=data.trust_store_id,
             is_active=data.is_active,
             is_default=data.is_default,
             verify_ssl=data.verify_ssl,

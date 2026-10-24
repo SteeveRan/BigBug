@@ -192,19 +192,39 @@ class TestSeedAdminDistribution:
         mod = _load_seed_admin()
         migration = _load_seed_migration_module()
         gitlab_migration = _load_gitlab_project_seed_migration_module()
+        trust_store_migration = _load_trust_store_seed_migration_module()
 
         # The gitlab-project permissions are seeded by a separate migration
-        # (seed_gitlab_project_permissions) on top of seed_initial_data, so the
-        # canonical per-role set is the union of both migrations.
-        admin_seeded = set(migration.ADMIN_PERMISSIONS) | set(gitlab_migration.ADMIN_PERMISSIONS)
-        operator_seeded = set(migration.OPERATOR_PERMISSIONS) | set(
-            gitlab_migration.OPERATOR_PERMISSIONS
+        # (seed_gitlab_project_permissions) on top of seed_initial_data, and
+        # the trust-store permissions by add_trust_stores (ADR-0037) — the
+        # canonical per-role set is the union of all three migrations.
+        admin_seeded = (
+            set(migration.ADMIN_PERMISSIONS)
+            | set(gitlab_migration.ADMIN_PERMISSIONS)
+            | set(trust_store_migration.ADMIN_PERMISSIONS)
         )
-        viewer_seeded = set(migration.VIEWER_PERMISSIONS) | set(gitlab_migration.VIEWER_PERMISSIONS)
+        operator_seeded = (
+            set(migration.OPERATOR_PERMISSIONS)
+            | set(gitlab_migration.OPERATOR_PERMISSIONS)
+            | set(trust_store_migration.OPERATOR_PERMISSIONS)
+        )
+        viewer_seeded = (
+            set(migration.VIEWER_PERMISSIONS)
+            | set(gitlab_migration.VIEWER_PERMISSIONS)
+            | set(trust_store_migration.VIEWER_PERMISSIONS)
+        )
 
         assert admin_seeded == set(mod.ADMIN_PERMISSIONS)
         assert operator_seeded == set(mod.OPERATOR_PERMISSIONS)
         assert viewer_seeded == set(mod.VIEWER_PERMISSIONS)
+
+
+def _load_trust_store_seed_migration_module():
+    path = next((BACKEND_DIR / "alembic" / "versions").glob("*_add_trust_stores.py"))
+    spec = importlib.util.spec_from_file_location("migration_add_trust_stores", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 # ========================================================================
