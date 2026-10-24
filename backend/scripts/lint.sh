@@ -24,14 +24,13 @@ fi
 cd "$BACKEND_DIR"
 
 echo "=== Running ruff check ==="
-if "${VENV_PYTHON[@]}" -m ruff check app/ tests/ 2>&1; then
-    echo "No issues found."
-else
+if ! "${VENV_PYTHON[@]}" -m ruff check app/ tests/; then
     echo ""
-    echo "ПРЕДУПРЕЖДЕНИЕ: ruff check нашёл ошибки (код $?)."
+    echo "ОШИБКА: ruff check нашёл замечания."
     echo "Для автоматического исправления: ./scripts/format.sh"
-    echo "Для детального просмотра: uv run --project backend python -m ruff check app/ tests/"
+    exit 1
 fi
+echo "No issues found."
 
 echo ""
 echo "=== Done ==="

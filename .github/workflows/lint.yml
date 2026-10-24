@@ -21,10 +21,8 @@ jobs:
         with:
           python-version: "3.14"
 
-      # lint.sh проглатывает exit-код ruff (всегда 0) — в CI нужен жёсткий фейл
       - name: ruff check
-        working-directory: backend
-        run: uv run --project . python -m ruff check app/ tests/
+        run: ./backend/scripts/lint.sh
 
       - name: mypy
         run: ./backend/scripts/type-check.sh
@@ -46,13 +44,8 @@ jobs:
         working-directory: frontend
         run: yarn install --immutable
 
-      - name: eslint
-        working-directory: frontend
-        run: yarn run lint
-
-      - name: tsc --noEmit
-        working-directory: frontend
-        run: yarn run type-check
+      - name: eslint + tsc
+        run: ./frontend/scripts/lint.sh
 
   terraform:
     name: OpenTofu lint (fmt + tflint + validate)
