@@ -86,6 +86,15 @@ class Settings(BaseSettings):
     default_sync_cron: str = "0 2 * * *"
     default_build_cron: str = "0 3 * * 0"
 
+    # Task queue (taskiq + RedisStreamBroker)
+    # WHY when_executed: at-least-once semantics require acking after the task
+    # ran; the broker default (when_received) would drop tasks on worker crash.
+    task_ack_type: str = "when_executed"
+    # WHY 30 min: must exceed max task duration — XAUTOCLAIM with min-idle-time
+    # below a long sync's runtime would duplicate the task (default is 10 min).
+    task_idle_timeout_ms: int = 1_800_000
+    task_max_retries: int = 3
+
     # Stale threshold
     default_stale_threshold_days: int = 30
 

@@ -30,6 +30,9 @@ dependencies = [
     "pydantic-settings>=2.3.0",
     "pydantic>=2.7.0",
     "pydantic[email]>=2.7.0",
+    # Task queue (ADR: taskiq + RedisStreamBroker; APScheduler stays enqueue-only)
+    "taskiq>=0.13.0",
+    "taskiq-redis>=1.2.4",
     # Scheduling
     "apscheduler>=3.10.0",
     # GitHub / GitLab
