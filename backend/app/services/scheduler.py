@@ -94,13 +94,9 @@ class SchedulerService:
                                         triggered_by="scheduler",
                                     )
                                 except Exception as e:
-                                    logger.error(
-                                        f"Failed to sync {tag.image_name}:{tag.tag}: {e}"
-                                    )
+                                    logger.error(f"Failed to sync {tag.image_name}:{tag.tag}: {e}")
 
-                            logger.info(
-                                f"Synced {len(tags)} tag(s) for docker source {source.id}"
-                            )
+                            logger.info(f"Synced {len(tags)} tag(s) for docker source {source.id}")
                         elif source:
                             # No target configured: refresh (re-index) tags
                             # Get distinct image names from existing tags

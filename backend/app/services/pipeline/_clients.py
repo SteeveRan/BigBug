@@ -21,6 +21,7 @@ from app.services.gitlab_projects._clients import (
     _get_gitlab_provider_or_404,
     get_provider_gitlab_client,
 )
+from app.services.trust_store_tls import provider_ssl_verify
 
 # Backward-compatible aliases (the historical private names).
 _get_provider_gitlab_client = get_provider_gitlab_client
@@ -43,4 +44,5 @@ async def _get_client_for_run(db: AsyncSession, run: PipelineRun) -> gitlab.Gitl
             f"PipelineRun {run.id} has no provider_id — cannot build a GitLab client"
         )
     provider = await _get_gitlab_provider_or_404(db, run.provider_id)
-    return _get_provider_gitlab_client(provider)
+    # via the alias: tests patch this name in _clients
+    return _get_provider_gitlab_client(provider, ssl_verify=await provider_ssl_verify(db, provider))

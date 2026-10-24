@@ -46,6 +46,7 @@ from app.schemas.reports import (
     TopSyncMirrorItem,
 )
 from app.services.gitlab import GitLabService
+from app.services.trust_store_tls import provider_ssl_verify
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,10 @@ class ReportsService:
                     instance_id = m.target_gitlab_instance.id
                     if instance_id not in instance_clients:
                         instance_clients[instance_id] = gl_service
-                    client = gl_service._get_client(m.target_gitlab_instance)
+                    client = gl_service._get_client(
+                        m.target_gitlab_instance,
+                        ssl_verify=await provider_ssl_verify(db, m.target_gitlab_instance),
+                    )
                     project = client.projects.get(int(m.target_project_id), statistics=True)
                     # GitLab returns storage in MB under 'statistics' field
                     statistics = getattr(project, "statistics", None)

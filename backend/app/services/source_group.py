@@ -75,7 +75,7 @@ async def _build_client(db: AsyncSession, provider_id: int) -> tuple[Any, Any]:
     else:
         secret = None
 
-    client = await create_source_provider(provider_row, secret)
+    client = await create_source_provider(provider_row, secret, db)
     return provider_row, client
 
 
@@ -306,7 +306,7 @@ class SourceGroupService:
         else:
             secret = None
 
-        gh_provider = await create_source_provider(provider_obj, secret)
+        gh_provider = await create_source_provider(provider_obj, secret, db)
 
         external_id = group.external_id or group.name
         repos = await gh_provider.list_repositories(external_id)

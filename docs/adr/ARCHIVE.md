@@ -19,7 +19,7 @@
 
 | ADR | Статус | Название | Причина / Замена | Дата архивации |
 |---|---|---|---|---|
-| — | — | — | — | — |
+| [ADR-0009](archive/backend/0009-pull-sync-apscheduler-webhooks.md) | superseded by [ADR-0039](backend/0039-background-tasks-taskiq-redis-streams.md) | Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks | Собственные revisit-триггеры сработали: retry с backoff, >1 реплики, рост масштаба; исполнение задач — taskiq + Redis Streams (APScheduler остаётся enqueue-only) | 2026-10-24 |
 
 ## frontend
 

@@ -64,7 +64,7 @@ erDiagram
 Трастстор — данные в БД; при выполнении запроса PEM материализуется в объект, понятный конкретному клиенту:
 
 * **httpx-клиенты** (`providers/clients/*` через `_http.py`): `ssl.SSLContext`, собранный из PEM в памяти (`ssl.create_default_context(cadata=...)`) — без промежуточных файлов; точка встраивания — существующий хелпер `app/core/http.py::ssl_verify()`, который сегодня возвращает путь env-бандла или `True`.
-* **python-gitlab и git CLI** (git-mirroring, git-клиенты): нужен путь до файла на диске — бандл-кеш: `resolve_bundle_path(trust_store)` собирает PEM всех сертификатов стора в файл, регенерирует по хешу содержимого (изменился стор → изменился хеш → перезапись файла); путь передаётся как `REQUESTS_CA_BUNDLE`-аналог (`ssl_ca_certs` / `GIT_SSL_CAINFO`).
+* **python-gitlab и git CLI** (git-mirroring, git-клиенты): нужен путь до файла на диске — бандл-кеш: `resolve_bundle_path(trust_store)` собирает PEM всех сертификатов стора в файл `<DATA_DIR>/trust_stores/<id>.pem`, регенерирует при изменении/отсутствии (содержимое сверяется с БД перед каждым resolve — stale trust невозможен); путь передаётся как `REQUESTS_CA_BUNDLE`-аналог (`ssl_ca_certs` / `GIT_SSL_CAINFO`). Каталог — подо-локальный writable scratch (emptyDir `data-scratch` в `charts/bigbug`, `DATA_DIR=/data`): файл-сирота после удаления стора живёт не дольше пода, явная чистка при `delete_store` **не делается** — она покрывала бы только под, обслужавший удаление. Триггер пересмотра: если `DATA_DIR` переедет на общий персистентный том (реплики > 1), сироты станут вечными — тогда в `TrustStoreService.delete_store` возвращается удаление файла (одна строка).
 
 ### RBAC
 
@@ -101,13 +101,13 @@ erDiagram
 
 ### Confirmation
 
-* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе; валидный серт, подписанный им, проходит, системный — отклоняется), а провайдер без стора — системный контекст. Появится с реализацией #90 как `backend/tests/unit/test_provider_trust_store_ssl.py` (имя зафиксировано для #90):
+* **SSLContext-инъекция** (unit): тест проверяет, что httpx-клиент с провайдером `verify_ssl=true` + `trust_store_id` получает `ssl.SSLContext`, собранный из PEM стора (инъекция фейкового CA в тестовом сторе), а провайдер без стора — системный контекст; `verify_ssl=false` главнее стора. Реализован в #90 как `backend/tests/unit/test_trust_store_tls.py`:
 
 ```bash
-make test-unit-backend TEST_ARGS="tests/unit/test_provider_trust_store_ssl.py -v"
+make test-unit-backend TEST_ARGS="tests/unit/test_trust_store_tls.py -v"
 ```
 
-Ожидаемый результат: зелёный; при удалении инъекции контекста из `_http.py` — падает.
+Ожидаемый результат: зелёный; при удалении инъекции контекста из `_http.py`/`trust_store_tls.py` — падает.
 
 * **RESTRICT + 409** (unit): тест удаляет стор, на который ссылается провайдер → `IntegrityError`/`DomainError` транслируется в 409 с перечнем провайдеров. Появится как кейс в `backend/tests/unit/test_trust_store_service.py` (имя для #89):
 
@@ -153,4 +153,4 @@ make test-unit-backend TEST_ARGS="tests/unit/test_trust_store_service.py -v"
 * Код (точки встраивания, текущее состояние): `backend/app/models/resource_provider.py` (`verify_ssl`), `backend/app/core/http.py` (`ssl_verify()` — env-бандл, предшественник трастстора), `backend/app/services/providers/clients/_http.py`
 * Permissions: `trust_stores:read`/`trust_stores:write` — [docs/development/permissions.md](../../development/permissions.md); термин Trust Store — [GLOSSARY.md](../../../GLOSSARY.md)
 * Происхождение: issue [#88](https://github.com/SteeveRan/BigBug/issues/88) — решения согласованы на grilling-сессии (включая RESTRICT вместо SET NULL, отказ от шифрования PEM, материализацию в память для httpx / в файл для git)
-* Триггеры пересмотра: потребность в CRL/OCSP или клиентских mTLS-сертификатах; покрытие gaps (PyGithub/crane/cosign) станет требованием, а не известным ограничением
+* Триггеры пересмотра: потребность в CRL/OCSP или клиентских mTLS-сертификатах; покрытие gaps (PyGithub/crane/cosign) станет требованием, а не известным ограничением; перенос `DATA_DIR` на общий персистентный том (см. «Материализация PEM»)

@@ -26,6 +26,7 @@ from app.models.resource_provider import ProviderDomain, ResourceProvider
 from app.models.source_repository import SourceRepository
 from app.models.sync_group import SyncGroup
 from app.services.source_providers import create_source_provider
+from app.services.trust_store_tls import provider_ssl_verify
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,7 @@ async def _check_credential(
 
 async def _check_source_provider(
     provider_obj: ResourceProvider,
+    db: AsyncSession | None = None,
 ) -> HealthCheckItem:
     """Verify a unified resource provider is accessible."""
     component = f"provider:{provider_obj.id}"
@@ -137,7 +139,7 @@ async def _check_source_provider(
         secret = decrypt_secret(provider_obj.credential.encrypted_secret)
 
     try:
-        provider = await create_source_provider(provider_obj, secret)
+        provider = await create_source_provider(provider_obj, secret, db)
         await provider.check_access()
         anon_suffix = " (anonymous)" if is_anon else ""
         return HealthCheckItem(
@@ -155,6 +157,7 @@ async def _check_source_provider(
 
 async def _check_single_mirror(
     mirror: Mirror,
+    db: AsyncSession | None = None,
 ) -> list[HealthCheckItem]:
     """Run all checks for a single mirror, returning items."""
     items: list[HealthCheckItem] = []
@@ -204,10 +207,10 @@ async def _check_single_mirror(
     try:
         is_anon = provider_obj.credential_id is None
         if is_anon:
-            provider = await create_source_provider(provider_obj, None)
+            provider = await create_source_provider(provider_obj, None, db)
         elif provider_credential and provider_credential.encrypted_secret:
             secret = decrypt_secret(provider_credential.encrypted_secret)
-            provider = await create_source_provider(provider_obj, secret)
+            provider = await create_source_provider(provider_obj, secret, db)
         else:
             items.append(
                 HealthCheckItem(
@@ -273,7 +276,7 @@ async def _check_single_mirror(
             gl = _gitlab_module.Gitlab(
                 url=rp.base_url,
                 private_token=token,
-                ssl_verify=rp.verify_ssl,
+                ssl_verify=(await provider_ssl_verify(db, rp)) if db else rp.verify_ssl,
                 user_agent="BigBug/1.0",
             )
             if mirror.target_project_id and mirror.target_project_id.isdigit():
@@ -363,7 +366,7 @@ class HealthCheckService:
         git_providers = rp_result.scalars().all()
         if git_providers:
             for rp in git_providers:
-                report.items.append(await _check_source_provider(rp))
+                report.items.append(await _check_source_provider(rp, db))
         else:
             report.items.append(
                 HealthCheckItem(
@@ -482,7 +485,7 @@ class HealthCheckService:
 
         # Check all mirrors
         for mirror in active_mirrors:
-            mirror_items = await _check_single_mirror(mirror)
+            mirror_items = await _check_single_mirror(mirror, db)
             report.items.extend(mirror_items)
 
         # Check target consistency: all mirrors should have same target path pattern
@@ -556,7 +559,7 @@ class HealthCheckService:
             )
             return report
 
-        items = await _check_single_mirror(mirror)
+        items = await _check_single_mirror(mirror, db)
         report.items.extend(items)
 
         return report

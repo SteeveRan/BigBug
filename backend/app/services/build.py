@@ -26,6 +26,7 @@ from app.models.build_log import BuildLog
 from app.models.gold_image import GoldImage
 from app.models.image_version import ImageVersion
 from app.services.gitlab import get_default_gitlab_provider
+from app.services.trust_store_tls import provider_ssl_verify
 
 if TYPE_CHECKING:
     from app.models.resource_provider import ResourceProvider
@@ -45,7 +46,9 @@ class BuildService:
     # Client factory
     # ------------------------------------------------------------------
 
-    def _get_client(self, provider: ResourceProvider | None = None) -> gitlab.Gitlab:
+    def _get_client(
+        self, provider: ResourceProvider | None = None, ssl_verify: bool | str | None = None
+    ) -> gitlab.Gitlab:
         """
         Build a python-gitlab client.
 
@@ -53,6 +56,9 @@ class BuildService:
         1. ``provider`` — use its base_url and *decrypted* credential secret.
         2. ``settings.gitlab_url`` and ``settings.gitlab_token`` (fallback).
         3. ``settings.gitlab_url`` without auth.
+
+        ``ssl_verify`` (ADR-0037) overrides the provider flag when given
+        (bundle path of a bound TrustStore).
         """
         if provider is not None:
             token: str | None = None
@@ -61,7 +67,7 @@ class BuildService:
             return gitlab.Gitlab(
                 provider.base_url,
                 private_token=token or None,
-                ssl_verify=provider.verify_ssl,
+                ssl_verify=provider.verify_ssl if ssl_verify is None else ssl_verify,
             )
 
         # Backward-compatible fallback
@@ -111,7 +117,9 @@ class BuildService:
         await db.flush()
 
         try:
-            gl = self._get_client(provider)
+            gl = self._get_client(
+                provider, ssl_verify=await provider_ssl_verify(db, provider) if provider else None
+            )
             gl_project = gl.projects.get(image.gitlab_project_id)
             pipeline = gl_project.pipelines.create(
                 {
@@ -178,7 +186,9 @@ class BuildService:
         await db.flush()
 
         try:
-            gl = self._get_client(provider)
+            gl = self._get_client(
+                provider, ssl_verify=await provider_ssl_verify(db, provider) if provider else None
+            )
             gl_project = gl.projects.get(image.gitlab_project_id)
             pipeline = gl_project.pipelines.create(
                 {

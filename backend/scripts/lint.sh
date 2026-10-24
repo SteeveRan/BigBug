@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# lint.sh — Проверка кода backend (ruff check).
+# lint.sh — Проверка кода backend (ruff check + ruff format --check).
 #
 # Использование:
 #   ./scripts/lint.sh
@@ -31,6 +31,15 @@ if ! "${VENV_PYTHON[@]}" -m ruff check app/ tests/; then
     exit 1
 fi
 echo "No issues found."
+
+echo ""
+echo "=== Running ruff format --check ==="
+if ! "${VENV_PYTHON[@]}" -m ruff format --check app/ tests/; then
+    echo ""
+    echo "ОШИБКА: форматирование разошлось с ruff format."
+    echo "Для исправления: ./scripts/format.sh (или make format-backend)"
+    exit 1
+fi
 
 echo ""
 echo "=== Done ==="

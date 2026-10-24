@@ -27,6 +27,8 @@ from app.models.resource_provider import (
 )
 
 if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from app.services.source_provider import BaseSourceProvider
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,11 @@ class _V2ProviderAdapter:
     Kept as a plain dataclass (not an ORM object) — the V2 classes only
     access attributes, never the session. Removed in phase 7 together with
     the V2 classes.
+
+    TLS trust (ADR-0037): ``ssl_verify`` (False / bundle path / True) for the
+    python-gitlab client, ``ca_bundle_path`` (path or None) for the git CLI's
+    ``GIT_SSL_CAINFO``. Both computed by ``create_source_provider`` when a DB
+    session is passed; defaults keep the plain ``verify_ssl`` flag semantics.
     """
 
     id: int
@@ -55,6 +62,9 @@ class _V2ProviderAdapter:
     is_anon: bool
     credential: Any = None
     base_url: str | None = field(default=None)
+    ssl_verify: bool | str = True
+    ca_bundle_path: str | None = None
+    trust_store_id: int | None = None
 
 
 def adapt_resource_provider(provider: ResourceProvider) -> _V2ProviderAdapter:
@@ -88,6 +98,9 @@ def adapt_resource_provider(provider: ResourceProvider) -> _V2ProviderAdapter:
         is_anon=provider.credential_id is None,
         credential=provider.credential,
         base_url=provider.base_url,
+        ssl_verify=getattr(provider, "ssl_verify", None) or provider.verify_ssl,
+        ca_bundle_path=getattr(provider, "ca_bundle_path", None),
+        trust_store_id=provider.trust_store_id,
     )
 
 
@@ -130,6 +143,7 @@ def get_provider_class(provider_type: str) -> type[BaseSourceProvider]:
 async def create_source_provider(
     provider: ResourceProvider,
     credential_secret: str | None,
+    db: AsyncSession | None = None,
 ) -> BaseSourceProvider:
     """
     Create and return a concrete :class:`BaseSourceProvider` instance.
@@ -143,10 +157,15 @@ async def create_source_provider(
     :func:`app.core.secrets.decrypt_secret`) before passing it in.
     Pass ``None`` for anonymous providers (public, no credential).
 
+    ``db`` (ADR-0037) enables TrustStore TLS injection: with a session, the
+    adapter gets the store's bundle path (``ssl_verify`` for python-gitlab,
+    ``ca_bundle_path`` for the git CLI) instead of the plain bool flag.
+
     Args:
         provider: The git ``ResourceProvider`` ORM model.
         credential_secret: The *decrypted* secret string (GitHub/GitLab personal
                             access token), or ``None`` for anonymous providers.
+        db: Optional session for TrustStore resolution (ADR-0037).
 
     Returns:
         An instance of :class:`GitHubSourceProvider`,
@@ -159,6 +178,16 @@ async def create_source_provider(
         ValueError: If a non-anonymous provider has no ``credential_secret``.
     """
     provider = adapt_resource_provider(provider)
+
+    # ADR-0037: materialize the TrustStore bundle when a session is available.
+    # verify_ssl=False wins — no bundle is resolved (and none is needed).
+    if db is not None and provider.ssl_verify is True:
+        from app.services.trust_store_tls import resolve_bundle_path
+
+        bundle = await resolve_bundle_path(db, provider.trust_store_id)
+        if bundle:
+            provider.ssl_verify = bundle
+            provider.ca_bundle_path = bundle
 
     # Resolve the class via get_provider_class (validates the type).
     klass = get_provider_class(provider.provider_type)

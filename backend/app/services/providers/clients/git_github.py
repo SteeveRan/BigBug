@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import ssl
+
 import httpx
 
 from app.services.providers.clients._http import ProviderClientError, make_client
@@ -20,11 +22,13 @@ class GitHubClient:
         secret: str | None = None,
         verify_ssl: bool = True,
         transport: httpx.AsyncBaseTransport | None = None,
+        ssl_context: bool | str | ssl.SSLContext | None = None,
     ) -> None:
         self.api_url = api_url.rstrip("/")
         self._secret = secret
         self._verify_ssl = verify_ssl
         self._transport = transport
+        self._ssl_context = ssl_context
 
     def _client(self) -> httpx.AsyncClient:
         headers = {
@@ -37,6 +41,7 @@ class GitHubClient:
             verify_ssl=self._verify_ssl,
             transport=self._transport,
             headers=headers,
+            ssl_context=self._ssl_context,
         )
 
     async def test_connection(self) -> dict:

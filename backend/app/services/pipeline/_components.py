@@ -16,6 +16,7 @@ from app.models.resource_provider import ResourceProvider
 from app.models.user import User
 from app.services.gitlab_projects._clients import get_provider_gitlab_client
 from app.services.gitlab_projects._service import GitlabProjectService
+from app.services.trust_store_tls import provider_ssl_verify
 
 _SIMPLE_TYPE_MAP: dict[str, type | tuple[type, ...]] = {
     "string": str,
@@ -259,7 +260,10 @@ async def push_component(
     await project_svc._ensure_can_mutate(project, user)
 
     target_path = file_path or f"templates/{component.component_path}"
-    gl = get_provider_gitlab_client(project.provider)
+    gl = get_provider_gitlab_client(
+        project.provider,
+        ssl_verify=await provider_ssl_verify(db, project.provider),
+    )
     branch = project.default_branch
     commit_message = commit_message or f"Update {target_path} via BigBug"
     await upsert_file(
@@ -299,7 +303,10 @@ async def pull_component(
 
     file_path = f"templates/{component.component_path}"
     ref = component.version or project.default_branch
-    gl = get_provider_gitlab_client(project.provider)
+    gl = get_provider_gitlab_client(
+        project.provider,
+        ssl_verify=await provider_ssl_verify(db, project.provider),
+    )
     content = await get_file_content(gl, project.full_path, file_path, ref)
     if content is None:
         raise NotFoundError(f"Component file '{file_path}' not found in GitLab")

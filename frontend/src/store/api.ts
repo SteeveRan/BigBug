@@ -30,6 +30,7 @@ import './api/teams';
 import './api/credentials';
 import './api/trust-stores';
 import './api/gitlab-projects';
+import './api/trust-stores';
 
 // ═════════════════════════════════════════════════════════════════════════
 // Реэкспорт ВСЕХ хуков — чтобы потребители (страницы, компоненты, тесты)
@@ -309,5 +310,14 @@ export {
   useTestCredentialMutation,
 } from './api/credentials';
 
-// Trust Stores (read — admin CRUD lives in #91)
-export { useGetTrustStoresQuery } from './api/trust-stores';
+// Trust Stores
+export {
+  useGetTrustStoresQuery,
+  useGetTrustStoreQuery,
+  useCreateTrustStoreMutation,
+  useUpdateTrustStoreMutation,
+  useDeleteTrustStoreMutation,
+  useGetTrustStoreUsageQuery,
+  useAddTrustStoreCertificatesMutation,
+  useDeleteTrustStoreCertificateMutation,
+} from './api/trust-stores';

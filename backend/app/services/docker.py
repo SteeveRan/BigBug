@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import tempfile
 from datetime import UTC, datetime
 from typing import Any
@@ -26,6 +27,7 @@ from app.models.resource_provider import (
     ResourceProvider,
 )
 from app.services.providers.clients.docker_auth import oci_request
+from app.services.trust_store_tls import provider_httpx_verify
 
 # ──── Registry Parsing Utilities ────────────────────────────────────────────
 
@@ -492,9 +494,9 @@ class DockerRegistryService:
         source.status_text = "indexing"  # type: ignore[assignment]
 
         try:
-            basic, verify_ssl = await self._resolve_auth(db, source.provider_id)
+            basic, verify_ssl, verify = await self._resolve_auth(db, source.provider_id)
             tags_data = await self._fetch_tags(
-                source.registry_url, image_name, basic=basic, verify_ssl=verify_ssl
+                source.registry_url, image_name, basic=basic, verify_ssl=verify_ssl, verify=verify
             )
         except Exception as e:
             sync_log.status_flag = 1  # type: ignore[assignment]
@@ -539,6 +541,7 @@ class DockerRegistryService:
         *,
         basic: tuple[str, str] | None = None,
         verify_ssl: bool = True,
+        verify: bool | str | ssl.SSLContext | None = None,
     ) -> dict[str, Any]:
         """Fetch tags list and metadata from Docker Registry API v2.
 
@@ -552,7 +555,9 @@ class DockerRegistryService:
         tags_url = f"{base_url}/{repo}/tags/list"
 
         async with httpx.AsyncClient(
-            timeout=30.0, follow_redirects=True, verify=ssl_verify() if verify_ssl else False
+            timeout=30.0,
+            follow_redirects=True,
+            verify=verify if verify is not None else (ssl_verify() if verify_ssl else False),
         ) as client:
             try:
                 response = await oci_request(client, "GET", tags_url, basic=basic)
@@ -618,12 +623,10 @@ class DockerRegistryService:
 
         # For each tag, resolve the manifest digest
         base_url = source.registry_url  # type: ignore[assignment]
-        basic, verify_ssl = await self._resolve_auth(db, source.provider_id)
+        basic, verify_ssl, verify = await self._resolve_auth(db, source.provider_id)
         tag_count = 0
 
-        async with httpx.AsyncClient(
-            timeout=30.0, follow_redirects=True, verify=ssl_verify() if verify_ssl else False
-        ) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, verify=verify) as client:
             for tag in tags:
                 digest = await self._resolve_manifest_digest(
                     client, str(base_url), image_name, tag, basic=basic
@@ -674,28 +677,30 @@ class DockerRegistryService:
         self,
         db: AsyncSession,
         provider_id: int | None,
-    ) -> tuple[tuple[str, str] | None, bool]:
-        """Resolve ``(basic, verify_ssl)`` for a docker provider id.
+    ) -> tuple[tuple[str, str] | None, bool, bool | str | ssl.SSLContext]:
+        """Resolve ``(basic, verify_ssl, verify)`` for a docker provider id.
 
-        Returns ``(None, True)`` when there is no provider or credential so the
-        registry is queried anonymously with TLS verification enabled.
+        ``verify`` is the full httpx ``verify=`` value (ADR-0037): ``False``,
+        an SSLContext from a bound TrustStore, or the env/system default.
+        Returns ``(None, True, True)`` when there is no provider or credential
+        so the registry is queried anonymously with TLS verification enabled.
         """
-        verify_ssl = True
         if provider_id is None:
-            return None, True
+            return None, True, True
         provider = await db.get(ResourceProvider, provider_id)
         if provider is None:
-            return None, True
-        verify_ssl = provider.verify_ssl
+            return None, True, True
+        verify_ssl: bool = provider.verify_ssl
+        verify = await provider_httpx_verify(db, provider)
         if provider.credential_id is None:
-            return None, verify_ssl
+            return None, verify_ssl, verify
         credential = await db.get(Credential, provider.credential_id)
         if credential is None:
-            return None, verify_ssl
+            return None, verify_ssl, verify
         secret = decrypt_secret(credential.encrypted_secret)
         if secret and credential.username:
-            return (credential.username, secret), verify_ssl
-        return None, verify_ssl
+            return (credential.username, secret), verify_ssl, verify
+        return None, verify_ssl, verify
 
     async def _build_docker_auths(
         self,
@@ -802,6 +807,9 @@ class DockerRegistryService:
                 env["DOCKER_CONFIG"] = docker_config_dir
 
             cmd = ["crane", "copy"]
+            # shortcut: crane has no custom-CA flag, provider trust_store_id is
+            # not injected here (only --insecure escape hatch); upgrade when
+            # crane grows a --ca-bundle flag (ADR-0037 known gaps).
             if target_provider is not None and target_provider.verify_ssl is False:
                 cmd.append("--insecure")
             cmd += [source_ref, target_ref]

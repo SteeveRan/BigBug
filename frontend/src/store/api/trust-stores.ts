@@ -1,20 +1,17 @@
 /**
  * @file api/trust-stores.ts
- * @description Trust Store read endpoints (ADR-0037). Only the list query lives
- *              here for now — the full admin CRUD belongs to the Trust Stores
- *              admin page (issue #91).
+ * @description Trust Stores RTK Query endpoints (`/api/trust-stores`, ADR-0037).
  * @dependencies api/base.ts
  */
 
+import type {
+  TrustStore,
+  TrustStoreCertificatesIn,
+  TrustStoreCreate,
+  TrustStoreUpdate,
+  TrustStoreUsage,
+} from '../../types';
 import { api } from './base';
-
-export interface TrustStore {
-  id: number;
-  name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 export const trustStoresApi = api.injectEndpoints({
   endpoints: (builder) => ({
@@ -22,7 +19,58 @@ export const trustStoresApi = api.injectEndpoints({
       query: () => '/trust-stores',
       providesTags: ['TrustStore'],
     }),
+    getTrustStore: builder.query<TrustStore, number>({
+      query: (id) => `/trust-stores/${id}`,
+      providesTags: (_result, _error, id) => [{ type: 'TrustStore', id }],
+    }),
+    createTrustStore: builder.mutation<TrustStore, TrustStoreCreate>({
+      query: (body) => ({ url: '/trust-stores', method: 'POST', body }),
+      invalidatesTags: ['TrustStore'],
+    }),
+    updateTrustStore: builder.mutation<TrustStore, { id: number; data: TrustStoreUpdate }>({
+      query: ({ id, data }) => ({ url: `/trust-stores/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'TrustStore', id }, 'TrustStore'],
+    }),
+    deleteTrustStore: builder.mutation<void, number>({
+      query: (id) => ({ url: `/trust-stores/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['TrustStore'],
+    }),
+    getTrustStoreUsage: builder.query<TrustStoreUsage, number>({
+      query: (id) => `/trust-stores/${id}/usage`,
+    }),
+    addTrustStoreCertificates: builder.mutation<
+      TrustStore['certificates'],
+      { id: number; data: TrustStoreCertificatesIn }
+    >({
+      query: ({ id, data }) => ({
+        url: `/trust-stores/${id}/certificates`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'TrustStore', id }, 'TrustStore'],
+    }),
+    deleteTrustStoreCertificate: builder.mutation<void, { storeId: number; certificateId: number }>(
+      {
+        query: ({ storeId, certificateId }) => ({
+          url: `/trust-stores/${storeId}/certificates/${certificateId}`,
+          method: 'DELETE',
+        }),
+        invalidatesTags: (_result, _error, { storeId }) => [
+          { type: 'TrustStore', id: storeId },
+          'TrustStore',
+        ],
+      }
+    ),
   }),
 });
 
-export const { useGetTrustStoresQuery } = trustStoresApi;
+export const {
+  useGetTrustStoresQuery,
+  useGetTrustStoreQuery,
+  useCreateTrustStoreMutation,
+  useUpdateTrustStoreMutation,
+  useDeleteTrustStoreMutation,
+  useGetTrustStoreUsageQuery,
+  useAddTrustStoreCertificatesMutation,
+  useDeleteTrustStoreCertificateMutation,
+} = trustStoresApi;

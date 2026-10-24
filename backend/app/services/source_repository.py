@@ -96,7 +96,7 @@ def _legacy_type(provider_obj: ResourceProvider) -> ProviderType:
     )
 
 
-async def build_repo_provider(repo: SourceRepository) -> Any:
+async def build_repo_provider(repo: SourceRepository, db: AsyncSession | None = None) -> Any:
     """Build the V2 provider client for a repository (see resolve_repo_provider)."""
     provider_obj, secret = await resolve_repo_provider(repo)
     if provider_obj is None:
@@ -104,7 +104,7 @@ async def build_repo_provider(repo: SourceRepository) -> Any:
             f"SourceRepository {repo.id} has no linked provider — cannot refresh",
             status_code=400,
         )
-    return await create_source_provider(provider_obj, secret)
+    return await create_source_provider(provider_obj, secret, db)
 
 
 # ===================================================================
@@ -177,6 +177,8 @@ async def detect_default_branch(clone_url: str) -> str | None:
     Does **not** raise — failures are logged and swallowed.
     """
     try:
+        # shortcut: no provider in scope here, so no GIT_SSL_CAINFO injection
+        # (system trust only); thread a provider through when needed (ADR-0037).
         proc = await asyncio.create_subprocess_exec(
             "git",
             "ls-remote",
@@ -477,7 +479,7 @@ async def fetch_metadata_background(repo_id: int) -> None:
                 await db.commit()
                 return
 
-            provider = await create_source_provider(provider_obj, credential_secret)
+            provider = await create_source_provider(provider_obj, credential_secret, db)
             external_id: str = repo.full_name or repo.external_id
             legacy_type = _legacy_type(provider_obj)
 
@@ -744,7 +746,7 @@ class SourceRepositoryService:
                 "SourceRepository has no linked provider — cannot refresh",
                 status_code=400,
             )
-        provider = await create_source_provider(provider_obj, credential_secret)
+        provider = await create_source_provider(provider_obj, credential_secret, db)
 
         # ── 2. Set status to "in progress" ──────────────────────────────
         repo.status_flag = 3

@@ -41,7 +41,6 @@
 | [ADR-0005](backend/0005-service-layer-no-repository.md) | proposed | Сервисный слой без repository pattern: бизнес-логика в `app/services/`, доменные исключения, прямой SQLAlchemy ORM | 2026-10-21 |
 | [ADR-0006](backend/0006-database-postgresql-alembic.md) | proposed | Зафиксировать database layer: PostgreSQL 17 + SQLAlchemy 2 (async) + Alembic, naming conventions, status flags, политика миграций | 2026-10-21 |
 | [ADR-0008](backend/0008-git-mirroring-github-gitlab.md) | proposed | Архитектура Git Mirroring: pull-based синхронизация GitHub → GitLab с оркестрацией через GitLab CI/CD pipeline | 2026-10-21 |
-| [ADR-0009](backend/0009-pull-sync-apscheduler-webhooks.md) | proposed | Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks | 2026-10-21 |
 | [ADR-0010](backend/0010-fernet-secrets-encryption.md) | proposed | Зашифровывать stored credentials в БД симметричным Fernet с ключом из переменной окружения `ENCRYPTION_KEY` | 2026-10-21 |
 | [ADR-0011](backend/0011-gitlab-ci-pipelines-components.md) | proposed | Управлять GitLab CI/CD-интеграцией (проекты, компоненты, пресеты, пайплайны) внутри приложения | 2026-10-21 |
 | [ADR-0014](backend/0014-backend-unit-testing-pytest.md) | proposed | Тестировать backend unit-уровень стеком pytest + pytest-asyncio + httpx AsyncClient (без запущенного сервера) | 2026-10-21 |
@@ -78,6 +77,7 @@
 | [ADR-0035](infrastructure/0035-harbor-dev-stand-chart.md) | proposed | Harbor в dev-стенде (фактическое): chart 1.19.4 в kind за TLS-ingress, OIDC secret из keycloak_conf, projects/robots/registries/replication/webhooks через harbor_conf | 2026-10-23 |
 | [ADR-0036](backend/0036-oidc-issuer-semantics-rfc-8414.md) | proposed | OIDC issuer semantics (RFC 8414): `issuer_url` хранит полный URI realm, realm парсится из пути, `public_url` — только origin-подстановка iss; legacy-строки без `/realms/` — SSO disabled без миграции | 2026-10-24 |
 | [ADR-0037](backend/0037-oidc-multi-provider-oidc-providers.md) | proposed | OIDC multi-provider: таблица `oidc_providers` вместо singleton `oidc_config`, admin CRUD `/admin/oidc-providers`, list-контракт `/sso/config` (кнопка на провайдер), `provider_id` в exchange/state, per-provider JWKS-кэш, master-switch | 2026-10-24 |
+| [ADR-0039](backend/0039-background-tasks-taskiq-redis-streams.md) | proposed | Background tasks: taskiq + `RedisStreamBroker` (at-least-once, ack-семантика Redis Streams); APScheduler — enqueue-only, расписания и статусы остаются в PostgreSQL; supersede ADR-0009; Temporal отвергнут условно при 4 обязательных guardrails | 2026-10-24 |
 
 ## Правила для агентов
 

@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import ssl
+
 import httpx
 
 from app.services.providers.clients._http import ProviderClientError, make_client
@@ -37,6 +39,7 @@ class DockerRegistryClient:
         username: str | None = None,
         verify_ssl: bool = True,
         transport: httpx.AsyncBaseTransport | None = None,
+        ssl_context: bool | str | ssl.SSLContext | None = None,
     ) -> None:
         self.subtype = subtype
         self.base_url = base_url.rstrip("/") if base_url else _DEFAULT_ENDPOINTS.get(subtype, "")
@@ -46,11 +49,13 @@ class DockerRegistryClient:
         self._username = username
         self._verify_ssl = verify_ssl
         self._transport = transport
+        self._ssl_context = ssl_context
 
     def _client(self) -> httpx.AsyncClient:
         return make_client(
             verify_ssl=self._verify_ssl,
             transport=self._transport,
+            ssl_context=self._ssl_context,
         )
 
     def _basic(self) -> tuple[str, str] | None:
@@ -109,6 +114,7 @@ def registry_client_for_subtype(
     username: str | None = None,
     verify_ssl: bool = True,
     transport: httpx.AsyncBaseTransport | None = None,
+    ssl_context: bool | str | ssl.SSLContext | None = None,
 ) -> DockerRegistryClient:
     """Construct a registry client for any docker/OCI subtype."""
     return DockerRegistryClient(
@@ -118,4 +124,5 @@ def registry_client_for_subtype(
         username=username,
         verify_ssl=verify_ssl,
         transport=transport,
+        ssl_context=ssl_context,
     )
