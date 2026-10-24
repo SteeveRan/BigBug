@@ -96,7 +96,7 @@ export function ProviderDetailPage() {
     skip: !canReadTrustStores || Number.isNaN(id),
   });
   const trustStoreName = provider?.trust_store_id
-    ? (trustStores ?? []).find((s) => s.id === provider.trust_store_id)?.name ?? null
+    ? ((trustStores ?? []).find((s) => s.id === provider.trust_store_id)?.name ?? null)
     : null;
 
   if (isLoading) {

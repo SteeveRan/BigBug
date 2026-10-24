@@ -266,8 +266,8 @@ describe('ProviderFormModal', () => {
       isError: false,
     });
     renderModal();
-    const createProvider = (useCreateProviderMutation as ReturnType<typeof vi.fn>).mock
-      .results[0].value[0];
+    const createProvider = (useCreateProviderMutation as ReturnType<typeof vi.fn>).mock.results[0]
+      .value[0];
     fireEvent.click(screen.getByText('Git'));
     // Single mocked subtype (github) auto-selects; its config field mounts.
     await screen.findByText('Api Url');
