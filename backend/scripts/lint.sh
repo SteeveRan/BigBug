@@ -42,4 +42,18 @@ if ! "${VENV_PYTHON[@]}" -m ruff format --check app/ tests/; then
 fi
 
 echo ""
+echo "=== sync_engine import ban (ADR-0039 guardrail 3) ==="
+# Hand-reviewed core: no network clients, clock, randomness, API layer,
+# scheduler, or broker. Task bodies may use these; the kernel may not.
+BANNED='^(import (httpx|random|apscheduler|taskiq|requests|fastapi|starlette|uvicorn)|from (httpx|random|apscheduler|taskiq|requests|fastapi|starlette|uvicorn|app\.api|app\.tasks) )'
+if grep -nE "$BANNED" "$BACKEND_DIR/app/services/sync_engine.py"; then
+    echo ""
+    echo "ОШИБКА: запрещённый импорт в app/services/sync_engine.py (ADR-0039 guardrail 3)."
+    echo "sync_engine — hand-reviewed ядро: сетевые клиенты, время, random, API-слой,"
+    echo "планировщик и брокер запрещены. См. .opencode/skills/sync-engine/SKILL.md."
+    exit 1
+fi
+echo "No banned imports found."
+
+echo ""
 echo "=== Done ==="

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import DomainError, NotFoundError
 from app.models.mirror_release_log import MirrorReleaseLog
 from app.models.source_repository import SourceRepository
+from app.services import sync_engine
 from app.services.audit import AuditService
 
 if TYPE_CHECKING:
@@ -115,8 +116,17 @@ class ReleaseService:
                 published_at=latest.published_at,
                 is_prerelease=latest.prerelease,
             )
-            db.add(release_log)
-            await db.flush()
+
+            async def _apply(session: AsyncSession) -> MirrorReleaseLog:
+                """Idempotent upsert of the release cursor (same tag → same state)."""
+                session.add(release_log)
+                await session.flush()
+                return release_log
+
+            # Commit the release cursor through the sync engine (ADR-0039):
+            # external read done, DB state is an idempotent upsert (same tag
+            # → same state), so a crash here converges on re-run.
+            await sync_engine.commit_cursor(db, f"release:{source_repository.id}:{new_tag}", _apply)
 
             # Audit event (commits the session internally)
             await AuditService.log_event(
