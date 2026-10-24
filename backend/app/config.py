@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     encryption_key: str = ""
 
     # Keycloak OIDC
+    # WHY: master-switch for the whole SSO surface (ADR-0037): when False,
+    # /sso/config reports disabled with an empty provider list — the incident
+    # "kill all SSO" path that doesn't require editing every provider row.
+    sso_enabled: bool = True
     keycloak_url: str = "http://localhost:8180"
     keycloak_realm: str = "bigbug"
     keycloak_client_id: str = "bigbug-backend"

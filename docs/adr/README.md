@@ -76,6 +76,7 @@
 | [ADR-0034](infrastructure/0034-keycloak-dev-stand-keycloakx.md) | proposed | Keycloak в dev-стенде (фактическое): keycloakx 7.4.0 в kind, БД — CNPG, realm/clients/roles/users через apps root (keycloak_init/keycloak_conf, двухфазный apply), admin-секреты через tofu | 2026-10-23 |
 | [ADR-0035](infrastructure/0035-harbor-dev-stand-chart.md) | proposed | Harbor в dev-стенде (фактическое): chart 1.19.4 в kind за TLS-ingress, OIDC secret из keycloak_conf, projects/robots/registries/replication/webhooks через harbor_conf | 2026-10-23 |
 | [ADR-0036](backend/0036-oidc-issuer-semantics-rfc-8414.md) | proposed | OIDC issuer semantics (RFC 8414): `issuer_url` хранит полный URI realm, realm парсится из пути, `public_url` — только origin-подстановка iss; legacy-строки без `/realms/` — SSO disabled без миграции | 2026-10-24 |
+| [ADR-0037](backend/0037-oidc-multi-provider-oidc-providers.md) | proposed | OIDC multi-provider: таблица `oidc_providers` вместо singleton `oidc_config`, admin CRUD `/admin/oidc-providers`, list-контракт `/sso/config` (кнопка на провайдер), `provider_id` в exchange/state, per-provider JWKS-кэш, master-switch | 2026-10-24 |
 
 ## Правила для агентов
 

@@ -5665,8 +5665,112 @@
         "title": "MirrorUpdate",
         "type": "object"
       },
-      "OIDCConfigOut": {
-        "description": "Full configuration returned to admin callers.\n\n``client_secret`` is never exposed — the field always shows ``********``\nso the response is safe to return even when the secret is populated.",
+      "OIDCExchangeRequest": {
+        "description": "Authorization-code exchange payload sent by the SSO callback page.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "code_verifier": {
+            "title": "Code Verifier",
+            "type": "string"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "integer"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          },
+          "state": {
+            "default": "",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "redirect_uri",
+          "code_verifier",
+          "provider_id"
+        ],
+        "title": "OIDCExchangeRequest",
+        "type": "object"
+      },
+      "OIDCProviderCreate": {
+        "description": "Admin POST payload — name is the only required field.",
+        "properties": {
+          "client_id": {
+            "default": "",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "frontend_client_id": {
+            "default": "",
+            "title": "Frontend Client Id",
+            "type": "string"
+          },
+          "issuer_url": {
+            "default": "",
+            "title": "Issuer Url",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "public_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Url"
+          },
+          "role_mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Role Mapping",
+            "type": "object"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "OIDCProviderCreate",
+        "type": "object"
+      },
+      "OIDCProviderOut": {
+        "description": "Full provider row returned to admin callers.\n\n``client_secret`` is never exposed — the field always shows ``********``\nso the response is safe to return even when the secret is populated.",
         "properties": {
           "client_id": {
             "title": "Client Id",
@@ -5698,6 +5802,10 @@
             "title": "Issuer Url",
             "type": "string"
           },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
           "public_url": {
             "anyOf": [
               {
@@ -5716,6 +5824,10 @@
             "title": "Role Mapping",
             "type": "object"
           },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -5724,54 +5836,20 @@
         },
         "required": [
           "id",
+          "name",
           "issuer_url",
           "client_id",
           "frontend_client_id",
           "enabled",
           "public_url",
+          "sort_order",
           "created_at",
           "updated_at"
         ],
-        "title": "OIDCConfigOut",
+        "title": "OIDCProviderOut",
         "type": "object"
       },
-      "OIDCConfigPublic": {
-        "description": "Minimal subset the frontend SSO button needs to bootstrap keycloak-js.\n\nDeliberately *not* a subclass of OIDCConfigOut so changes to the admin\nschema never accidentally leak fields to unauthenticated callers.",
-        "properties": {
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "frontend_client_id": {
-            "title": "Frontend Client Id",
-            "type": "string"
-          },
-          "issuer_url": {
-            "title": "Issuer Url",
-            "type": "string"
-          },
-          "public_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Public Url"
-          }
-        },
-        "required": [
-          "enabled",
-          "issuer_url",
-          "frontend_client_id",
-          "public_url"
-        ],
-        "title": "OIDCConfigPublic",
-        "type": "object"
-      },
-      "OIDCConfigUpdate": {
+      "OIDCProviderUpdate": {
         "description": "Admin PATCH payload — every field is optional.",
         "properties": {
           "client_id": {
@@ -5829,6 +5907,19 @@
             ],
             "title": "Issuer Url"
           },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
           "public_url": {
             "anyOf": [
               {
@@ -5853,33 +5944,20 @@
               }
             ],
             "title": "Role Mapping"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
           }
         },
-        "title": "OIDCConfigUpdate",
-        "type": "object"
-      },
-      "OIDCExchangeRequest": {
-        "description": "Authorization-code exchange payload sent by the SSO callback page.",
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "code_verifier": {
-            "title": "Code Verifier",
-            "type": "string"
-          },
-          "redirect_uri": {
-            "title": "Redirect Uri",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "redirect_uri",
-          "code_verifier"
-        ],
-        "title": "OIDCExchangeRequest",
+        "title": "OIDCProviderUpdate",
         "type": "object"
       },
       "OrphanedMirrorOut": {
@@ -7576,15 +7654,41 @@
         "type": "object"
       },
       "SSOConfig": {
-        "description": "Public OIDC parameters the frontend needs to bootstrap keycloak-js.",
+        "description": "Public OIDC bootstrap the frontend needs (list contract, ADR-0037):\none button per entry in ``providers``. ``enabled`` is the global\nmaster-switch — when off, the list is empty.",
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/SSOProvider"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "providers"
+        ],
+        "title": "SSOConfig",
+        "type": "object"
+      },
+      "SSOProvider": {
+        "description": "One public entry of the SSO bootstrap list — one frontend button.",
         "properties": {
           "client_id": {
             "title": "Client Id",
             "type": "string"
           },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "realm": {
             "title": "Realm",
@@ -7596,12 +7700,13 @@
           }
         },
         "required": [
-          "enabled",
+          "id",
+          "name",
           "url",
           "realm",
           "client_id"
         ],
-        "title": "SSOConfig",
+        "title": "SSOProvider",
         "type": "object"
       },
       "SignImageRequest": {
@@ -12547,16 +12652,20 @@
         ]
       }
     },
-    "/api/auth/admin/oidc-config": {
+    "/api/auth/admin/oidc-providers": {
       "get": {
-        "description": "Return the full OIDC configuration (admin only).\n\nReturns a disabled default when SSO hasn't been configured yet.\n``client_secret`` is masked — the real encrypted value is never\nreturned via the API.",
-        "operationId": "get_oidc_config_api_auth_admin_oidc_config_get",
+        "description": "Return all OIDC providers (admin only), ordered for the SSO button list.\n\n``client_secret`` is masked — the real encrypted value is never\nreturned via the API.",
+        "operationId": "list_oidc_providers_api_auth_admin_oidc_providers_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OIDCConfigOut"
+                  "items": {
+                    "$ref": "#/components/schemas/OIDCProviderOut"
+                  },
+                  "title": "Response List Oidc Providers Api Auth Admin Oidc Providers Get",
+                  "type": "array"
                 }
               }
             },
@@ -12568,30 +12677,30 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Oidc Config",
+        "summary": "List Oidc Providers",
         "tags": [
           "auth"
         ]
       },
-      "patch": {
-        "description": "Update the OIDC configuration (admin only).\n\n``client_secret`` is encrypted at rest via Fernet.  Updating any field\nimmediately invalidates the process-wide cache so the OIDC service\npicks up the new values on the next request.",
-        "operationId": "update_oidc_config_api_auth_admin_oidc_config_patch",
+      "post": {
+        "description": "Register a new OIDC provider (admin only).\n\n``client_secret`` is encrypted at rest via Fernet.  Creating a provider\nimmediately invalidates the process-wide cache so the OIDC service\npicks up the new provider on the next request.",
+        "operationId": "create_oidc_provider_api_auth_admin_oidc_providers_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/OIDCConfigUpdate"
+                "$ref": "#/components/schemas/OIDCProviderCreate"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OIDCConfigOut"
+                  "$ref": "#/components/schemas/OIDCProviderOut"
                 }
               }
             },
@@ -12613,26 +12722,40 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Update Oidc Config",
+        "summary": "Create Oidc Provider",
         "tags": [
           "auth"
         ]
       }
     },
-    "/api/auth/admin/oidc-config/public": {
-      "get": {
-        "description": "Return the OIDC config subset for admin UI previews (no secret).",
-        "operationId": "get_oidc_config_public_api_auth_admin_oidc_config_public_get",
+    "/api/auth/admin/oidc-providers/{provider_id}": {
+      "delete": {
+        "description": "Delete one OIDC provider (admin only).",
+        "operationId": "delete_oidc_provider_api_auth_admin_oidc_providers__provider_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
-          "200": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OIDCConfigPublic"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -12640,7 +12763,63 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "Get Oidc Config Public",
+        "summary": "Delete Oidc Provider",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "Update one OIDC provider (admin only, PATCH semantics).\n\n``client_secret`` is encrypted at rest via Fernet.  Updating any field\nimmediately invalidates the process-wide cache so the OIDC service\npicks up the new values on the next request.",
+        "operationId": "update_oidc_provider_api_auth_admin_oidc_providers__provider_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "title": "Provider Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OIDCProviderUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OIDCProviderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Oidc Provider",
         "tags": [
           "auth"
         ]
@@ -12742,7 +12921,7 @@
     },
     "/api/auth/oidc/exchange": {
       "post": {
-        "description": "Complete the SSO login: exchange the authorization code at Keycloak,\nvalidate the returned ID token, provision/update the local user, and issue\nthe application's own JWTs (so the rest of the API stays auth-scheme-agnostic).",
+        "description": "Complete the SSO login: exchange the authorization code at the provider\nidentified by ``provider_id``, validate the returned ID token,\nprovision/update the local user, and issue the application's own JWTs (so\nthe rest of the API stays auth-scheme-agnostic).\n\nThe ``state`` parameter the frontend received back from Keycloak must carry\nthe same ``provider_id`` — a mismatch is treated as a CSRF/broken-flow\nerror and rejected with 401.",
         "operationId": "oidc_exchange_api_auth_oidc_exchange_post",
         "requestBody": {
           "content": {
@@ -12825,7 +13004,7 @@
     },
     "/api/auth/sso/config": {
       "get": {
-        "description": "Expose the public OIDC parameters needed to bootstrap keycloak-js.\n\nReads from the database-backed OIDC config with automatic fallback to\nenvironment variables when the DB row doesn't exist yet.\n\n``realm`` and ``url`` are computed by the backend from the full issuer URI\n(RFC 8414) and ``public_url``. SSO is considered enabled only when the\nissuer is a full realm URI, so legacy values (no ``/realms/`` segment)\ndisable the button instead of crashing.",
+        "description": "Expose the public OIDC parameters needed to bootstrap the SSO buttons\n(list contract, ADR-0037): one entry per enabled provider.\n\n``realm`` and ``url`` are computed by the backend from the full issuer URI\n(RFC 8414) and ``public_url`` per ADR-0036. Providers whose issuer has no\nparsable ``/realms/`` segment are skipped (warning logged); the global\nmaster-switch turns the whole list off.",
         "operationId": "sso_config_api_auth_sso_config_get",
         "responses": {
           "200": {
