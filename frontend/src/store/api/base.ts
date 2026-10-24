@@ -86,6 +86,7 @@ export const api = createApi({
     'ProviderType',
     'Team',
     'Credential',
+    'TrustStore',
   ],
   endpoints: () => ({}),
 });

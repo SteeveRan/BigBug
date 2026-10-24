@@ -29,6 +29,7 @@ import {
   useTestProviderMutation,
   useGetProviderTypesQuery,
   useGetCredentialsQuery,
+  useGetTrustStoresQuery,
 } from '../../../store/api';
 import type {
   ProviderCategory,
@@ -53,6 +54,7 @@ interface FormValues {
   credential_id?: number;
   verify_ssl: boolean;
   priority: number;
+  trust_store_id?: number;
   is_active: boolean;
   is_default: boolean;
   config: Record<string, unknown>;
@@ -86,6 +88,7 @@ export function SystemProviderFormModal({ open, provider, onClose }: SystemProvi
 
   const { data: types = [] } = useGetProviderTypesQuery();
   const { data: credentials = [] } = useGetCredentialsQuery();
+  const { data: trustStores = [] } = useGetTrustStoresQuery();
 
   const [updateProvider, { isLoading: isUpdating }] = useUpdateProviderMutation();
   const [testConnection, { isLoading: isTesting }] = useTestProviderMutation();
@@ -105,6 +108,7 @@ export function SystemProviderFormModal({ open, provider, onClose }: SystemProvi
       credential_id: provider.credential_id ?? undefined,
       verify_ssl: provider.verify_ssl,
       priority: provider.priority,
+      trust_store_id: provider.trust_store_id ?? undefined,
       is_active: provider.is_active,
       is_default: provider.is_default,
       config: provider.config ?? {},
@@ -162,6 +166,7 @@ export function SystemProviderFormModal({ open, provider, onClose }: SystemProvi
           credential_id: values.credential_id,
           verify_ssl: values.verify_ssl,
           priority: values.priority,
+          trust_store_id: values.trust_store_id ?? null,
           is_active: values.is_active,
           is_default: values.is_default,
         },
@@ -289,6 +294,18 @@ export function SystemProviderFormModal({ open, provider, onClose }: SystemProvi
         <Space size="large" wrap>
           <Form.Item name="verify_ssl" label="Verify SSL" valuePropName="checked">
             <Switch />
+          </Form.Item>
+          <Form.Item
+            name="trust_store_id"
+            label="Trust Store"
+            tooltip="Custom CA certificates for SSL verification (ADR-0037). Verify SSL off takes precedence."
+          >
+            <Select
+              style={{ width: 240 }}
+              allowClear
+              placeholder="System CA"
+              options={trustStores.map((s) => ({ label: s.name, value: s.id }))}
+            />
           </Form.Item>
           <Form.Item name="priority" label="Priority">
             <InputNumber min={0} />

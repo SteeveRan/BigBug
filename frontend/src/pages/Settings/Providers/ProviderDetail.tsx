@@ -12,7 +12,7 @@
 import { useNavigate, useParams } from 'react-router';
 import { Alert, Breadcrumb, Button, Card, Descriptions, Flex, Spin, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, GlobalOutlined, LockOutlined } from '@ant-design/icons';
-import { useGetProviderQuery } from '../../../store/api';
+import { useGetProviderQuery, useGetTrustStoresQuery } from '../../../store/api';
 import type {
   ProviderCategory,
   ProviderDirection,
@@ -20,6 +20,7 @@ import type {
   ProviderVisibility,
   ResourceProvider,
 } from '../../../types';
+import { usePermissions } from '../../../hooks/usePermissions';
 import { StatusChip } from '../../../components/StatusChip';
 
 const DOMAIN_LABELS: Record<ProviderDomain, string> = {
@@ -88,6 +89,15 @@ export function ProviderDetailPage() {
     isLoading,
     isError,
   } = useGetProviderQuery(id, { skip: Number.isNaN(id) });
+
+  const { hasPermission } = usePermissions();
+  const canReadTrustStores = hasPermission('trust_stores:read');
+  const { data: trustStores } = useGetTrustStoresQuery(undefined, {
+    skip: !canReadTrustStores || Number.isNaN(id),
+  });
+  const trustStoreName = provider?.trust_store_id
+    ? (trustStores ?? []).find((s) => s.id === provider.trust_store_id)?.name ?? null
+    : null;
 
   if (isLoading) {
     return (
@@ -194,6 +204,9 @@ export function ProviderDetailPage() {
             {p.is_active ? <Tag color="success">Yes</Tag> : <Tag color="default">No</Tag>}
           </Descriptions.Item>
           <Descriptions.Item label="Verify SSL">{p.verify_ssl ? 'Yes' : 'No'}</Descriptions.Item>
+          <Descriptions.Item label="Trust Store">
+            {trustStoreName ?? p.trust_store_id ?? '—'}
+          </Descriptions.Item>
           <Descriptions.Item label="Priority">{p.priority}</Descriptions.Item>
           <Descriptions.Item label="Created">{formatDate(p.created_at)}</Descriptions.Item>
           <Descriptions.Item label="Updated">{formatDate(p.updated_at)}</Descriptions.Item>

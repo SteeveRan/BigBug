@@ -38,11 +38,17 @@ vi.mock('../../store/api', async () => {
   return {
     ...(actual as object),
     useGetProviderQuery: vi.fn(),
+    useGetTrustStoresQuery: vi.fn(),
   };
 });
 
+vi.mock('../../hooks/usePermissions', () => ({
+  usePermissions: vi.fn(),
+}));
+
 import { api } from '../../store/api';
-import { useGetProviderQuery } from '../../store/api';
+import { useGetProviderQuery, useGetTrustStoresQuery } from '../../store/api';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ProviderDetailPage } from '../../pages/Settings/Providers/ProviderDetail';
 import type { ResourceProvider } from '../../types';
 
@@ -80,6 +86,7 @@ function mockProvider(overrides: Partial<ResourceProvider> = {}): ResourceProvid
     last_checked_at: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-02T00:00:00Z',
+    trust_store_id: null,
     has_credential: false,
     ...overrides,
   };
@@ -91,6 +98,17 @@ describe('ProviderDetailPage', () => {
   beforeEach(() => {
     store = createTestStore();
     vi.clearAllMocks();
+    (usePermissions as ReturnType<typeof vi.fn>).mockReturnValue({
+      hasPermission: () => true,
+      hasAnyPermission: () => true,
+      hasAllPermissions: () => true,
+      permissions: [],
+    });
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
   });
 
   function renderPage() {
@@ -170,5 +188,36 @@ describe('ProviderDetailPage', () => {
     const user = userEvent.setup();
     await user.click(screen.getByText('Providers'));
     expect(mockNavigate).toHaveBeenCalledWith('/settings/providers');
+  });
+
+  it('shows the trust store name resolved from the stores list', () => {
+    (useGetProviderQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: mockProvider({ trust_store_id: 5 }),
+      isLoading: false,
+      isError: false,
+    });
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [{ id: 5, name: 'Corp Root CA', description: null }],
+      isLoading: false,
+      isError: false,
+    });
+
+    renderPage();
+    expect(screen.getByText('Trust Store')).toBeInTheDocument();
+    expect(screen.getByText('Corp Root CA')).toBeInTheDocument();
+  });
+
+  it('shows "—" for trust store when the provider has none', () => {
+    (useGetProviderQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: mockProvider(),
+      isLoading: false,
+      isError: false,
+    });
+
+    const { container } = renderPage();
+    const label = [...container.querySelectorAll('.ant-descriptions-item-label')].find(
+      (el) => el.textContent === 'Trust Store'
+    );
+    expect(label?.nextElementSibling?.textContent).toBe('—');
   });
 });

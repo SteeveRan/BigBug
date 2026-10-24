@@ -28,6 +28,7 @@ import './api/audit-logs';
 import './api/providers';
 import './api/teams';
 import './api/credentials';
+import './api/trust-stores';
 import './api/gitlab-projects';
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -307,3 +308,6 @@ export {
   useDeleteCredentialMutation,
   useTestCredentialMutation,
 } from './api/credentials';
+
+// Trust Stores (read — admin CRUD lives in #91)
+export { useGetTrustStoresQuery } from './api/trust-stores';

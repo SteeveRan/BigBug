@@ -821,6 +821,7 @@ export interface ResourceProvider {
   is_protected: boolean;
   verify_ssl: boolean;
   priority: number;
+  trust_store_id: number | null;
   status_flag: number;
   status_text: string | null;
   last_checked_at: string | null;
@@ -840,6 +841,7 @@ export interface ProviderCreate {
   base_url?: string | null;
   config?: Record<string, unknown>;
   credential_id?: number | null;
+  trust_store_id?: number | null;
   visibility?: ProviderVisibility;
   team_id?: number | null;
 }
@@ -852,6 +854,7 @@ export interface ProviderUpdate {
   base_url?: string | null;
   config?: Record<string, unknown>;
   credential_id?: number | null;
+  trust_store_id?: number | null;
   is_active?: boolean;
   is_default?: boolean;
   verify_ssl?: boolean;
