@@ -1,0 +1,115 @@
+{{/*
+taskiq worker Deployment (ADR-0039 Phase 1). Same image and env as backend —
+workers run the same application code (task bodies call sync_engine and
+provider clients: outbound TLS to *.local + public hosts, DB, Fernet).
+
+Probes: no port to probe (taskiq is not an HTTP server); readiness is an exec
+Redis ping — a worker that cannot reach the broker is not ready. No liveness
+probe: there is no cheap external signal of "worker alive" beyond the broker
+ping, and a wedged worker is handled by redelivery (idle_timeout=30 min).
+
+Graceful shutdown: tini forwards SIGTERM to taskiq, which stops fetching and
+drains running tasks up to --wait-tasks-timeout (300s) — see worker.command —
+within terminationGracePeriodSeconds (360s). Tasks still running after that
+are redelivered by the broker (at-least-once, ack after execution). No preStop
+hook needed.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "bigbug.fullname" . }}-worker
+  labels:
+    {{- include "bigbug.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "bigbug.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "bigbug.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      containers:
+        - name: worker
+          image: {{ include "bigbug.backendImage" . }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          command: ["/entrypoint.sh"]
+          args: {{ toYaml .Values.worker.command | nindent 12 }}
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" . }}-config
+                  key: REDIS_URL
+            - name: KEYCLOAK_REALM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" . }}-config
+                  key: KEYCLOAK_REALM
+            {{- if .Values.backend.keycloak.url }}
+            - name: KEYCLOAK_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" $ }}-config
+                  key: KEYCLOAK_URL
+            - name: KEYCLOAK_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "bigbug.fullname" $ }}-config
+                  key: KEYCLOAK_PUBLIC_URL
+            {{- end }}
+            {{- range $name, $ref := .Values.backend.secretEnv }}
+            - name: {{ $name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $ref.secretName }}
+                  key: {{ $ref.key }}
+            {{- end }}
+            {{- /* SSL_CERT_FILE/REQUESTS_CA_BUNDLE are set by the entrypoint
+                (build_ca_bundle) pointing at the merged system+stand bundle —
+                same reasoning as backend-deployment.yaml. */}}
+          readinessProbe:
+            exec:
+              command: ["python3", "-c", "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.backend.caBundle.configMapName }}
+            - name: ca-bundle
+              mountPath: {{ .Values.backend.caBundle.mountPath }}
+              readOnly: true
+            # Writable scratch for the entrypoint's merged CA bundle
+            - name: merged-ca
+              mountPath: /run/bigbug-ca
+              readOnly: false
+            {{- end }}
+            # Parity with backend: task bodies may write regenerable caches
+            # under DATA_DIR
+            - name: data-scratch
+              mountPath: /data
+              readOnly: false
+            {{- with .Values.backend.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: data-scratch
+          emptyDir: {}
+        {{- if .Values.backend.caBundle.configMapName }}
+        - name: ca-bundle
+          configMap:
+            name: {{ .Values.backend.caBundle.configMapName }}
+        - name: merged-ca
+          emptyDir: {}
+        {{- end }}
+        {{- with .Values.backend.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

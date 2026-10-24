@@ -79,6 +79,32 @@ backend:
     publicUrl: ""       # browser-facing URL; defaults to .backend.keycloak.url
     realm: bigbug
 
+# ── Taskiq worker (ADR-0039) ─────────────────────────────────
+# Same image and env contract as backend (task bodies call sync_engine and
+# provider clients); env is inherited from the backend blocks below.
+worker:
+  replicaCount: 1       # autoscaling is a values change, not a template change (no HPA — ADR-0039)
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # taskiq CLI: --wait-tasks-timeout (300s) must fit within
+  # terminationGracePeriodSeconds (360s); unacked leftovers are redelivered
+  # by the broker (idle_timeout=30 min). Task modules are registered via
+  # app.tasks (imported by the broker package).
+  command: ["taskiq", "worker", "--wait-tasks-timeout", "300", "app.tasks.broker:broker", "app.tasks"]
+
+  # 360s grace = wait_tasks_timeout 300s + process exit margin
+  terminationGracePeriodSeconds: 360
+
+  # Extra volumes/mounts for the worker pod (default: parity with backend)
+  extraVolumes: []
+  extraVolumeMounts: []
+
 # ── Frontend ──────────────────────────────────────────────────
 frontend:
   image:

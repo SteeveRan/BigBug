@@ -9,6 +9,7 @@ subchart'ов и STS). Один chart для dev и prod — различия т
 | Шаблон | Назначение |
 |---|---|
 | `backend-deployment.yaml` | FastAPI backend, 1 реплика, probes `/api/health`, env из ConfigMap + Secrets |
+| `worker-deployment.yaml` | taskiq worker (ADR-0039): тот же образ, `taskiq worker app.tasks.broker:broker`, без HTTP-проб (readiness — redis ping), grace 360s |
 | `frontend-deployment.yaml` | Prod: nginx со статикой. Dev: Node + Vite dev server (`frontend.dev.enabled`) |
 | `backend-service.yaml` / `frontend-service.yaml` | ClusterIP Services |
 | `ingress.yaml` | `api.local` (backend) и `app.local` (frontend), className из values |
@@ -19,8 +20,8 @@ subchart'ов и STS). Один chart для dev и prod — различия т
 
 | Secret | Ключи | Потребитель |
 |---|---|---|
-| `bigbug-db-credentials` | `DATABASE_URL`, … | backend, migrate Job |
-| `bigbug-fernet-key` | `ENCRYPTION_KEY` | backend |
+| `bigbug-db-credentials` | `DATABASE_URL`, … | backend, migrate Job, worker |
+| `bigbug-fernet-key` | `ENCRYPTION_KEY` | backend, worker |
 | `bigbug-keycloak-oidc` | `client_id`, `client_secret` | backend |
 
 Подключение — `backend.secretEnv` в values (secretKeyRef). Plain env в

@@ -78,6 +78,21 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 API документация (Swagger UI): http://localhost:8000/api/docs
 
+### Запуск taskiq worker локально
+
+Фоновые задачи (ADR-0039) исполняются отдельным процессом-воркером, не в
+API-процессе. В k8s его поднимает chart (`charts/bigbug/templates/worker-deployment.yaml`,
+grace 360s / `--wait-tasks-timeout 300`); локально — та же команда, что в
+образе:
+
+```bash
+# Нужны DATABASE_URL, REDIS_URL (см. раздел «Переменные окружения»)
+taskiq worker --wait-tasks-timeout 300 app.tasks.broker:broker app.tasks
+```
+
+Без запущенного воркера задачи копятся в Redis-стриме и не исполняются
+(планировщики в API только enqueue'ят).
+
 ## OpenAPI-контракт (источник истины фронт-бэк)
 
 Фиксированная OpenAPI-схема лежит в [`backend/openapi.json`](../../backend/openapi.json) и
