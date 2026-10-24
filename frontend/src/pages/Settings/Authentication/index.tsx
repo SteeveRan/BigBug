@@ -342,11 +342,14 @@ export function AuthenticationSettings() {
           <div style={{ flex: '1 1 360px', minWidth: 280 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Issuer URL</Typography.Text>
+              <Typography.Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                Base URL without /realms/&lt;realm&gt; — the realm is appended automatically
+              </Typography.Text>
             </div>
             <Input
               value={issuerUrl}
               onChange={(e) => setIssuerUrl(e.target.value)}
-              placeholder="https://keycloak.example.com/realms/myrealm"
+              placeholder="https://keycloak.example.com"
               disabled={isSaving}
             />
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>

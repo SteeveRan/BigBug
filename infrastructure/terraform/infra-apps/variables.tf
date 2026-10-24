@@ -73,9 +73,9 @@ variable "frontend_client_id" {
 }
 
 variable "frontend_redirect_uris" {
-  description = "Valid redirect URIs for frontend SPA client"
+  description = "Valid redirect URIs for frontend SPA client (app.local ingress + local vite dev)"
   type        = list(string)
-  default     = ["http://localhost:5173/*", "http://localhost:3000/*"]
+  default     = ["https://app.local/sso/callback", "https://app.local/*", "http://localhost:5173/*", "http://localhost:3000/*"]
 }
 
 variable "harbor_client_id" {

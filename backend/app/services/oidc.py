@@ -32,6 +32,8 @@ from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.http import ssl_verify
+
 from app.config import settings
 from app.core.exceptions import (
     OIDCExchangeError,
@@ -279,7 +281,9 @@ class KeycloakOIDCService:
         # bounded timeout so a slow IDP can't pin a worker indefinitely.
         if self._http_client is not None:
             return _NonClosingClient(self._http_client)
-        return httpx.AsyncClient(timeout=settings.keycloak_http_timeout_seconds)
+        return httpx.AsyncClient(
+            timeout=settings.keycloak_http_timeout_seconds, verify=ssl_verify()
+        )
 
     async def _get_jwks(self) -> dict:
         cached = self._jwks_cache.get()
