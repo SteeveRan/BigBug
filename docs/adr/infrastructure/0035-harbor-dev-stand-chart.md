@@ -54,7 +54,7 @@ Endpoint: `https://harbor.local` — TLS терминируется на haproxy
 * Good, because OIDC-цепочка Keycloak → Harbor собирается одним apply'ем apps (secret пробрасывается между модулями)
 * Bad, because docker-dind CI-джобы не наследуют host trust store — до решения (маунт серта в джобу) работают с `--insecure`-паттернами (ADR-0030 known limitation)
 * Bad, because harbor webhook к backend идёт на host-адрес с `skip_cert_verify = true` — отступление от ADR-0028 §2, чинится вместе с e2e-https-потоком (#60)
-* Neutral, because старый кластер `harbor` и `infrastructure/harbor/` подлежат сносу — зона #62
+* Neutral, because legacy kind-кластер `harbor` и `infrastructure/harbor/` снесены (#62, 2026-10-24) — Harbor живёт только в `bigbug-dev`
 
 ### Confirmation
 

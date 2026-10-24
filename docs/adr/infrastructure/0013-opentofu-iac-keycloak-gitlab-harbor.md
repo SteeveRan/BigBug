@@ -12,7 +12,7 @@ Dev-инфраструктура BigBug (исторический compose-сло
 
 Фактический вопрос: **каким инструментом декларативно управлять конфигурацией инфраструктурных сервисов** — и где проходит граница между «IaC» и императивной обвязкой?
 
-Дополнительно зафиксировано в этом ADR: полный **init flow** — `infrastructure/init.sh` → compose → Harbor (kind) → tofu → `update-env.sh`; и разделение ответственности: что управляется OpenTofu, а что — императивно.
+Дополнительно зафиксировано в этом ADR: полный **init flow** (устарел — актуален kind-поток [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md), см. non-goal ниже); и разделение ответственности: что управляется OpenTofu, а что — императивно.
 
 ## Decision Drivers
 
@@ -41,9 +41,15 @@ Chosen option: **OpenTofu** — декларативный IaC с открыто
 | `modules/harbor` | OIDC auth-mode (client secret из Keycloak), 3 projects (`gold_images`, `app_images`, `mirrors`) с quotas, robot accounts, registries (Docker Hub, Quay), pull-replication policies, webhooks на backend | `goharbor/harbor ~> 3.12` |
 | `modules/gitlab` | group `mirrors`, service-account user `backend`, group membership ~~+ PAT~~ (PAT-генерация убрана #56 — рабочие креды приложения заводятся при деплое приложения, [ADR-0024](../common/0024-k8s-secrets.md)) | `gitlabhq/gitlab ~> 17.0` |
 
-Важная граница: **Harbor как runtime не управляется OpenTofu** — он разворачивается в kind-кластере (Helm, [`infrastructure/harbor/deploy.sh`](../../../infrastructure/harbor/deploy.sh), optional, пропускается если `kind` не установлен). OpenTofu управляет только **конфигурацией** Harbor через API (auth, projects, robots, replication). Аналогично provisioning GitLab CI/CD components и пайплайнов — задача самого приложения через GitLab API (пресеты в [`backend/app/services/gitlab_projects/presets.py`](../../../backend/app/services/gitlab_projects/presets.py)), не IaC: tofu отвечает только за **базовую настройку**.
+Важная граница (историческая; актуальная — [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)): **Harbor как runtime не управляется OpenTofu** — на момент решения он разворачивался в kind-кластере императивным `deploy.sh` (снесено #62; сейчас — chart через harbor_init в infra-apps, [ADR-0035](0035-harbor-dev-stand-chart.md)). OpenTofu управляет **конфигурацией** Harbor через API (auth, projects, robots, replication). Аналогично provisioning GitLab CI/CD components и пайплайнов — задача самого приложения через GitLab API (пресеты в [`backend/app/services/gitlab_projects/presets.py`](../../../backend/app/services/gitlab_projects/presets.py)), не IaC: tofu отвечает только за **базовую настройку**.
 
 ### Init flow и граница императивного
+
+> **Устарело** (2026-10-24, #62): init flow описывает compose-эпоху. Актуальный
+> поток — kind-стенд: `infrastructure/init.sh` → certs → GitLab compose-зона
+> (compose-исключение [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)) → kind bootstrap → tofu
+> base → infra-apps (2 фазы) → apps ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md));
+> приложение — helm chart ([ADR-0023](0023-bigbug-helm-chart.md)). Ниже — историческая фиксация.
 
 [`infrastructure/init.sh`](../../../infrastructure/init.sh) — единственная точка входа (`make infra-init`); императивные шаги — ровно те, которые tofu не может сделать сам:
 
@@ -54,7 +60,7 @@ Chosen option: **OpenTofu** — декларативный IaC с открыто
 5. Harbor в kind: `deploy.sh`, только если кластера нет (idempotent)
 6. **GitLab PAT bootstrap** — документированное исключение из IaC: начальный root PAT программируется через `gitlab-rails runner` внутри контейнера, только если токен из `infrastructure/gitlab/.env` отвечает 403; затем пишется в `terraform.tfvars`
 7. `tofu init` + `tofu apply -auto-approve` из единого root-модуля
-8. [`infrastructure/update-env.sh`](../../../infrastructure/update-env.sh): `tofu output` → корневой `.env` (`OIDC_*`, `GITLAB_*` и др.) — приложение получает сконфигурированные секреты без ручных шагов
+8. ~~[`infrastructure/update-env.sh`](../../../infrastructure/update-env.sh): `tofu output` → корневой `.env`...~~ — update-env.sh снесён (#62, [ADR-0024](../common/0024-k8s-secrets.md): секреты приложения — k8s Secrets)
 
 State: **local** (`terraform.tfstate` в `infrastructure/terraform/`, в `.gitignore`); для production — remote backend (S3 / GitLab managed terraform state), в dev не нужен.
 
@@ -67,8 +73,9 @@ State: **local** (`terraform.tfstate` в `infrastructure/terraform/`, в `.gitig
 * Bad, because local state без locking: параллельные запуски `apply` могут конфликтовать; потеря state = drift (лечится `infra-clean-tofu` + повторный apply — окружение dev и так пересоздаётся)
 * ~~Bad, because GitLab PAT живёт 90 дней (`ignore_changes` маскирует проблему от tofu) — по истечении нужен re-bootstrap через `init.sh` (шаг 6); осознанная цена dev-окружения~~ (снято #56/[ADR-0024](../common/0024-k8s-secrets.md): tofu больше не генерирует backend PAT; root-PAT bootstrap в init.sh остаётся только для аутентификации самого tofu)
 * Bad, because история инфраструктуры размазана на три инструмента: compose (контейнеры, ADR-0012), kind+Helm (Harbor runtime), tofu (конфигурация) — новый агент должен понимать, что где живёт
-* Neutral, because `terraform.tfvars` (с токенами) gitignored, в репозитории только `.example`
-* Non-goals: production deployment (K8s и т.п.); remote state backend в dev; provisioning CI/CD компонентов и пайплайнов через IaC; управление ресурсами внутри kind-кластера через tofu
+* ~~Neutral, because `terraform.tfvars` (с токенами) gitignored, в репозитории только `.example`~~
+* ~~Non-goals: production deployment (K8s и т.п.); remote state backend в dev; provisioning CI/CD компонентов и пайплайнов через IaC; **управление ресурсами внутри kind-кластера через tofu**~~
+* Non-goal «управление ресурсами внутри kind-кластера через tofu» — **superseded** [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md): in-cluster сущности (ingress, операторы, инстансы, секреты) управляются tofu через root'ы base/infra-apps/apps. Остальные non-goals (production deployment, remote state в dev, CI/CD-провижининг приложением) остаются в силе.
 
 ### Confirmation
 
@@ -77,7 +84,6 @@ State: **local** (`terraform.tfstate` в `infrastructure/terraform/`, в `.gitig
 ```bash
 cd infrastructure/terraform && tofu validate
 make infra-clean && make infra-init   # с нуля, до шага 8 включительно
-grep -E '^OIDC_|^GITLAB_URL' .env    # outputs записаны update-env.sh
 ```
 
 2. Fitness-критерии для ревью:
@@ -120,6 +126,7 @@ Fork Terraform 1.5/1.6 под эгидой Linux Foundation, MPL 2.0.
 
 ## More Information
 
+- **Superseded (частично) by [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)**: in-cluster non-goal снят, инструментальное ядро (выбор OpenTofu, state, граница императивного) поглощено — update #80 там же; сервисные решения разъехались в [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) (GitLab), [ADR-0034](0034-keycloak-dev-stand-keycloakx.md) (Keycloak), [ADR-0035](0035-harbor-dev-stand-chart.md) (Harbor).
 - [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) (архив) — исторический compose-слой; этот ADR — слой поверх (после ADR-0022 compose остаётся только для GitLab)
 - [ADR-0003](../common/0003-keycloak-oidc-dual-auth.md) — зачем Keycloak clients (dual-mode auth); [ADR-0007](../common/0007-providers-v3-registry.md) — приложение хранит эти credentials через Providers V3 (шифрование — [ADR-0010](../backend/0010-fernet-secrets-encryption.md))
 - Эксплуатация и troubleshooting (curl-проверки, ручной путь, сброс state) — [`AGENTS.md`](../../../AGENTS.md), make-цели `infra-*` — корневой [`Makefile`](../../../Makefile)

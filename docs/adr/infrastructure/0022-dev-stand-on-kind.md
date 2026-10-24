@@ -8,17 +8,19 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Dev-стенд BigBug поднимается в Docker Compose (см. архивный [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — два compose-файла: infrastructure и application). Но целевая среда запуска приложения — Kubernetes: helm chart всё равно придётся разрабатывать для prod. Единственный компонент, уже живущий в k8s, — Harbor в отдельном kind-кластере `harbor` ([ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md)).
+Dev-стенд BigBug поднимался в Docker Compose (см. архивный [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — два compose-файла: infrastructure и application). Но целевая среда запуска приложения — Kubernetes: helm chart всё равно придётся разрабатывать для prod. Единственный компонент, уже живущий в k8s, — Harbor в отдельном kind-кластере `harbor` ([ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md)).
+
+> **Историческая фиксация** (2026-10-22). Актуальное состояние — после сноса (#62, 2026-10-24): compose — только GitLab-зона ([ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)); compose-приложение, keycloak/postgres-keycloak из compose и legacy-кластер `harbor` снесены.
 
 Вопрос: **где размещать dev-окружение приложения** — остаться в compose и отложить k8s на prod-этап, или переехать в единый kind-кластер сейчас, сделав dev-стенд репетицией prod-топологии?
 
-Фактическое состояние (проверено по коду, 2026-10-22):
+Фактическое состояние (проверено по коду, 2026-10-22; compose-приложение и harbor-кластер снесены в #62):
 
-**Compose-инфраструктура** ([`infrastructure/gitlab/docker-compose.yml`](../../../infrastructure/gitlab/docker-compose.yml)): `postgres-keycloak` (:5433), `keycloak` 24.0 (:8180), `gitlab` CE omnibus (:8080/:8443/:2222, вольюмы `gitlab_*`), `gitlab-runner` (docker.sock executor). Сеть `bigbug-network`.
+**Compose-инфраструктура** ([`infrastructure/gitlab/docker-compose.yml`](../../../infrastructure/gitlab/docker-compose.yml), [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)): ~~`postgres-keycloak` (:5433), `keycloak` 24.0 (:8180)~~ (снесены — БД в CNPG), `gitlab` CE omnibus (`https://gitlab.local:8443`/:2222, вольюмы `gitlab_*`), `gitlab-runner` (docker.sock executor). Сеть `bigbug-network`.
 
-**Compose-приложение** (корневой `docker-compose.yml`): `postgres-backend` (:5432), `redis` (:6379), `backend` (:8000, bind-mount, uvicorn `--reload`), `frontend` (:5173, bind-mount, `yarn dev`).
+~~**Compose-приложение** (корневой `docker-compose.yml`): `postgres-backend` (:5432), `redis` (:6379), `backend` (:8000, bind-mount, uvicorn `--reload`), `frontend` (:5173, bind-mount, `yarn dev`).~~ — снесено (#62): postgres → CNPG, redis → redis-operator, приложение — helm chart ([ADR-0023](0023-bigbug-helm-chart.md)).
 
-**Harbor**: отдельный kind-кластер `harbor` ([`infrastructure/harbor/deploy.sh`](../../../harbor/deploy.sh)): Helm chart `harbor/harbor`, NodePort 30080/30443 → host :80/:443 через `extraPortMappings`, `/etc/hosts` → `harbor.local`, insecure-registry в docker daemon.
+~~**Harbor**: отдельный kind-кластер `harbor` ... insecure-registry в docker daemon.~~ — кластер снесён (#62); Harbor — chart в `bigbug-dev` ([ADR-0035](0035-harbor-dev-stand-chart.md)).
 
 Связанные: [ADR-0006](../backend/0006-database-postgresql-alembic.md) (политика миграций), [ADR-0018](../common/0018-e2e-testing-strategy.md) (e2e против живого dev-стенда), [ADR-0019](../common/0019-makefile-tooling-single-entrypoint.md) (Makefile — единая точка входа).
 
@@ -76,15 +78,15 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 
 ### Confirmation
 
-Чеклист ревью (агент проверяет по живому стенду):
+Чеклист ревью (агент проверяет по живому стенду, 2026-10-24 — пройдено, #62):
 
-1. `kind get clusters` содержит `bigbug-dev` и **не содержит** `harbor` (кластер ликвидирован)
-2. `kubectl get pods -A --context kind-bigbug-dev` показывает поды: haproxy-ingress, cnpg (postgres), redis-operator (+ Redis CR из apps), keycloakx, harbor, backend, frontend
-3. `curl -fsS http://keycloak.local/realms/master` → HTTP 200
-4. `curl -fsS http://harbor.local/api/v2.0/systeminfo` → HTTP 200
-5. Hot-reload: правка файла в `backend/app/` видна в uvicorn без пересборки образа (лог пода показывает reload)
-6. `make dev-clean` не трогает GitLab-вольюмы compose (`gitlab_data` и пр. остаются)
-7. `infrastructure/gitlab/docker-compose.yml` содержит только gitlab + gitlab-runner (+ без postgres-keycloak — БД в CNPG)
+1. ✅ `kind get clusters` содержит `bigbug-dev` и **не содержит** `harbor` (кластер ликвидирован #62)
+2. ✅ `kubectl get pods -A --context kind-bigbug-dev` показывает поды: haproxy-ingress, cnpg (postgres), redis-operator (+ Redis CR из apps), keycloakx, harbor, backend, frontend
+3. ✅ `curl -fsS https://keycloak.local/realms/bigbug` → HTTP 200 (https — ADR-0030)
+4. ✅ `curl -fsS https://harbor.local/api/v2.0/systeminfo` → HTTP 200
+5. ~~Hot-reload: правка файла в `backend/app/` видна в uvicorn без пересборки образа~~ — вырезан в #59 ([ADR-0023](0023-bigbug-helm-chart.md) §3); источник кода — dev-образ
+6. ✅ `make dev-clean` не трогает GitLab-вольюмы compose (`gitlab_data` и пр. остаются)
+7. ✅ `infrastructure/gitlab/docker-compose.yml` содержит только gitlab + gitlab-runner (+ без postgres-keycloak — БД в CNPG)
 
 ## Pros and Cons of the Options
 

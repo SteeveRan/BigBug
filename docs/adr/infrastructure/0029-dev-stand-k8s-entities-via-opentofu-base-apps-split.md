@@ -112,3 +112,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 3. **init flow не дублируется** ни здесь, ни в сервисных ADR — он живёт в [`infrastructure/init.sh`](../../../infrastructure/init.sh) + roadmap #61 (переписывание под kind-поток).
 
 4. После accept сервисных ADR человеком ADR-0013 архивируется (статус superseded, взаимные ссылки) — выполняет **#62**; этим issue он не архивируется.
+
+## Update 2026-10-24 (#62): non-goal ADR-0013 документально superseded
+
+Non-goal ADR-0013 «управление ресурсами внутри kind-кластера через tofu» официально снят — этим ADR (взаимные ссылки проставлены в обе стороны: [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) §Consequences/§More Information ↔ этот update). Снос compose-приложения и legacy harbor-кластера завершён; compose остаётся только для GitLab ([ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)).
