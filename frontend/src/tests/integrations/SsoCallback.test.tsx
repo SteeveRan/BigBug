@@ -71,6 +71,7 @@ describe('SsoCallbackPage', () => {
       code: 'test-code',
       redirect_uri: 'https://app.example.com/sso/callback',
       code_verifier: 'test-verifier',
+      provider_id: 1,
     });
     // Return a never-resolving unwrap so the Spin stays visible during assertions
     mockExchange.mockReturnValue({ unwrap: () => new Promise(() => {}) });
@@ -113,6 +114,7 @@ describe('SsoCallbackPage', () => {
       code: 'test-code',
       redirect_uri: 'https://app.example.com/sso/callback',
       code_verifier: 'test-verifier',
+      provider_id: 1,
     });
 
     const { rerender } = render(
@@ -131,5 +133,19 @@ describe('SsoCallbackPage', () => {
 
     // handleCallback should only have been called once (the ref guard works).
     expect(mockHandleCallback).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls exchange with the provider_id from the callback payload', () => {
+    mockHandleCallback.mockReturnValue({
+      code: 'test-code',
+      redirect_uri: 'https://app.example.com/sso/callback',
+      code_verifier: 'test-verifier',
+      provider_id: 3,
+    });
+    globalThis.fetch = vi.fn().mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(mockExchange).toHaveBeenCalledWith(expect.objectContaining({ provider_id: 3 }));
   });
 });

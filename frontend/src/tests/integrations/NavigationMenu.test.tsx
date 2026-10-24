@@ -96,8 +96,10 @@ vi.mock('../../store/api', async () => {
     useUpdateRoleMutation: vi.fn(),
     useDeleteRoleMutation: vi.fn(),
     // OIDC / Authentication
-    useGetOidcConfigQuery: vi.fn(),
-    useUpdateOidcConfigMutation: vi.fn(),
+    useGetOidcProvidersQuery: vi.fn(),
+    useCreateOidcProviderMutation: vi.fn(),
+    useUpdateOidcProviderMutation: vi.fn(),
+    useDeleteOidcProviderMutation: vi.fn(),
     // Pipelines
     useGetPipelineRunsQuery: vi.fn(),
     useGetPipelineRunQuery: vi.fn(),

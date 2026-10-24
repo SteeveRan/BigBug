@@ -4,7 +4,7 @@
  * @dependencies api/base.ts
  */
 
-import type { UserPermissions } from '../../types';
+import type { SSOConfig, UserPermissions } from '../../types';
 import { api } from './base';
 
 export const authApi = api.injectEndpoints({
@@ -36,15 +36,17 @@ export const authApi = api.injectEndpoints({
       query: () => '/auth/me/permissions',
       providesTags: ['Permissions'],
     }),
-    getSsoConfig: builder.query<
-      { enabled: boolean; url: string; realm: string; client_id: string },
-      void
-    >({
+    getSsoConfig: builder.query<SSOConfig, void>({
       query: () => '/auth/sso/config',
     }),
     ssoExchange: builder.mutation<
       { access_token: string; refresh_token: string; token_type: string },
-      { code: string; redirect_uri: string; code_verifier: string }
+      {
+        code: string;
+        redirect_uri: string;
+        code_verifier: string;
+        provider_id: number;
+      }
     >({
       query: (body) => ({
         url: '/auth/oidc/exchange',

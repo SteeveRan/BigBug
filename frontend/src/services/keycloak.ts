@@ -44,6 +44,14 @@ export async function computeCodeChallenge(verifier: string): Promise<string> {
 /** sessionStorage key used to persist the code_verifier across the redirect. */
 export const SSO_VERIFIER_KEY = 'sso_code_verifier';
 
+/** sessionStorage key used to persist the chosen provider_id across the redirect. */
+export const SSO_PROVIDER_KEY = 'sso_provider_id';
+
+/** Opaque state value binding the callback to the chosen provider. */
+export function buildState(providerId: number): string {
+  return String(providerId);
+}
+
 /**
  * Kick off the Authorization Code + PKCE flow by redirecting the browser to
  * Keycloak's authorization endpoint.
@@ -53,17 +61,19 @@ export const SSO_VERIFIER_KEY = 'sso_code_verifier';
  * because keycloak-js does not expose authServerUrl/realm/clientId as readable
  * properties until after init() is called.
  *
- * Stores the generated code_verifier in sessionStorage so
- * `useKeycloakAuth.handleCallback` can retrieve it after the redirect.
+ * Stores the generated code_verifier and the chosen provider_id in sessionStorage
+ * so `useKeycloakAuth.handleCallback` can retrieve them after the redirect.
  */
 export async function redirectToKeycloakLogin(
   url: string,
   realm: string,
   clientId: string,
-  redirectUri: string
+  redirectUri: string,
+  providerId: number
 ): Promise<never> {
   const verifier = generateCodeVerifier();
   sessionStorage.setItem(SSO_VERIFIER_KEY, verifier);
+  sessionStorage.setItem(SSO_PROVIDER_KEY, buildState(providerId));
 
   const challenge = await computeCodeChallenge(verifier);
 
@@ -74,6 +84,7 @@ export async function redirectToKeycloakLogin(
   params.set('code_challenge', challenge);
   params.set('code_challenge_method', 'S256');
   params.set('scope', 'openid profile email');
+  params.set('state', buildState(providerId));
 
   const loginUrl = `${url}/realms/${realm}/protocol/openid-connect/auth?${params.toString()}`;
 
