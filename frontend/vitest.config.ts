@@ -7,6 +7,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/tests/integrations/setup.tsx'],
+    // jsdom + antd-граф ~0.5 ГБ на воркер: без лимита на 24 ядрах пик ~12 ГБ.
+    maxWorkers: 4,
+    minWorkers: 1,
+    testTimeout: 10000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'json', 'json-summary', 'html', 'lcov'],

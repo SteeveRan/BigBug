@@ -44,6 +44,10 @@ STATUS_OK = 0
 STATUS_FAILED = 1
 STATUS_PENDING = 4
 
+# Sentinel for "field not supplied" in PATCH payloads (distinct from explicit null,
+# which for trust_store_id means "unbind the store").
+UNSET: object = object()
+
 
 class ProviderService:
     """Business logic for the unified ``resource_providers`` entity."""
@@ -272,7 +276,7 @@ class ProviderService:
         base_url: str | None = None,
         config: dict | None = None,
         credential_id: int | None = None,
-        trust_store_id: int | None = None,
+        trust_store_id: int | None | object = UNSET,
         is_active: bool | None = None,
         is_default: bool | None = None,
         verify_ssl: bool | None = None,
@@ -296,7 +300,7 @@ class ProviderService:
             provider.config = config
         if credential_id is not None:
             provider.credential_id = credential_id
-        if trust_store_id is not None:
+        if trust_store_id is not UNSET:
             provider.trust_store_id = trust_store_id
         if is_active is not None:
             provider.is_active = is_active

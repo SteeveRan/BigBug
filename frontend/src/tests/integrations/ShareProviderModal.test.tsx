@@ -59,6 +59,7 @@ function mockProvider(): ResourceProvider {
     last_checked_at: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    trust_store_id: null,
     has_credential: false,
   };
 }

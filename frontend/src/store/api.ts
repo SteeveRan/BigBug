@@ -28,6 +28,7 @@ import './api/audit-logs';
 import './api/providers';
 import './api/teams';
 import './api/credentials';
+import './api/trust-stores';
 import './api/gitlab-projects';
 import './api/trust-stores';
 

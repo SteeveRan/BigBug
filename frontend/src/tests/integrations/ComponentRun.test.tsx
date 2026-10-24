@@ -199,6 +199,7 @@ describe('Component Run Functionality', () => {
           last_checked_at: null,
           created_at: '2026-06-07T12:00:00Z',
           updated_at: '2026-06-07T12:00:00Z',
+          trust_store_id: null,
           has_credential: false,
         },
       ],

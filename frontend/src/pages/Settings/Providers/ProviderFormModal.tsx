@@ -35,6 +35,7 @@ import {
   useGetProviderTypesQuery,
   useGetCredentialsQuery,
   useGetTeamsQuery,
+  useGetTrustStoresQuery,
   useCreateCredentialMutation,
 } from '../../../store/api';
 import type {
@@ -68,6 +69,7 @@ interface FormValues {
   team_id?: number;
   verify_ssl: boolean;
   priority: number;
+  trust_store_id?: number;
   config: Record<string, unknown>;
   anonymous: boolean;
   credential_type?: CredentialType;
@@ -116,6 +118,10 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
   const { data: types = [] } = useGetProviderTypesQuery();
   const { data: credentials = [] } = useGetCredentialsQuery();
   const { data: teams = [] } = useGetTeamsQuery();
+  const canReadTrustStores = hasPermission('trust_stores:read');
+  const { data: trustStores = [] } = useGetTrustStoresQuery(undefined, {
+    skip: !canReadTrustStores,
+  });
 
   const [createProvider, { isLoading: isCreating }] = useCreateProviderMutation();
   const [updateProvider, { isLoading: isUpdating }] = useUpdateProviderMutation();
@@ -157,6 +163,11 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
     [teams]
   );
 
+  const trustStoreOptions = useMemo(
+    () => trustStores.map((s) => ({ label: s.name, value: s.id })),
+    [trustStores]
+  );
+
   // ── Initialise / reset on open ──────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
@@ -175,6 +186,7 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
         team_id: provider.team_id ?? undefined,
         verify_ssl: provider.verify_ssl,
         priority: provider.priority,
+        trust_store_id: provider.trust_store_id ?? undefined,
         config: provider.config ?? {},
         anonymous: !provider.has_credential,
       });
@@ -315,6 +327,7 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
             team_id: values.visibility === 'team' ? values.team_id : undefined,
             verify_ssl: values.verify_ssl,
             priority: values.priority,
+            trust_store_id: values.trust_store_id ?? null,
           },
         }).unwrap();
         message.success('Изменения сохранены');
@@ -332,6 +345,7 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
           credential_id: credentialId ?? null,
           visibility: values.visibility,
           team_id: values.visibility === 'team' ? values.team_id : undefined,
+          trust_store_id: values.trust_store_id ?? null,
         }).unwrap();
         message.success('Провайдер создан');
       }
@@ -586,6 +600,20 @@ export function ProviderFormModal({ open, provider, onClose }: ProviderFormModal
           <Form.Item name="verify_ssl" label="Verify SSL" valuePropName="checked">
             <Switch />
           </Form.Item>
+          {canReadTrustStores && (
+            <Form.Item
+              name="trust_store_id"
+              label="Trust Store"
+              tooltip="Custom CA certificates for SSL verification (ADR-0037). Verify SSL off takes precedence."
+            >
+              <Select
+                style={{ width: 240 }}
+                allowClear
+                placeholder="System CA"
+                options={trustStoreOptions}
+              />
+            </Form.Item>
+          )}
           <Form.Item name="priority" label="Priority">
             <InputNumber min={0} />
           </Form.Item>

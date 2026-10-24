@@ -22,6 +22,7 @@ vi.mock('../../store/api', async () => {
     useGetProviderTypesQuery: vi.fn(),
     useGetCredentialsQuery: vi.fn(),
     useGetTeamsQuery: vi.fn(),
+    useGetTrustStoresQuery: vi.fn(),
     useCreateProviderMutation: vi.fn(),
     useUpdateProviderMutation: vi.fn(),
     useTestProviderMutation: vi.fn(),
@@ -38,6 +39,7 @@ import {
   useGetProviderTypesQuery,
   useGetCredentialsQuery,
   useGetTeamsQuery,
+  useGetTrustStoresQuery,
   useCreateProviderMutation,
   useUpdateProviderMutation,
   useTestProviderMutation,
@@ -121,6 +123,7 @@ function provider(overrides: Partial<ResourceProvider> = {}): ResourceProvider {
     last_checked_at: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    trust_store_id: null,
     has_credential: false,
     ...overrides,
   };
@@ -160,12 +163,17 @@ describe('ProviderFormModal', () => {
       isLoading: false,
       isError: false,
     });
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
     (useCreateProviderMutation as ReturnType<typeof vi.fn>).mockReturnValue([
-      vi.fn().mockResolvedValue({ data: {} }),
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve({ id: 1 }) }),
       { isLoading: false },
     ]);
     (useUpdateProviderMutation as ReturnType<typeof vi.fn>).mockReturnValue([
-      vi.fn().mockResolvedValue({ data: {} }),
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve({ id: 1 }) }),
       { isLoading: false },
     ]);
     (useTestProviderMutation as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -173,7 +181,7 @@ describe('ProviderFormModal', () => {
       { isLoading: false },
     ]);
     (useCreateCredentialMutation as ReturnType<typeof vi.fn>).mockReturnValue([
-      vi.fn().mockResolvedValue({ data: { id: 99 } }),
+      vi.fn().mockReturnValue({ unwrap: () => Promise.resolve({ id: 99 }) }),
       { isLoading: false },
     ]);
   });
@@ -243,5 +251,77 @@ describe('ProviderFormModal', () => {
     expect(screen.getByDisplayValue('Main GitHub account')).toBeInTheDocument();
     // Edit mode shows the read-only provider type tag instead of the Radio.Group.
     expect(screen.queryByText('Provider subtype')).not.toBeInTheDocument();
+  });
+
+  it('sends trust_store_id on create when a store is selected', async () => {
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [{ id: 7, name: 'Corp Root CA', description: null }],
+      isLoading: false,
+      isError: false,
+    });
+    // Single git subtype → auto-selected without touching the subtype dropdown.
+    (useGetProviderTypesQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [githubType],
+      isLoading: false,
+      isError: false,
+    });
+    renderModal();
+    const createProvider = (useCreateProviderMutation as ReturnType<typeof vi.fn>).mock.results[0]
+      .value[0];
+    fireEvent.click(screen.getByText('Git'));
+    // Single mocked subtype (github) auto-selects; its config field mounts.
+    await screen.findByText('Api Url');
+    fireEvent.change(screen.getByPlaceholderText('e.g. GitHub main'), {
+      target: { value: 'GH' },
+    });
+    // github_token credential secret is required in create mode.
+    fireEvent.change(screen.getByLabelText('Token'), { target: { value: 'tok' } });
+    // Direction Select has no initialValue — pick it explicitly.
+    fireEvent.mouseDown(document.getElementById('direction')!);
+    fireEvent.click(await screen.findByText('External'));
+    fireEvent.mouseDown(document.getElementById('trust_store_id')!);
+    fireEvent.click(await screen.findByText('Corp Root CA'));
+
+    fireEvent.click(screen.getByRole('button', { name: /create/i }));
+    await waitFor(() => {
+      expect(createProvider).toHaveBeenCalled();
+    });
+    expect(createProvider.mock.calls[0][0].trust_store_id).toBe(7);
+  });
+
+  it('clearing the trust store select unbinds it (null in payload)', async () => {
+    const updateProvider = vi.fn().mockResolvedValue({ data: {} });
+    (useUpdateProviderMutation as ReturnType<typeof vi.fn>).mockReturnValue([
+      updateProvider,
+      { isLoading: false },
+    ]);
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [{ id: 7, name: 'Corp Root CA', description: null }],
+      isLoading: false,
+      isError: false,
+    });
+    renderModal({ provider: provider({ trust_store_id: 7 }) });
+    // Store name preselected in the select.
+    expect(screen.getByText('Corp Root CA')).toBeInTheDocument();
+    // Clear it (allowClear) — hover is required for the clear icon in antd.
+    fireEvent.mouseEnter(screen.getByText('Corp Root CA').closest('.ant-select')!);
+    const clear = document.querySelector('.ant-select-clear')!;
+    fireEvent.mouseDown(clear);
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+    await waitFor(() => {
+      expect(updateProvider).toHaveBeenCalled();
+    });
+    expect(updateProvider.mock.calls[0][0].data.trust_store_id).toBeNull();
+  });
+
+  it('hides the Trust Store select without trust_stores:read', () => {
+    (usePermissions as ReturnType<typeof vi.fn>).mockReturnValue({
+      hasPermission: (p: string) => p !== 'trust_stores:read',
+      hasAnyPermission: () => true,
+      hasAllPermissions: () => true,
+      permissions: [],
+    });
+    renderModal();
+    expect(screen.queryByText('Trust Store')).not.toBeInTheDocument();
   });
 });

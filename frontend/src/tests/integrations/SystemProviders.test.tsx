@@ -24,6 +24,7 @@ vi.mock('../../store/api', async () => {
     useTestProviderMutation: vi.fn(),
     useListUsersQuery: vi.fn(),
     useGetCredentialsQuery: vi.fn(),
+    useGetTrustStoresQuery: vi.fn(),
   };
 });
 
@@ -39,6 +40,7 @@ import {
   useTestProviderMutation,
   useListUsersQuery,
   useGetCredentialsQuery,
+  useGetTrustStoresQuery,
 } from '../../store/api';
 import { usePermissions } from '../../hooks/usePermissions';
 import SystemProvidersPage from '../../pages/Admin/SystemProviders';
@@ -78,6 +80,7 @@ function mockProvider(overrides: Partial<ResourceProvider> = {}): ResourceProvid
     last_checked_at: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
+    trust_store_id: null,
     has_credential: false,
     ...overrides,
   };
@@ -124,6 +127,11 @@ describe('SystemProvidersPage', () => {
       isError: false,
     });
     (useGetCredentialsQuery as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+    (useGetTrustStoresQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
       isLoading: false,
       isError: false,

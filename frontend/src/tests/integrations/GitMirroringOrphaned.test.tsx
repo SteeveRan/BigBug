@@ -167,6 +167,7 @@ const mockGitlabInstance: ResourceProvider = {
   last_checked_at: '2026-06-13T12:00:00Z',
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-06-13T12:00:00Z',
+  trust_store_id: null,
   has_credential: false,
 };
 

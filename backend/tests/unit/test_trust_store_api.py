@@ -346,3 +346,35 @@ class TestProviderTrustStoreLink:
             )
         ).json()
         assert patched["trust_store_id"] == store_id
+
+    @pytest.mark.asyncio
+    async def test_provider_patch_trust_store_null_unbinds(
+        self, client: AsyncClient, admin_token: str, store_id: int
+    ):
+        """Explicit null in PATCH unbinds the store (clearing the form Select)."""
+        created = (
+            await client.post(
+                "/api/providers",
+                json={
+                    "domain": "git",
+                    "subtype": "gitlab",
+                    "category": "public",
+                    "direction": "external",
+                    "name": "gl3",
+                    "label": "GL3",
+                    "base_url": "https://gitlab.example.com",
+                    "trust_store_id": store_id,
+                },
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+        ).json()
+        assert created["trust_store_id"] == store_id
+
+        patched = (
+            await client.patch(
+                f"/api/providers/{created['id']}",
+                json={"trust_store_id": None},
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+        ).json()
+        assert patched["trust_store_id"] is None

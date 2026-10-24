@@ -39,7 +39,7 @@ from app.schemas.provider import (
     ProviderUpdate,
 )
 from app.services.providers.registry import all_types
-from app.services.providers.service import ProviderService
+from app.services.providers.service import UNSET, ProviderService
 
 router = APIRouter()
 
@@ -231,7 +231,10 @@ async def update_provider(
             base_url=data.base_url,
             config=data.config,
             credential_id=data.credential_id,
-            trust_store_id=data.trust_store_id,
+            # Explicit null unbinds the store; absent field keeps the current one.
+            trust_store_id=(
+                data.trust_store_id if "trust_store_id" in data.model_fields_set else UNSET
+            ),
             is_active=data.is_active,
             is_default=data.is_default,
             verify_ssl=data.verify_ssl,
