@@ -47,6 +47,7 @@ from app.models.sync_group import SyncGroup
 from app.models.sync_schedule import SyncSchedule
 from app.models.team import Team, TeamRole
 from app.models.team_member import TeamMember
+from app.models.trust_store import TrustStore, TrustStoreCertificate
 from app.models.user import User
 
 __all__ = [
@@ -105,4 +106,6 @@ __all__ = [
     "DockerImageSource",
     "DockerImageTag",
     "DockerSyncLog",
+    "TrustStore",
+    "TrustStoreCertificate",
 ]

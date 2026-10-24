@@ -127,6 +127,9 @@ ADMIN_PERMISSIONS = [
     "components:write",
     "components:delete",
     "components:push",
+    # Trust Stores (ADR-0037)
+    "trust_stores:read",
+    "trust_stores:write",
 ]
 
 # Operator: read + write actions (no delete), no user/role/oidc/teams management
@@ -176,6 +179,8 @@ OPERATOR_PERMISSIONS = [
     "components:read",
     "components:write",
     "components:push",
+    # Trust Stores (ADR-0037)
+    "trust_stores:read",
 ]
 
 # Viewer: read-only across all resources

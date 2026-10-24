@@ -126,6 +126,14 @@ class ResourceProvider(Base):
         ForeignKey("teams.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # ADR-0037: optional named CA bundle. RESTRICT — silently detaching a
+    # provider's source of trust is forbidden; the service turns the FK error
+    # into a 409 with the list of referring providers.
+    trust_store_id = Column(
+        Integer,
+        ForeignKey("trust_stores.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
 
     is_active = Column(Boolean, default=True, nullable=False)
     is_default = Column(Boolean, default=False, nullable=False)
@@ -153,6 +161,7 @@ class ResourceProvider(Base):
     credential = relationship("Credential", foreign_keys=[credential_id])
     owner = relationship("User", foreign_keys=[owner_user_id])
     team = relationship("Team", foreign_keys=[team_id])
+    trust_store = relationship("TrustStore", foreign_keys=[trust_store_id])
     role_scopes = relationship(
         "RoleScopeProvider", back_populates="provider", cascade="all, delete-orphan"
     )
