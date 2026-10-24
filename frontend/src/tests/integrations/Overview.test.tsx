@@ -251,7 +251,7 @@ describe('OverviewPage (Dashboard)', () => {
   });
 
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderPage();
-    expect(container).toBeTruthy();
+    renderPage();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
   });
 });

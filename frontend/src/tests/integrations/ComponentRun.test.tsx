@@ -438,7 +438,7 @@ describe('Component Run Functionality', () => {
       { isLoading: false },
     ]);
 
-    const { container } = renderComponentsPage();
+    renderComponentsPage();
 
     // Click run button
     const playCircleIcons = screen.getAllByLabelText('play-circle');
@@ -456,13 +456,11 @@ describe('Component Run Functionality', () => {
     const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
-    // Verify error handling occurs
+    // Verify error handling occurs — antd App renders messages into a portal
+    // in document.body, not inside the test container
     await waitFor(() => {
-      // Check for error message in Ant Design message container
-      const messageContainer = container.querySelector('.ant-message');
-      if (messageContainer) {
-        expect(messageContainer.textContent).toContain('Failed to trigger component run');
-      }
+      const messageContainer = document.body.querySelector('.ant-message');
+      expect(messageContainer?.textContent).toContain('Failed to trigger component run');
     });
 
     // Verify the error was logged
@@ -486,7 +484,7 @@ describe('Component Run Functionality', () => {
       { isLoading: false },
     ]);
 
-    const { container } = renderComponentsPage();
+    renderComponentsPage();
 
     // Click run button
     const playCircleIcons = screen.getAllByLabelText('play-circle');
@@ -504,12 +502,11 @@ describe('Component Run Functionality', () => {
     const runButton = screen.getByRole('button', { name: 'Run' });
     await userEvent.click(runButton);
 
-    // Verify success message appears
+    // Verify success message appears — antd App renders messages into a portal
+    // in document.body, not inside the test container
     await waitFor(() => {
-      const messageContainer = container.querySelector('.ant-message');
-      if (messageContainer) {
-        expect(messageContainer.textContent).toContain('Component run triggered successfully');
-      }
+      const messageContainer = document.body.querySelector('.ant-message');
+      expect(messageContainer?.textContent).toContain('Component run triggered successfully');
     });
 
     // Verify the modal closes after success (check inline style directly)

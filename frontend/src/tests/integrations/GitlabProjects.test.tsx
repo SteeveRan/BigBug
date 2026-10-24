@@ -268,11 +268,9 @@ describe('GitlabProjectsPage', () => {
 
     const deleteBtn = document.querySelector('.ant-btn-dangerous');
     expect(deleteBtn).not.toBeNull();
-    if (deleteBtn) {
-      await userEvent.click(deleteBtn);
-      await waitFor(() => {
-        expect(screen.getByText(/This removes the local record/)).toBeInTheDocument();
-      });
-    }
+    await userEvent.click(deleteBtn!);
+    await waitFor(() => {
+      expect(screen.getByText(/This removes the local record/)).toBeInTheDocument();
+    });
   });
 });

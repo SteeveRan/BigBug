@@ -79,7 +79,7 @@ function RedirectMirrorsId() {
   return <Navigate to={`/git-mirroring/repositories/${id}`} replace />;
 }
 
-function RedirectMirroringRepositoryId() {
+export function RedirectMirroringRepositoryId() {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={`/git-mirroring/repositories/${id}`} replace />;
 }

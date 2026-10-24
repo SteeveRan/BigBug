@@ -982,13 +982,11 @@ class TestAnonymousMode:
         provider = _make_provider(credential_id=None, is_anon=True)
         gsp = GenericGitSourceProvider(provider, credential_secret=None)
 
-        with (
-            patch(
-                "app.services.source_providers.generic_git._run_git",
-                new_callable=AsyncMock,
-            ) as mock_run,
-            pytest.raises(DomainError),
-        ):
+        with patch(
+            "app.services.source_providers.generic_git._run_git",
+            new_callable=AsyncMock,
+        ) as mock_run:
             # Simulate timeout: returncode=128 with host resolution error
             mock_run.return_value = (128, "", "fatal: unable to access")
-            await gsp.check_access()
+            with pytest.raises(DomainError):
+                await gsp.check_access()

@@ -22,7 +22,7 @@ def _auth(token: str) -> dict[str, str]:
 
 
 @pytest.fixture
-async def _created_provider(client: AsyncClient, admin_headers: dict):
+async def created_provider_id(client: AsyncClient, admin_headers: dict):
     """Create a provider and delete it after the test (cleanup)."""
     resp = await client.post(
         ADMIN_OIDC,
@@ -75,9 +75,9 @@ class TestOidcProvidersCrud:
         client: AsyncClient,
         admin_headers: dict,
         openapi_spec: dict,
-        _created_provider: int,
+        created_provider_id: int,
     ):
-        response = await client.get(f"{ADMIN_OIDC}/{_created_provider}", headers=admin_headers)
+        response = await client.get(f"{ADMIN_OIDC}/{created_provider_id}", headers=admin_headers)
         assert_matches_openapi(response, f"{ADMIN_OIDC}/{{provider_id}}", "get", openapi_spec)
         assert response.status_code == 200
         data = response.json()
@@ -89,10 +89,10 @@ class TestOidcProvidersCrud:
         client: AsyncClient,
         admin_headers: dict,
         openapi_spec: dict,
-        _created_provider: int,
+        created_provider_id: int,
     ):
         response = await client.patch(
-            f"{ADMIN_OIDC}/{_created_provider}",
+            f"{ADMIN_OIDC}/{created_provider_id}",
             headers=admin_headers,
             json={"issuer_url": "https://keycloak-updated.example.com/realms/myrealm"},
         )
@@ -103,11 +103,11 @@ class TestOidcProvidersCrud:
         )
 
     async def test_update_issuer_without_realm_segment(
-        self, client: AsyncClient, admin_headers: dict, _created_provider: int
+        self, client: AsyncClient, admin_headers: dict, created_provider_id: int
     ):
         """An issuer without /realms/<realm> is rejected as incomplete config."""
         response = await client.patch(
-            f"{ADMIN_OIDC}/{_created_provider}",
+            f"{ADMIN_OIDC}/{created_provider_id}",
             headers=admin_headers,
             json={"issuer_url": "https://kc.example.com"},
         )

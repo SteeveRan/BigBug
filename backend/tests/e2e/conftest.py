@@ -84,7 +84,7 @@ def _server_available() -> Iterator[None]:
             "test-e2e.sh sets SSL_CERT_FILE automatically.",
             returncode=1,
         )
-    yield
+    return
 
 
 @pytest.fixture(scope="session")

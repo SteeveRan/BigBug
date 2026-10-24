@@ -220,7 +220,9 @@ async def test_build_all_task_delegates_to_build_service():
     assert mock_build.await_args.args[0] is image
     assert schedule.last_run_at is not None
 
-
-async def test_cleanup_task_delegates_to_cleanup_job():
-    with patch("app.services.cleanup.CleanupService.run_cleanup", new_callable=AsyncMock):
-        await cleanup_task()  # must not raise; creates its own session
+    async def test_cleanup_task_delegates_to_cleanup_job():
+        with patch(
+            "app.services.cleanup.CleanupService.run_cleanup", new_callable=AsyncMock
+        ) as mock_cleanup:
+            await cleanup_task()  # creates its own session
+        mock_cleanup.assert_awaited_once()

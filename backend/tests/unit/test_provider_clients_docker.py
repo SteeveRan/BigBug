@@ -115,10 +115,11 @@ class TestDockerRegistryClient:
 
         result = asyncio.run(run())
         assert result == {"ok": True}
-        assert seen and seen[0].startswith("Basic ")
+        assert seen, "Authorization header was not sent"
+        assert seen[0].startswith("Basic ")
 
     def test_requires_base_url_for_generic(self):
-        with pytest.raises(ProviderClientError):
+        with pytest.raises(ProviderClientError, match="base_url is required"):
             DockerRegistryClient(subtype="generic_registry", base_url=None)
 
     def test_default_endpoint_for_docker_hub(self):

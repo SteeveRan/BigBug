@@ -46,6 +46,8 @@
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.9",
+    "eslint-plugin-testing-library": "^7.16.2",
+    "eslint-plugin-vitest": "^0.5.4",
     "globals": "^15.9.0",
     "jsdom": "^25.0.0",
     "knip": "^6.32.2",

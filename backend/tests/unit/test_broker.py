@@ -63,7 +63,7 @@ async def test_lock_released_on_exception():
     redis = MagicMock()
     redis.set = AsyncMock(return_value=True)
     redis.delete = AsyncMock()
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="task failed"):
         async with job_pass_lock("boom", client=redis):
             raise ValueError("task failed")
     redis.delete.assert_awaited_once()

@@ -34,6 +34,7 @@ select = [
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
     "SIM", # flake8-simplify
+    "PT",  # flake8-pytest-style (issue #119)
 ]
 ignore = []
 
@@ -42,9 +43,17 @@ ignore = []
 "tests/**" = ["S101"]               # assert в тестах — норма
 "tests/unit/_trust_certs_fixtures.py" = ["E501"]  # сгенерированные PEM-фикстуры
 "alembic/**" = ["INP001"]           # alembic файлы без __init__.py
-"app/api/**" = ["B008"]             # FastAPI Depends() в аргументах — стандартный паттерн DI
+"app/api/**" = ["B008", "PT019", "PT028"]  # Depends() — DI; endpoints `test_*`/`_` — не pytest-семантика
 "app/core/rbac.py" = ["B008"]      # FastAPI Depends() в зависимостях RBAC
 "app/services/gitlab_projects/presets.py" = ["E501"]  # встроенные YAML-константы
+
+# Test-quality rules (issue #119): pytest-style rules.
+# TC (flake8-type-checking) намеренно НЕ включён: 137 unsafe-fixes в prod-коде
+# (импорты в TYPE_CHECKING-блоки без `from __future__ import annotations` рискуют
+# NameError) — отдельная работа, не входит в скоуп issue #119.
+# PT011: pytest.raises-too-broad настроен через raises-require-match-for.
+[lint.flake8-pytest-style]
+raises-require-match-for = ["BaseException", "Exception", "ValueError", "KeyError"]
 
 [format]
 # Настройки форматирования (используется ruff format)

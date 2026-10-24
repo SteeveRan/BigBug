@@ -79,6 +79,7 @@ describe('SsoCallbackPage', () => {
     const { container } = renderPage();
 
     // antd Spin renders a .ant-spin wrapper
+    // antd Spin renders a .ant-spin wrapper (no accessible role/label to query by)
     expect(container.querySelector('.ant-spin')).toBeTruthy();
     expect(screen.getByText('Completing sign in…')).toBeInTheDocument();
   });

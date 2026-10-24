@@ -1148,16 +1148,14 @@ class TestAnonymousMode:
         mock_gl.version.side_effect = GitlabError("Connection refused")
         mock_gitlab_cls.return_value = mock_gl
 
-        with (
-            patch(
-                "app.services.source_providers.gitlab.gitlab.Gitlab",
-                mock_gitlab_cls,
-            ),
-            pytest.raises(DomainError),
+        with patch(
+            "app.services.source_providers.gitlab.gitlab.Gitlab",
+            mock_gitlab_cls,
         ):
             provider = _make_provider(credential_id=None, is_anon=True)
             gl_provider = GitLabSourceProvider(provider, credential_secret=None)
-            await gl_provider.check_access()
+            with pytest.raises(DomainError):
+                await gl_provider.check_access()
 
     def test_repr_anonymous(self):
         """repr() for anonymous provider shows None credential."""

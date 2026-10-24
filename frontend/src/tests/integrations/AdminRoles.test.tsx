@@ -405,9 +405,11 @@ describe('Admin Roles List', () => {
     const { container } = renderRolesPage();
 
     // LockOutlined renders as an icon with class anticon-lock
+    // (antd icon — no accessible role/text to query by)
     const lockIcon = container.querySelector('.anticon-lock');
     expect(lockIcon).toBeTruthy();
-    // No edit/delete icons (they should be disabled/hidden for builtin)
+    // Edit/delete buttons stay rendered but disabled for builtin roles —
+    // covered by 'disables Edit and Delete for builtin roles' below.
   });
 
   // -----------------------------------------------------------------------
@@ -510,8 +512,8 @@ describe('Admin Roles List', () => {
   // Test 11: Smoke test
   // -----------------------------------------------------------------------
   it('renders without crashing', () => {
-    const { container } = renderRolesPage();
-    expect(container).toBeTruthy();
+    renderRolesPage();
+    expect(screen.getByText('Roles')).toBeInTheDocument();
   });
 });
 
@@ -1023,7 +1025,7 @@ describe('Admin Role Detail', () => {
       error: null,
     });
 
-    const { container } = renderRoleDetailPage('10');
-    expect(container).toBeTruthy();
+    renderRoleDetailPage('10');
+    expect(screen.getByRole('tab', { name: 'Credentials' })).toBeInTheDocument();
   });
 });
