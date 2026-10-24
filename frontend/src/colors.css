@@ -33,3 +33,9 @@
   --bigbug-brand-hover: #6d28d9;
   --bigbug-brand-text: #6d28d9;
 }
+
+/* Page background follows the theme (login page renders outside the
+ * AntD Layout, so it would otherwise show the browser-default white). */
+body {
+  background: var(--bigbug-bg-primary);
+}

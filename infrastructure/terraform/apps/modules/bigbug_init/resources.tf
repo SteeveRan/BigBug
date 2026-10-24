@@ -29,6 +29,11 @@ resource "kubernetes_manifest" "cnpg_cluster_bigbug" {
         initdb = {
           database = "bigbug"
           owner    = "bigbug"
+          # Post-init: app role may create per-worktree DBs (multi-agent
+          # discipline — make dev-db-create / migrate-check.sh, issue #62).
+          postInitSQL = [
+            "ALTER ROLE bigbug CREATEDB",
+          ]
         }
       }
       storage = {
@@ -201,14 +206,10 @@ resource "kubernetes_config_map_v1" "ca_bundle" {
     namespace = kubernetes_namespace.bigbug.metadata[0].name
   }
 
-  # Single PEM bundle: peers the backend calls over https (Keycloak OIDC,
-  # Harbor API, stand GitLab). The entrypoint merges this with the system
-  # roots into the pod's SSL_CERT_FILE/REQUESTS_CA_BUNDLE bundle.
+  # Single CA (certs.sh: all host certs are signed by it — ADR-0030 §2
+  # rev. 2026-10-24). The entrypoint merges this with the system roots
+  # into the pod's SSL_CERT_FILE/REQUESTS_CA_BUNDLE bundle.
   data = {
-    "ca-bundle.crt" = join("\n", [
-      file("${var.certs_dir}/keycloak.local/tls.crt"),
-      file("${var.certs_dir}/harbor.local/tls.crt"),
-      file("${var.certs_dir}/gitlab.local/tls.crt"),
-    ])
+    "ca-bundle.crt" = file("${var.certs_dir}/ca.crt")
   }
 }

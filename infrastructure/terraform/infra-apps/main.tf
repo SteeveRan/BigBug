@@ -42,6 +42,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
     harbor = {
       source  = "goharbor/harbor"
       version = "~> 3.12"

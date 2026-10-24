@@ -5,7 +5,7 @@
 #              Ensures TLS certs (ADR-0030), starts the GitLab compose zone,
 #              bootstraps the kind cluster, applies OpenTofu
 #              (base → infra-apps (2 phases, incl. GitLab) → apps),
-#              updates application .env.
+#              applies OpenTofu (base → infra-apps (2 phases, incl. GitLab) → apps).
 #
 # Usage:
 #   ./infrastructure/init.sh
@@ -15,6 +15,8 @@
 #   - kind, kubectl
 #   - OpenTofu 1.6+ (or Terraform 1.5+)
 #   - curl, jq, openssl
+#   - host trust (https-хосты стенда): проставляется автоматически после
+#     генерации сертов (шаг 3, trust-host.sh под sudo); ручной запуск — make infra-trust
 #
 
 set -euo pipefail
@@ -183,8 +185,25 @@ log "### Ensuring TLS certificates ###"
 
 bash "${KIND_DIR}/certs.sh"   # idempotent: existing certs are kept
 
+# Fresh certs → host trust store right away (sudo; idempotent, skips
+# unchanged). Without this, keycloak/gitlab https waits and tofu providers
+# fail on self-signed certs until a manual trust run.
+sudo "${KIND_DIR}/trust-host.sh"
+
 # ─────────────────────────────────────────────────────────────
-# 4. Start infrastructure services
+# 4. Ensure gitlab.local resolves on the host (wait_for_service step 5
+#    and tofu's gitlab provider need it; kind bootstrap adds the rest
+#    later). Idempotent — skip if already present.
+# ─────────────────────────────────────────────────────────────
+if ! grep -qE '^\s*127\.0\.0\.1\s+.*\bgitlab\.local\b' /etc/hosts; then
+    log "  Adding 127.0.0.1 gitlab.local to /etc/hosts (sudo)..."
+    echo "127.0.0.1 gitlab.local" | sudo tee -a /etc/hosts >/dev/null
+else
+    log "  /etc/hosts already has gitlab.local."
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 5. Start infrastructure services
 # ─────────────────────────────────────────────────────────────
 log "### Starting infrastructure services ###"
 cd "${PROJECT_ROOT}"
@@ -193,7 +212,7 @@ cd "${PROJECT_ROOT}"
 compose_up_if_needed "${INFRA_COMPOSE}" 2 "gitlab compose zone" "--env-file ${INFRA_ENV}"
 
 # ─────────────────────────────────────────────────────────────
-# 5. Wait for service readiness
+# 6. Wait for service readiness
 # ─────────────────────────────────────────────────────────────
 log "### Waiting for service readiness ###"
 
@@ -263,7 +282,7 @@ log "  Token: ${GITLAB_PAT:0:8}..."
 
 # Check if the token is already valid (non-403 means works)
 log "  Checking if token is already valid..."
-GITLAB_CACERT="$HOME/.local/state/bigbug/certs/gitlab.local/tls.crt"
+GITLAB_CACERT="$HOME/.local/state/bigbug/certs/ca.crt"
 set +e
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
     --cacert "${GITLAB_CACERT}" \
@@ -271,10 +290,10 @@ HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
     "https://gitlab.local:8443/api/v4/user" 2>/dev/null)
 set -e
 
-if [[ "${HTTP_CODE}" != "403" ]]; then
+if [[ "${HTTP_CODE}" == "200" ]]; then
     log "  Token is already valid (HTTP ${HTTP_CODE}) — skipping programming."
 else
-    log "  Token returned 403 — programming into GitLab..."
+    log "  Token returned HTTP ${HTTP_CODE} — programming into GitLab..."
 
     # Program the token into GitLab root user (expires 90 days from now)
     set +e
@@ -335,11 +354,6 @@ log "  Applying app-infra root (ns bigbug: CNPG, Redis, app secrets)..."
 }
 
 log "  OpenTofu applied successfully."
-
-# ─────────────────────────────────────────────────────────────
-# 10. Update host-tool .env vars (e2e base URL, GitLab PAT)
-# ─────────────────────────────────────────────────────────────
-"${SCRIPT_DIR}/update-env.sh"
 
 # ─────────────────────────────────────────────────────────────
 # Done

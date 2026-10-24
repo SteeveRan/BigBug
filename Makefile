@@ -15,8 +15,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-# Compose-обёртки (корневой compose живёт до #62 — снос compose-приложения)
-COMPOSE_APP   := docker compose
+# Compose-обёртка (GitLab compose-зона — ADR-0033; приложение живёт в kind/helm)
 COMPOSE_INFRA := docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env
 
 # Директории
@@ -84,16 +83,23 @@ dev-clean: dev-down ## dev-down + сброс app-данных (DROP SCHEMA в CN
 	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec $(APP_RELEASE)-cache-0 -- redis-cli flushall
 
 .PHONY: dev-db-create
-dev-db-create: ## Создать БД на ворктрий в общем postgres (DB=feat_<branch>)
+dev-db-create: ## Создать БД на ворктрий в CNPG (DB=feat_<branch>)
 	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-create DB=feat_<branch>"; exit 1; fi
-	# shortcut: зависит от compose-контейнера postgres-backend; переедет на CNPG в #62 (снос compose)
-	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "CREATE DATABASE $(DB)"
+	$(MAKE) dev-db-psql ARGS="CREATE DATABASE $(DB)"
 
 .PHONY: dev-db-drop
 dev-db-drop: ## Удалить БД ворктрия (DB=feat_<branch>)
 	@if [ -z "$(DB)" ]; then echo "Использование: make dev-db-drop DB=feat_<branch>"; exit 1; fi
 	@if [ "$(DB)" = "bigbug" ]; then echo "ОШИБКА: нельзя удалять каноническую БД bigbug."; exit 1; fi
-	$(COMPOSE_APP) exec postgres-backend psql -U "$${POSTGRES_USER:-bigbug}" -c "DROP DATABASE IF EXISTS $(DB)"
+	$(MAKE) dev-db-psql ARGS="DROP DATABASE IF EXISTS $(DB)"
+
+.PHONY: dev-db-psql
+dev-db-psql: ## Выполнить SQL в CNPG bigbug (ARGS="SQL") — kubectl exec в pod
+	@if [ -z "$(ARGS)" ]; then echo "Использование: make dev-db-psql ARGS='SELECT 1'"; exit 1; fi
+	@PGPOD=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get pod -l cnpg.io/cluster=$(DB_CLUSTER) -o jsonpath='{.items[0].metadata.name}'); \
+	PGPW=$$(kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) get secret $(DB_CLUSTER)-app -o jsonpath='{.data.password}' | base64 -d); \
+	kubectl --context $(KUBE_CONTEXT) -n $(APP_NAMESPACE) exec "$$PGPOD" -c postgres -- env PGPASSWORD="$$PGPW" \
+		psql -h localhost -U bigbug -d bigbug -c "$(ARGS)"
 
 # =============================================================================
 ##@ infra — kind-стенд (tofu: base/infra-apps/apps) + GitLab compose-зона
@@ -107,6 +113,16 @@ infra-up: ## Запустить GitLab compose-зону (kind-стенд не «
 .PHONY: infra-init
 infra-init: ## Полная инициализация: certs → gitlab compose → kind bootstrap → tofu base/infra-apps/apps → .env
 	./infrastructure/init.sh
+
+.PHONY: infra-trust
+infra-trust: ## Доверие хоста сертам dev-стенда (sudo; https-хосты без -k — ADR-0030; idempotent)
+	sudo ./infrastructure/kind/trust-host.sh
+
+.PHONY: fresh-up
+fresh-up: ## Полный цикл с нуля: infra-init (certs+trust → gitlab → kind → tofu) → dev-build → dev-up
+	$(MAKE) infra-init
+	$(MAKE) dev-build
+	$(MAKE) dev-up
 
 .PHONY: infra-down
 infra-down: ## Остановить GitLab compose-зону (вольюмы живы; kind/tofu-стенд продолжает работать)
@@ -123,8 +139,14 @@ infra-clean: ## Полная чистка: tofu destroy (apps→infra-apps→bas
 	$(MAKE) infra-clean-tofu infra-clean-kind
 
 .PHONY: infra-clean-tofu
-infra-clean-tofu: ## tofu destroy трёх root'ов (порядок apps → infra-apps → base, кластер ещё жив)
+infra-clean-tofu: ## tofu destroy трёх root'ов (порядок apps → infra-apps → base, кластер ещё жив); infra-apps скипается, если GitLab не запущен (gitlab_* ресурсы недостижимы, in-cluster часть умрёт с kind)
 	@set -e; for root in apps infra-apps base; do \
+		if [ "$$root" = "infra-apps" ] && \
+		   [ "$$(curl -sk -o /dev/null -w '%{http_code}' https://gitlab.local:8443/-/health 2>/dev/null || true)" != "200" ]; then \
+			echo ">>> GitLab (https://gitlab.local:8443) не запущен — destroy infra-apps пропущен:"; \
+			echo ">>> gitlab_* ресурсы недостижимы, in-cluster часть (keycloak/harbor/CNPG) умрёт с kind-кластером."; \
+			continue; \
+		fi; \
 		echo ">>> tofu destroy: $$root"; \
 		(cd infrastructure/terraform/$$root && tofu init -input=false && tofu destroy -auto-approve -input=false); \
 	done

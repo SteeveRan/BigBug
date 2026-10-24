@@ -20,10 +20,16 @@ const STORAGE_KEY = 'bigbug-theme';
 function getInitialTheme(): ThemeMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') return stored;
+    if (stored === 'dark' || stored === 'light') {
+      // Set the attribute before first paint — otherwise the page renders
+      // with CSS variables from the previous theme (login-page flash).
+      document.documentElement.setAttribute('data-theme', stored);
+      return stored;
+    }
   } catch {
     // localStorage недоступен (SSR, приватный режим)
   }
+  document.documentElement.setAttribute('data-theme', 'dark');
   return 'dark';
 }
 

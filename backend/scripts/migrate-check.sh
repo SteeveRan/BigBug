@@ -8,10 +8,11 @@
 #   ./scripts/migrate-check.sh my_check_db  # своё имя БД
 #
 # Требования:
-#   - запущенный контейнер postgres-backend (make dev-up — владелец инфры)
+#   - kind-стенд с CNPG-подом (make infra-init — владелец инфры)
 #   - .venv backend с зависимостями
-#   - backend/.env содержит DATABASE_URL (хост/юзер) — имя БД подменяется
-#     на check-БД, поэтому к общим данным ветки скрипт не прикасается
+#   - DATABASE_URL в окружении (или экспортированный e2e-env.sh) — хост/юзер
+#     не используются, имя БД подменяется на check-БД, поэтому к общим данным
+#     ветки скрипт не прикасается
 #
 set -euo pipefail
 
@@ -26,21 +27,34 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
-COMPOSE_APP="docker compose"
-if [ -z "$($COMPOSE_APP ps -q postgres-backend 2>/dev/null)" ]; then
-    echo "ОШИБКА: контейнер postgres-backend не запущен (make dev-up)."
+# CNPG-под (ns bigbug, cluster bigbug-dev) — psql внутрь, как в make dev-db-psql
+KUBE_CONTEXT="${KUBE_CONTEXT:-kind-bigbug-dev}"
+DB_NAMESPACE="${DB_NAMESPACE:-bigbug}"
+CNPG_CLUSTER="${CNPG_CLUSTER:-bigbug-dev}"
+
+PGPOD="$(kubectl --context "$KUBE_CONTEXT" -n "$DB_NAMESPACE" \
+    get pod -l "cnpg.io/cluster=${CNPG_CLUSTER}" -o jsonpath='{.items[0].metadata.name}')"
+if [ -z "$PGPOD" ]; then
+    echo "ОШИБКА: CNPG-под не найден (kind-стенд не поднят: make infra-init)."
     exit 1
 fi
 
-PG_USER="${POSTGRES_USER:-bigbug}"
+PGPW="$(kubectl --context "$KUBE_CONTEXT" -n "$DB_NAMESPACE" \
+    get secret "${CNPG_CLUSTER}-app" -o jsonpath='{.data.password}' | base64 -d)"
+
+cnpg_psql() {
+    kubectl --context "$KUBE_CONTEXT" -n "$DB_NAMESPACE" exec "$PGPOD" -c postgres -- \
+        env PGPASSWORD="$PGPW" psql -h localhost -U bigbug -d bigbug -c "$1"
+}
+
 echo "=== Recreate check-БД: ${DB_NAME} ==="
-$COMPOSE_APP exec postgres-backend psql -U "$PG_USER" -c "DROP DATABASE IF EXISTS ${DB_NAME}"
-$COMPOSE_APP exec postgres-backend psql -U "$PG_USER" -c "CREATE DATABASE ${DB_NAME}"
+cnpg_psql "DROP DATABASE IF EXISTS ${DB_NAME}"
+cnpg_psql "CREATE DATABASE ${DB_NAME}"
 
 cd "$BACKEND_DIR"
 
-# Прогоняем alembic с БД чека: подменяем имя БД в DATABASE_URL из окружения,
-# остальное (хост/пользователь) берётся из backend/.env как обычно.
+# Прогоняем alembic с БД чека: подменяем имя БД в DATABASE_URL (хост — CNPG
+# через kubectl port-forward, задаёт e2e-env.sh / caller; юзер — bigbug),
 CHECK_URL="$("${VENV_PYTHON[@]}" -c "
 import sys
 sys.path.insert(0, '.')

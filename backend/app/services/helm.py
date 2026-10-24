@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import BadRequestError, ExternalServiceError, NotFoundError
+from app.core.http import ssl_verify
 from app.core.secrets import decrypt_secret
 from app.models.helm_chart_source import HelmChartSource
 from app.models.helm_chart_version import HelmChartVersion
@@ -198,7 +199,9 @@ class HelmService:
         """Download and parse index.yaml."""
         headers: dict[str, str] = {"Accept": "application/x-yaml, application/yaml, text/yaml"}
 
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0, follow_redirects=True, verify=ssl_verify()
+        ) as client:
             try:
                 response = await client.get(repo_url, headers=headers)
                 response.raise_for_status()

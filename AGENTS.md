@@ -45,11 +45,9 @@ BigBug/
 │   └── package.json     # Node dependencies
 ├── infrastructure/      # Infrastructure setup (OpenTofu, scripts, configs)
 │   ├── gitlab/               # GitLab compose zone (gitlab + gitlab-runner — compose-исключение, ADR-0033)
-│   ├── init.sh               # Initialization script (certs → compose → kind → base → apps → config)
-│   ├── update-env.sh         # Environment update script
+│   ├── init.sh               # Initialization script (certs → compose → kind → base → infra-apps → apps)
 │   ├── kind/                 # kind-стенд: bootstrap/certs/trust scripts
 │   ├── terraform/            # OpenTofu roots: base/ + infra-apps/ (+GitLab) + apps/ (ADR-0029/0033)
-│   ├── harbor/               # Harbor deployment in kind
 │   └── gitlab-components/ # GitLab CI/CD component examples (not used by app; see backend presets.py)
 ├── docs/
 │   ├── adr/              # ADR registry (decisions)
@@ -201,7 +199,7 @@ See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 ### Multi-Agent Worktree Discipline
 
-Несколько агентов работают в разных git worktree на одной машине; инфраструктура (kind-кластер `bigbug-dev`, compose-сервисы, GitLab, Keycloak) — **общая**. Правила, чтобы агенты не мешали друг другу:
+Несколько агентов работают в разных git worktree на одной машине; инфраструктура (kind-кластер `bigbug-dev`, GitLab compose-зона, Keycloak) — **общая**. Правила, чтобы агенты не мешали друг другу:
 
 ### Роли
 
@@ -229,14 +227,14 @@ See: [ADR-0006](docs/adr/backend/0006-database-postgresql-alembic.md)
 
 ### Миграции: своя БД на ворктрий
 
-- Общий контейнер `postgres-backend` — один; каждая фича-ветка работает со **своей БД**: `make dev-db-create DB=feat_<branch>`, затем `DATABASE_URL` ветки указывает на `feat_<branch>` (локальный env-override, gitignored). Alembic-головы веток не конфликтуют.
+- БД приложения — CNPG Cluster `bigbug-dev` в kind; каждая фича-ветка работает со **своей БД** в нём: `make dev-db-create DB=feat_<branch>`, затем `DATABASE_URL` ветки указывает на `feat_<branch>` (локальный env-override, gitignored). Alembic-головы веток не конфликтуют.
 - Каноническая БД `bigbug` — только владелец инфры; перед мержем ветка проходит `make dev-migrate-check` (накат всех миграций на чистую копию БД) — ловит разошедшиеся головы до мержа.
 - `make dev-db-drop DB=<name>` — удалить свою БД, когда фича смержена. Удалять `bigbug` скрипт запрещает.
 
 ### E2E — по очереди
 
-- Живой стенд (`make dev-up`) поднимает один ворктрий; код на стенде — bind-mount этого ворктрия. `make test-e2e-backend` гоняет тот же ворктрий, который поднял стенд.
-- Остальные агенты обходятся unit/integrations (стенд не нужен). Перед e2e — объявить стенд занятым, после — освободить (дисциплина, без локов).
+- Живой стенд поднимает владелец инфры (`make infra-init`); код приложения — dev-образы этого ворктрия (`make dev-build && make dev-up`). `make test-e2e-backend` гоняет против ingress (https://api.local).
+- Остальные агенты обходятся unit/integrations (стенд не нужен). Перед e2e — объявить стенд занятым, пересобрать образы со СВОИМ кодом (`dev-build` + `dev-up`), после — освободить (дисциплина, без локов).
 
 ## Testing
 
@@ -347,14 +345,17 @@ curl https://charts.helm.sh/stable/index.yaml | head -50
 Ручная диагностика инфраструктурных сервисов (kind dev-стенд — [ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md), IaC — [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)):
 
 ```bash
-# Сервисы не стартуют: логи, сеть, volumes
+# kind-стенд: все сервисы видно через kubectl (ADR-0022)
+kubectl get pods -A --context kind-bigbug-dev   # keycloakx, harbor, ingress, app — в kind
+kubectl logs -n bigbug --context kind-bigbug-dev deploy/bigbug-backend
+
+# GitLab compose-зона (compose-исключение — ADR-0033): логи, сеть, volumes
 docker compose -f infrastructure/gitlab/docker-compose.yml logs gitlab
-kubectl get pods -A --context kind-bigbug-dev          # keycloakx, harbor, ingress — в kind
 docker network inspect bigbug-network
-docker volume ls | grep bigbug
+docker volume ls | grep gitlab
 
 # Конфликты портов
-lsof -i :8443; lsof -i :5432; lsof -i :8000
+lsof -i :8443; lsof -i :80; lsof -i :443
 
 # GitLab: полная загрузка занимает 2-5 минут; root password для fresh-инстанса
 docker compose -f infrastructure/gitlab/docker-compose.yml logs -f gitlab
@@ -364,12 +365,13 @@ docker compose -f infrastructure/gitlab/docker-compose.yml exec gitlab grep 'Pas
 make infra-clean && make infra-init
 
 # Health-чеки сервисов (https — ADR-0030; доверие хоста: kind/trust-host.sh, иначе -k)
-curl http://localhost:8000/health        # backend
-curl -k https://keycloak.local/realms/bigbug   # Keycloak (https)
-curl -k https://gitlab.local:8443/-/health     # GitLab (https omnibus, ADR-0033)
+curl https://api.local/api/health               # backend (ingress, https)
+curl -k https://keycloak.local/realms/bigbug    # Keycloak (https)
+curl -k https://harbor.local/api/v2.0/systeminfo  # Harbor (https)
+curl -k https://gitlab.local:8443/-/health      # GitLab (https omnibus, ADR-0033)
 ```
 
-Backup: PostgreSQL — `docker exec bigbug-postgres-backend pg_dump -U bigbug bigbug > backup.sql`; tofu state — local файлы в `infrastructure/terraform/` (gitignored), пересоздаются `infra-init`.
+Backup: PostgreSQL (CNPG-под) — `kubectl exec -n bigbug --context kind-bigbug-dev <cnpg-pod> -c postgres -- pg_dump -U bigbug bigbug > backup.sql`; tofu state — local файлы в `~/.local/state/bigbug/{base,infra-apps,apps}/` (gitignored), пересоздаются `infra-init`.
 
 ### Modifying RBAC
 
@@ -438,9 +440,12 @@ See: [ADR-0010](docs/adr/backend/0010-fernet-secrets-encryption.md) — Fernet e
 ### Start Development Environment
 
 ```bash
-make infra-init    # 1. certs → GitLab compose → kind → tofu base/apps/config (infrastructure/init.sh)
-make dev-up        # 2. postgres, redis, backend, frontend (docker compose up -d)
+make infra-init    # 1. certs → GitLab compose → kind → tofu base/infra-apps/apps (infrastructure/init.sh)
+make dev-build     # 2. собрать dev-образы и залить в kind
+make dev-up        # 3. задеплоить приложение (helm chart bigbug)
 ```
+
+**Fresh-машина** (порядок обязателен, ADR-0030): `make infra-init` (сам генерит серты и добавляет их в trust store через trust-host.sh) → `make dev-build` → `make dev-up`. Или всё сразу: `make fresh-up`.
 
 ### Run Tests
 

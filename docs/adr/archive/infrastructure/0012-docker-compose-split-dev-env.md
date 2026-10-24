@@ -6,7 +6,7 @@ decision-makers: SteeveRan
 
 # Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration
 
-> **SUPERSEDED** [ADR-0022](../../infrastructure/0022-dev-stand-on-kind.md): dev-стенд переезжает в единый kind-кластер (compose остаётся только для GitLab omnibus). Сохранено как исторический контекст: entrypoint-логика `app:start`/`app:init` частично переезжает в helm hook Job ([ADR-0023](../../infrastructure/0023-bigbug-helm-chart.md)).
+> **SUPERSEDED** [ADR-0022](../../infrastructure/0022-dev-stand-on-kind.md): dev-стенд переезжает в единый kind-кластер (compose остаётся только для GitLab omnibus). Сохранено как исторический контекст: entrypoint-логика `app:start`/`app:init` частично переезжает в helm hook Job ([ADR-0023](../../infrastructure/0023-bigbug-helm-chart.md)). Снос compose-приложения выполнен в #62 (2026-10-24): корневого docker-compose.yml больше нет.
 
 ## Context and Problem Statement
 

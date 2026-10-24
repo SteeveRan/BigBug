@@ -19,7 +19,7 @@ export default defineConfig({
       : undefined,
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://bigbug-backend:80',
         changeOrigin: true,
       },
     },

@@ -45,14 +45,11 @@ uv sync
 
 ### Переменные окружения
 
-Создать файл `.env` в корне проекта (`cp .env.example .env`) — ключи выверены с
-[`/.env.example`](../../.env.example):
+Для локального запуска без Docker создайте `backend/.env` (pydantic-settings читает его автоматически; в контейнере/charts — env из k8s-секретов, [ADR-0024](../adr/common/0024-k8s-secrets.md)):
 
 ```bash
-# Database (compose собирает DATABASE_URL из POSTGRES_*; локальный запуск без Docker — задать целиком)
-POSTGRES_USER=bigbug
-POSTGRES_PASSWORD=bigbug
-POSTGRES_DB=bigbug
+# Database (CNPG dev-стенда; e2e-env.sh экспортирует через port-forward)
+DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
 
 # Security
 SECRET_KEY=your-secret-key-here
@@ -61,7 +58,7 @@ SECRET_KEY=your-secret-key-here
 ENCRYPTION_KEY=your-fernet-key-here
 
 # SSO/Keycloak (опционально; полный список keycloak_* — в backend/app/config.py)
-# KEYCLOAK_URL=http://localhost:8180
+# KEYCLOAK_URL=https://keycloak.local
 # KEYCLOAK_REALM=bigbug
 ```
 
@@ -582,10 +579,10 @@ rm -rf .venv && uv sync
 ### База данных не подключается
 
 ```bash
-# Проверить PostgreSQL
-docker compose ps postgres-backend
+# CNPG-под в kind-стенде
+kubectl get pods -n bigbug --context kind-bigbug-dev -l cnpg.io/cluster=bigbug-dev
 
-# Проверить DATABASE_URL в .env (compose собирает её из POSTGRES_*; локальный запуск — задать целиком)
+# DATABASE_URL в backend/.env (или экспортированная e2e-env.sh через port-forward)
 echo $DATABASE_URL
 ```
 

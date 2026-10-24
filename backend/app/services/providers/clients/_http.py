@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import httpx
 
+from app.core.http import ssl_verify
+
 DEFAULT_TIMEOUT = 15.0
 
 
@@ -52,7 +54,7 @@ def make_client(
     """
     return httpx.AsyncClient(
         timeout=DEFAULT_TIMEOUT,
-        verify=verify_ssl,
+        verify=ssl_verify() if verify_ssl else False,
         transport=transport,
         auth=auth,
         headers=headers,

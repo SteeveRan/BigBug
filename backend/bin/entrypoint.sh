@@ -48,9 +48,9 @@ parse_database_url() {
     export DB_HOST DB_PORT DB_USER DB_NAME
 }
 
-# WHY: We poll pg_isready instead of relying on docker-compose `depends_on`
-# alone because Compose's `service_healthy` is not honored by all
-# orchestrators we target (e.g. plain `docker run`, Kubernetes jobs).
+# WHY: We poll pg_isready instead of relying on the orchestrator's readiness
+# alone because `service_healthy`/k8s probes gate traffic, not our process:
+# app:start runs until PostgreSQL accepts connections.
 wait_for_db() {
     local timeout="${DB_WAIT_TIMEOUT:-60}"
     local interval=2
@@ -129,14 +129,14 @@ start_app() {
     exec uvicorn "${uvicorn_args[@]}"
 }
 
-# WHY: Compose dev mounts no CA bundle; k8s mounts the stand bundle
-# (ConfigMap bigbug-ca-bundle) at EXTRA_CA_DIR. SSL_CERT_FILE/REQUESTS_CA_BUNDLE
-# REPLACE the trust store entirely, so the exported bundle must be complete:
-# system roots (public CAs: api.github.com, …) + stand certs (self-signed
-# keycloak.local / harbor.local / gitlab.local). Merged into a writable
-# emptyDir (/run/bigbug-ca) at every container start; exported for both httpx
-# (app) and requests (transitive deps). No bundle mounted → no export, system
-# store used as-is (compose parity). Never verify=False (ADR-0030 §4).
+# WHY: No CA bundle mounted (k8s mounts the stand CA at EXTRA_CA_DIR) →
+# system trust store as-is. SSL_CERT_FILE/REQUESTS_CA_BUNDLE REPLACE the trust
+# store entirely, so the exported bundle must be complete: system roots
+# (public CAs: api.github.com, …) + the stand CA (single CA signs all host
+# certs — keycloak.local / harbor.local / gitlab.local, ADR-0030 §2 rev. #62).
+# Merged into a writable emptyDir (/run/bigbug-ca) at every container start;
+# exported for both httpx (app) and requests (transitive deps). Never
+# verify=False (ADR-0030 §4).
 build_ca_bundle() {
     local extra_dir="/etc/bigbug-certs"
     local out="/run/bigbug-ca/ca-bundle.crt"
@@ -154,7 +154,7 @@ build_ca_bundle() {
 }
 
 main() {
-    # WHY: When the container is invoked without arguments docker-compose passes
+    # WHY: When the container is invoked without arguments the runtime passes
     # an empty argv. Treat that as the default production-style start.
     local cmd="${1:-app:start}"
 

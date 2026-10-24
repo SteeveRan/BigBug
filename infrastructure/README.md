@@ -56,7 +56,10 @@ This single command will:
 4. Wait for GitLab (`https://gitlab.local:8443`) and bootstrap the kind cluster `bigbug-dev`
 5. `tofu apply`: base (platform) → infra-apps (Keycloak/Harbor, two-phase + GitLab) → apps (ns bigbug)
 6. Verify / program the GitLab root PAT (`gitlab-rails runner` — ADR-0033 exception)
-7. Update `.env` with host-tool variables
+
+> Host trust для https-хостов проставляется автоматически (`init.sh` вызывает `trust-host.sh` после генерации сертов). Ручной запуск: `make infra-trust` ([ADR-0030](../docs/adr/infrastructure/0030-dev-stand-https-self-signed-certs.md)).
+>
+> Next: `make dev-build && make dev-up` — dev-образы и деплой приложения ([ADR-0023](../docs/adr/infrastructure/0023-bigbug-helm-chart.md)).
 
 After completion, access:
 
@@ -75,13 +78,11 @@ infrastructure/
 │   ├── base/              # Root: platform (ingress, operators) — ADR-0029
 │   ├── infra-apps/        # Root: keycloakx+CNPG, Harbor chart + API config + GitLab base — ADR-0029/0033
 │   └── apps/              # Root: BigBug app infra (ns bigbug: CNPG, Redis, secrets) — split from infra-apps
-├── kind/                  # kind cluster scripts: bootstrap, certs, trust
-├── harbor/                # LEGACY (cluster эпоха) — подлежит сносу (#62)
+├── kind/                  # kind cluster scripts: bootstrap, certs, trust, test-push
 ├── gitlab-components/
 │   └── examples/          # GitLab CI/CD component templates (examples only — not used by the app)
 ├── gitlab/                # GitLab compose zone: docker-compose.yml (gitlab + gitlab-runner) + .env.example — ADR-0033
-├── init.sh                # Full initialization script
-└── update-env.sh          # Update .env with host-tool variables
+└── init.sh                # Full initialization script
 ```
 
 ## Manual Step-by-Step
@@ -91,18 +92,22 @@ If you prefer to run each step manually:
 ### 1. Start Infrastructure
 
 ```bash
-docker compose -f infrastructure/gitlab/docker-compose.yml up -d
+./infrastructure/kind/certs.sh
+# Host trust already done by init.sh (trust-host.sh after cert generation)
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env up -d
 ```
 
-Wait for all services to be healthy:
+Wait for GitLab to be healthy:
 
 ```bash
-docker compose -f infrastructure/gitlab/docker-compose.yml ps
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env ps
 ```
 
-### 2. Apply OpenTofu (base → infra-apps → apps)
+### 2. Bootstrap kind + Apply OpenTofu (base → infra-apps → apps)
 
 ```bash
+cd infrastructure/kind && ./bootstrap.sh && cd ../..   # kind cluster bigbug-dev + /etc/hosts
+
 cd infrastructure/terraform/base && tofu init && tofu apply && cd ../..
 
 cd infrastructure/terraform/infra-apps
@@ -114,39 +119,37 @@ tofu apply                                                           # phase 2: 
 cd ../apps && tofu init && tofu apply   # BigBug app infra (ns bigbug)
 ```
 
-### 3. Update Environment
+### 3. Deploy the App
 
 ```bash
-cd ../..
-./infrastructure/update-env.sh
+make dev-build   # build bigbug-{backend,frontend}:dev + kind load
+make dev-up      # helm upgrade --install bigbug charts/bigbug (ADR-0023)
 ```
 
 ## Harbor (in kind, infra-apps root)
 
-Harbor runs in the `bigbug-dev` kind cluster behind the TLS ingress. Install/config live in `infrastructure/terraform/infra-apps/modules/harbor_init|harbor_conf` — no separate deploy script. See [ADR-0035](../docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) and `terraform/infra-apps/README.md`. Legacy `infrastructure/harbor/` (separate-cluster era) is pending removal — #62.
+Harbor runs in the `bigbug-dev` kind cluster behind the TLS ingress. Install/config live in `infrastructure/terraform/infra-apps/modules/harbor_init|harbor_conf` — no separate deploy script. See [ADR-0035](../docs/adr/infrastructure/0035-harbor-dev-stand-chart.md) and `terraform/infra-apps/README.md`. Push/pull smoke-test: [`kind/test-push.sh`](kind/test-push.sh).
 
 ## Updating Configuration
 
 After changing any `.tf` files:
 
 ```bash
-cd infrastructure/terraform
+cd infrastructure/terraform/<root>
 
 tofu plan    # Review changes
 tofu apply   # Apply changes
-
-cd ../..
-./infrastructure/update-env.sh   # Refresh .env with new outputs
 ```
 
 ## Destroying Environment
 
 ```bash
 # Stop GitLab compose zone (volumes preserved)
-docker compose -f infrastructure/gitlab/docker-compose.yml down
+docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastructure/gitlab/.env down
 
-# Destroy OpenTofu-managed resources (per root)
-cd infrastructure/terraform/base && tofu destroy && cd ../infra-apps && tofu destroy && cd ../apps && tofu destroy && cd ../.. && tofu destroy && cd ../..
+# Remove the kind cluster + tofu states (GitLab volumes untouched)
+bash infrastructure/kind/teardown.sh --all
+rm -rf ~/.local/state/bigbug/{base,infra-apps,apps}
 
 # Full cleanup (CONFIRM-guarded, owner only): make infra-clean
 ```
@@ -198,12 +201,9 @@ Default ports can conflict with local services:
 
 | Port | Service | Change via |
 |------|---------|------------|
-| 5432 | postgres-backend (CNPG CR in kind) | terraform/apps (ns bigbug) / terraform/infra-apps (ns keycloak) |
-| 6379 | redis (CR in kind) | terraform/apps |
 | 8443 | gitlab (https, ADR-0033) | `infrastructure/gitlab/docker-compose.yml` |
 | 2222 | gitlab ssh | `infrastructure/gitlab/docker-compose.yml` |
 | 80/443 | ingress (keycloak.local, harbor.local, app.local, api.local) | kind extraPortMappings |
-| 8000/5173 | backend/frontend (app chart in kind) | charts/bigbug |
 
 ### Terraform state files
 

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.core.http import ssl_verify
 from app.core.secrets import decrypt_secret
 from app.models.credential import Credential
 from app.models.image_version import ImageVersion
@@ -129,7 +130,7 @@ async def _get_harbor_client(
     return httpx.AsyncClient(
         base_url=(provider.base_url or "").rstrip("/"),
         auth=auth,
-        verify=provider.verify_ssl,
+        verify=ssl_verify() if provider.verify_ssl else False,
         timeout=30.0,
     )
 

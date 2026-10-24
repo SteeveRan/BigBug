@@ -68,53 +68,49 @@ Architecture decisions: [ADR registry](docs/adr/README.md) · Operational runboo
 git clone https://github.com/user/BigBug.git
 cd BigBug
 
-# 2. Configure environment
-cp .env.example .env
-# Edit .env — set ENCRYPTION_KEY, GitHub tokens, etc.
-
-# 3. Full initialization (infrastructure + application)
+# 2. Full initialization (certs → trust → GitLab + kind + OpenTofu)
 ./infrastructure/init.sh
+
+# 3. Build dev images and deploy the app (helm chart bigbug, ADR-0023)
+make dev-build
+make dev-up
 ```
 
 ### Manual Step-by-Step
 
 ```bash
-# 1. Start infrastructure
-docker compose -f infrastructure/gitlab/docker-compose.yml up -d
+# 1. TLS certs + host trust + GitLab compose zone (init.sh does all: certs → trust → compose)
+./infrastructure/init.sh
 
-# 2. Wait for readiness (check health)
-docker compose -f infrastructure/gitlab/docker-compose.yml ps
+# 1. TLS certs + host trust + GitLab + kind (init.sh does: certs → trust → GitLab compose → kind)
+./infrastructure/init.sh
 
-# 3. Initialize infrastructure (Keycloak → Harbor → GitLab)
-cd infrastructure/terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set gitlab_token (root PAT with "api" scope)
-tofu init && tofu apply
+# 2. OpenTofu: base → infra-apps (2 phases) → apps (ADR-0029) — init.sh runs this too;
+#    manual split (if needed step-by-step):
+cd infrastructure/terraform/base && tofu init && tofu apply && cd ../..
+cd infrastructure/terraform/infra-apps && tofu init \
+  && tofu apply -target=module.keycloak_init -target=module.harbor_init \
+  && tofu apply && cd ../..
+cd infrastructure/terraform/apps && tofu init && tofu apply && cd ../..
 
-# 4. Update .env with outputs
-cd ../..
-./infrastructure/update-env.sh
+# 3. Build dev images and deploy the app
+make dev-build
+make dev-up
 
-# 5. Start application
-docker compose up -d
-
-# 7. Access UI
-open http://localhost:5173
+# 4. Access UI
+open https://app.local
 # Login: bigbug / bigbug
 ```
 
-Services will start on:
+Services (https behind the kind ingress — ADR-0030):
 
 | Service | URL |
 |---------|-----|
-| Frontend UI | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| GitLab | http://localhost:8080 |
-| Keycloak | http://localhost:8180 |
-| PostgreSQL (backend) | localhost:5432 |
-| PostgreSQL (keycloak) | localhost:5433 |
-
-> **Note:** The old `docker compose up -d` + `docker compose --profile init up keycloak-init` workflow is deprecated. Use the new split-compose + OpenTofu approach. See [`infrastructure/README.md`](infrastructure/README.md) for full documentation.
+| Frontend UI | https://app.local |
+| Backend API | https://api.local |
+| GitLab | https://gitlab.local:8443 |
+| Keycloak | https://keycloak.local |
+| Harbor | https://harbor.local |
 
 ## 📦 Tech Stack
 
@@ -144,11 +140,10 @@ Services will start on:
 - **knip** — dead code detection
 
 ### Infrastructure (dev)
-- **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor
-- **Keycloak** — SSO provider
-- **Harbor** (in kind) — local OCI registry for testing
-- **Docker Compose** — local development orchestration (split into [GitLab zone](infrastructure/gitlab/docker-compose.yml) and [app](docker-compose.yml))
-- **OpenTofu** / **Terraform** — declarative infrastructure provisioning (Keycloak → Harbor → GitLab)
+- **kind-стенд `bigbug-dev`** ([ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)) — haproxy-ingress, операторы CNPG + redis-operator, keycloakx, Harbor (chart), приложение
+- **GitLab CE** + **GitLab Runner** — mirror target and CI/CD executor (compose-исключение, [ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md))
+- **OpenTofu** / **Terraform** — declarative provisioning of all k8s entities + service config ([ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md))
+- **Helm** — app chart [`charts/bigbug`](charts/bigbug/) ([ADR-0023](docs/adr/infrastructure/0023-bigbug-helm-chart.md))
 
 ## 🗂️ Project Structure
 
@@ -181,16 +176,14 @@ BigBug/
 │   └── package.json        # Node dependencies
 ├── infrastructure/          # Infrastructure initialization
 │   ├── init.sh              # Full environment initialization script
-│   ├── update-env.sh        # Update .env from OpenTofu outputs
 │   ├── gitlab/              # GitLab compose zone (gitlab + gitlab-runner, ADR-0033)
 │   ├── terraform/           # OpenTofu roots: base / infra-apps (+GitLab) / apps (ADR-0029)
-│   ├── harbor/              # Harbor deployment in kind (LEGACY — pending removal, #62)
+│   ├── kind/                # kind cluster scripts: bootstrap, certs, trust
 │   └── gitlab-components/   # GitLab CI/CD component examples (not used by the app —
 │                            #   presets live in backend/app/services/gitlab_projects/presets.py)
-├── docker-compose.yml       # Application services (postgres-backend, redis, backend, frontend)
+├── charts/bigbug/           # Helm chart of the app (backend + frontend, ADR-0023)
 ├── Makefile                 # Single entry point for all scripts (make help)
 ├── docs/                    # ADR registry, development guides (agents), runbooks (humans)
-├── .env.example             # Environment variables template
 └── CHANGELOG.md             # Version history
 ```
 
@@ -241,24 +234,25 @@ make dead-code                  # vulture + knip
 
 ## 🐳 Docker Compose Services
 
-### Infrastructure (`infrastructure/gitlab/docker-compose.yml`)
+Compose — только GitLab-зона ([ADR-0033](docs/adr/infrastructure/0033-gitlab-dev-stand-compose-omnibus.md)); всё остальное — в kind-кластере `bigbug-dev` ([ADR-0022](docs/adr/infrastructure/0022-dev-stand-on-kind.md)).
+
+### GitLab zone (`infrastructure/gitlab/docker-compose.yml`)
 
 | Service | Port | Description |
 |---------|------|-------------|
 | `gitlab` | 8443 (https) | GitLab CE for CI/CD (compose zone — ADR-0033) |
 | `gitlab-runner` | — | Pipeline executor |
 
-### Application (`docker-compose.yml`)
+### kind-стенд `bigbug-dev` (ADR-0022/0029)
 
-| Service | Port | Description |
-|---------|------|-------------|
-| `postgres-backend` | 5432 | Application database (Alembic-managed schema) |
-| `redis` | 6379 | Cache and session store |
-| `backend` | 8000 | FastAPI REST API with hot reload |
-| `frontend` | 5173 | React dev server with HMR |
-
-> Keycloak и Harbor живут в kind-кластере `bigbug-dev` (ADR-0022/0034/0035),
-> не в compose.
+| Component | Где | Description |
+|-----------|-----|-------------|
+| haproxy-ingress | ns `haproxy-ingress` | TLS-терминирование (ADR-0030) |
+| CNPG PostgreSQL 17 | ns `bigbug` / `keycloak` | БД приложения и Keycloak (ADR-0022 §5) |
+| Redis | ns `bigbug` | Cache and session store |
+| keycloakx | ns `keycloak` | SSO provider (ADR-0034) |
+| Harbor | ns `harbor` | OCI registry (ADR-0035) |
+| backend + frontend | ns `bigbug` | App (helm chart `charts/bigbug`, ADR-0023) |
 
 ## 🔐 Authentication
 
@@ -297,33 +291,18 @@ make coverage-all               # coverage for both stacks
 
 Pass args to a specific test via `TEST_ARGS`, e.g. `make test-unit-backend TEST_ARGS="-k test_login"`.
 
-## 🌊 Harbor Deployment
+## 🌊 Harbor
 
-Local OCI registry for development and testing, deployed in a [kind](https://kind.sigs.k8s.io/) Kubernetes cluster.
+Local OCI registry for development and testing — Harbor chart in the `bigbug-dev` kind cluster behind the TLS ingress ([ADR-0035](docs/adr/infrastructure/0035-harbor-dev-stand-chart.md)). Install/config managed by OpenTofu (`infrastructure/terraform/infra-apps/modules/harbor_init|harbor_conf`, [ADR-0029](docs/adr/infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)) — comes up with `make infra-init`, no separate deploy script.
 
-```bash
-cd infrastructure/harbor
-
-# Deploy Harbor
-./deploy.sh
-
-# Verify push/pull works
-./test-push.sh
-
-# Tear down
-./teardown.sh --all
-```
-
-Access: `https://harbor.local:30443` (admin / Harbor12345)
-
-See [`infrastructure/harbor/README.md`](infrastructure/harbor/README.md) for prerequisites, troubleshooting, and manual setup instructions.
+Access: `https://harbor.local` (admin / Harbor12345). Verify push/pull: `./infrastructure/kind/test-push.sh`.
 
 ## 📝 API Documentation
 
 After starting the backend:
 
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
+- **Swagger UI:** https://api.local/api/docs
+- **ReDoc:** https://api.local/api/redoc
 
 ### Key Endpoints
 

@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ExternalServiceError, NotFoundError
+from app.core.http import ssl_verify
 from app.core.secrets import decrypt_secret
 from app.models.credential import Credential
 from app.models.docker_image_source import DockerImageSource
@@ -551,7 +552,7 @@ class DockerRegistryService:
         tags_url = f"{base_url}/{repo}/tags/list"
 
         async with httpx.AsyncClient(
-            timeout=30.0, follow_redirects=True, verify=verify_ssl
+            timeout=30.0, follow_redirects=True, verify=ssl_verify() if verify_ssl else False
         ) as client:
             try:
                 response = await oci_request(client, "GET", tags_url, basic=basic)
@@ -621,7 +622,7 @@ class DockerRegistryService:
         tag_count = 0
 
         async with httpx.AsyncClient(
-            timeout=30.0, follow_redirects=True, verify=verify_ssl
+            timeout=30.0, follow_redirects=True, verify=ssl_verify() if verify_ssl else False
         ) as client:
             for tag in tags:
                 digest = await self._resolve_manifest_digest(

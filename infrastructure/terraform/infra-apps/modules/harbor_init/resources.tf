@@ -22,8 +22,9 @@ resource "kubernetes_secret_v1" "tls_harbor" {
   }
 }
 
-# chart contract: exactly the `ca.crt` key — keycloak.local cert mounted into
-# core/jobservice/registry trust stores for oidc_verify_cert (ADR-0030 §4)
+# chart contract: exactly the `ca.crt` key — the stand CA mounted into
+# core/jobservice/registry trust stores for oidc_verify_cert (ADR-0030 §4);
+# keycloak.local cert chain verifies against it (certs.sh signs all hosts).
 resource "kubernetes_secret_v1" "harbor_ca_bundle" {
   metadata {
     name      = "harbor-ca-bundle"
@@ -31,7 +32,7 @@ resource "kubernetes_secret_v1" "harbor_ca_bundle" {
   }
 
   data = {
-    "ca.crt" = file("${var.certs_dir}/keycloak.local/tls.crt")
+    "ca.crt" = file("${var.certs_dir}/ca.crt")
   }
 }
 
