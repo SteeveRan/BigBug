@@ -29,8 +29,16 @@ _Avoid_: CA bundle (bundle — про файловую материализац�
 _Avoid_: mirror pair, sync job
 
 **Sync**:
-Pull-based актуализация состояния (mirror, registry, helm repo) средствами APScheduler или по webhook.
+Pull-based актуализация состояния (mirror, registry, helm repo) — по расписанию, вручную или из task-очереди.
 _Avoid_: synchronization, refresh, pull
+
+**Task Queue**:
+Механизм исполнения фоновых задач (taskiq + Redis Streams): at-least-once, ack после выполнения, retry с backoff. Статус задач — в PostgreSQL, не в очереди.
+_Avoid_: background jobs, celery, broker (брокер — конкретно Redis Streams, не синоним очереди)
+
+**Sync Engine**:
+Ядро исполнения Sync-задач (`sync_engine.py`): hand-reviewed, ограниченные импорты — task-тела делегируют в него.
+_Avoid_: scheduler (планировщик — APScheduler, только enqueue), worker
 
 **Webhook**:
 Входящее уведомление от внешней системы, тригерящее Sync или обновление статуса.

@@ -1,10 +1,14 @@
 ---
-status: proposed
+status: "superseded by [ADR-0039](../../backend/0039-background-tasks-taskiq-redis-streams.md)"
 date: 2026-10-21
 decision-makers: SteeveRan
 ---
 
 # Фоновая синхронизация: pull-based через APScheduler с опциональными webhooks
+
+> **Superseded**: исполнение фоновых задач переведено на taskiq + Redis Streams —
+> [ADR-0039](../../backend/0039-background-tasks-taskiq-redis-streams.md). Revisit-триггеры,
+> заявленные в этом ADR (retry с backoff, >1 реплики, рост масштаба), сработали.
 
 ## Context and Problem Statement
 
