@@ -18,6 +18,7 @@ from app.database import AsyncSessionLocal
 from app.models.notification_outbox import NotificationOutbox
 from app.services.audit import AuditService
 from app.tasks.broker import broker
+from app.tasks.run_tracking import run_tracked
 
 logger = logging.getLogger(__name__)
 
@@ -40,36 +41,40 @@ async def send_pending_outbox_task(batch_size: int = BATCH_SIZE) -> int:
     commit, same pattern as commit_cursor); a redelivered task skips rows
     already marked sent, and the unique dedup_key blocks duplicate rows.
     """
-    delivered = 0
-    while True:
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(NotificationOutbox)
-                .where(NotificationOutbox.sent_at.is_(None))
-                .order_by(NotificationOutbox.created_at.asc(), NotificationOutbox.id.asc())
-                .limit(batch_size)
-            )
-            rows = result.scalars().all()
-            if not rows:
-                break
 
-            for row in rows:
-                await AuditService.log_event(
-                    db,
-                    user_id=None,
-                    username="outbox",
-                    action=row.event_type,
-                    resource_type="notification",
-                    resource_id=row.id,
-                    details=row.payload,
+    async def _body() -> int:
+        delivered = 0
+        while True:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(NotificationOutbox)
+                    .where(NotificationOutbox.sent_at.is_(None))
+                    .order_by(NotificationOutbox.created_at.asc(), NotificationOutbox.id.asc())
+                    .limit(batch_size)
                 )
-                row.sent_at = datetime.now(UTC)
-                await db.commit()
-                delivered += 1
+                rows = result.scalars().all()
+                if not rows:
+                    break
 
-            if len(rows) < batch_size:
-                break
+                for row in rows:
+                    await AuditService.log_event(
+                        db,
+                        user_id=None,
+                        username="outbox",
+                        action=row.event_type,
+                        resource_type="notification",
+                        resource_id=row.id,
+                        details=row.payload,
+                    )
+                    row.sent_at = datetime.now(UTC)
+                    await db.commit()
+                    delivered += 1
 
-    if delivered:
-        logger.info("Outbox sender delivered %d notification(s)", delivered)
-    return delivered
+                if len(rows) < batch_size:
+                    break
+
+        if delivered:
+            logger.info("Outbox sender delivered %d notification(s)", delivered)
+        return delivered
+
+    return await run_tracked("send_pending_outbox_task", _body, payload={"args": [], "kwargs": {}})

@@ -24,6 +24,7 @@ from app.database import AsyncSessionLocal
 from app.models.user import User
 from app.services.mirror import MirrorService
 from app.tasks.broker import broker
+from app.tasks.run_tracking import run_tracked
 
 logger = logging.getLogger(__name__)
 
@@ -88,83 +89,90 @@ async def sync_all_task() -> None:
     from app.models.sync_schedule import SyncSchedule
     from app.services.docker import docker_service
 
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(SyncSchedule).where(SyncSchedule.is_enabled.is_(True)))
-        schedules = result.scalars().all()
+    async def _body() -> None:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(SyncSchedule).where(SyncSchedule.is_enabled.is_(True)))
+            schedules = result.scalars().all()
 
-        for schedule in schedules:
-            now = datetime.now(UTC)
+            for schedule in schedules:
+                now = datetime.now(UTC)
 
-            # Determine effective cron
-            if schedule.use_default_schedule:
-                _ = settings.default_sync_cron
-            elif not schedule.cron_expression:
-                continue
-
-            # Check if it's time to run
-            if schedule.next_run_at and schedule.next_run_at > now:
-                continue
-
-            try:
-                if schedule.sync_type == "docker_image" and schedule.docker_image_source_id:
-                    source_result = await db.execute(
-                        select(DockerImageSource).where(
-                            DockerImageSource.id == schedule.docker_image_source_id
-                        )
-                    )
-                    source = source_result.scalar_one_or_none()
-                    if source and source.target_registry_url:
-                        # Sync mode: copy unsynced tags to target registry
-                        tags_result = await db.execute(
-                            select(DockerImageTag).where(
-                                DockerImageTag.source_id == source.id,
-                                DockerImageTag.is_synced.is_(False),
-                            )
-                        )
-                        tags = tags_result.scalars().all()
-
-                        for tag in tags:
-                            try:
-                                await docker_service.sync_image(
-                                    source=source,
-                                    image_name=tag.image_name,
-                                    tag=tag.tag,
-                                    db=db,
-                                    triggered_by="scheduler",
-                                )
-                            except Exception as e:
-                                logger.error(f"Failed to sync {tag.image_name}:{tag.tag}: {e}")
-
-                        logger.info(f"Synced {len(tags)} tag(s) for docker source {source.id}")
-                    elif source:
-                        # No target configured: refresh (re-index) tags
-                        # Get distinct image names from existing tags
-                        names_result = await db.execute(
-                            select(DockerImageTag.image_name)
-                            .distinct()
-                            .where(DockerImageTag.source_id == source.id)
-                        )
-                        image_names = names_result.scalars().all()
-                        for image_name in image_names:
-                            try:
-                                await docker_service.refresh_source(source, image_name, db)
-                                logger.info(f"Refreshed docker source {source.id} for {image_name}")
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to refresh docker source {source.id}"
-                                    f" for {image_name}: {e}"
-                                )
-
-                elif schedule.sync_type == "helm_chart" and schedule.helm_chart_source_id:
-                    # Helm chart sync — to be implemented
-                    logger.info(f"Helm chart sync not yet implemented for schedule {schedule.id}")
+                # Determine effective cron
+                if schedule.use_default_schedule:
+                    _ = settings.default_sync_cron
+                elif not schedule.cron_expression:
                     continue
 
-                schedule.last_run_at = now
-            except Exception as e:
-                logger.error(f"Failed to trigger sync for schedule {schedule.id}: {e}")
+                # Check if it's time to run
+                if schedule.next_run_at and schedule.next_run_at > now:
+                    continue
 
-        await db.commit()
+                try:
+                    if schedule.sync_type == "docker_image" and schedule.docker_image_source_id:
+                        source_result = await db.execute(
+                            select(DockerImageSource).where(
+                                DockerImageSource.id == schedule.docker_image_source_id
+                            )
+                        )
+                        source = source_result.scalar_one_or_none()
+                        if source and source.target_registry_url:
+                            # Sync mode: copy unsynced tags to target registry
+                            tags_result = await db.execute(
+                                select(DockerImageTag).where(
+                                    DockerImageTag.source_id == source.id,
+                                    DockerImageTag.is_synced.is_(False),
+                                )
+                            )
+                            tags = tags_result.scalars().all()
+
+                            for tag in tags:
+                                try:
+                                    await docker_service.sync_image(
+                                        source=source,
+                                        image_name=tag.image_name,
+                                        tag=tag.tag,
+                                        db=db,
+                                        triggered_by="scheduler",
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Failed to sync {tag.image_name}:{tag.tag}: {e}")
+
+                            logger.info(f"Synced {len(tags)} tag(s) for docker source {source.id}")
+                        elif source:
+                            # No target configured: refresh (re-index) tags
+                            # Get distinct image names from existing tags
+                            names_result = await db.execute(
+                                select(DockerImageTag.image_name)
+                                .distinct()
+                                .where(DockerImageTag.source_id == source.id)
+                            )
+                            image_names = names_result.scalars().all()
+                            for image_name in image_names:
+                                try:
+                                    await docker_service.refresh_source(source, image_name, db)
+                                    logger.info(
+                                        f"Refreshed docker source {source.id} for {image_name}"
+                                    )
+                                except Exception as e:
+                                    logger.error(
+                                        f"Failed to refresh docker source {source.id}"
+                                        f" for {image_name}: {e}"
+                                    )
+
+                    elif schedule.sync_type == "helm_chart" and schedule.helm_chart_source_id:
+                        # Helm chart sync — to be implemented
+                        logger.info(
+                            f"Helm chart sync not yet implemented for schedule {schedule.id}"
+                        )
+                        continue
+
+                    schedule.last_run_at = now
+                except Exception as e:
+                    logger.error(f"Failed to trigger sync for schedule {schedule.id}: {e}")
+
+            await db.commit()
+
+    await run_tracked("sync_all_task", _body, payload={"args": [], "kwargs": {}})
 
 
 @broker.task(**_TASK_LABELS)
@@ -175,42 +183,47 @@ async def build_all_task() -> None:
     from app.models.gold_image import GoldImage
     from app.services.build import build_service
 
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(BuildSchedule).where(BuildSchedule.is_enabled.is_(True)))
-        schedules = result.scalars().all()
+    async def _body() -> None:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(BuildSchedule).where(BuildSchedule.is_enabled.is_(True))
+            )
+            schedules = result.scalars().all()
 
-        for schedule in schedules:
-            now = datetime.now(UTC)
+            for schedule in schedules:
+                now = datetime.now(UTC)
 
-            if schedule.next_run_at and schedule.next_run_at > now:
-                continue
+                if schedule.next_run_at and schedule.next_run_at > now:
+                    continue
 
-            try:
-                if schedule.image_type == "gold" and schedule.gold_image_id:
-                    img_result = await db.execute(
-                        select(GoldImage).where(GoldImage.id == schedule.gold_image_id)
-                    )
-                    image = img_result.scalar_one_or_none()
-                    if image:
-                        await build_service.trigger_gold_build(
-                            image, "latest", "amd64", db, triggered_by="scheduler"
+                try:
+                    if schedule.image_type == "gold" and schedule.gold_image_id:
+                        img_result = await db.execute(
+                            select(GoldImage).where(GoldImage.id == schedule.gold_image_id)
                         )
-                elif schedule.image_type == "app" and schedule.app_image_id:
-                    img_result = await db.execute(
-                        select(AppImage).where(AppImage.id == schedule.app_image_id)
-                    )
-                    image = img_result.scalar_one_or_none()
-                    if image:
-                        await build_service.trigger_app_build(
-                            image, "latest", "amd64", db, triggered_by="scheduler"
+                        image = img_result.scalar_one_or_none()
+                        if image:
+                            await build_service.trigger_gold_build(
+                                image, "latest", "amd64", db, triggered_by="scheduler"
+                            )
+                    elif schedule.image_type == "app" and schedule.app_image_id:
+                        img_result = await db.execute(
+                            select(AppImage).where(AppImage.id == schedule.app_image_id)
                         )
+                        image = img_result.scalar_one_or_none()
+                        if image:
+                            await build_service.trigger_app_build(
+                                image, "latest", "amd64", db, triggered_by="scheduler"
+                            )
 
-                schedule.last_run_at = now
-                logger.info(f"Triggered build for schedule {schedule.id}")
-            except Exception as e:
-                logger.error(f"Failed to trigger build for schedule {schedule.id}: {e}")
+                    schedule.last_run_at = now
+                    logger.info(f"Triggered build for schedule {schedule.id}")
+                except Exception as e:
+                    logger.error(f"Failed to trigger build for schedule {schedule.id}: {e}")
 
-        await db.commit()
+            await db.commit()
+
+    await run_tracked("build_all_task", _body, payload={"args": [], "kwargs": {}})
 
 
 @broker.task(**_TASK_LABELS)
@@ -218,7 +231,10 @@ async def cleanup_task() -> None:
     """Daily physical deletion of soft-deleted Mirroring entities past retention."""
     from app.services.cleanup import cleanup_job
 
-    await cleanup_job()
+    async def _body() -> None:
+        await cleanup_job()
+
+    await run_tracked("cleanup_task", _body, payload={"args": [], "kwargs": {}})
 
 
 @broker.task(**_TASK_LABELS)
@@ -234,7 +250,16 @@ async def sync_group_task(group_id: int, concurrency: int = 5) -> None:
             username="scheduler",
         )
 
-    await _run_group_pass(group_id, concurrency, _sync)
+    async def _body() -> None:
+        await _run_group_pass(group_id, concurrency, _sync)
+
+    await run_tracked(
+        "sync_group_task",
+        _body,
+        entity_type="sync_group",
+        entity_id=group_id,
+        payload={"args": [group_id, concurrency], "kwargs": {}},
+    )
 
 
 @broker.task(**_TASK_LABELS)
@@ -248,4 +273,13 @@ async def freshness_group_task(group_id: int, concurrency: int = 5) -> None:
             username="scheduler",
         )
 
-    await _run_group_pass(group_id, concurrency, _check)
+    async def _body() -> None:
+        await _run_group_pass(group_id, concurrency, _check)
+
+    await run_tracked(
+        "freshness_group_task",
+        _body,
+        entity_type="sync_group",
+        entity_id=group_id,
+        payload={"args": [group_id, concurrency], "kwargs": {}},
+    )
