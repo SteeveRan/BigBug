@@ -10,7 +10,7 @@
 # Требования:
 #   - kind-стенд с CNPG-подом (make infra-init — владелец инфры)
 #   - .venv backend с зависимостями
-#   - DATABASE_URL в окружении (или экспортированный e2e-env.sh) — хост/юзер
+#   - DATABASE_URL в окружении (port-forward к CNPG — вручную/из .env) — хост/юзер
 #     не используются, имя БД подменяется на check-БД, поэтому к общим данным
 #     ветки скрипт не прикасается
 #
@@ -53,8 +53,8 @@ cnpg_psql "CREATE DATABASE ${DB_NAME}"
 
 cd "$BACKEND_DIR"
 
-# Прогоняем alembic с БД чека: подменяем имя БД в DATABASE_URL (хост — CNPG
-# через kubectl port-forward, задаёт e2e-env.sh / caller; юзер — bigbug),
+# Прогоняем alembic с БД чека: подменяем имя БД в DATABASE_URL (хост — CNPG,
+# юзер — bigbug),
 CHECK_URL="$("${VENV_PYTHON[@]}" -c "
 import sys
 sys.path.insert(0, '.')

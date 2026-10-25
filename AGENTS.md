@@ -303,7 +303,7 @@ make test-e2e-backend TEST_ARGS="-k test_login"    #    фильтр по име
 - Без dev-стенда прогон падает fast: `E2E backend is not reachable` — это норма, unit-тесты работают без стенда.
 - Переменные окружения: `BIGBUG_E2E_BASE_URL` (default `http://localhost:8000`), `E2E_ADMIN_USERNAME`/`E2E_ADMIN_PASSWORD` (default `admin`/`admin`).
 - После прогона в teardown пишется отчёт покрытия эндпоинтов: `backend/reports/endpoint-coverage.{json,md}` (порог 90%, мягкий).
-- Code-coverage e2e: `cd backend && ./scripts/test-e2e-coverage.sh` (backend под coverage на порту 8011; `COVERAGE_PORT` переопределяет).
+- E2E-учётки (e2e-admin/e2e-viewer/e2e-operator) создаются и удаляются через публичный API фикстурами `backend/tests/e2e/conftest.py` (issue #134) — отдельный seed и доступ к БД из e2e-инфраструктуры не нужны.
 - Rate limiting на dev-стенде отключается `RATE_LIMIT_ENABLED=false` (иначе лимит логина 5/min ломает прогон).
 
 See: Testing ADRs — [ADR-0014](docs/adr/backend/0014-backend-unit-testing-pytest.md), [ADR-0015](docs/adr/frontend/0015-frontend-unit-testing-vitest.md), [ADR-0016](docs/adr/backend/0016-backend-integration-testing.md), [ADR-0017](docs/adr/frontend/0017-frontend-integration-testing.md), [ADR-0018](docs/adr/common/0018-e2e-testing-strategy.md) (реестр: [docs/adr/README.md](docs/adr/README.md))

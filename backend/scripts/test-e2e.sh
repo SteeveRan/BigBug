@@ -9,13 +9,13 @@
 #
 # Требования:
 #   - запущенный dev-стенд: make infra-init (kind) + helm upgrade bigbug
-#   - окружение (SSL_CERT_FILE/DATABASE_URL) задаёт make: backend/scripts/e2e-env.sh
+#   - TLS-окружение (SSL_CERT_FILE) задаёт make: backend/scripts/e2e-env.sh
 #   - Python 3.14+ с виртуальным окружением (backend/.venv)
 #   - установлен uv; зависимости ставятся автоматически из uv.lock
 #
-# Учетные записи (ADR-0024 §3): прогон начинается с идемпотентного seed
-# (scripts/seed-e2e.sh) — креды e2e: константы в scripts/seed_e2e.py /
-# tests/e2e/conftest.py, никаких E2E_ADMIN_USERNAME/E2E_ADMIN_PASSWORD.
+# Учетные записи (ADR-0024 §3): e2e-учётки создаются/удаляются через
+# публичный API фикстурами tests/e2e/conftest.py (issue #134) — креды:
+# константы в conftest.py, никаких E2E_ADMIN_USERNAME/E2E_ADMIN_PASSWORD.
 #
 # Настройка через переменные окружения:
 #   BIGBUG_E2E_BASE_URL   — базовый URL backend (по умолчанию https://api.local)
@@ -39,9 +39,6 @@ fi
 
 cd "$BACKEND_DIR"
 
-echo "=== Seeding e2e accounts ==="
-"$SCRIPT_DIR/seed-e2e.sh"
-
 echo ""
 echo "=== Проверка доступности backend ($BASE_URL) ==="
 if ! "${VENV_PYTHON[@]}" -c "
@@ -59,7 +56,7 @@ echo "Backend доступен."
 
 echo ""
 echo "=== Running e2e tests (tests/e2e/) ==="
-# Без pytest-cov: покрытие кода измеряется отдельно скриптом test-e2e-coverage.sh.
+# Без pytest-cov: code-coverage e2e не замеряется (API-учётки — issue #134).
 "${VENV_PYTHON[@]}" -m pytest tests/e2e/ -v "$@"
 
 echo ""
