@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     # Schedules (cron expressions)
     default_sync_cron: str = "0 2 * * *"
     default_build_cron: str = "0 3 * * 0"
+    # Reconciliation pass (drift catcher, ADR-0039 Phase 3): daily 04:00 UTC.
+    reconcile_cron: str = "0 4 * * *"
 
     # Task queue (taskiq + RedisStreamBroker)
     # WHY when_executed: at-least-once semantics require acking after the task
