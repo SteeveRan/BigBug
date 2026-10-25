@@ -32,6 +32,7 @@ import './api/trust-stores';
 import './api/gitlab-projects';
 import './api/sync-runs';
 import './api/trust-stores';
+import './api/status';
 
 // ═════════════════════════════════════════════════════════════════════════
 // Реэкспорт ВСЕХ хуков — чтобы потребители (страницы, компоненты, тесты)
@@ -330,3 +331,6 @@ export {
   useAddTrustStoreCertificatesMutation,
   useDeleteTrustStoreCertificateMutation,
 } from './api/trust-stores';
+
+// Public Status
+export { useGetMaintenanceStatusQuery } from './api/status';
