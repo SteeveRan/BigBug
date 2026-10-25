@@ -615,6 +615,27 @@ async def manual_cleanup(
     return result.to_dict()
 
 
+@router.post("/reconcile", tags=["admin"], status_code=status.HTTP_200_OK)
+async def manual_reconcile(
+    source_id: int | None = None,
+    _: User = Depends(require_permission("system:config")),
+) -> dict:
+    """Manually trigger a reconciliation pass (drift catcher, ADR-0039 Phase 3).
+
+    Enqueues one taskiq task: a single ``DockerImageSource`` when *source_id*
+    is given, otherwise all sources. Execution happens in the taskiq worker —
+    the API process stays enqueue-only (ADR-0039).
+    """
+    from app.tasks.enqueue import enqueue
+    from app.tasks.reconcile_tasks import reconcile_all_task, reconcile_docker_source_task
+
+    if source_id is not None:
+        await enqueue(reconcile_docker_source_task, source_id)
+        return {"enqueued": "reconcile_docker_source_task", "source_id": source_id}
+    await enqueue(reconcile_all_task)
+    return {"enqueued": "reconcile_all_task"}
+
+
 # ------------------------------------------------------------------
 # RBAC — Role Scope: Sync Groups
 # ------------------------------------------------------------------
