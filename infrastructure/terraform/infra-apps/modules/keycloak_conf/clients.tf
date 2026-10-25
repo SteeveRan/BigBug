@@ -26,6 +26,26 @@ resource "keycloak_openid_client" "backend" {
 }
 
 # ── Harbor confidential client (OIDC SSO) ───────────────────────
+# "groups" client scope: Harbor requests "openid profile email groups"
+# (harbor_conf oidc_scope); without it Keycloak rejects the auth request
+# with invalid_scope. Mapper exposes group membership as the "groups" claim.
+resource "keycloak_openid_client_scope" "groups" {
+  realm_id            = keycloak_realm.bigbug.id
+  name                = "groups"
+  description         = "Group membership claim for Harbor OIDC SSO"
+  consent_screen_text = "groups"
+}
+
+resource "keycloak_openid_group_membership_protocol_mapper" "groups" {
+  realm_id        = keycloak_realm.bigbug.id
+  client_scope_id = keycloak_openid_client_scope.groups.id
+  name            = "groups"
+
+  claim_name      = "groups"
+  full_path       = false
+  add_to_id_token = true
+}
+
 resource "keycloak_openid_client" "harbor" {
   realm_id  = keycloak_realm.bigbug.id
   client_id = var.harbor_client_id
@@ -47,6 +67,23 @@ resource "keycloak_openid_client" "harbor" {
   web_origins                     = [var.harbor_root_url]
 
   client_secret = var.harbor_client_secret
+}
+
+# Default scopes for the harbor client (provider v5 moved these out of the
+# client resource); "groups" must be default so Harbor receives the claim
+# without extra scope negotiation.
+resource "keycloak_openid_client_default_scopes" "harbor" {
+  realm_id  = keycloak_realm.bigbug.id
+  client_id = keycloak_openid_client.harbor.id
+  default_scopes = [
+    "profile",
+    "email",
+    "roles",
+    "web-origins",
+    "acr",
+    "basic",
+    "groups",
+  ]
 }
 
 # ── Frontend public client (SPA, PKCE S256) ────────────────────
