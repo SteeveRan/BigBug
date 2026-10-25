@@ -46,6 +46,7 @@ const PipelineConfigsPage = lazy(() => import('@/pages/Pipelines/Configurations'
 const RolesPage = lazy(() => import('@/pages/Admin/Roles'));
 const RoleDetailPage = lazy(() => import('@/pages/Admin/Roles/RoleDetail'));
 const PermissionsPage = lazy(() => import('@/pages/Admin/Permissions'));
+const SyncRunsPage = lazy(() => import('@/pages/Settings/SyncRuns'));
 
 /**
  * @file router/index.tsx
@@ -521,6 +522,14 @@ export function AppRouter() {
           element={
             <PermissionGate permission="audit:read">
               <AuditLogPage />
+            </PermissionGate>
+          }
+        />
+        <Route
+          path="sync-runs"
+          element={
+            <PermissionGate permission="system:config">
+              <SyncRunsPage />
             </PermissionGate>
           }
         />

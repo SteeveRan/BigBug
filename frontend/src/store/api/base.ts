@@ -87,6 +87,7 @@ export const api = createApi({
     'Team',
     'Credential',
     'TrustStore',
+    'SyncRun',
   ],
   endpoints: () => ({}),
 });

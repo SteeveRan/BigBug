@@ -13,6 +13,7 @@ import {
   MoonOutlined,
   DeploymentUnitOutlined,
   SafetyCertificateOutlined,
+  SyncOutlined,
 } from '@ant-design/icons';
 import { useThemeMode } from '../../hooks/useThemeMode';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -68,6 +69,9 @@ export function AdminLayout() {
       : []),
     { key: '/admin/authentication', icon: <LockOutlined />, label: 'Authentication' },
     { key: '/admin/audit', icon: <AuditOutlined />, label: 'Audit Log' },
+    ...(hasPermission('system:config')
+      ? [{ key: '/admin/sync-runs', icon: <SyncOutlined />, label: 'Sync Runs' }]
+      : []),
   ];
 
   // Theme-aware colors
