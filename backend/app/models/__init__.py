@@ -19,6 +19,7 @@ from app.models.image_version import ImageVersion
 from app.models.mirror import Mirror
 from app.models.mirror_log import MirrorLog, MirrorLogType
 from app.models.mirror_release_log import MirrorReleaseLog
+from app.models.notification_outbox import NotificationOutbox
 from app.models.oidc_provider import OIDCProvider
 from app.models.permission import Permission, role_permissions
 from app.models.pipeline import Pipeline, PipelineComponent
@@ -71,6 +72,7 @@ __all__ = [
     "MirrorLog",
     "MirrorLogType",
     "MirrorReleaseLog",
+    "NotificationOutbox",
     "OIDCProvider",
     "Pipeline",
     "PipelineComponent",
