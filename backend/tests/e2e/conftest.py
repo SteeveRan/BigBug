@@ -3,9 +3,10 @@
 @description E2E fixtures against a live dev backend over real HTTP. No sqlite,
               no ``Base.metadata.create_all``, no dependency overrides and no
               monkeypatching of ``app.core.secrets`` — every interaction goes
-              through the running dev stand (kind, https://api.local).
+              through the running dev stand (kind, https://api.local), including
+              e2e account provisioning (seed + teardown via the public API).
 @dependencies httpx, pytest, pytest-asyncio, backend/tests/e2e/openapi_utils.py
-@relatedFiles ./openapi_utils.py, ../../scripts/test-e2e.sh, ../../scripts/seed_e2e.py
+@relatedFiles ./openapi_utils.py, ../../scripts/test-e2e.sh
 """
 
 from __future__ import annotations
@@ -20,18 +21,6 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncHTTPTransport
 
-from scripts.seed_e2e import (
-    E2E_ADMIN_PASSWORD as ADMIN_PASSWORD,
-)
-from scripts.seed_e2e import (
-    E2E_ADMIN_USERNAME as ADMIN_USERNAME,
-)
-from scripts.seed_e2e import (
-    E2E_OPERATOR_PASSWORD,
-    E2E_OPERATOR_USERNAME,
-    E2E_VIEWER_PASSWORD,
-    E2E_VIEWER_USERNAME,
-)
 from tests.e2e.openapi_utils import (
     CALLED_OPERATIONS,
     assert_matches_openapi,
@@ -55,9 +44,33 @@ __all__ = [
 
 BASE_URL = os.environ.get("BIGBUG_E2E_BASE_URL", "https://api.local").rstrip("/")
 
-# E2E accounts are provisioned by scripts/seed-e2e.sh (ADR-0024 §3) before the
-# run; credentials are shared constants from scripts/seed_e2e.py — no env-provided
-# admin credentials (ADR-0024 policy: no real credentials in e2e).
+# E2E accounts are provisioned through the public API (issue #134): a session
+# fixture logs in as the bootstrap admin (admin/admin, created by
+# bin/seed_admin.py at deploy) and POSTs/DELETEs /api/admin/users. Credentials
+# are test constants — no env-provided admin credentials (ADR-0024 policy: no
+# real credentials in e2e).
+
+E2E_ADMIN_USERNAME = "e2e-admin"
+E2E_ADMIN_PASSWORD = "e2e-admin-password"
+E2E_VIEWER_USERNAME = "e2e-viewer"
+E2E_VIEWER_PASSWORD = "e2e-viewer-password"
+E2E_OPERATOR_USERNAME = "e2e-operator"
+E2E_OPERATOR_PASSWORD = "e2e-operator-password"
+
+BOOTSTRAP_ADMIN_USERNAME = "admin"
+BOOTSTRAP_ADMIN_PASSWORD = "admin"
+
+# Legacy aliases (test_auth.py imports these from conftest).
+ADMIN_USERNAME = E2E_ADMIN_USERNAME
+ADMIN_PASSWORD = E2E_ADMIN_PASSWORD
+
+# (username, password, role) — created via POST /api/admin/users, deleted via
+# DELETE /api/admin/users/{id} in teardown.
+E2E_ACCOUNTS: tuple[dict[str, str], ...] = (
+    {"username": E2E_ADMIN_USERNAME, "password": E2E_ADMIN_PASSWORD, "role": "admin"},
+    {"username": E2E_VIEWER_USERNAME, "password": E2E_VIEWER_PASSWORD, "role": "viewer"},
+    {"username": E2E_OPERATOR_USERNAME, "password": E2E_OPERATOR_PASSWORD, "role": "operator"},
+)
 
 
 def _auth(token: str) -> dict[str, str]:
@@ -120,6 +133,11 @@ async def client() -> AsyncIterator[httpx.AsyncClient]:
 # the 5/min rate limit). A sync ``httpx.Client`` is used so the token fixtures
 # do not depend on pytest-asyncio's per-test event loop, which would break
 # session-scoped async fixtures.
+#
+# Accounts are provisioned/deleted through the public API (issue #134): the
+# session-scoped ``e2e_accounts`` fixture logs in as the bootstrap admin,
+# creates any missing e2e accounts (existing ones are used as-is), logs in
+# as each e2e account, and deletes the accounts in teardown.
 # ──────────────────────────────────────────────────────────────────────────
 
 
@@ -141,10 +159,74 @@ def _login_sync(username: str, password: str) -> str:
         return resp.json()["access_token"]
 
 
+def _list_users_sync(admin_token: str) -> list[dict[str, Any]]:
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        resp = c.get("/api/admin/users", headers=_auth(admin_token))
+        assert resp.status_code == 200, f"GET /api/admin/users failed: {resp.text}"
+        return resp.json()
+
+
+def _provision_e2e_accounts(admin_token: str) -> dict[str, int]:
+    """Create missing e2e accounts via POST /api/admin/users; return id map.
+
+    Existing accounts (e.g. a crashed previous run that skipped teardown) are
+    used as-is: with teardown in place there is no drift to repair.
+    """
+    existing = {u["username"]: u["id"] for u in _list_users_sync(admin_token)}
+    ids: dict[str, int] = {}
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        for spec in E2E_ACCOUNTS:
+            username = spec["username"]
+            if username in existing:
+                ids[username] = existing[username]
+                continue
+            resp = c.post(
+                "/api/admin/users",
+                headers=_auth(admin_token),
+                json={
+                    "username": username,
+                    "email": f"{username}@example.com",
+                    "password": spec["password"],
+                    "roles": [spec["role"]],
+                },
+            )
+            assert resp.status_code == 201, (
+                f"Creating e2e account '{username}' failed ({resp.status_code}): {resp.text}"
+            )
+            ids[username] = resp.json()["id"]
+    return ids
+
+
+def _delete_e2e_accounts(admin_token: str, ids: dict[str, int]) -> None:
+    """Delete the e2e accounts via DELETE /api/admin/users/{id} (teardown)."""
+    with httpx.Client(base_url=BASE_URL, timeout=30.0) as c:
+        for username, user_id in ids.items():
+            resp = c.delete(f"/api/admin/users/{user_id}", headers=_auth(admin_token))
+            assert resp.status_code == 204, (
+                f"Deleting e2e account '{username}' (id={user_id}) failed "
+                f"({resp.status_code}): {resp.text}"
+            )
+
+
 @pytest.fixture(scope="session")
-def admin_token() -> str:
-    """Access token for the seeded e2e-admin account (scripts/seed_e2e.py)."""
-    return _login_sync(ADMIN_USERNAME, ADMIN_PASSWORD)
+def bootstrap_admin_token() -> str:
+    """Access token for the bootstrap admin (admin/admin, bin/seed_admin.py)."""
+    return _login_sync(BOOTSTRAP_ADMIN_USERNAME, BOOTSTRAP_ADMIN_PASSWORD)
+
+
+@pytest.fixture(scope="session")
+def e2e_accounts(bootstrap_admin_token: str) -> Iterator[dict[str, int]]:
+    """Seed e2e accounts via the API before the run; delete them in teardown."""
+    ids = _provision_e2e_accounts(bootstrap_admin_token)
+    yield ids
+    _delete_e2e_accounts(bootstrap_admin_token, ids)
+
+
+@pytest.fixture(scope="session")
+def admin_token(e2e_accounts: dict[str, int]) -> str:
+    """Access token for the e2e-admin account (provisioned via the API)."""
+    del e2e_accounts
+    return _login_sync(E2E_ADMIN_USERNAME, E2E_ADMIN_PASSWORD)
 
 
 @pytest.fixture
@@ -154,12 +236,9 @@ def admin_headers(admin_token: str) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def viewer_token(admin_token: str) -> str:
-    """Access token for the seeded viewer account (scripts/seed-e2e.sh).
-
-    The seed creates stable e2e-viewer/e2e-operator accounts; the token is
-    refreshed per session (no user teardown — accounts are idempotent).
-    """
+def viewer_token(e2e_accounts: dict[str, int]) -> str:
+    """Access token for the seeded viewer account (provisioned via the API)."""
+    del e2e_accounts
     return _login_sync(E2E_VIEWER_USERNAME, E2E_VIEWER_PASSWORD)
 
 
@@ -170,8 +249,9 @@ def viewer_headers(viewer_token: str) -> dict[str, str]:
 
 
 @pytest.fixture(scope="session")
-def operator_token(admin_token: str) -> str:
-    """Access token for the seeded operator account (scripts/seed-e2e.sh)."""
+def operator_token(e2e_accounts: dict[str, int]) -> str:
+    """Access token for the seeded operator account (provisioned via the API)."""
+    del e2e_accounts
     return _login_sync(E2E_OPERATOR_USERNAME, E2E_OPERATOR_PASSWORD)
 
 

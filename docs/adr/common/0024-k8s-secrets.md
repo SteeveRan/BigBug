@@ -57,11 +57,11 @@ config root влит туда 2026-10-23), поэтому в момент их a
 
 **2. `.env` сжимается**: [`infrastructure/update-env.sh`](../../../infrastructure/update-env.sh) остаётся только для хостовых инструментов, которым нужен доступ извне кластера: e2e-скрипты (`BIGBUG_E2E_BASE_URL=http://api.local`), `tofu`/CLI с GitLab PAT. Конфигурация приложения — целиком через k8s Secret/values ([ADR-0023](../infrastructure/0023-bigbug-helm-chart.md)).
 
-**3. E2E-учётки** ([ADR-0018](0018-e2e-testing-strategy.md)): отдельный seed-скрипт (`backend/scripts/seed-e2e.sh`, make-цель), вызывается из `test-e2e.sh` **до прогона** и создаёт тестовых пользователей:
-- в БД BigBug (локальный email/password auth — через API или seed-функцию);
+**3. E2E-учётки** ([ADR-0018](0018-e2e-testing-strategy.md)): e2e-тестовые пользователи создаются и удаляются **через публичный API** (`POST`/`DELETE /api/admin/users`) фикстурами `backend/tests/e2e/conftest.py` (issue #134; bootstrap-админ `admin`/`admin` создаётся `bin/seed_admin.py` при деплое):
+- в БД BigBug (локальный email/password auth — через API);
 - в realm `bigbug` Keycloak (SSO-сценарии — приоритет: они самые сложные и легко ломаются; realm-пользователи добавляются в tofu-модуль keycloak `users.tf`, чтобы пересоздавались вместе со стендом).
 
-Политика: **никаких реальных кредов в e2e** — только seeded-учётки с известными паролями из фикстур скрипта.
+Политика: **никаких реальных кредов в e2e** — только тестовые учётки с известными паролями-константами из `conftest.py`.
 
 **4. Провайдер и контекст**: `hashicorp/kubernetes` — не новая внешняя зависимость (поставляется с tofu), но новый паттерн «tofu управляет k8s-объектами»; это расширение границы IaC из ADR-0013 (раньше — «управление ресурсами внутри kind-кластера через tofu» было non-goal).
 

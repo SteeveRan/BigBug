@@ -239,7 +239,7 @@ async def _seed() -> int:
         )
         result = await session.execute(stmt)
         # WHY first-or-none, not scalar_one_or_none: e2e seeds additional
-        # admin accounts (scripts/seed_e2e.py, issue #60) — multiple active
+        # admin accounts (tests/e2e/conftest.py, issue #60) — multiple active
         # admins are a valid state; any one of them proves bootstrapping done.
         existing_admin = result.scalars().first()
 

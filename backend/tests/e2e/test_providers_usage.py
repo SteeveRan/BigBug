@@ -29,17 +29,22 @@ class TestProviderUsage:
 
 class TestProviderShare:
     async def test_share_and_unshare_private_provider(
-        self, client: AsyncClient, admin_headers: dict, unique_name: str, openapi_spec: dict
+        self,
+        client: AsyncClient,
+        admin_headers: dict,
+        unique_name: str,
+        openapi_spec: dict,
     ):
-        # Determine admin's user id for team ownership.
-        me = await client.get("/api/auth/me", headers=admin_headers)
-        assert me.status_code == 200
-        admin_user_id = me.json()["id"]
-
+        # WHY owner_user_id=1 (bootstrap admin, id=1 — never deleted): teams are
+        # soft-deleted (the row stays, FK RESTRICT on owner_user_id), so a
+        # team-owner user is undeletable via the API — e2e accounts must stay
+        # deletable for the session teardown (issue #134). Same pattern as
+        # viewer-team in test_teams.py; the soft-deleted row owned by the
+        # persistent bootstrap admin is accepted stand state.
         team = await client.post(
             "/api/teams",
             headers=admin_headers,
-            json={"name": f"share-team-{unique_name}", "owner_user_id": admin_user_id},
+            json={"name": f"share-team-{unique_name}", "owner_user_id": 1},
         )
         assert team.status_code == 201
         team_id = team.json()["id"]
