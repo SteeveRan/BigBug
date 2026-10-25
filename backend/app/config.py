@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     default_build_cron: str = "0 3 * * 0"
     # Reconciliation pass (drift catcher, ADR-0039 Phase 3): daily 04:00 UTC.
     reconcile_cron: str = "0 4 * * *"
+    # PEL reaper (issue #116): every 10 min; poison ceiling stops the re-add
+    # loop for entries that keep dying (logged + outbox event instead).
+    reaper_cron: str = "*/10 * * * *"
+    reaper_poison_max_reclaims: int = 3
 
     # Task queue (taskiq + RedisStreamBroker)
     # WHY when_executed: at-least-once semantics require acking after the task
