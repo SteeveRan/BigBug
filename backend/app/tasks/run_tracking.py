@@ -2,13 +2,22 @@
 
 Wraps task bodies — never business services — with a ``sync_runs`` row plus a
 heartbeat pulse. Best-effort by design: tracking errors are logged and never
-fail the tracked task. Correlation for retries: the newest row for the same
-(task_name, entity_type, entity_id) key with status="failed" is reused (one
-row per logical run, attempts incremented); a manual retry via the admin API
-enqueues a fresh run that finds no row to reuse and starts with attempts=1.
+fail the tracked task.
+
+Row lifecycle (DB-as-DLQ): ``enqueue()`` writes a ``queued`` row before
+publishing; on start this wrapper atomically claims the newest queued row for
+the task name (guarded UPDATE, rowcount check — no double adoption). If there
+is no queued row to claim (broker-publish failed after the row write failed,
+or a taskiq middleware retry, which bypasses enqueue), the newest "failed" row
+of the same (task_name, entity_type, entity_id) key is reused (one row per
+logical run, attempts incremented); otherwise a fresh row is created.
+A manual retry via the admin API enqueues a fresh run that starts at
+attempts=1. "Stuck" is computed: running with stale heartbeat, or queued
+longer than the stuck window (phantom row after a broker outage).
 """
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -46,6 +55,82 @@ async def _heartbeat_loop(run_id: int) -> None:
             logger.exception("Heartbeat pulse failed for sync_run %d", run_id)
 
 
+async def _claim_or_create_run(
+    db,
+    task_name: str,
+    entity_type: str | None,
+    entity_id: int | None,
+    payload: dict[str, Any] | None,
+) -> SyncRun:
+    """Atomic claim of the newest queued row, with fallbacks.
+
+    1. Claim: guarded UPDATE (WHERE status='queued') — two concurrent workers
+       of the same task cannot both win; the loser's rowcount is 0.
+    2. Fallback A (taskiq middleware retry / queued-row write failed):
+       reuse the newest "failed" row of the same key → attempts+1.
+    3. Fallback B: fresh "running" row.
+    """
+    now = _now()
+
+    queued_id_result = await db.execute(
+        select(SyncRun.id)
+        .where(SyncRun.task_name == task_name, SyncRun.status == "queued")
+        .order_by(SyncRun.id.desc())
+        .limit(1)
+    )
+    queued_id = queued_id_result.scalar_one_or_none()
+    if queued_id is not None:
+        claim = await db.execute(
+            update(SyncRun)
+            .where(SyncRun.id == queued_id, SyncRun.status == "queued")
+            .values(
+                status="running",
+                attempts=SyncRun.attempts + 1,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                started_at=now,
+                heartbeat_at=now,
+                error=None,
+                finished_at=None,
+            )
+        )
+        if claim.rowcount == 1:
+            result = await db.execute(select(SyncRun).where(SyncRun.id == queued_id))
+            return result.scalar_one()
+
+    # Broker-middleware retry (bypasses enqueue): reuse the failed row.
+    result = await db.execute(
+        select(SyncRun)
+        .where(
+            SyncRun.task_name == task_name,
+            SyncRun.entity_type == entity_type,
+            SyncRun.entity_id == entity_id,
+            SyncRun.status == "failed",
+        )
+        .order_by(SyncRun.id.desc())
+        .limit(1)
+    )
+    run = result.scalar_one_or_none()
+    if run is not None:
+        run.attempts += 1
+    else:
+        run = SyncRun(
+            task_name=task_name,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            payload=payload,
+            attempts=1,
+            max_attempts=settings.task_max_retries,
+        )
+        db.add(run)
+    run.status = "running"
+    run.started_at = now
+    run.heartbeat_at = now
+    run.error = None
+    run.finished_at = None
+    return run
+
+
 @asynccontextmanager
 async def track_sync_run(
     task_name: str,
@@ -61,43 +146,17 @@ async def track_sync_run(
         async with track_sync_run("my_task", entity_id=1) as run:
             await do_work()
 
-    On entry: reuse the newest "failed" row for the same key (retry →
-    attempts+1) or create a fresh "running" row. On exit: succeeded, or
-    failed / failed_permanent when attempts reach max_attempts. The body
-    exception is always re-raised so the broker retry middleware works.
+    On entry: atomically claim the newest "queued" row for the task name
+    (written by enqueue before publish), else reuse the newest "failed" row
+    for the same key (retry → attempts+1), else create a fresh "running" row.
+    On exit: succeeded, or failed / failed_permanent when attempts reach
+    max_attempts. The body exception is always re-raised so the broker retry
+    middleware works.
     """
     ticker: asyncio.Task | None = None
     try:
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(SyncRun)
-                .where(
-                    SyncRun.task_name == task_name,
-                    SyncRun.entity_type == entity_type,
-                    SyncRun.entity_id == entity_id,
-                    SyncRun.status == "failed",
-                )
-                .order_by(SyncRun.id.desc())
-                .limit(1)
-            )
-            run = result.scalar_one_or_none()
-            if run is not None:
-                run.attempts += 1
-            else:
-                run = SyncRun(
-                    task_name=task_name,
-                    entity_type=entity_type,
-                    entity_id=entity_id,
-                    payload=payload,
-                    attempts=1,
-                    max_attempts=settings.task_max_retries,
-                )
-                db.add(run)
-            run.status = "running"
-            run.started_at = _now()
-            run.heartbeat_at = run.started_at
-            run.error = None
-            run.finished_at = None
+            run = await _claim_or_create_run(db, task_name, entity_type, entity_id, payload)
             await db.commit()
             run_id = run.id
             attempts, max_attempts = run.attempts, run.max_attempts
@@ -138,6 +197,10 @@ async def track_sync_run(
     finally:
         if ticker is not None:
             ticker.cancel()
+            # Await the cancellation: an un-awaited cancelled task may finish
+            # its DB session during a LATER test/transaction on this process.
+            with contextlib.suppress(asyncio.CancelledError):
+                await ticker
 
 
 async def run_tracked(
@@ -155,15 +218,27 @@ async def run_tracked(
         return await body()
 
 
-def is_stuck(status: str, heartbeat_at: datetime | None) -> bool:
-    """Stuck = running with a heartbeat older than the configured window."""
+def is_stuck(
+    status: str,
+    heartbeat_at: datetime | None,
+    created_at: datetime | None = None,
+) -> bool:
+    """Stuck = running with a stale heartbeat, or queued past the window
+    (phantom row: the broker publish failed — the task never started)."""
+    if status == "queued":
+        if created_at is None:
+            return False
+        age = _now() - _aware(created_at)
+        return age.total_seconds() >= settings.sync_stuck_after_minutes * 60
     if status != "running" or heartbeat_at is None:
         return False
-    hb = heartbeat_at
-    if hb.tzinfo is None:  # SQLite (tests) returns naive UTC datetimes
-        hb = hb.replace(tzinfo=UTC)
-    stale = _now() - hb
+    stale = _now() - _aware(heartbeat_at)
     return stale.total_seconds() >= settings.sync_stuck_after_minutes * 60
+
+
+def _aware(dt: datetime) -> datetime:
+    # SQLite (tests) returns naive UTC datetimes.
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _resolve_task(task_name: str) -> Any:

@@ -45,7 +45,7 @@ def _to_out(run: SyncRun) -> SyncRunOut:
         finished_at=run.finished_at,
         error=run.error,
         created_at=run.created_at,
-        stuck=is_stuck(run.status, run.heartbeat_at),
+        stuck=is_stuck(run.status, run.heartbeat_at, run.created_at),
     )
 
 
@@ -66,7 +66,13 @@ async def _reenqueue(run: SyncRun) -> None:
             detail=f"Unknown task '{run.task_name}' — cannot re-enqueue",
         )
     payload = run.payload or {}
-    await enqueue(task, *(payload.get("args") or []), **(payload.get("kwargs") or {}))
+    await enqueue(
+        task,
+        *(payload.get("args") or []),
+        entity_type=run.entity_type,
+        entity_id=run.entity_id,
+        **(payload.get("kwargs") or {}),
+    )
 
 
 async def _audit(
@@ -112,7 +118,7 @@ async def list_sync_runs(
     result = await db.execute(query)
     runs = result.scalars().all()
     if stuck:
-        runs = [r for r in runs if is_stuck(r.status, r.heartbeat_at)]
+        runs = [r for r in runs if is_stuck(r.status, r.heartbeat_at, r.created_at)]
     return [_to_out(r) for r in runs]
 
 
@@ -163,10 +169,11 @@ async def requeue_sync_run(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_permission("system:config")),
 ):
-    """Requeue a stuck run (running with a stale heartbeat): the old row is
-    marked superseded and the task is re-enqueued fresh."""
+    """Requeue a stuck run (running with a stale heartbeat, or a phantom
+    queued row after a broker outage): the old row is marked superseded and
+    the task is re-enqueued fresh."""
     run = await _get_run(db, run_id)
-    if not is_stuck(run.status, run.heartbeat_at):
+    if not is_stuck(run.status, run.heartbeat_at, run.created_at):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Only stuck runs (running with stale heartbeat) can be requeued",

@@ -12330,7 +12330,7 @@
     },
     "/api/admin/sync-runs/{run_id}/requeue": {
       "post": {
-        "description": "Requeue a stuck run (running with a stale heartbeat): the old row is\nmarked superseded and the task is re-enqueued fresh.",
+        "description": "Requeue a stuck run (running with a stale heartbeat, or a phantom\nqueued row after a broker outage): the old row is marked superseded and\nthe task is re-enqueued fresh.",
         "operationId": "requeue_sync_run_api_admin_sync_runs__run_id__requeue_post",
         "parameters": [
           {
