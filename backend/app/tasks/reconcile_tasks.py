@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import AsyncSessionLocal
 from app.models.docker_image_source import DockerImageSource
 from app.tasks.broker import broker
+from app.tasks.run_tracking import run_tracked
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,17 @@ async def reconcile_docker_source_task(source_id: int) -> dict:
     """Reconcile one DockerImageSource against its target registry."""
     from app.services.reconciliation import reconcile_docker_source
 
-    async with AsyncSessionLocal() as db:
-        return await reconcile_docker_source(db, source_id)
+    async def _body() -> dict:
+        async with AsyncSessionLocal() as db:
+            return await reconcile_docker_source(db, source_id)
+
+    return await run_tracked(
+        "reconcile_docker_source_task",
+        _body,
+        entity_type="docker_image_source",
+        entity_id=source_id,
+        payload={"args": [source_id], "kwargs": {}},
+    )
 
 
 @broker.task(**_TASK_LABELS)
@@ -38,15 +48,18 @@ async def reconcile_all_task() -> list[dict]:
     """Reconcile every DockerImageSource (cron pass body)."""
     from app.services.reconciliation import reconcile_docker_source
 
-    summaries: list[dict] = []
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(select(DockerImageSource))
-        sources = result.scalars().all()
-
-    for source in sources:
+    async def _body() -> list[dict]:
+        summaries: list[dict] = []
         async with AsyncSessionLocal() as db:
-            try:
-                summaries.append(await reconcile_docker_source(db, source.id))
-            except Exception:
-                logger.exception("Reconcile pass failed for source %d", source.id)
-    return summaries
+            result = await db.execute(select(DockerImageSource))
+            sources = result.scalars().all()
+
+        for source in sources:
+            async with AsyncSessionLocal() as db:
+                try:
+                    summaries.append(await reconcile_docker_source(db, source.id))
+                except Exception:
+                    logger.exception("Reconcile pass failed for source %d", source.id)
+        return summaries
+
+    return await run_tracked("reconcile_all_task", _body, payload={"args": [], "kwargs": {}})

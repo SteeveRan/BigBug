@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     task_idle_timeout_ms: int = 1_800_000
     task_max_retries: int = 3
 
+    # Sync-run tracking (issue #112): heartbeat pulse interval for running
+    # tasks and the staleness window after which a running run is reported
+    # as stuck (computed: status=running AND heartbeat older than this).
+    sync_heartbeat_interval_seconds: int = 60
+    sync_stuck_after_minutes: int = 5
+
     # Stale threshold
     default_stale_threshold_days: int = 30
 

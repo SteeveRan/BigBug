@@ -23,6 +23,7 @@ from app.api import (
     providers,
     reports,
     schedules,
+    sync_runs,
     teams,
     trust_stores,
     webhooks,
@@ -72,6 +73,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(sync_runs.router, prefix="/api/admin/sync-runs", tags=["admin"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(gold_images.router, prefix="/api/gold-images", tags=["gold-images"])
 app.include_router(app_images.router, prefix="/api/app-images", tags=["app-images"])

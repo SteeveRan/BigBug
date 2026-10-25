@@ -45,6 +45,7 @@ from app.models.role_scope import (
 from app.models.source_group import SourceGroup
 from app.models.source_repository import DiscoveryStatus, SourceRepository
 from app.models.sync_group import SyncGroup
+from app.models.sync_run import SyncRun
 from app.models.sync_schedule import SyncSchedule
 from app.models.team import Team, TeamRole
 from app.models.team_member import TeamMember
@@ -93,6 +94,7 @@ __all__ = [
     "SourceGroup",
     "SourceRepository",
     "SyncGroup",
+    "SyncRun",
     "SyncSchedule",
     "Team",
     "TeamRole",
