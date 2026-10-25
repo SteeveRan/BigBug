@@ -236,6 +236,7 @@ class TestLifecycle:
             await scheduler.stop()
 
         asyncio.run(_run())  # Should not raise
+        assert scheduler._scheduler is None  # stop() before start() leaves state clean
 
 
 # ---------------------------------------------------------------------------

@@ -278,7 +278,7 @@ describe('AuditLogPage', () => {
   // Test 10: Smoke test — renders without crashing
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderAuditLogPage();
-    expect(container).toBeTruthy();
+    renderAuditLogPage();
+    expect(screen.getByText('Audit Log')).toBeInTheDocument();
   });
 });

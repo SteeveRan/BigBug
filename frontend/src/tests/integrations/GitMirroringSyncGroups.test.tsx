@@ -390,8 +390,8 @@ describe('SyncGroupsPage', () => {
   // Test 10: smoke test
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderSyncGroupsPage();
-    expect(container).toBeTruthy();
+    renderSyncGroupsPage();
+    expect(screen.getAllByText('Sync Groups').length).toBeGreaterThanOrEqual(1);
   });
 
   // =======================================================================

@@ -76,7 +76,7 @@ function renderModal(options: RenderModalOptions = {}) {
   const onClose = vi.fn();
   const user = userEvent.setup();
 
-  const result = render(
+  const view = render(
     <Provider store={store}>
       <App>
         <AddRepositoryModal
@@ -88,7 +88,7 @@ function renderModal(options: RenderModalOptions = {}) {
     </Provider>
   );
 
-  return { store, onClose, user, ...result };
+  return { store, onClose, user, ...view };
 }
 
 // ---------------------------------------------------------------------------

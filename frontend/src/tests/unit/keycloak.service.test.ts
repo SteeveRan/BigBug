@@ -134,7 +134,7 @@ describe('redirectToKeycloakLogin', () => {
 
     expect(sessionStorage.setItem).toHaveBeenCalledWith(SSO_VERIFIER_KEY, expect.any(String));
     const storedValue = mockStorage[SSO_VERIFIER_KEY];
-    expect(storedValue).toBeDefined();
+    // PKCE verifier must be non-empty, padding-free (base64url)
     expect(storedValue!.length).toBeGreaterThan(0);
     expect(storedValue).not.toContain('=');
     expect(mockStorage[SSO_PROVIDER_KEY]).toBe('7');
@@ -162,7 +162,8 @@ describe('redirectToKeycloakLogin', () => {
     expect(url.searchParams.get('redirect_uri')).toBe('https://app.example.com/sso/callback');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('scope')).toBe('openid profile email');
-    expect(url.searchParams.get('code_challenge')).toBeTruthy();
+    // SHA-256 base64url challenge is deterministic 43 chars (see test above)
+    expect(url.searchParams.get('code_challenge')).toHaveLength(43);
     expect(url.searchParams.get('state')).toBe('42');
   });
 });

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
@@ -276,7 +276,7 @@ describe('ProfilePage', () => {
     expect(screen.getByText("You don't have any providers")).toBeInTheDocument();
   });
 
-  it('shows team members when a team row is expanded', () => {
+  it('shows team members when a team row is expanded', async () => {
     (useGetMeQuery as ReturnType<typeof vi.fn>).mockReturnValue({
       data: me,
       isLoading: false,
@@ -300,10 +300,13 @@ describe('ProfilePage', () => {
 
     const store = createTestStore();
     store.dispatch(setUser(me));
-    renderProfile(store);
+    const { container } = renderProfile(store);
 
-    // `useGetTeamMembersQuery` вызывается только при раскрытии строки,
-    // но сам mock можно проверить косвенно через рендер компонента.
-    expect(useGetTeamMembersQuery).toBeTruthy();
+    // Раскрываем строку команды — expandedRowRender монтирует TeamMembers,
+    // который дергает useGetTeamMembersQuery и рендерит username.
+    fireEvent.click(container.querySelector('.ant-table-row-expand-icon')!);
+    // jdoe appears both in members table and lead badge — assert expansion happened
+    const memberCells = await screen.findAllByText('jdoe');
+    expect(memberCells.length).toBeGreaterThanOrEqual(2);
   });
 });

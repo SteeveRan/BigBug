@@ -288,7 +288,7 @@ describe('PipelinesPage', () => {
   // Test 9: Smoke test — renders without crashing
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderPipelinesPage();
-    expect(container).toBeTruthy();
+    renderPipelinesPage();
+    expect(screen.getByText('Pipeline Runs')).toBeInTheDocument();
   });
 });

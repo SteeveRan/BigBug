@@ -18,7 +18,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.core.rbac import RoleName
 from app.models.gitlab_component import GitLabComponent
 from app.models.permission import Permission, role_permissions
@@ -178,13 +178,12 @@ class TestTriggerComponent:
         await db_session.commit()
 
         # Try to trigger with missing required field - should raise BadRequestError
-        with pytest.raises(Exception) as exc_info:  # Will be BadRequestError
+        with pytest.raises(BadRequestError, match="required_field"):
             await pipeline_service.trigger_component(
                 db_session,
                 component_id=component.id,
                 inputs={},  # Missing required field
             )
-        assert "required_field" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_trigger_component_handles_missing_gitlab_project(self, db_session: AsyncSession):
@@ -572,7 +571,6 @@ class TestUpdatedPipelineRunModel:
             component_id=5,  # This should be supported now
         )
 
-        assert hasattr(run, "component_id")
         assert run.component_id == 5
 
     def test_pipeline_run_component_id_nullable(self, db_session: AsyncSession):

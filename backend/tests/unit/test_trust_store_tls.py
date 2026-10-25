@@ -172,7 +172,7 @@ class TestDispatchInjectsVerify:
         return ResourceProvider(**values)
 
     @pytest.mark.parametrize(
-        "subtype,client_cls",
+        ("subtype", "client_cls"),
         [
             (ProviderSubtype.generic_git, "GenericGitClient"),
             (ProviderSubtype.harbor, "HarborClient"),

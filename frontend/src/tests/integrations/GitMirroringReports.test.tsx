@@ -560,7 +560,7 @@ describe('ReportsPage', () => {
   // Test 9: Smoke test — renders without crashing
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderReportsPage();
-    expect(container).toBeTruthy();
+    renderReportsPage();
+    expect(screen.getByText('Git Mirroring Reports')).toBeInTheDocument();
   });
 });

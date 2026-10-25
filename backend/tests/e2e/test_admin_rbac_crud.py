@@ -138,7 +138,7 @@ class TestAdminRoleScopes:
         await client.delete(f"/api/admin/roles/{role['id']}", headers=admin_headers)
 
     @pytest.mark.parametrize(
-        "resource,id_field",
+        ("resource", "id_field"),
         [
             ("source-groups", "source_group_id"),
             ("credentials", "credential_id"),

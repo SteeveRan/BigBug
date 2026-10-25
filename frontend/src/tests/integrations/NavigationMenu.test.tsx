@@ -16,7 +16,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router';
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { configureStore } from '@reduxjs/toolkit';
 import { App } from 'antd';
 
@@ -230,6 +230,7 @@ import { PipelinesPage } from '../../pages/Pipelines/Runs';
 import { GitLabComponentsPage } from '../../pages/Pipelines/Components';
 import { ProvidersPage } from '../../pages/Settings/Providers';
 import { ProfilePage } from '../../pages/Profile';
+import { RedirectMirroringRepositoryId } from '../../router';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -591,10 +592,8 @@ describe('NavigationMenu — все пункты меню', () => {
       routerPermissions.push('admin:panel:access');
 
       for (const perm of routerPermissions) {
-        expect(
-          allCanonicalPermissions,
-          `Permission "${perm}" из router/index.tsx отсутствует в PERMISSION_GROUPS!`
-        ).toContain(perm);
+        // Message отдельно от matcher — vitest/valid-expect требует ≤1 аргумент у expect
+        expect(allCanonicalPermissions).toContain(perm);
       }
     });
   });
@@ -603,9 +602,24 @@ describe('NavigationMenu — все пункты меню', () => {
 
   describe('Редирект-хелперы для Git Mirroring V2', () => {
     it('RedirectMirroringRepositoryId редиректит /mirroring/repositories/:id → /git-mirroring/repositories/:id', () => {
-      // Хелпер RedirectMirroringRepositoryId использует useParams и Navigate
-      // Полная проверка — через рендеринг AppRouter с MemoryRouter (см. ниже)
-      expect(true).toBe(true);
+      // Рендерим хелпер внутри MemoryRouter с параметром :id
+      // и ловим целевой URL через Route, который читает location.
+      let actualPath: string | null = null;
+      function LocationProbe() {
+        const location = useLocation();
+        actualPath = location.pathname;
+        return null;
+      }
+      render(
+        <MemoryRouter initialEntries={['/mirroring/repositories/5']}>
+          <Routes>
+            <Route path="mirroring/repositories/:id" element={<RedirectMirroringRepositoryId />} />
+            <Route path="git-mirroring/repositories/:id" element={<LocationProbe />} />
+            <Route path="*" element={<div>NO_REDIRECT</div>} />
+          </Routes>
+        </MemoryRouter>
+      );
+      expect(actualPath).toBe('/git-mirroring/repositories/5');
     });
   });
 
@@ -613,7 +627,9 @@ describe('NavigationMenu — все пункты меню', () => {
 
   describe('AppRouter: редиректы со старых URL', () => {
     it('AppRouter импортируется без ошибок', async () => {
-      // AppRouter успешно импортирован и экспортирован
+      // Import-smoke: полный рендер AppRouter требует авторизационных моков всех
+      // страниц (lazy-импорты, keycloak); redirect-пути покрыты тестом
+      // RedirectMirroringRepositoryId выше и e2e-сьюитом.
       const routerModule = await import('../../router');
       expect(routerModule.AppRouter).toBeDefined();
     });

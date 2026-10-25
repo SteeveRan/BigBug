@@ -147,8 +147,9 @@ describe('DockerImagesCreate', () => {
     expect(await dialog.findByText('Sync Target')).toBeInTheDocument();
 
     // antd Select interactions: click the target select then pick the option.
+    // closest/parentElement chain to the Select wrapper — no role/label to query by
     const targetSelect = dialog.getByText('Sync Target').closest('div')?.parentElement;
-    expect(targetSelect).toBeTruthy();
+    expect(targetSelect).not.toBeNull();
 
     await user.click(dialog.getByRole('button', { name: 'Add Image' }));
 

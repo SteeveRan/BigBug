@@ -6,6 +6,7 @@
 @relatedFiles ../../app/services/audit.py, ../../app/models/audit_log.py
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
@@ -44,9 +45,12 @@ class TestAuditServiceLogEvent:
         assert logs[0].user_id == 1
 
     @pytest.mark.asyncio
-    async def test_log_event_never_raises(self, db_session: AsyncSession):
-        """log_event never raises exceptions even if DB commit fails."""
-        with patch.object(db_session, "commit", side_effect=RuntimeError("DB down")):
+    async def test_log_event_never_raises(self, db_session: AsyncSession, caplog):
+        """log_event never raises exceptions even if DB commit fails; it logs the failure."""
+        with (
+            patch.object(db_session, "commit", side_effect=RuntimeError("DB down")),
+            caplog.at_level(logging.ERROR, logger="app.services.audit"),
+        ):
             # Should not raise
             await AuditService.log_event(
                 db_session,
@@ -55,7 +59,7 @@ class TestAuditServiceLogEvent:
                 action="login",
                 resource_type="auth",
             )
-        # Test passes if no exception was raised
+        assert any("Failed to write audit log" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_log_event_with_all_fields(self, db_session: AsyncSession):

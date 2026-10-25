@@ -625,7 +625,7 @@ class TestBulkAssignMirrors:
         pipeline = await _seed_pipeline(db_session, "bam-err-pipeline")
         group = await _seed_sync_group(db_session, "bam-err-group", pipeline.id, is_default=True)
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="Mirrors not found") as exc_info:
             await SyncGroupService.bulk_assign_mirrors(
                 db_session,
                 sync_group_id=group.id,

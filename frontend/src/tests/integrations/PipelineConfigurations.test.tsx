@@ -315,13 +315,11 @@ describe('PipelineConfigsPage', () => {
     // Find the delete button — it has danger class in Ant Design
     const deleteBtn = document.querySelector('.ant-btn-dangerous');
     expect(deleteBtn).not.toBeNull();
-    if (deleteBtn) {
-      await userEvent.click(deleteBtn);
-      // Popconfirm should appear
-      await waitFor(() => {
-        expect(screen.getByText(/This action cannot be undone/)).toBeInTheDocument();
-      });
-    }
+    await userEvent.click(deleteBtn!);
+    // Popconfirm should appear
+    await waitFor(() => {
+      expect(screen.getByText(/This action cannot be undone/)).toBeInTheDocument();
+    });
   });
 
   // -----------------------------------------------------------------------

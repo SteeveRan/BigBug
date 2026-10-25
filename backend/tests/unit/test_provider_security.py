@@ -34,12 +34,12 @@ class TestFernetRoundtrip:
 class TestConfigDenyList:
     def test_exact_keys_rejected(self):
         for key in ["token", "password", "secret", "key", "auth", "private_key", "credential"]:
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="secret-like key"):
                 _deny_secret_keys({key: "x"})
 
     def test_suffix_keys_rejected(self):
         for key in ["api_token", "db_password", "aws_secret", "ssh_key", "reg_credentials"]:
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="secret-like key"):
                 _deny_secret_keys({key: "x"})
 
     def test_safe_canonical_keys_allowed(self):

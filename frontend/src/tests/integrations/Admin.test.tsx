@@ -256,6 +256,7 @@ describe('AdminPage (Users)', () => {
     // DeleteOutlined icon button should be in the table row
     const rows = document.querySelectorAll('.ant-table-row');
     expect(rows.length).toBe(1);
+    // row action button renders an antd icon, no accessible name — query by class
     const deleteBtn = rows[0].querySelector('.anticon-delete');
     expect(deleteBtn).toBeTruthy();
   });
@@ -264,7 +265,7 @@ describe('AdminPage (Users)', () => {
   // Test 9: Smoke test — renders without crashing
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderAdminPage();
-    expect(container).toBeTruthy();
+    renderAdminPage();
+    expect(screen.getByText('Users')).toBeInTheDocument();
   });
 });

@@ -365,8 +365,8 @@ describe('MirrorsPage', () => {
   // Test 8: Smoke test
   // -----------------------------------------------------------------------
   it('renders without crashing (smoke test)', () => {
-    const { container } = renderMirrorsPage();
-    expect(container).toBeTruthy();
+    renderMirrorsPage();
+    expect(screen.getByText('Create Mirror')).toBeInTheDocument();
   });
 
   // -----------------------------------------------------------------------
