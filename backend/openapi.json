@@ -4753,6 +4753,32 @@
         "title": "LoginRequest",
         "type": "object"
       },
+      "MaintenanceOut": {
+        "properties": {
+          "maintenance_mode": {
+            "title": "Maintenance Mode",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "maintenance_mode"
+        ],
+        "title": "MaintenanceOut",
+        "type": "object"
+      },
+      "MaintenanceUpdate": {
+        "properties": {
+          "maintenance_mode": {
+            "title": "Maintenance Mode",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "maintenance_mode"
+        ],
+        "title": "MaintenanceUpdate",
+        "type": "object"
+      },
       "MirrorBulkCreate": {
         "description": "Payload to create multiple mirrors at once, sharing defaults.",
         "properties": {
@@ -10967,6 +10993,80 @@
           }
         ],
         "summary": "Manual Cleanup",
+        "tags": [
+          "admin",
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/maintenance": {
+      "get": {
+        "description": "Current maintenance-mode flag.",
+        "operationId": "get_maintenance_api_admin_maintenance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Maintenance",
+        "tags": [
+          "admin",
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "Toggle maintenance mode; writes an audit event (ADR-0026).",
+        "operationId": "update_maintenance_api_admin_maintenance_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Maintenance",
         "tags": [
           "admin",
           "admin"
@@ -21943,6 +22043,28 @@
         "summary": "List Sync Schedules",
         "tags": [
           "schedules"
+        ]
+      }
+    },
+    "/api/status/maintenance": {
+      "get": {
+        "description": "Public, unauthenticated banner endpoint (issue #114). Reads the flag\ndirectly (no scheduler TTL cache) via the request session.",
+        "operationId": "get_maintenance_status_api_status_maintenance_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Maintenance Status",
+        "tags": [
+          "status"
         ]
       }
     },

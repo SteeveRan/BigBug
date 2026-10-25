@@ -20,6 +20,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.services.platform_settings import is_maintenance_mode
 from app.services.sync_group import SyncGroupService
 from app.tasks.enqueue import enqueue
 from app.tasks.metadata_tasks import fetch_metadata_task  # noqa: F401  (worker import surface)
@@ -27,6 +28,7 @@ from app.tasks.pass_lock import job_pass_lock
 from app.tasks.sync_tasks import freshness_group_task, sync_group_task
 
 logger = logging.getLogger(__name__)
+_maintenance_logged = False
 
 
 class SyncScheduler:
@@ -220,6 +222,13 @@ class SyncScheduler:
         concurrency: int,
     ) -> None:
         """APScheduler job: enqueue one sync pass for *sync_group_id*."""
+        global _maintenance_logged
+        if await is_maintenance_mode():
+            if not _maintenance_logged:
+                logger.warning("Maintenance mode ON — skipping SyncScheduler passes")
+                _maintenance_logged = True
+            return
+        _maintenance_logged = False
         async with job_pass_lock(f"sync_group_{sync_group_id}") as acquired:
             if not acquired:
                 return
@@ -231,6 +240,13 @@ class SyncScheduler:
         concurrency: int,
     ) -> None:
         """APScheduler job: enqueue one freshness pass for *sync_group_id*."""
+        global _maintenance_logged
+        if await is_maintenance_mode():
+            if not _maintenance_logged:
+                logger.warning("Maintenance mode ON — skipping SyncScheduler passes")
+                _maintenance_logged = True
+            return
+        _maintenance_logged = False
         async with job_pass_lock(f"freshness_group_{sync_group_id}") as acquired:
             if not acquired:
                 return
