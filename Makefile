@@ -172,6 +172,10 @@ TEST_ARGS ?=
 test-unit-backend: ## Backend unit-тесты (tests/unit/)
 	./backend/scripts/test-unit.sh $(TEST_ARGS)
 
+.PHONY: test-chaos-backend
+test-chaos-backend: ## Backend chaos-тесты sync_engine (merge gate, ADR-0039 guardrail 2)
+	./backend/scripts/test-chaos.sh $(TEST_ARGS)
+
 .PHONY: test-e2e-backend
 test-e2e-backend: ## Backend e2e-тесты (требует запущенного dev-стенда kind; seed учёток входит)
 	@bash -c 'source backend/scripts/e2e-env.sh && ./backend/scripts/test-e2e.sh $(TEST_ARGS)'

@@ -26,6 +26,7 @@ from app.models.resource_provider import (
     ProviderSubtype,
     ResourceProvider,
 )
+from app.services import sync_engine
 from app.services.providers.clients.docker_auth import oci_request
 from app.services.trust_store_tls import provider_httpx_verify
 
@@ -192,6 +193,10 @@ def detect_provider_from_url(url: str) -> str:
         if host in url_lower:
             return provider
     return "generic"
+
+
+class CraneCopyError(Exception):
+    """crane copy exited non-zero — carries the stderr text for the sync log."""
 
 
 def normalize_registry_image_ref(image_name: str) -> str:
@@ -814,44 +819,54 @@ class DockerRegistryService:
                 cmd.append("--insecure")
             cmd += [source_ref, target_ref]
 
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=env,
-                )
-                # ponytail: single-image mirror is awaited inline; upgrade to a
-                # task queue when mirroring becomes bulk/parallel.
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)
-            except FileNotFoundError as exc:
-                raise ExternalServiceError(
-                    "crane",
-                    "crane binary is not installed in the backend image; "
-                    "rebuild backend/docker/Dockerfile",
-                ) from exc
-            finally:
-                if docker_config_dir:
-                    shutil.rmtree(docker_config_dir, ignore_errors=True)
+            async def _crane_copy() -> None:
+                try:
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=env,
+                    )
+                    _, stderr = await asyncio.wait_for(process.communicate(), timeout=1800)
+                except FileNotFoundError as exc:
+                    raise ExternalServiceError(
+                        "crane",
+                        "crane binary is not installed in the backend image; "
+                        "rebuild backend/docker/Dockerfile",
+                    ) from exc
+                finally:
+                    if docker_config_dir:
+                        shutil.rmtree(docker_config_dir, ignore_errors=True)
+                if process.returncode != 0:
+                    raise CraneCopyError(
+                        stderr.decode() if stderr else f"Exit code: {process.returncode}"
+                    )
 
-            if process.returncode == 0:
+            try:
+                # External push through the sync engine (ADR-0039): crane copy
+                # is an idempotent upsert-by-ref — re-copying the same image
+                # converges, so a crash after the copy is safe on re-run.
+                await sync_engine.idempotent_push(f"docker:{target_ref}", _crane_copy)
+            except CraneCopyError as exc:
+                log.status_flag = 1  # type: ignore[assignment]
+                log.status_text = "Failed"  # type: ignore[assignment]
+                log.log_output = str(exc)  # type: ignore[assignment]
+                await db.commit()
+                return log
+
+            async def _apply(session: AsyncSession) -> None:
+                """Idempotent success state: log + tag flag (same ref → same state)."""
                 log.status_flag = 0  # type: ignore[assignment]
                 log.status_text = "Success"  # type: ignore[assignment]
                 log.log_output = (  # type: ignore[assignment]
                     f"Successfully mirrored {source_ref} -> {target_ref}"
                 )
+                await self._mark_tag_synced(session, source.id, repo, tag)
 
-                # Update or create the tag entry with sync status
-                await self._mark_tag_synced(db, source.id, repo, tag)
-                await db.commit()
-            else:
-                log.status_flag = 1  # type: ignore[assignment]
-                log.status_text = "Failed"  # type: ignore[assignment]
-                log.log_output = (  # type: ignore[assignment]
-                    stderr.decode() if stderr else f"Exit code: {process.returncode}"
-                )
-                await db.commit()
+            await sync_engine.commit_cursor(db, f"docker:{target_ref}", _apply)
 
+        except sync_engine.CrashInjectedError:
+            raise  # injected crash is not a sync failure — let chaos tests see it
         except ExternalServiceError:
             raise
         except Exception as e:

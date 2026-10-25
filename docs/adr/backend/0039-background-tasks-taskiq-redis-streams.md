@@ -125,8 +125,16 @@ Temporal отвергнут как **overkill для текущего объём
 Тесты этой секции фиксируют артефакты, которые создаются в Phase 1/2 issues (код в этом ADR не меняется); до их появления секция — чеклист ревью.
 
 ```bash
-# 1. Chaos gate (guardrail 2; Phase 2 issue): unacked-задача переживает
-#    рестарт воркера — redelivery и ack. Merge gate: suite зелёный.
+# 1. Chaos gate (guardrail 2; Phase 2 issue): crash matrix — crash before push /
+#    between push and commit / after commit / mid-batch (cursor resumption) +
+#    duplicate delivery; assertions on converged end state. Suite: tests/chaos/.
+#    Merge gate: отдельный CI-workflow (chaos.yml, job name "Chaos tests
+#    (sync_engine convergence)") — требуется в required checks.
+make test-chaos-backend
+
+# 1b. Broker-level redelivery (unacked-задача переживает рестарт воркера):
+#     кандидат Phase 3 — отдельный интеграционный прогон с живым Redis; в
+#     unit-chaos suite redelivery покрывается дублированием вызова (см. выше).
 make test-unit-backend TEST_ARGS="tests/unit/broker/test_chaos.py -v"
 
 # 2. Дефолты брокера (пункт 4 Decision): конфиг брокера фиксирует
@@ -139,7 +147,9 @@ make test-unit-backend TEST_ARGS="tests/unit/broker/test_broker_config.py -v"
 make test-unit-backend TEST_ARGS="tests/unit/test_scheduler.py -k kiq -v"
 ```
 
-Правило линтера (guardrail 3, Phase 1 issue): запрет импортов в `sync_engine.py` (сетевые клиенты, планировщик, API-слой) — проверка в `make lint`.
+Правило линтера (guardrail 3, Phase 2): запрет импортов в `sync_engine.py`
+(сетевые клиенты, планировщик, API-слой) — проверка в `./backend/scripts/lint.sh`
+(`make lint-backend`, job backend в lint.yml).
 
 ## Pros and Cons of the Options
 
