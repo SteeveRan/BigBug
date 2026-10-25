@@ -14,6 +14,7 @@ from app.config import settings
 from app.services.platform_settings import is_maintenance_mode
 from app.tasks.enqueue import enqueue
 from app.tasks.pass_lock import job_pass_lock
+from app.tasks.reaper import reap_pending_task
 from app.tasks.reconcile_tasks import reconcile_all_task
 from app.tasks.sync_tasks import build_all_task, cleanup_task, sync_all_task
 
@@ -61,6 +62,12 @@ class SchedulerService:
             id="reconcile",
             replace_existing=True,
         )
+        self.scheduler.add_job(
+            self._run_reaper_job,
+            CronTrigger.from_crontab(settings.reaper_cron),
+            id="reaper",
+            replace_existing=True,
+        )
         self.scheduler.start()
         logger.info("Scheduler started")
 
@@ -103,6 +110,13 @@ class SchedulerService:
             if not acquired:
                 return
             await enqueue(reconcile_all_task)
+
+    async def _run_reaper_job(self) -> None:
+        """Enqueue one PEL reaper pass (issue #116)."""
+        async with job_pass_lock("reaper") as acquired:
+            if not acquired:
+                return
+            await enqueue(reap_pending_task)
 
 
 scheduler_service = SchedulerService()
