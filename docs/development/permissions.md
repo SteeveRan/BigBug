@@ -56,7 +56,7 @@
 | 44 | `roles:read` | Просмотр ролей и scope | A, V | `/admin/roles`, `/admin/roles/:roleId`, `/admin/permissions` (`PermissionGate permission="roles:read"`) | ✅ |
 | 45 | `roles:write` | Создание/изменение ролей (включая scope) | A | — | только бэкенд |
 | 46 | `roles:delete` | Удаление ролей | A | — | только бэкенд |
-| 47 | `system:config` | Изменение конфигурации системы (cleanup) | A | — | только бэкенд |
+| 47 | `system:config` | Изменение конфигурации системы (cleanup, reconcile, sync-runs admin API: `GET/POST /api/admin/sync-runs*` — просмотр, retry, requeue, issue #112) | A | — | только бэкенд |
 | 48 | `oidc:read` | Просмотр OIDC-провайдеров (multi-provider, ADR-0037) | A, V | `/admin/authentication` | ✅ |
 | 49 | `oidc:write` | Управление OIDC-провайдерами: CRUD `/admin/oidc-providers` | A | — | только бэкенд |
 | 50 | `audit:read` | Просмотр аудит лога | A, O, V | `/admin/audit` | ✅ |
