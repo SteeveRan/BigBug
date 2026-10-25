@@ -23,12 +23,16 @@ failpoint name — ``push:before``, ``push:after``, ``commit:before``,
 
 from __future__ import annotations
 
+import contextlib
+import logging
 import os
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "CrashInjectedError",
@@ -105,18 +109,65 @@ async def commit_cursor(
 
 
 async def outbox_write(db: AsyncSession, event_type: str, payload: dict[str, Any]) -> None:
-    """Write an outbox event for reliable notification delivery.
+    """Write an outbox event in the CURRENT transaction (not committed here).
 
-    shortcut: stub — no outbox table yet; Phase 3 adds storage + sender
-    (ADR-0039 non-goal until then).
+    Insert-or-skip on the unique ``dedup_key``: the caller derives a stable
+    key (e.g. ``"reconcile:{group_id}:{mirror_id}:{reason}"``), so redelivery
+    and crash-restarts never duplicate the event. Commit happens with the
+    sync state via :func:`commit_cursor` — that atomicity is the whole point
+    of the transactional outbox.
+
+    Uses SQLite- and Postgres-compatible savepoint handling: a conflicting
+    key raises IntegrityError on flush; we roll back to savepoint and skip.
     """
-    raise NotImplementedError("outbox storage and sender land in Phase 3 (ADR-0039)")
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models.notification_outbox import NotificationOutbox
+
+    dedup_key = str(payload.get("dedup_key") or "")
+    if not dedup_key:
+        raise ValueError("outbox_write payload must carry a non-empty 'dedup_key'")
+
+    async with db.begin_nested():
+        db.add(
+            NotificationOutbox(
+                dedup_key=dedup_key,
+                event_type=event_type,
+                payload=payload,
+            )
+        )
+        with contextlib.suppress(IntegrityError):
+            # Duplicate dedup_key — skip (idempotent). Savepoint rollback
+            # keeps the outer transaction usable.
+            await db.flush()
 
 
-async def reconcile(db: AsyncSession, key: str) -> None:
-    """Detect external drift for item *key* and repair it via re-push.
+async def reconcile(
+    db: AsyncSession,
+    key: str,
+    *,
+    expected: str | None,
+    actual: str | None,
+    repair: Callable[[], Awaitable[Any]],
+) -> str:
+    """Detect external drift for item *key* and repair it via idempotent re-push.
 
-    shortcut: scaffolding only — drift detection (external state vs DB) lands
-    in Phase 3 (ADR-0039).
+    The drift catcher (ADR-0039 Phase 3): compare the DB cursor (*expected*,
+    e.g. synced digest) against actual external state (*actual*, e.g. the
+    registry-reported digest). Drift repair = idempotent re-push, which
+    converges by construction.
+
+    Returns the verdict: ``"ok"`` (converged), ``"missing"`` (external absent),
+    ``"drift"`` (digests differ) — ``"drift"``/``"missing"`` trigger the
+    repair push; the caller records the outbox event (network callers may not
+    live in the kernel).
     """
-    raise NotImplementedError("reconciliation lands in Phase 3 (ADR-0039)")
+    if actual is not None and actual == expected:
+        return "ok"
+
+    verdict = "missing" if actual is None else "drift"
+    logger.warning("reconcile %s: %s (expected=%s actual=%s)", key, verdict, expected, actual)
+
+    # Idempotent re-push converges; crash points wrap it like a normal push.
+    await idempotent_push(f"reconcile:{key}", repair)
+    return verdict
