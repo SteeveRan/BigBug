@@ -157,7 +157,7 @@ docker compose -f infrastructure/gitlab/docker-compose.yml --env-file infrastruc
 kubectl get pods -A --context kind-bigbug-dev -w
 ```
 
-Приложение в dev-стенде — helm chart (`make dev-build && make dev-up`), не локальный uvicorn/vite; локальный запуск backend/frontend — для отладки против CNPG/Redis через port-forward (см. `backend/scripts/e2e-env.sh`).
+Приложение в dev-стенде — helm chart (`make dev-build && make dev-up`), не локальный uvicorn/vite; локальный запуск backend/frontend — для отладки против CNPG/Redis через ручной `kubectl port-forward`.
 
 ## Common Tasks
 
@@ -244,7 +244,7 @@ uv sync
 # CNPG-под в kind-стенде
 kubectl get pods -n bigbug --context kind-bigbug-dev -l cnpg.io/cluster=bigbug-dev
 
-# DATABASE_URL (e2e-env.sh экспортирует через kubectl port-forward)
+# DATABASE_URL (при отладке — ручной kubectl port-forward к CNPG)
 echo $DATABASE_URL
 ```
 

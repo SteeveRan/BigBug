@@ -74,15 +74,15 @@ class TestOidcProvidersCrud:
         self,
         client: AsyncClient,
         admin_headers: dict,
-        openapi_spec: dict,
         created_provider_id: int,
     ):
-        response = await client.get(f"{ADMIN_OIDC}/{created_provider_id}", headers=admin_headers)
-        assert_matches_openapi(response, f"{ADMIN_OIDC}/{{provider_id}}", "get", openapi_spec)
+        # Детального GET-эндпоинта нет (спека: только list/create/patch/delete) —
+        # проверяем создание через список.
+        response = await client.get(ADMIN_OIDC, headers=admin_headers)
         assert response.status_code == 200
-        data = response.json()
-        assert data["name"] == "e2e-test-provider"
-        assert data["client_secret"] == "********"
+        row = next(r for r in response.json() if r["id"] == created_provider_id)
+        assert row["name"] == "e2e-test-provider"
+        assert row["client_secret"] == "********"
 
     async def test_update_provider(
         self,
@@ -135,7 +135,9 @@ class TestOidcProvidersCrud:
         response = await client.delete(f"{ADMIN_OIDC}/{pid}", headers=admin_headers)
         assert_matches_openapi(response, f"{ADMIN_OIDC}/{{provider_id}}", "delete", openapi_spec)
         assert response.status_code == 204
-        assert (await client.get(f"{ADMIN_OIDC}/{pid}", headers=admin_headers)).status_code == 404
+        # Детального GET-эндпоинта нет — удалённость проверяем отсутствием в списке.
+        listed = await client.get(ADMIN_OIDC, headers=admin_headers)
+        assert pid not in [r["id"] for r in listed.json()]
 
     async def test_update_invalid_type(self, client: AsyncClient, admin_headers: dict):
         response = await client.patch(

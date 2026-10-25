@@ -48,7 +48,7 @@ uv sync
 Для локального запуска без Docker создайте `backend/.env` (pydantic-settings читает его автоматически; в контейнере/charts — env из k8s-секретов, [ADR-0024](../adr/common/0024-k8s-secrets.md)):
 
 ```bash
-# Database (CNPG dev-стенда; e2e-env.sh экспортирует через port-forward)
+# Database (CNPG dev-стенда; локальная отладка — см. docs/development/setup.md)
 DATABASE_URL=postgresql+asyncpg://bigbug:bigbug@localhost:5432/bigbug
 
 # Security
@@ -597,7 +597,7 @@ rm -rf .venv && uv sync
 # CNPG-под в kind-стенде
 kubectl get pods -n bigbug --context kind-bigbug-dev -l cnpg.io/cluster=bigbug-dev
 
-# DATABASE_URL в backend/.env (или экспортированная e2e-env.sh через port-forward)
+# DATABASE_URL в backend/.env (порт-форвард к CNPG делается вручную при отладке)
 echo $DATABASE_URL
 ```
 
