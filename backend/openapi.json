@@ -10865,6 +10865,64 @@
         ]
       }
     },
+    "/api/admin/reconcile": {
+      "post": {
+        "description": "Manually trigger a reconciliation pass (drift catcher, ADR-0039 Phase 3).\n\nEnqueues one taskiq task: a single ``DockerImageSource`` when *source_id*\nis given, otherwise all sources. Execution happens in the taskiq worker —\nthe API process stays enqueue-only (ADR-0039).",
+        "operationId": "manual_reconcile_api_admin_reconcile_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Manual Reconcile Api Admin Reconcile Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Manual Reconcile",
+        "tags": [
+          "admin",
+          "admin"
+        ]
+      }
+    },
     "/api/admin/roles": {
       "get": {
         "description": "List all roles with their assigned permissions.",

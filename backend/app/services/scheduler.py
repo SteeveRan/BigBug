@@ -13,6 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 from app.config import settings
 from app.tasks.enqueue import enqueue
 from app.tasks.pass_lock import job_pass_lock
+from app.tasks.reconcile_tasks import reconcile_all_task
 from app.tasks.sync_tasks import build_all_task, cleanup_task, sync_all_task
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,12 @@ class SchedulerService:
             id="cleanup",
             replace_existing=True,
         )
+        self.scheduler.add_job(
+            self._run_reconcile_job,
+            CronTrigger.from_crontab(settings.reconcile_cron),
+            id="reconcile",
+            replace_existing=True,
+        )
         self.scheduler.start()
         logger.info("Scheduler started")
 
@@ -69,6 +76,13 @@ class SchedulerService:
             if not acquired:
                 return
             await enqueue(cleanup_task)
+
+    async def _run_reconcile_job(self) -> None:
+        """Enqueue one reconciliation pass (drift catcher, ADR-0039 Phase 3)."""
+        async with job_pass_lock("reconcile") as acquired:
+            if not acquired:
+                return
+            await enqueue(reconcile_all_task)
 
 
 scheduler_service = SchedulerService()
