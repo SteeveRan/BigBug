@@ -30,6 +30,7 @@ import './api/teams';
 import './api/credentials';
 import './api/trust-stores';
 import './api/gitlab-projects';
+import './api/sync-runs';
 import './api/trust-stores';
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -273,6 +274,14 @@ export {
 
 // Audit Logs
 export { useGetAuditLogsQuery } from './api/audit-logs';
+
+// Admin Sync Runs
+export {
+  useGetSyncRunsQuery,
+  useRetrySyncRunMutation,
+  useRetryAllFailedMutation,
+  useRequeueSyncRunMutation,
+} from './api/sync-runs';
 
 // Providers V3
 export {

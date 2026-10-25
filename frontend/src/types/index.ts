@@ -1525,3 +1525,31 @@ export interface TrustStoreUsage {
   trust_store_id: number;
   providers: string[];
 }
+
+// ──── Admin: Sync Runs (tracked background task runs) ───────────────────────
+
+export type SyncRunStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'failed_permanent'
+  | 'superseded';
+
+export interface SyncRun {
+  id: number;
+  task_name: string;
+  entity_type: string | null;
+  entity_id: number | null;
+  status: SyncRunStatus;
+  attempts: number;
+  max_attempts: number;
+  payload: Record<string, unknown> | null;
+  heartbeat_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  created_at: string | null;
+  /** Server-computed: running/queued with stale heartbeat (backend `is_stuck`). */
+  stuck: boolean;
+}
