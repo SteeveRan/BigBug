@@ -11,6 +11,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from app.config import settings
+from app.services.platform_settings import is_maintenance_mode
 from app.tasks.enqueue import enqueue
 from app.tasks.pass_lock import job_pass_lock
 from app.tasks.reconcile_tasks import reconcile_all_task
@@ -22,6 +23,17 @@ logger = logging.getLogger(__name__)
 class SchedulerService:
     def __init__(self):
         self.scheduler = AsyncIOScheduler(timezone="UTC")
+        self._maintenance_logged = False
+
+    async def _gate_pass(self) -> bool:
+        """False when maintenance mode is on; logs once per transition."""
+        if await is_maintenance_mode():
+            if not self._maintenance_logged:
+                logger.warning("Maintenance mode ON — skipping scheduler enqueue passes")
+                self._maintenance_logged = True
+            return False
+        self._maintenance_logged = False
+        return True
 
     async def start(self) -> None:
         """Start the scheduler and register jobs."""
@@ -58,6 +70,8 @@ class SchedulerService:
 
     async def _run_sync_jobs(self) -> None:
         """Enqueue one sync_all pass (lock prevents double-enqueue across replicas)."""
+        if not await self._gate_pass():
+            return
         async with job_pass_lock("sync_all") as acquired:
             if not acquired:
                 return
@@ -65,6 +79,8 @@ class SchedulerService:
 
     async def _run_build_jobs(self) -> None:
         """Enqueue one build_all pass."""
+        if not await self._gate_pass():
+            return
         async with job_pass_lock("build_all") as acquired:
             if not acquired:
                 return
@@ -72,6 +88,8 @@ class SchedulerService:
 
     async def _run_cleanup_job(self) -> None:
         """Enqueue one cleanup pass."""
+        if not await self._gate_pass():
+            return
         async with job_pass_lock("cleanup") as acquired:
             if not acquired:
                 return
@@ -79,6 +97,8 @@ class SchedulerService:
 
     async def _run_reconcile_job(self) -> None:
         """Enqueue one reconciliation pass (drift catcher, ADR-0039 Phase 3)."""
+        if not await self._gate_pass():
+            return
         async with job_pass_lock("reconcile") as acquired:
             if not acquired:
                 return

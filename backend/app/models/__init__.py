@@ -24,6 +24,7 @@ from app.models.oidc_provider import OIDCProvider
 from app.models.permission import Permission, role_permissions
 from app.models.pipeline import Pipeline, PipelineComponent
 from app.models.pipeline_run import PipelineRun
+from app.models.platform_setting import PlatformSetting
 from app.models.provider_type import ProviderType
 from app.models.resource_provider import (
     ProviderCapability,
@@ -78,6 +79,7 @@ __all__ = [
     "Pipeline",
     "PipelineComponent",
     "PipelineRun",
+    "PlatformSetting",
     "ProviderType",
     "ResourceProvider",
     "ProviderDomain",

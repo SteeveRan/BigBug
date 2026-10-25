@@ -16,6 +16,7 @@ from app.api import (
     gold_images,
     health_check,
     helm_charts,
+    maintenance,
     mirroring,
     orphaned,
     pipelines,
@@ -74,6 +75,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(sync_runs.router, prefix="/api/admin/sync-runs", tags=["admin"])
+app.include_router(maintenance.router, prefix="/api/admin", tags=["admin"])
+app.include_router(maintenance.public_router, prefix="/api/status", tags=["status"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(gold_images.router, prefix="/api/gold-images", tags=["gold-images"])
 app.include_router(app_images.router, prefix="/api/app-images", tags=["app-images"])
