@@ -25,6 +25,30 @@
       "skillPath": "skills/engineering/codebase-design/SKILL.md",
       "computedHash": "5a17552cc1482f1a40124bf4e6c9dbd90ac0dbb47e71c07d47369f9e5f2ae3b5"
     },
+    "deliver-acceptance-criteria": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-acceptance-criteria/SKILL.md",
+      "computedHash": "c26ada6ec1456be456af0cae8349e502a4eec837496f578df1feac2581011a11"
+    },
+    "deliver-edge-cases": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-edge-cases/SKILL.md",
+      "computedHash": "292656550995cc9f2746ce7038fb9d2f426fbbc02628b7cbc09392ebd4adef6c"
+    },
+    "deliver-use-cases": {
+      "source": "authored-in-repo (Cockburn fully-dressed template)",
+      "sourceType": "local",
+      "skillPath": ".opencode/skills/deliver-use-cases/SKILL.md",
+      "computedHash": "f79313f83eba74ce6c8098931dbd55cc24102b96410c9f8b77b176ad7dffa373"
+    },
+    "deliver-user-stories": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-user-stories/SKILL.md",
+      "computedHash": "7b183b867bbd932b5d649e239dd1885abe2c9222690e5fc4367e9cd18ede1099"
+    },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
