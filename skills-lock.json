@@ -25,6 +25,24 @@
       "skillPath": "skills/engineering/codebase-design/SKILL.md",
       "computedHash": "5a17552cc1482f1a40124bf4e6c9dbd90ac0dbb47e71c07d47369f9e5f2ae3b5"
     },
+    "deliver-acceptance-criteria": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-acceptance-criteria/SKILL.md",
+      "computedHash": "7af733ecefea8fa4a1a6326fc65fd398a222af4fa1d87e976ff84abb9750928c"
+    },
+    "deliver-edge-cases": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-edge-cases/SKILL.md",
+      "computedHash": "0aa9e1d3541f9eeebe8c3c32dc1b82c0589e0525be59772ba52e34b1b0b4371d"
+    },
+    "deliver-user-stories": {
+      "source": "product-on-purpose/pm-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deliver-user-stories/SKILL.md",
+      "computedHash": "72b07e18612694494d5eb5e28ab252b5080d4ee4114ba1508876456b5fe12db7"
+    },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
       "sourceType": "github",
