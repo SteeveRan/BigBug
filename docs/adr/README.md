@@ -62,6 +62,7 @@
 | [ADR-0015](frontend/0015-frontend-unit-testing-vitest.md) | accepted | Зафиксировать frontend unit-тестирование: Vitest + @testing-library/react + jsdom, layout `src/tests/unit/` | 2026-10-21 |
 | [ADR-0017](frontend/0017-frontend-integration-testing.md) | accepted | Зафиксировать frontend integration-тестирование: страницы с реальным Redux store, RTK Query-хуки в моках, jsdom, layout `src/tests/integrations/` | 2026-10-21 |
 | [ADR-0021](frontend/0021-user-profile-cabinet.md) | accepted | Личный кабинет пользователя `/profile`: профиль, мои команды, мои провайдеры вместо `/settings/teams` | 2026-10-21 |
+| [ADR-0040](frontend/0040-ui-contracts-antd-canon-penpot-mirror.md) | proposed | UI-контракты: AntD-тема в коде — канон, Penpot — зеркальная библиотека и стенд эскизов | 2026-10-26 |
 
 ### infrastructure
 
