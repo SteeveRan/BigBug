@@ -32,3 +32,4 @@
 | ADR | Статус | Название | Причина / Замена | Дата архивации |
 |---|---|---|---|---|
 | [ADR-0012](archive/infrastructure/0012-docker-compose-split-dev-env.md) | superseded by [ADR-0022](infrastructure/0022-dev-stand-on-kind.md) | Dev environment: разделение Docker Compose на infrastructure и application, entrypoint с wait-for-DB и auto-migration | Dev-стенд переезжает в единый kind-кластер; compose остаётся только для GitLab | 2026-10-22 |
+| [ADR-0013](archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) | superseded by [ADR-0029](infrastructure/0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) | Infrastructure as Code: OpenTofu для provisioning Keycloak, GitLab и Harbor | In-cluster non-goal superseded ADR-0029; инструментальное ядро (выбор OpenTofu, state, граница императивного) поглощено ADR-0029; сервисные решения разъехались в ADR-0033/0034/0035 | 2026-10-26 |

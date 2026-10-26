@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 decision-makers: SteeveRan
 consulted: SteeveRan
@@ -8,11 +8,11 @@ informed: SteeveRan
 
 # Harbor в dev-стенде: chart в kind за TLS-ingress, конфигурация через apps root
 
-> Сервисный ADR, фиксирующий **фактическое** состояние (проверено по коду, 2026-10-23). Новых решений не принимает — выносит Harbor-зону из разросшегося [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) (разборка — issue #80, архивация — #62).
+> Сервисный ADR, фиксирующий **фактическое** состояние (проверено по коду, 2026-10-23). Новых решений не принимает — выносит Harbor-зону из разросшегося [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (разборка — issue #80, архивация — #62).
 
 ## Context and Problem Statement
 
-Harbor пережил две топологии: отдельный kind-кластер `harbor` (NodePort 30080/30443, insecure-registry — эпоха [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md)) → chart внутри `bigbug-dev` за TLS-ingress (issue #58, [ADR-0022](0022-dev-stand-on-kind.md), [ADR-0030](0030-dev-stand-https-self-signed-certs.md)). Его конфигурация переехала из config root в apps-слой ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md), update #58). Единого документа «Harbor в dev-стенде» нет.
+Harbor пережил две топологии: отдельный kind-кластер `harbor` (NodePort 30080/30443, insecure-registry — эпоха [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)) → chart внутри `bigbug-dev` за TLS-ingress (issue #58, [ADR-0022](0022-dev-stand-on-kind.md), [ADR-0030](0030-dev-stand-https-self-signed-certs.md)). Его конфигурация переехала из config root в apps-слой ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md), update #58). Единого документа «Harbor в dev-стенде» нет.
 
 Вопрос: **как Harbor устроен в dev-стенде** — установка, TLS, OIDC, конфигурация проектов/роботов.
 
