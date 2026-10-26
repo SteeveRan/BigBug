@@ -111,21 +111,11 @@ export function GroupsTab() {
       key: 'repositories',
       render: (_: unknown, record: SourceGroup) => (
         <Space size={8}>
-          <Badge
-            count={record.repositories_total}
-            showZero
-            style={{ backgroundColor: '#1677ff' }}
-            overflowCount={999}
-          >
+          <Badge count={record.repositories_total} showZero color="blue" overflowCount={999}>
             <span style={{ width: 0 }} />
           </Badge>
           <Typography.Text type="secondary">total</Typography.Text>
-          <Badge
-            count={record.repositories_mirrored}
-            showZero
-            style={{ backgroundColor: '#52c41a' }}
-            overflowCount={999}
-          >
+          <Badge count={record.repositories_mirrored} showZero color="green" overflowCount={999}>
             <span style={{ width: 0 }} />
           </Badge>
           <Typography.Text type="secondary">mirrored</Typography.Text>
@@ -137,7 +127,7 @@ export function GroupsTab() {
       key: 'new_repos',
       render: (_: unknown, record: SourceGroup) =>
         record.new_repos_count != null && record.new_repos_count > 0 ? (
-          <Badge count={record.new_repos_count} style={{ backgroundColor: '#faad14' }} />
+          <Badge count={record.new_repos_count} color="warning" />
         ) : (
           <Typography.Text type="secondary">—</Typography.Text>
         ),
@@ -239,7 +229,7 @@ export function GroupsTab() {
       )}
 
       {(groupsLoading || providersLoading) && (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin size="large" />
         </Flex>
       )}

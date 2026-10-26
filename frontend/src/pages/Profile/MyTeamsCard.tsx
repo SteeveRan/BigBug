@@ -126,7 +126,7 @@ export function MyTeamsCard({ teams, isLoading, isError }: MyTeamsCardProps) {
   return (
     <Card title="My teams">
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 40 }}>
           <Spin size="large" />
         </div>
       ) : isError ? (

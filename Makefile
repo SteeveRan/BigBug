@@ -247,6 +247,10 @@ lint: lint-backend lint-frontend lint-infra ## Линтинг обоих сте�
 check-adr-order: ## ADR-order gate: новый ADR — вне PR с реализацией, status: proposed
 	./scripts/check-adr-order.sh origin/main HEAD
 
+.PHONY: check-design-tokens
+check-design-tokens: ## design-tokens gate (ADR-0040): запрет raw hex/rgba/px вне theme.ts/colors.css
+	./scripts/check-design-tokens.sh
+
 .PHONY: format-backend
 format-backend: ## Форматирование backend (ruff format + fix)
 	./backend/scripts/format.sh

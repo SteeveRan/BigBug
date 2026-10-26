@@ -94,7 +94,7 @@ const SyncGroupDetailPage = () => {
 
   if (groupLoading) {
     return (
-      <Flex justify="center" style={{ padding: '40px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 40 }}>
         <Spin size="large" />
       </Flex>
     );
@@ -204,7 +204,7 @@ const SyncGroupDetailPage = () => {
       {/* ── Mirrors Table ─────────────────────────────────────────────────── */}
       <Card title={`Mirrors (${mirrors.length})`}>
         {mirrorsLoading ? (
-          <Flex justify="center" style={{ padding: '40px 0' }}>
+          <Flex justify="center" style={{ paddingBlock: 40 }}>
             <Spin size="large" />
           </Flex>
         ) : (

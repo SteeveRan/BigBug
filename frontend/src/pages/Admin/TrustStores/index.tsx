@@ -207,7 +207,7 @@ function DeleteStoreButton({ store }: { store: TrustStore }) {
             <Typography.Text type="warning">
               In use by {usage.providers.length} provider(s):
             </Typography.Text>
-            <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <ul style={{ marginTop: 8, paddingLeft: 20 }}>
               {usage.providers.map((p) => (
                 <li key={p}>{p}</li>
               ))}
@@ -386,7 +386,7 @@ export function AdminTrustStores() {
       </Flex>
 
       {isLoading ? (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin size="large" />
         </Flex>
       ) : isError ? (

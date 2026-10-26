@@ -311,7 +311,7 @@ function ScopeTab({ roleId, scopeType, title, availableItems }: ScopeTabProps) {
 
   if (isLoading) {
     return (
-      <Flex justify="center" style={{ padding: '40px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 40 }}>
         <Spin />
       </Flex>
     );
@@ -456,7 +456,7 @@ const RoleDetailPage = () => {
 
   if (isRoleLoading) {
     return (
-      <Flex justify="center" style={{ padding: '40px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 40 }}>
         <Spin size="large" />
       </Flex>
     );

@@ -63,7 +63,7 @@ export function DeleteProviderModal({ provider, onClose }: DeleteProviderModalPr
         )}
 
         {usageLoading ? (
-          <Flex justify="center" style={{ padding: '16px 0' }}>
+          <Flex justify="center" style={{ paddingBlock: 16 }}>
             <Spin />
           </Flex>
         ) : hasUsage ? (

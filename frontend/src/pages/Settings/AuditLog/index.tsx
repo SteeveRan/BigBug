@@ -7,7 +7,19 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Card, Typography, Button, Table, Flex, Spin, Modal, Input, Select, Tag } from 'antd';
+import {
+  Card,
+  Typography,
+  Button,
+  Table,
+  Flex,
+  Spin,
+  Modal,
+  Input,
+  Select,
+  Tag,
+  theme,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { AuditLog } from '../../../types';
 import { useGetAuditLogsQuery } from '../../../store/api';
@@ -50,6 +62,7 @@ function formatTimestamp(iso: string): string {
 }
 
 export default function AuditLogPage() {
+  const { token } = theme.useToken();
   const [action, setAction] = useState('');
   const [resourceType, setResourceType] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -155,7 +168,7 @@ export default function AuditLogPage() {
 
       {/* Loading */}
       {isLoading && (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin />
         </Flex>
       )}
@@ -164,7 +177,7 @@ export default function AuditLogPage() {
       {!isLoading && data && data.items.length === 0 && (
         <Typography.Text
           type="secondary"
-          style={{ padding: '40px 0', textAlign: 'center', display: 'block' }}
+          style={{ paddingBlock: 40, textAlign: 'center', display: 'block' }}
         >
           No audit logs found
         </Typography.Text>
@@ -222,7 +235,9 @@ export default function AuditLogPage() {
           </Typography.Text>
           <Card
             size="small"
-            styles={{ body: { backgroundColor: '#fafafa', maxHeight: 400, overflow: 'auto' } }}
+            styles={{
+              body: { backgroundColor: token.colorBgLayout, maxHeight: 400, overflow: 'auto' },
+            }}
           >
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {selectedLog?.details ? JSON.stringify(selectedLog.details, null, 2) : 'No details'}

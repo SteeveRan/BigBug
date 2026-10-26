@@ -65,13 +65,15 @@ const { Text, Title } = Typography;
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+// Status colors via CSS variables from colors.css (canonical tokens, issue #172).
 const STATUS_COLORS: Record<number, string> = {
-  0: '#52c41a', // OK — green
-  1: '#ff4d4f', // Failed — red
-  2: '#faad14', // Warning — orange
-  3: '#1677ff', // In Progress — blue
-  4: '#d9d9d9', // Pending — grey
+  0: 'var(--bigbug-status-success)',
+  1: 'var(--bigbug-status-error)',
+  2: 'var(--bigbug-status-warning)',
+  3: 'var(--bigbug-status-info)',
+  4: 'var(--bigbug-status-pending)',
 };
+const DEFAULT_STATUS_COLOR = 'var(--bigbug-status-pending)';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -133,9 +135,16 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
   });
 
   return (
-    <Flex vertical align="center" gap={8}>
+    <Flex vertical align="center" gap={8} style={{ color: 'var(--bigbug-text-primary)' }}>
       <svg width={200} height={200} viewBox="0 0 200 200">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#f0f0f0" strokeWidth={24} />
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke={DEFAULT_STATUS_COLOR}
+          strokeWidth={24}
+        />
         {segments.map((seg) => (
           <circle
             key={seg.status_flag}
@@ -143,7 +152,7 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
             cy={center}
             r={radius}
             fill="none"
-            stroke={STATUS_COLORS[seg.status_flag] ?? '#d9d9d9'}
+            stroke={STATUS_COLORS[seg.status_flag] ?? DEFAULT_STATUS_COLOR}
             strokeWidth={24}
             strokeDasharray={`${seg.dashLength} ${circumference - seg.dashLength}`}
             strokeDashoffset={seg.dashOffset}
@@ -157,11 +166,17 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
           textAnchor="middle"
           fontSize={28}
           fontWeight="bold"
-          fill="#333"
+          fill="var(--bigbug-text-primary)"
         >
           {total}
         </text>
-        <text x={center} y={center + 16} textAnchor="middle" fontSize={12} fill="#888">
+        <text
+          x={center}
+          y={center + 16}
+          textAnchor="middle"
+          fontSize={12}
+          fill="var(--bigbug-text-secondary)"
+        >
           mirrors
         </text>
       </svg>
@@ -175,7 +190,7 @@ function DonutChart({ items, total }: { items: StatusCountItem[]; total: number 
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                background: STATUS_COLORS[item.status_flag] ?? '#d9d9d9',
+                background: STATUS_COLORS[item.status_flag] ?? DEFAULT_STATUS_COLOR,
               }}
             />
             <Text style={{ fontSize: 12 }}>
@@ -404,7 +419,7 @@ function StorageTab() {
 
       {/* Progress bar when collecting */}
       {data?.collection_status === 'in_progress' && (
-        <Progress percent={100} status="active" strokeColor="#1677ff" />
+        <Progress percent={100} status="active" strokeColor="var(--bigbug-status-info)" />
       )}
 
       {/* Table */}
@@ -533,7 +548,7 @@ function StatusTab() {
               width: 12,
               height: 12,
               borderRadius: '50%',
-              background: STATUS_COLORS[record.status_flag] ?? '#d9d9d9',
+              background: STATUS_COLORS[record.status_flag] ?? DEFAULT_STATUS_COLOR,
             }}
           />
           <Text>{record.label}</Text>
@@ -668,7 +683,7 @@ function SyncsTab() {
       key: 'successful',
       align: 'center',
       width: 90,
-      render: (v: number) => <Text style={{ color: '#52c41a' }}>{v}</Text>,
+      render: (v: number) => <Text style={{ color: 'var(--bigbug-status-success)' }}>{v}</Text>,
     },
     {
       title: 'Failed',
@@ -676,7 +691,8 @@ function SyncsTab() {
       key: 'failed',
       align: 'center',
       width: 80,
-      render: (v: number) => (v > 0 ? <Text style={{ color: '#ff4d4f' }}>{v}</Text> : v),
+      render: (v: number) =>
+        v > 0 ? <Text style={{ color: 'var(--bigbug-status-error)' }}>{v}</Text> : v,
     },
     {
       title: 'Stale',
@@ -684,7 +700,8 @@ function SyncsTab() {
       key: 'stale',
       align: 'center',
       width: 80,
-      render: (v: number) => (v > 0 ? <Text style={{ color: '#faad14' }}>{v}</Text> : v),
+      render: (v: number) =>
+        v > 0 ? <Text style={{ color: 'var(--bigbug-status-warning)' }}>{v}</Text> : v,
     },
   ];
 
@@ -697,7 +714,7 @@ function SyncsTab() {
       key: 'successful',
       align: 'center',
       width: 90,
-      render: (v: number) => <Text style={{ color: '#52c41a' }}>{v}</Text>,
+      render: (v: number) => <Text style={{ color: 'var(--bigbug-status-success)' }}>{v}</Text>,
     },
     {
       title: 'Failed',
@@ -705,7 +722,8 @@ function SyncsTab() {
       key: 'failed',
       align: 'center',
       width: 80,
-      render: (v: number) => (v > 0 ? <Text style={{ color: '#ff4d4f' }}>{v}</Text> : v),
+      render: (v: number) =>
+        v > 0 ? <Text style={{ color: 'var(--bigbug-status-error)' }}>{v}</Text> : v,
     },
     {
       title: 'Stale',
@@ -713,7 +731,8 @@ function SyncsTab() {
       key: 'stale',
       align: 'center',
       width: 80,
-      render: (v: number) => (v > 0 ? <Text style={{ color: '#faad14' }}>{v}</Text> : v),
+      render: (v: number) =>
+        v > 0 ? <Text style={{ color: 'var(--bigbug-status-warning)' }}>{v}</Text> : v,
     },
   ];
 

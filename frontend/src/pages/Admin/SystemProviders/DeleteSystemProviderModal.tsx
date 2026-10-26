@@ -59,7 +59,7 @@ export function DeleteSystemProviderModal({ provider, onClose }: DeleteSystemPro
     >
       <Flex vertical gap={12}>
         {usageLoading ? (
-          <Flex justify="center" style={{ padding: '16px 0' }}>
+          <Flex justify="center" style={{ paddingBlock: 16 }}>
             <Spin />
           </Flex>
         ) : hasUsage ? (

@@ -105,7 +105,7 @@ export function GitlabProjectDetailPage() {
 
   if (isLoading) {
     return (
-      <Flex justify="center" style={{ padding: '48px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 48 }}>
         <Spin size="large" />
       </Flex>
     );

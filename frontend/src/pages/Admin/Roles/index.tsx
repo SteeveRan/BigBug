@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Card, Typography, Button, Table, Flex, Spin, App, Tooltip, Tag } from 'antd';
+import { Card, Typography, Button, Table, Flex, Spin, App, Tooltip, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, EditOutlined, DeleteOutlined, LockOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router';
@@ -20,6 +20,7 @@ import { RoleModal } from './RoleModal';
 
 const RolesPage = () => {
   const { message, modal } = App.useApp();
+  const { token } = theme.useToken();
   const navigate = useNavigate();
 
   const { data: roles = [], isLoading, isError } = useGetAllRolesQuery();
@@ -71,7 +72,7 @@ const RolesPage = () => {
       key: 'name',
       render: (name: string, record: Role) => (
         <Flex align="center" gap={8}>
-          {!record.is_custom && <LockOutlined style={{ color: '#1677ff' }} />}
+          {!record.is_custom && <LockOutlined style={{ color: token.colorInfo }} />}
           <Typography.Text strong>{name}</Typography.Text>
         </Flex>
       ),
@@ -144,7 +145,7 @@ const RolesPage = () => {
 
   if (isLoading) {
     return (
-      <Flex justify="center" style={{ padding: '40px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 40 }}>
         <Spin size="large" />
       </Flex>
     );

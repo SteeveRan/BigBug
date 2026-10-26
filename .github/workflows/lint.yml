@@ -107,3 +107,12 @@ jobs:
 
       - name: check-adr-order (base...head)
         run: ./scripts/check-adr-order.sh "origin/${{ github.base_ref }}" HEAD
+
+  design-tokens:
+    name: Design tokens gate (ADR-0040)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: check-design-tokens
+        run: ./scripts/check-design-tokens.sh

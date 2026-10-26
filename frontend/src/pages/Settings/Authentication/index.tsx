@@ -66,7 +66,7 @@ export function AuthenticationSettings() {
 
   if (isLoading) {
     return (
-      <Flex justify="center" style={{ padding: '64px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 64 }}>
         <Spin />
       </Flex>
     );

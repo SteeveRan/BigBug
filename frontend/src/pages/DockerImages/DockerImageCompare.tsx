@@ -19,6 +19,7 @@ import {
   Statistic,
   Row,
   Col,
+  theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons';
@@ -61,6 +62,7 @@ function getTagStatus(tag: DockerImageTagCompareItem): {
 export function DockerImageComparePage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
 
   // Список всех Docker Image источников для селекторов
   const { data: sources = [], isLoading: sourcesLoading } = useListDockerImagesQuery();
@@ -212,7 +214,7 @@ export function DockerImageComparePage() {
           <SwapOutlined
             style={{
               fontSize: 20,
-              color: '#8c8c8c',
+              color: token.colorTextTertiary,
               marginTop: 18,
             }}
           />
@@ -262,7 +264,7 @@ export function DockerImageComparePage() {
           <Flex gap={16} wrap="wrap">
             <Card
               title={`Source A: ${sourceA?.name ?? '—'}`}
-              style={{ flex: '1 1 300px', minWidth: 280 }}
+              style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 280 }}
             >
               <Typography.Text code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
                 {sourceA?.registry_url ?? '—'}
@@ -270,7 +272,7 @@ export function DockerImageComparePage() {
             </Card>
             <Card
               title={`Source B: ${sourceB?.name ?? '—'}`}
-              style={{ flex: '1 1 300px', minWidth: 280 }}
+              style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 280 }}
             >
               <Typography.Text code style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>
                 {sourceB?.registry_url ?? '—'}
@@ -289,7 +291,7 @@ export function DockerImageComparePage() {
                   <Statistic
                     title="Matching"
                     value={summary.matching_tags}
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: 'var(--bigbug-status-success)' }}
                     suffix={
                       summary.total_tags > 0
                         ? `(${((summary.matching_tags / summary.total_tags) * 100).toFixed(0)}%)`
@@ -301,21 +303,21 @@ export function DockerImageComparePage() {
                   <Statistic
                     title="Differing"
                     value={summary.differing_tags}
-                    valueStyle={{ color: '#fa8c16' }}
+                    valueStyle={{ color: 'var(--bigbug-status-warning)' }}
                   />
                 </Col>
                 <Col xs={12} sm={8} md={4}>
                   <Statistic
                     title="Only in A"
                     value={summary.only_in_a}
-                    valueStyle={{ color: '#1677ff' }}
+                    valueStyle={{ color: 'var(--bigbug-status-info)' }}
                   />
                 </Col>
                 <Col xs={12} sm={8} md={4}>
                   <Statistic
                     title="Only in B"
                     value={summary.only_in_b}
-                    valueStyle={{ color: '#722ed1' }}
+                    valueStyle={{ color: 'var(--bigbug-brand)' }}
                   />
                 </Col>
               </Row>
