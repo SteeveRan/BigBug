@@ -565,3 +565,18 @@ Default triage vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `rea
 
 Single-context: one `GLOSSARY.md` at the repo root (created lazily), ADRs in `docs/adr/`. See `docs/agents/domain.md`.
 
+### Analytics vs architecture: two independent processes
+
+Analytics (requirements) and architecture (decisions) are SEPARATE processes - do not merge them, do not derive one from the other automatically:
+
+| Process | Artifacts | Skills | Output location |
+|---|---|---|---|
+| **Analytics** — capture user needs and behavior | user stories (`US-<module>-NNN`), use cases (`UC-<module>-NNN`), edge-case catalogs | `/user-stories`, `/use-cases`, `/edge-cases` | `docs/analitics/stories/`, `docs/analitics/use-cases/`, `docs/analitics/edge-cases/` |
+| **Architecture** — capture decisions | ADRs (MADR 4.0) | `/adr` | `docs/adr/<component>/` |
+
+Rules:
+
+- Analytics describes WHAT the system must do for users; it never justifies itself with ADRs. Architecture describes WHY a technical choice was made; it MUST trace to analytics - the ADR's `## Context and Problem Statement` references the motivating `US-`/`UC-`/edge-case artifacts (see `docs/adr/README.md`).
+- Behavior-changing PRs update the affected analytics artifacts in the same PR. Architecture-relevant changes (hard to reverse + surprising + real trade-off) additionally require an ADR.
+- Analytics artifacts are living repo documents with stable IDs - never store them in issues, never renumber IDs; retire in place with `status: retired`.
+

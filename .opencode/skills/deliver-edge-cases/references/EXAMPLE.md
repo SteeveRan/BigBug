@@ -3,7 +3,7 @@ artifact: edge-case-catalog
 version: "1.1"
 ---
 
-# Module Charter: Git Mirroring — Operations & Edge Cases
+# Edge-Case Catalog: Git Mirroring
 
 ## Overview
 

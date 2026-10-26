@@ -3,9 +3,9 @@ artifact: edge-case-catalog
 version: "1.1"
 ---
 
-# Module Charter: <Module Name> — Operations & Edge Cases
+# Edge-Case Catalog: <Module Name>
 
-> Living document: `docs/modules/<module>.md`. One catalog table per
+> Living document: `docs/analitics/edge-cases/<module>.md`. One catalog table per
 > user-facing operation. Vocabulary: `GLOSSARY.md`. No implementation file
 > paths in "Expected behavior" - name the seam, not the code.
 

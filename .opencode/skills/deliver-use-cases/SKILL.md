@@ -72,8 +72,8 @@ alternatives, guarantees). A story may be covered by zero or several use cases.
   2. IDs are stable: never renumber `UC-<module>-NNN` once stories, tickets, or
      tests reference them; retire with `status: retired` in the header.
   3. Extensions mirror edge-case rows: when a flow failure mode changes,
-     update the module charter (`docs/modules/<module>.md`) row and the use
-     case extension together.
+     update the edge-case catalog (`docs/analitics/edge-cases/<module>.md`)
+     row and the use case extension together.
   4. A use case contradicts an existing ADR -> surface the conflict explicitly
      per `docs/agents/domain.md`, never silently override.
 

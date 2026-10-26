@@ -35,19 +35,19 @@
       "source": "product-on-purpose/pm-skills",
       "sourceType": "github",
       "skillPath": "skills/deliver-edge-cases/SKILL.md",
-      "computedHash": "0aa9e1d3541f9eeebe8c3c32dc1b82c0589e0525be59772ba52e34b1b0b4371d"
+      "computedHash": "05437eda2cbda8d51e63c97d1da48946a43887530b1af2f37690bc90f176e77c"
     },
     "deliver-use-cases": {
       "source": "authored-in-repo (Cockburn fully-dressed template)",
       "sourceType": "local",
       "skillPath": ".opencode/skills/deliver-use-cases/SKILL.md",
-      "computedHash": "5273d44eaa158bb8700def5bb8881b1cdc7441c9b37a994e0da92fc5d1a748bc"
+      "computedHash": "9f86c1e7dcff24aab92422699d4fc443bef92874bf06bc54d55dfaff5ae04d37"
     },
     "deliver-user-stories": {
       "source": "product-on-purpose/pm-skills",
       "sourceType": "github",
       "skillPath": "skills/deliver-user-stories/SKILL.md",
-      "computedHash": "72b07e18612694494d5eb5e28ab252b5080d4ee4114ba1508876456b5fe12db7"
+      "computedHash": "32c3e4ae5f0dbb480b0b8b87552a4a9715b114fab435a856c46423f131286043"
     },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",

@@ -76,7 +76,7 @@ Use `references/TEMPLATE.md` as the output format. A complete response should:
 - **Update procedure**: criteria and their tests change in the SAME PR - if a
   review changes a criterion, the mirrored test changes with it, never in a
   follow-up. Feature-wide failure scenarios that are NOT story-scoped do not
-  belong here; route them to `docs/modules/<module>.md` via `deliver-edge-cases`.
+  belong here; route them to `docs/analitics/edge-cases/<module>.md` via `deliver-edge-cases`.
 
 ## Quality Checklist
 

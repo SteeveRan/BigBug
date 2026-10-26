@@ -68,5 +68,5 @@ version: "1.0"
 ## Related Artifacts
 
 - User stories: [US-...]
-- Edge-case rows: [docs/modules/<module>.md section]
+- Edge-case rows: [docs/analitics/edge-cases/<module>.md rows]
 - Open questions: [links or "none"]

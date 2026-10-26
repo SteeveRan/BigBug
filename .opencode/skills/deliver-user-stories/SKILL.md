@@ -75,9 +75,9 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
   story with a `status: retired` header line instead of deleting it.
   Durable behavioral obligations that outlive the feature (module-level
   contracts, edge cases, recovery paths) do NOT live in the story - they go to
-  `docs/modules/<module>.md` (see the `deliver-edge-cases` skill). Detailed
-  actor-system interaction flows are NOT stories either - they go to use cases
-  (see the `deliver-use-cases` skill).
+  `docs/analitics/edge-cases/<module>.md` (see the `deliver-edge-cases` skill).
+  Detailed actor-system interaction flows are NOT stories either - they go to
+  use cases (see the `deliver-use-cases` skill).
 
 ## Quality Checklist
 
