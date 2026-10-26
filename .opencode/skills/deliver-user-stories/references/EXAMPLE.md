@@ -21,9 +21,6 @@ This document contains the user stories for the Recurring Tasks feature. See the
 | ID | US-101 |
 | Title | Create Recurring Task |
 | Persona | Team Lead |
-| Priority | P0 |
-| Epic/Feature | Recurring Tasks |
-| Estimate | 5 points |
 
 ### User Story Statement
 

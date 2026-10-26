@@ -57,15 +57,20 @@ alternatives, guarantees). A story may be covered by zero or several use cases.
 
 ## Process in this repo: format, location, update procedure
 
+- **Language**: аналитика пишется **по-русски** (требование владельца). Технические
+  термины, ID (`UC-<module>-NNN`), permissions, статусы и идентификаторы кода
+  остаются в английском; шаги сценария формулируются деонтически по-русски
+  («система проверяет...», «система обязана сообщить...»).
 - **Format**: fully-dressed use case per `references/TEMPLATE.md` (Header,
   Stakeholders, Preconditions, Success Guarantee, Trigger, Main Success
   Scenario as actor/system table, Extensions, Sub-variations, Related
   Artifacts). See `references/EXAMPLE.md` for a completed example.
-- **Location**: `docs/analitics/use-cases/<module>.md` - one living file per module
-  holding its use-case model. When a module grows past ~10 use cases, split to
-  `docs/analitics/use-cases/<module>/UC-<module>-NNN-<slug>.md` (one file per use case)
-  and keep `docs/analitics/use-cases/<module>.md` as an index (ID, name, one-line goal,
-  trace). Committed to the repo, versioned with the code.
+- **Location**: `docs/analitics/use-cases/<module>/` - one directory per module,
+  **one file per use case**: `docs/analitics/use-cases/<module>/UC-<module>-NNN.md`,
+  plus a `README.md` index in the same directory (table: ID, name; frontmatter
+  carries module metadata). File names use the stable use-case ID. Do NOT pile
+  all use cases of a module into a single file. Committed to the repo,
+  versioned with the code.
 - **Direction of truth**: a use case is NORMATIVE - required interaction, not
   a description of current behavior. Write steps deontically ("system
   validates...", "system must report..."). A PR whose flow contradicts a use
