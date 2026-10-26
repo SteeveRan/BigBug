@@ -95,3 +95,15 @@ jobs:
           set -e
           files=$(find infrastructure -name '*.yaml' | sort)
           [ -n "$files" ] && yamllint $files
+
+  adr-order:
+    name: ADR order (ADR before code)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: check-adr-order (base...head)
+        run: ./scripts/check-adr-order.sh "origin/${{ github.base_ref }}" HEAD
