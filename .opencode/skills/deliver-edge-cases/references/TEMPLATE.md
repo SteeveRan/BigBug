@@ -70,5 +70,5 @@ version: "1.1"
    the same PR.
 3. A row whose expected behavior encodes a real trade-off (hard to reverse,
    surprising, deliberate choice) must be surfaced to an ADR (`/adr`).
-4. Flow narratives for operations live in use cases (`docs/use-cases/`),
+4. Flow narratives for operations live in use cases (`docs/analitics/use-cases/`),
    which reference these rows; the two must not contradict.

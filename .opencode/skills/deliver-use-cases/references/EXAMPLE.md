@@ -65,6 +65,6 @@ Operator picks "Import group" on the Sources tab.
 
 ## Related Artifacts
 
-- User stories: docs/stories/git-mirroring.md US-GM-003, US-GM-005
+- User stories: docs/analitics/stories/git-mirroring.md US-GM-003, US-GM-005
 - Edge-case rows: docs/modules/git-mirroring.md "Import group" table
 - Open questions: none

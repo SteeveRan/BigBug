@@ -64,7 +64,7 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
   Closing test. Use the module's glossary terms (`GLOSSARY.md`) and never
   implementation file paths in the expected-behavior column (they rot; name the
   seam instead). Flow narratives for the operations are NOT part of the catalog
-  - they live in use cases (`docs/use-cases/`, see the `deliver-use-cases`
+  - they live in use cases (`docs/analitics/use-cases/`, see the `deliver-use-cases`
   skill); the catalog rows and the use-case extensions must not contradict.
 - **Location**: `docs/modules/<module>.md` - the module charter, a LIVING
   document committed to the repo. The edge-case catalog is its

@@ -61,10 +61,10 @@ alternatives, guarantees). A story may be covered by zero or several use cases.
   Stakeholders, Preconditions, Success Guarantee, Trigger, Main Success
   Scenario as actor/system table, Extensions, Sub-variations, Related
   Artifacts). See `references/EXAMPLE.md` for a completed example.
-- **Location**: `docs/use-cases/<module>.md` - one living file per module
+- **Location**: `docs/analitics/use-cases/<module>.md` - one living file per module
   holding its use-case model. When a module grows past ~10 use cases, split to
-  `docs/use-cases/<module>/UC-<module>-NNN-<slug>.md` (one file per use case)
-  and keep `docs/use-cases/<module>.md` as an index (ID, name, one-line goal,
+  `docs/analitics/use-cases/<module>/UC-<module>-NNN-<slug>.md` (one file per use case)
+  and keep `docs/analitics/use-cases/<module>.md` as an index (ID, name, one-line goal,
   trace). Committed to the repo, versioned with the code.
 - **Update procedure**:
   1. Same-PR rule: a PR that changes module behavior updates the affected use
