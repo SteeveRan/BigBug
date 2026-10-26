@@ -14,9 +14,6 @@ status: draft
 | ID | [US-XXX] |
 | Title | [Brief descriptive title] |
 | Persona | [User persona] |
-| Priority | [P0/P1/P2] |
-| Epic/Feature | [Parent feature or epic] |
-| Estimate | [Story points or T-shirt size] |
 
 ## User Story Statement
 

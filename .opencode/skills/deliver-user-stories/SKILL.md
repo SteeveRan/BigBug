@@ -69,11 +69,14 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
   User Story Statement; Acceptance Criteria in Given/When/Then; Design Notes;
   Technical Notes; Dependencies; Out of Scope; Open Questions). Personas must be
   the platform's built-in roles: admin, operator, viewer.
-- **Location**: `docs/analitics/stories/<module>.md` - one living file per module
-  (e.g. `docs/analitics/stories/providers.md`), H2 per feature, stories under it with
-  stable IDs (`US-<module>-NNN`). Committed to the repo and versioned with the
-  code. The issue tracker only ever receives TICKETS derived from stories
-  (`/to-tickets`); the story text itself never lives in an issue.
+- **Location**: `docs/analitics/stories/<module>/` - one directory per module,
+  **one file per story**: `docs/analitics/stories/<module>/US-<module>-NNN.md`,
+  plus a `README.md` index in the same directory (table: ID, title, note;
+  frontmatter carries module metadata). File names use the stable story ID.
+  Do NOT pile all stories of a module into a single file. Committed to the repo
+  and versioned with the code. The issue tracker only ever receives TICKETS
+  derived from stories (`/to-tickets`); the story text itself never lives in
+  an issue.
 - **Direction of truth**: a story is NORMATIVE - the user's request, the
   requirement the code must satisfy. A PR that contradicts a story is an
   INCORRECT PR and is returned; the story never bends to match written code.

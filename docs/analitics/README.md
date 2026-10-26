@@ -15,15 +15,17 @@
 
 ```
 docs/analitics/
-├── README.md            # этот реестр
-├── stories/<module>.md  # user stories (US-<module>-NNN)
-├── use-cases/<module>.md# use cases (UC-<module>-NNN)
-└── edge-cases/<module>.md # каталог отказов (EC-<module>-NNN)
+├── README.md              # этот реестр
+├── stories/<module>/      # user stories: US-<module>-NNN.md (одна story = один файл) + README-индекс
+├── use-cases/<module>/    # use cases: UC-<module>-NNN.md (один UC = один файл) + README-индекс
+└── edge-cases/<module>.md # каталог отказов (EC-<module>-NNN), одна таблица на операцию
 ```
 
 - Файлы ленивые: создаются при появлении аналитики модуля, пустые не заводить.
+- **Не сваливать все stories/use cases модуля в один файл**: одна story —
+  один `US-<module>-NNN.md`, один use case — один `UC-<module>-NNN.md`;
+  каталог модуля — README-индекс рядом (таблица ID → название).
 - ID стабильны: перенумерация запрещена; удаление — только `status: retired`.
-- При >10 use cases в модуле — раскладка в `use-cases/<module>/` + индекс.
 
 ## Правила для агентов
 
@@ -38,7 +40,7 @@ docs/analitics/
 
 | Модуль | Stories | Use cases | Edge cases | Issue | Статус |
 |---|---|---|---|---|---|
-| git-mirroring | [stories/git-mirroring.md](stories/git-mirroring.md) | [use-cases/git-mirroring.md](use-cases/git-mirroring.md) | [edge-cases/git-mirroring.md](edge-cases/git-mirroring.md) | #159 | в ревью (PR #175) |
+| git-mirroring | [stories/git-mirroring/](stories/git-mirroring/) | [use-cases/git-mirroring/](use-cases/git-mirroring/) | [edge-cases/git-mirroring.md](edge-cases/git-mirroring.md) | #159 | в ревью (PR #175) |
 | user-profile | — | — | — | #158 | не начата |
 | orphaned-remediation | — (владелец: #160, отправная точка — moved-строки в git-mirroring) | — | — | #160 | не начата |
 | image-builds | — | — | — | #163 | не начата |
