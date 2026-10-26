@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-22
 decision-makers: SteeveRan
 ---
@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-После переезда dev-стенда в kind ([ADR-0022](../infrastructure/0022-dev-stand-on-kind.md)) конфигурация и секреты приложения должны доставляться в поды по-куберному — через Secret/ConfigMap, а не через `.env` docker compose. При этом OpenTofu уже управляет конфигурацией инфраструктурных сервисов ([ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)) и генерирует часть секретов (Keycloak client secret, GitLab PAT, пароли).
+После переезда dev-стенда в kind ([ADR-0022](../infrastructure/0022-dev-stand-on-kind.md)) конфигурация и секреты приложения должны доставляться в поды по-куберному — через Secret/ConfigMap, а не через `.env` docker compose. При этом OpenTofu уже управляет конфигурацией инфраструктурных сервисов ([ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)) и генерирует часть секретов (Keycloak client secret, GitLab PAT, пароли).
 
 Вопрос: **кто и каким способом создаёт k8s Secret'ы** для приложения и инфраструктурных сервисов dev-стенда — OpenTofu напрямую, скрипт-обвязка поверх `tofu output`, или ручной `kubectl`?
 
@@ -120,7 +120,7 @@ kubectl get secrets -n bigbug --context kind-bigbug-dev
 
 - [ADR-0022](../infrastructure/0022-dev-stand-on-kind.md) — кластер `bigbug-dev`, операторы CNPG/redis-operator
 - [ADR-0023](../infrastructure/0023-bigbug-helm-chart.md) — как приложение потребляет Secret'ы (env из `secretKeyRef`)
-- [ADR-0013](../infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — граница IaC расширяется: k8s-объекты теперь тоже tofu (non-goal из этого ADR снят)
+- [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — граница IaC расширяется: k8s-объекты теперь тоже tofu (non-goal из этого ADR снят)
 - [ADR-0010](../backend/0010-fernet-secrets-encryption.md) — Fernet-шифрование stored credentials (не меняется)
 - [ADR-0018](0018-e2e-testing-strategy.md) — e2e против живого стенда; seed-скрипт — новый обязательный шаг прогона
 - Условие пересмотра: prod (Vault/ESO, remote state) — отдельный ADR

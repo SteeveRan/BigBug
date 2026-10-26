@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-22
 decision-makers: SteeveRan
 ---
@@ -14,7 +14,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-[ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
+[ADR-0022](0022-dev-stand-on-kind.md) вводит единый kind-кластер `bigbug-dev`, и внутрь него предстоит установить цепочку сущностей: haproxy-ingress → операторы (CNPG, redis-operator/keycloakx-зависимости) → Harbor, keycloakx, приложение. Первый шаг (issue #54) был сделан bash-скриптом (`bootstrap.sh` c `helm upgrade --install`) — и это воспроизводит ровно проблему, из-за которой ушёл bash-only provisioning в [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md): нет state, нет plan/diff, «проверь-а-нет-ли-уже»-ветки на каждый ресурс.
 
 При этом ADR-0013 зафиксировал non-goal «управление ресурсами внутри kind-кластера через tofu». Этот non-goal теперь мешает: in-cluster сущностей становится много (ingress, операторы, сервисы, app), и императивные скрипты для них не масштабируются. Требуется пересмотреть границу.
 
@@ -70,7 +70,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 ## More Information
 
 - [ADR-0022](0022-dev-stand-on-kind.md) — топология dev-стенда на kind (этот ADR уточняет его раздел императивного)
-- [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой для API-конфигурации; его non-goal «in-cluster через tofu» этим ADR superseded-по-смыслу (документально оформить supersede при accept)
+- [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — IaC-слой для API-конфигурации; его non-goal «in-cluster через tofu» этим ADR superseded-по-смыслу (документально оформить supersede при accept)
 - Issue #54 — первая реализация bootstrap (haproxy-ingress переносится в base)
 - Условие пересмотра: появление production-кластера (remote state, secrets management) — новый ADR
 
@@ -97,7 +97,7 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 ## Update 2026-10-23 (#80): поглощение инструментального ядра ADR-0013
 
-[ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) разрастался: он одновременно про выбор IaC-инструмента, state и границу императивного, и про три сервиса (Keycloak, Harbor, GitLab). После ADR-0022/0029/0030 его сервисные решения разъехались с фактической топологией. Разборка (issue #80):
+[ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) разрастался: он одновременно про выбор IaC-инструмента, state и границу императивного, и про три сервиса (Keycloak, Harbor, GitLab). После ADR-0022/0029/0030 его сервисные решения разъехались с фактической топологией. Разборка (issue #80):
 
 1. **Сервисные решения вынесены в отдельные ADR** (каждый — фактическое состояние своей зоны):
    - [ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md) — GitLab: compose-исключение, https://gitlab.local:8443, PAT-исключение; base setup — module gitlab в infra-apps (config root упразднён);
@@ -115,4 +115,4 @@ OpenTofu управляет **всем содержимым kind-кластер�
 
 ## Update 2026-10-24 (#62): non-goal ADR-0013 документально superseded
 
-Non-goal ADR-0013 «управление ресурсами внутри kind-кластера через tofu» официально снят — этим ADR (взаимные ссылки проставлены в обе стороны: [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) §Consequences/§More Information ↔ этот update). Снос compose-приложения и legacy harbor-кластера завершён; compose остаётся только для GitLab ([ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)).
+Non-goal ADR-0013 «управление ресурсами внутри kind-кластера через tofu» официально снят — этим ADR (взаимные ссылки проставлены в обе стороны: [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) §Consequences/§More Information ↔ этот update). Снос compose-приложения и legacy harbor-кластера завершён; compose остаётся только для GitLab ([ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)).

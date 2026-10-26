@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 decision-makers: SteeveRan
 consulted: SteeveRan
@@ -8,11 +8,11 @@ informed: SteeveRan
 
 # Keycloak в dev-стенде: keycloakx в kind, CNPG-БД, конфигурация через apps root
 
-> Сервисный ADR, фиксирующий **фактическое** состояние (проверено по коду, 2026-10-23). Новых решений не принимает — выносит Keycloak-зону из разросшегося [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) (разборка — issue #80, архивация — #62).
+> Сервисный ADR, фиксирующий **фактическое** состояние (проверено по коду, 2026-10-23). Новых решений не принимает — выносит Keycloak-зону из разросшегося [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) (разборка — issue #80, архивация — #62).
 
 ## Context and Problem Statement
 
-[ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) описывал Keycloak в эпоху compose + единого tofu root: с тех пор Keycloak переехал в kind-кластер ([ADR-0022](0022-dev-stand-on-kind.md), issue #57), его API-конфиг — в apps-слой ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md), update #58), схема — на HTTPS ([ADR-0030](0030-dev-stand-https-self-signed-certs.md)). Единого документа «Keycloak в dev-стенде» нет.
+[ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) описывал Keycloak в эпоху compose + единого tofu root: с тех пор Keycloak переехал в kind-кластер ([ADR-0022](0022-dev-stand-on-kind.md), issue #57), его API-конфиг — в apps-слой ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md), update #58), схема — на HTTPS ([ADR-0030](0030-dev-stand-https-self-signed-certs.md)). Единого документа «Keycloak в dev-стенде» нет.
 
 Вопрос: **как Keycloak устроен в dev-стенде** — установка, БД, конфигурация, секреты, HTTPS.
 
