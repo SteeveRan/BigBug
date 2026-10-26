@@ -117,6 +117,10 @@ version: "1.1"
 
 ## Orphaned remediation
 
+> **status: moved to #160** — remediation осиротевших зеркал — отдельный модуль
+> (issue #160, grill #140). Таблица остаётся как отправная точка; финальный
+> контракт и закрытие гэпов — в комплекте #160.
+
 | #   | ID            | Condition                                                      | Required behavior (system MUST...)                                                                     | Required recovery (system MUST offer)       | Severity | Closing test              |
 | --- | ------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- | -------- | ------------------------- |
 | 1   | EC-gitmrr-034 | Orphan deleted                                                 | soft-delete the mirror record (recoverable within retention); NEVER modify/delete the GitLab project   | confirmation dialog naming the consequences | P1       | gap -> grill #140 (C4)    |
@@ -126,12 +130,12 @@ version: "1.1"
 
 ## Delete/restore mirror
 
-| #   | ID            | Condition                                                     | Required behavior (system MUST...)                                                                             | Required recovery (system MUST offer) | Severity | Closing test |
-| --- | ------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------- | ------------ |
-| 1   | EC-gitmrr-038 | Retention (30 days) expired                                   | physically remove the record in FK order during daily cleanup; record in audit; NEVER touch the GitLab project | —                                     | P1       | gap -> #159  |
-| 2   | EC-gitmrr-039 | Restore of a never-deleted mirror                             | report the state without changing it                                                                           | —                                     | P3       | gap -> #159  |
-| 3   | EC-gitmrr-043 | Repository delete attempted while active mirrors reference it | refuse with 409 listing the referencing mirror ids                                                             | list of blockers with links           | P2       | gap -> #159  |
-| 4   | EC-gitmrr-044 | Mirror restored after cascade source-repository deletion      | restore the mirror AND its cascade-deleted source repository                                                   | —                                     | P2       | gap -> #159  |
+| #   | ID            | Condition                                                          | Required behavior (system MUST...)                                                                             | Required recovery (system MUST offer) | Severity | Closing test |
+| --- | ------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- | -------- | ------------ |
+| 1   | EC-gitmrr-038 | Retention window expired (configured `soft_delete_retention_days`) | physically remove the record in FK order during daily cleanup; record in audit; NEVER touch the GitLab project | —                                     | P1       | gap -> #159  |
+| 2   | EC-gitmrr-039 | Restore of a never-deleted mirror                                  | report the state without changing it                                                                           | —                                     | P3       | gap -> #159  |
+| 3   | EC-gitmrr-043 | Repository delete attempted while active mirrors reference it      | refuse with 409 listing the referencing mirror ids                                                             | list of blockers with links           | P2       | gap -> #159  |
+| 4   | EC-gitmrr-044 | Mirror restored after cascade source-repository deletion           | restore the mirror AND its cascade-deleted source repository                                                   | —                                     | P2       | gap -> #159  |
 
 ## Error message copy
 

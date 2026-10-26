@@ -468,6 +468,10 @@ Operator triggers the integrity check.
 
 # UC-gitmrr-009: Discover and remediate orphaned mirrors
 
+> **status: discovery-owned-here, remediation moved to #160.** Шаги 1–2 (discovery) —
+> норматив этого модуля; шаги 3–4 (reassign/move-target/delete) — отправная точка
+> для #160 (grill #140, отдельный ADR-кандидат), финальный контракт там.
+
 ## Header
 
 | Field            | Value                                   |
@@ -564,7 +568,7 @@ Operator deletes a mirror (with confirmation); later, an operator/admin restores
 | ------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | 2       | Mirrors still reference the source repository at repository-delete time | System refuses with 409 listing the referencing mirror ids (EC-gitmrr-036)                                            |
 | 3       | Mirror already deleted / not deleted                                    | System reports the state without changing it (EC-gitmrr-037)                                                          |
-| 4       | Retention (30 days) expired                                             | Daily cleanup physically removes the record in FK order with an audit event; GitLab project untouched (EC-gitmrr-038) |
+| 4       | Retention window expired (configured `soft_delete_retention_days`)      | Daily cleanup physically removes the record in FK order with an audit event; GitLab project untouched (EC-gitmrr-038) |
 
 ## Related Artifacts
 

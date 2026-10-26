@@ -657,6 +657,11 @@ Orphaned discovery is an on-demand report over target GitLab instances: projects
 
 ## US-gitmrr-010: Relink or remove an orphaned mirror
 
+> **status: moved to #160** — remediation осиротевших зеркал — отдельный модуль
+> (issue #160, grill #140, отдельный ADR-кандидат). Эпопея ниже остаётся здесь
+> как отправная точка; #160 владеет финальной версией контракта. ID сохранён
+> за этим разделом, не переиспользуется.
+
 ### Story Header
 
 | Field        | Value                               |
@@ -767,7 +772,7 @@ Deletion is soft with a 30-day retention; a daily cleanup physically removes exp
 
 #### AC-3: Retention enforced
 
-**Given** a mirror soft-deleted longer than the retention period (30 days)
+**Given** a mirror soft-deleted longer than the configured retention period
 
 **When** the daily cleanup runs
 
@@ -776,6 +781,7 @@ Deletion is soft with a 30-day retention; a daily cleanup physically removes exp
 ### Technical Notes
 
 - Delete/restore require `mirrors:delete`.
+- The retention window is a deployment setting (`soft_delete_retention_days`, default 30 days); analytics requires that the window exists and is enforced — the value itself is configuration, not a requirement.
 
 ### Dependencies
 
