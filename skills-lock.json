@@ -37,6 +37,12 @@
       "skillPath": "skills/deliver-edge-cases/SKILL.md",
       "computedHash": "0aa9e1d3541f9eeebe8c3c32dc1b82c0589e0525be59772ba52e34b1b0b4371d"
     },
+    "deliver-use-cases": {
+      "source": "authored-in-repo (Cockburn fully-dressed template)",
+      "sourceType": "local",
+      "skillPath": ".opencode/skills/deliver-use-cases/SKILL.md",
+      "computedHash": "5273d44eaa158bb8700def5bb8881b1cdc7441c9b37a994e0da92fc5d1a748bc"
+    },
     "deliver-user-stories": {
       "source": "product-on-purpose/pm-skills",
       "sourceType": "github",

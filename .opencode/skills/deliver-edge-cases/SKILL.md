@@ -55,15 +55,17 @@ When asked to document edge cases, follow these steps:
 
 ## Output Format
 
-Use the template in `references/TEMPLATE.md` to structure the output. A complete edge-case catalog fills every template section: Feature Overview; Edge Case Categories; Error Messages; Recovery Paths; and Test Scenarios.
+Use the template in `references/TEMPLATE.md` to structure the output. A complete catalog covers every user-facing operation (one table set per operation: general, input validation, boundary conditions, error states & integration failures, concurrency), plus the error-message copy table.
 
 ## Process in this repo: format, location, update procedure
 
-- **Format**: the catalog table from `references/TEMPLATE.md`, one row per
+- **Format**: the catalog tables from `references/TEMPLATE.md`, one row per
   condition: Condition / Expected behavior / User-visible recovery / Severity /
   Closing test. Use the module's glossary terms (`GLOSSARY.md`) and never
   implementation file paths in the expected-behavior column (they rot; name the
-  seam instead).
+  seam instead). Flow narratives for the operations are NOT part of the catalog
+  - they live in use cases (`docs/use-cases/`, see the `deliver-use-cases`
+  skill); the catalog rows and the use-case extensions must not contradict.
 - **Location**: `docs/modules/<module>.md` - the module charter, a LIVING
   document committed to the repo. The edge-case catalog is its
   "Operations & Edge Cases" section (one sub-table per user-facing operation:

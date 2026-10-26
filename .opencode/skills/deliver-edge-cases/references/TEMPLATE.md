@@ -1,118 +1,74 @@
 ---
-artifact: edge-cases
-version: "1.0"
-created: <YYYY-MM-DD>
-status: draft
+artifact: edge-case-catalog
+version: "1.1"
 ---
 
-# Edge Cases: [Feature Name]
+# Module Charter: <Module Name> — Operations & Edge Cases
 
-## Feature Overview
+> Living document: `docs/modules/<module>.md`. One catalog table per
+> user-facing operation. Vocabulary: `GLOSSARY.md`. No implementation file
+> paths in "Expected behavior" - name the seam, not the code.
 
-<!-- Brief description of the feature being analyzed -->
+## Overview
 
-[Feature description]
+| Field | Value |
+|-------|-------|
+| Module | [name as in GLOSSARY] |
+| Purpose | [one paragraph - why this module exists] |
+| User-facing operations | [list: create / edit / delete / sync / import ...] |
+| Permissions | [permission strings guarding the operations] |
+| Bound ADRs | [ADR-NNNN ...] |
 
-**Related Documents:**
-- [PRD or User Story link]
-- [Design specs link]
+## <Operation 1: e.g. "Create provider">
 
-## Edge Case Categories
+| # | Condition | Expected behavior | User-visible recovery | Severity | Closing test |
+|---|-----------|-------------------|-----------------------|----------|--------------|
+| 1 | [duplicate label] | [system behavior] | [what the user sees and can do] | P1 | [test file/case or `gap -> <ADR/issue>`] |
+| 2 | [input exceeds max length] | | | P2 | |
 
-### Input Validation
+### Input validation
 
-| Scenario | Expected Behavior | Priority | Notes |
-|----------|------------------|----------|-------|
-| [Input field] is empty | [What happens] | P1/P2/P3 | [Additional context] |
-| [Input field] exceeds max length | [What happens] | P1/P2/P3 | [Max: X characters] |
-| [Input field] contains special characters | [What happens] | P1/P2/P3 | [Which characters] |
-| [Input field] wrong format | [What happens] | P1/P2/P3 | [Expected format] |
+| # | Condition | Expected behavior | Severity | Closing test |
+|---|-----------|-------------------|----------|--------------|
+| 1 | [field empty] | | P1 | |
+| 2 | [field wrong format / special chars] | | P2 | |
 
-### Boundary Conditions
+### Boundary conditions
 
-| Scenario | Expected Behavior | Priority | Notes |
-|----------|------------------|----------|-------|
-| [Value] at minimum | [What happens] | P1/P2/P3 | [Min value: X] |
-| [Value] at maximum | [What happens] | P1/P2/P3 | [Max value: X] |
-| [Value] below minimum | [What happens] | P1/P2/P3 | [Error handling] |
-| [Value] above maximum | [What happens] | P1/P2/P3 | [Error handling] |
+| # | Condition | Expected behavior | Severity | Closing test |
+|---|-----------|-------------------|----------|--------------|
+| 1 | [value at min / max / beyond] | | P2 | |
 
-### Error States
+### Error states & integration failures
 
-| Scenario | Expected Behavior | Priority | Notes |
-|----------|------------------|----------|-------|
-| Network failure during [action] | [What happens] | P1/P2/P3 | [Retry behavior] |
-| [Resource] not found | [What happens] | P1/P2/P3 | [404 handling] |
-| Permission denied | [What happens] | P1/P2/P3 | [Auth flow] |
-| Session expired | [What happens] | P1/P2/P3 | [Re-auth flow] |
-| Server error (5xx) | [What happens] | P1/P2/P3 | [Fallback behavior] |
+| # | Condition | Expected behavior | User-visible recovery | Severity | Closing test |
+|---|-----------|-------------------|-----------------------|----------|--------------|
+| 1 | [provider API timeout] | | [retry/link to retry] | P1 | |
+| 2 | [permission denied] | | | P1 | |
 
 ### Concurrency
 
-| Scenario | Expected Behavior | Priority | Notes |
-|----------|------------------|----------|-------|
-| User double-clicks submit | [What happens] | P1/P2/P3 | [Debounce/disable] |
-| Two users edit same [resource] | [What happens] | P1/P2/P3 | [Conflict resolution] |
-| Data changes after page load | [What happens] | P1/P2/P3 | [Stale data handling] |
+| # | Condition | Expected behavior | Severity | Closing test |
+|---|-----------|-------------------|----------|--------------|
+| 1 | [double submit / concurrent edit] | | P2 | |
 
-### Integration Failures
+## <Operation 2: ...>
 
-| Scenario | Expected Behavior | Priority | Notes |
-|----------|------------------|----------|-------|
-| [External service] unavailable | [What happens] | P1/P2/P3 | [Fallback/retry] |
-| [External service] returns error | [What happens] | P1/P2/P3 | [Error mapping] |
-| [External service] timeout | [What happens] | P1/P2/P3 | [Timeout value: Xs] |
+[Same table set per operation]
 
-## Error Messages
+## Error message copy
 
-<!-- User-facing copy for each error state -->
+| Error state | User message | Additional action (button/link) |
+|-------------|--------------|---------------------------------|
+| [condition #] | "[exact copy]" | [e.g. "Configure provider" -> /settings/providers] |
 
-| Error State | User Message | Additional Action |
-|-------------|--------------|-------------------|
-| [Error 1] | "[Message shown to user]" | [Button/link if any] |
-| [Error 2] | "[Message shown to user]" | [Button/link if any] |
-| [Error 3] | "[Message shown to user]" | [Button/link if any] |
+## Rules
 
-## Recovery Paths
-
-<!-- How users recover from each error -->
-
-### [Error State 1]
-
-**User sees:** [Error message or UI state]
-
-**Recovery options:**
-1. [Primary recovery action]
-2. [Alternative recovery action]
-
-**Data preservation:** [What data is saved/lost]
-
-### [Error State 2]
-
-**User sees:** [Error message or UI state]
-
-**Recovery options:**
-1. [Primary recovery action]
-2. [Alternative recovery action]
-
-**Data preservation:** [What data is saved/lost]
-
-## Test Scenarios
-
-<!-- QA checklist derived from edge cases -->
-
-### Must Test (P1)
-
-- [ ] [Test scenario 1]
-- [ ] [Test scenario 2]
-- [ ] [Test scenario 3]
-
-### Should Test (P2)
-
-- [ ] [Test scenario 4]
-- [ ] [Test scenario 5]
-
-### Nice to Test (P3)
-
-- [ ] [Test scenario 6]
-- [ ] [Test scenario 7]
+1. Every row needs a Closing test: an existing test case name, or an explicit
+   `gap -> <ADR or issue>`. A row without either is invalid.
+2. Same-PR rule: a PR changing module behavior updates the affected rows in
+   the same PR.
+3. A row whose expected behavior encodes a real trade-off (hard to reverse,
+   surprising, deliberate choice) must be surfaced to an ADR (`/adr`).
+4. Flow narratives for operations live in use cases (`docs/use-cases/`),
+   which reference these rows; the two must not contradict.

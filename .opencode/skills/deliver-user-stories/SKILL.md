@@ -59,20 +59,25 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
 
 ## Process in this repo: format, location, update procedure
 
-- **Format**: one story per section, exactly the shape in `references/TEMPLATE.md`
-  (Story Header; User Story Statement; Acceptance Criteria in Given/When/Then;
+- **Format**: a user story is a REPO document, not an issue. One story = one
+  section, exactly the shape in `references/TEMPLATE.md` (Story Header with ID;
+  User Story Statement; Acceptance Criteria in Given/When/Then; Design Notes;
   Technical Notes; Dependencies; Out of Scope; Open Questions). Personas must be
   the platform's built-in roles: admin, operator, viewer.
-- **Location**: user stories live on the issue tracker as GitHub issues
-  (conventions in `docs/agents/issue-tracker.md`). They are NOT committed as repo
-  files. A standalone story set is a single issue labeled `ready-for-agent` after
-  the user confirms it; when produced as part of `/to-spec`, they become the
-  User Stories section of the spec issue.
-- **Update procedure**: edit the issue body in place; add a comment for every
-  material change ("changed AC2 because ...") so the conversation trail stays
-  auditable. Durable behavioral obligations that outlive the feature (module-level
+- **Location**: `docs/stories/<module>.md` - one living file per module
+  (e.g. `docs/stories/providers.md`), H2 per feature, stories under it with
+  stable IDs (`US-<module>-NNN`). Committed to the repo and versioned with the
+  code. The issue tracker only ever receives TICKETS derived from stories
+  (`/to-tickets`); the story text itself never lives in an issue.
+- **Update procedure**: same-PR rule - a PR that changes module behavior in a
+  way that invalidates a story updates that story in the same PR. Renaming or
+  renumbering story IDs is forbidden once tickets reference them; retire a
+  story with a `status: retired` header line instead of deleting it.
+  Durable behavioral obligations that outlive the feature (module-level
   contracts, edge cases, recovery paths) do NOT live in the story - they go to
-  `docs/modules/<module>.md` (see the `deliver-edge-cases` skill).
+  `docs/modules/<module>.md` (see the `deliver-edge-cases` skill). Detailed
+  actor-system interaction flows are NOT stories either - they go to use cases
+  (see the `deliver-use-cases` skill).
 
 ## Quality Checklist
 
