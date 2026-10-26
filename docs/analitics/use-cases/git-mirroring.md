@@ -3,574 +3,569 @@ artifact: use-case
 version: "1.0"
 ---
 
-# UC-gitmrr-001: Import a source group from a Git provider
+# UC-gitmrr-001: Импортировать группу источников из Git-провайдера
 
-> Fully-dressed use case, adapted from A. Cockburn, "Writing Effective Use Cases" (2001).
-> A use case describes WHAT the system does at its boundary, observable from the
-> outside. It is an analysis artifact: no UI design, no implementation details.
+> Fully-dressed use case по A. Cockburn, "Writing Effective Use Cases" (2001).
+> Use case описывает, ЧТО система делает на своей границе, наблюдаемо извне.
+> Это аналитический артефакт: без UI-дизайна и деталей реализации.
 
 ## Header
 
-| Field            | Value                                            |
-| ---------------- | ------------------------------------------------ |
-| ID               | UC-gitmrr-001                                    |
-| Name             | Import a source group from a Git provider        |
-| Goal level       | user-goal                                        |
-| Scope            | Git Mirroring module                             |
-| Primary actor    | operator                                         |
-| Secondary actors | Git provider API (GitHub / GitLab / Generic Git) |
-| Traces to        | US-gitmrr-001                                    |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-001 |
+| Название | Импортировать группу источников из Git-провайдера |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | Git-провайдер API (GitHub / GitLab / Generic Git) |
+| Трассировка | US-gitmrr-001 |
 
 ## Stakeholders and Interests
 
-| Stakeholder | Interest                                                             |
-| ----------- | -------------------------------------------------------------------- |
-| operator    | Register all repositories of a group without manual one-by-one entry |
-| viewer      | See discovered repositories in the Sources tab                       |
+| Стейкхолдер | Интерес |
+|-------------|----------|
+| operator | Зарегистрировать все репозитории группы без ручного ввода по одному |
+| viewer | Видеть найденные репозитории на вкладке Sources |
 
 ## Preconditions
 
-- Operator is authenticated and holds `source_groups:write`.
-- At least one Git provider with credentials exists (status OK).
+- Operator аутентифицирован и имеет `source_groups:write`.
+- Существует минимум один Git-провайдер с credentials (статус OK).
 
 ## Success Guarantee (Postconditions)
 
-- The group and all discovered repositories exist in BigBug as source records.
-- Minimal guarantee: on partial failure, already-registered repositories are kept
-  and the failure reason is visible to the operator.
+- Группа и все обнаруженные репозитории существуют в BigBug как source-записи.
+- Минимальная гарантия: при частичном сбое уже зарегистрированные репозитории сохранены, причина сбоя видна оператору.
 
 ## Trigger
 
-Operator submits a group import (provider + group identifier).
+Operator отправляет импорт группы (провайдер + идентификатор группы).
 
 ## Main Success Scenario
 
-| Step | Actor                                                       | System                                                                                                                       |
-| ---- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Operator selects a provider and enters the group identifier |                                                                                                                              |
-| 2    |                                                             | System resolves the group via the provider API and lists its repositories                                                    |
-| 3    | Operator confirms the import                                |                                                                                                                              |
-| 4    |                                                             | System stores the group, creates source-repository records, and reports the count; metadata fetch proceeds in the background |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator выбирает провайдера и вводит идентификатор группы | |
+| 2 | | Система разрешает группу через API провайдера и получает список её репозиториев |
+| 3 | Operator подтверждает импорт | |
+| 4 | | Система сохраняет группу, создаёт записи source-репозиториев, сообщает число; загрузка метаданных идёт в фоне |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                         | Handling                                                                                  |
-| ------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 2       | Group not found or not visible to the credentials | System reports "group not found"; nothing is stored (EC-gitmrr-001)                       |
-| 2       | Provider API timeout / rate limit / TLS failure   | System reports failure with the provider reason; nothing is stored (EC-gitmrr-002)        |
-| 2       | No Git provider configured                        | System shows an actionable state with a link to provider settings (EC-gitmrr-003)         |
-| 2       | Group already imported                            | System reports the conflict; existing records are left unchanged (EC-gitmrr-004)          |
-| 4       | Some repositories fail to register                | System keeps the successful ones and reports the failed list with reasons (EC-gitmrr-005) |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Группа не найдена или не видна credentials | Система обязана сообщить «группа не найдена»; ничего не сохраняется (EC-gitmrr-001) |
+| 2 | Таймаут / rate limit / сбой TLS у API провайдера | Система обязана сообщить сбой с причиной провайдера; ничего не сохраняется (EC-gitmrr-002) |
+| 2 | Ни одного Git-провайдера не настроено | Система обязана показать действенный стейт со ссылкой в настройки провайдеров (EC-gitmrr-003) |
+| 2 | Группа уже импортирована | Система обязана сообщить конфликт; существующие записи не изменяются (EC-gitmrr-004) |
+| 4 | Часть репозиториев не регистрируется | Система обязана сохранить успешные и показать список несостоявшихся с причинами (EC-gitmrr-005) |
 
 ## Sub-variations
 
-| At step | Variation                                              |
-| ------- | ------------------------------------------------------ |
-| 1       | Operator imports a single repository without its group |
+| На шаге | Вариация |
+|---------|-----------|
+| 1 | Operator импортирует одиночный репозиторий без группы |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-001](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Import source group"
-- Open questions: none
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Импорт группы источников»
+- Открытые вопросы: нет
 
 ---
 
-# UC-gitmrr-002: Create a mirror
+# UC-gitmrr-002: Создать зеркало
 
 ## Header
 
-| Field            | Value                |
-| ---------------- | -------------------- |
-| ID               | UC-gitmrr-002        |
-| Name             | Create a mirror      |
-| Goal level       | user-goal            |
-| Scope            | Git Mirroring module |
-| Primary actor    | operator             |
-| Secondary actors | —                    |
-| Traces to        | US-gitmrr-002        |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-002 |
+| Название | Создать зеркало |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | — |
+| Трассировка | US-gitmrr-002 |
 
 ## Stakeholders and Interests
 
-| Stakeholder | Interest                                               |
-| ----------- | ------------------------------------------------------ |
-| operator    | A mirror record that is ready to sync                  |
-| admin       | Duplicate sources are visible, not silently duplicated |
+| Стейкхолдер | Интерес |
+|-------------|----------|
+| operator | Запись зеркала, готовая к sync |
+| admin | Дубликаты источников видны, а не создаются молча |
 
 ## Preconditions
 
-- Operator holds `mirrors:write`.
-- The source repository exists (registered via UC-gitmrr-001 or manually).
+- Operator имеет `mirrors:write`.
+- Source-репозиторий существует (зарегистрирован через UC-gitmrr-001 или вручную).
 
 ## Success Guarantee (Postconditions)
 
-- The mirror exists with the target GitLab project bound and Pending status; the first sync can be triggered.
-- Minimal guarantee: on validation failure, no mirror record is left behind.
+- Зеркало существует с привязанным целевым GitLab-проектом и статусом Pending; первый sync можно триггерить.
+- Минимальная гарантия: при ошибке валидации не остаётся созданной записи зеркала.
 
 ## Trigger
 
-Operator submits the mirror creation form (source, target namespace/name, sync group).
+Operator отправляет форму создания зеркала (источник, целевые namespace/имя, sync-группа).
 
 ## Main Success Scenario
 
-| Step | Actor                                                                         | System                                                                                              |
-| ---- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 1    | Operator selects the source repository, target namespace/name, and sync group |                                                                                                     |
-| 2    |                                                                               | System validates the source and the sync group exist                                                |
-| 3    |                                                                               | System checks for an active mirror with the same source; none found                                 |
-| 4    |                                                                               | System stores the mirror with the target project bound and Pending status                           |
-| 5    |                                                                               | System reports the created mirror; if the group has a pipeline, the first sync starts automatically |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator выбирает source-репозиторий, целевые namespace/имя и sync-группу | |
+| 2 | | Система проверяет существование источника и sync-группы |
+| 3 | | Система проверяет активные зеркала с тем же источником; не найдено |
+| 4 | | Система сохраняет зеркало с привязанным целевым проектом и статусом Pending |
+| 5 | | Система сообщает о созданном зеркале; если у группы есть пайплайн, первый sync стартует автоматически |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                  | Handling                                                                                                                                                  |
-| ------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2       | Source repository unknown                  | System rejects with a validation error; nothing stored (EC-gitmrr-006)                                                                                    |
-| 3       | Duplicate source exists                    | System warns (and writes an audit warning), proceeds on confirmation (EC-gitmrr-007)                                                                      |
-| 4       | Target GitLab project not bound            | System stores the mirror in a not-ready-to-sync state that names the missing prerequisite; a later sync refuses with the same explanation (EC-gitmrr-008) |
-| 4       | Target namespace/name empty or over limits | System rejects with field errors (EC-gitmrr-009)                                                                                                          |
-| 5       | Automatic first sync fails                 | System keeps the created mirror and shows the sync failure reason — creation itself succeeds (EC-gitmrr-010)                                              |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Source-репозиторий неизвестен | Система обязана отклонить с ошибкой валидации; ничего не сохраняется (EC-gitmrr-006) |
+| 3 | Дубликат источника существует | Система обязана предупредить (и записать audit-warning), продолжить по подтверждению (EC-gitmrr-007) |
+| 4 | Целевой GitLab-проект не привязан | Система обязана сохранить зеркало в состоянии «не готов к sync», называющем недостающее предусловие; последующий sync обязан отказываться с тем же объяснением (EC-gitmrr-008) |
+| 4 | Целевые namespace/имя пусты или превышают лимиты | Система обязана отклонить с ошибками по полям (EC-gitmrr-009) |
+| 5 | Автоматический первый sync провалился | Система обязана сохранить созданное зеркало и показать причину сбоя sync — создание само по себе успешно (EC-gitmrr-010) |
 
 ## Sub-variations
 
-| At step | Variation                                                                              |
-| ------- | -------------------------------------------------------------------------------------- |
-| 1       | Operator pre-checks duplicates via the check-duplicates action before filling the form |
+| На шаге | Вариация |
+|---------|-----------|
+| 1 | Operator заранее проверяет дубликаты действием check-duplicates до заполнения формы |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-002](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Create mirror"
-- Open questions: auto-creation of the GitLab project at mirror creation — grill #142
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Создание зеркала»
+- Открытые вопросы: авто-создание GitLab-проекта при создании зеркала — grill #142
 
 ---
 
-# UC-gitmrr-003: Bulk create mirrors
+# UC-gitmrr-003: Массово создать зеркала
 
 ## Header
 
-| Field            | Value                |
-| ---------------- | -------------------- |
-| ID               | UC-gitmrr-003        |
-| Name             | Bulk create mirrors  |
-| Goal level       | user-goal            |
-| Scope            | Git Mirroring module |
-| Primary actor    | operator             |
-| Secondary actors | —                    |
-| Traces to        | US-gitmrr-003        |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-003 |
+| Название | Массово создать зеркала |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | — |
+| Трассировка | US-gitmrr-003 |
 
 ## Preconditions
 
-- Operator holds `mirrors:write`.
-- Source repositories for the batch exist.
+- Operator имеет `mirrors:write`.
+- Source-репозитории батча существуют.
 
 ## Success Guarantee (Postconditions)
 
-- One mirror per item of a valid batch exists.
-- Minimal guarantee: on rejection, nothing is created (all-or-nothing per request).
+- По одному зеркалу на элемент валидного батча существует.
+- Минимальная гарантия: при отклонении ничего не создаётся (всё-или-ничего в рамках запроса).
 
 ## Trigger
 
-Operator submits a batch creation (up to 500 items).
+Operator отправляет батч-создание (до 500 элементов).
 
 ## Main Success Scenario
 
-| Step | Actor                                                                     | System                                                                                              |
-| ---- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 1    | Operator selects up to 500 source repositories and common target settings |                                                                                                     |
-| 2    |                                                                           | System validates the batch size and that all listed sources exist                                   |
-| 3    |                                                                           | System creates the mirrors with Pending status and reports per-item results with duplicate warnings |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator выбирает до 500 source-репозиториев и общие целевые настройки | |
+| 2 | | Система проверяет размер батча и существование всех перечисленных источников |
+| 3 | | Система создаёт зеркала со статусом Pending и сообщает результаты по элементам с предупреждениями о дубликатах |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                        | Handling                                                                                  |
-| ------- | -------------------------------- | ----------------------------------------------------------------------------------------- |
-| 2       | Batch larger than 500            | System rejects the whole request stating the limit; nothing created (EC-gitmrr-011)       |
-| 2       | Some source repositories unknown | System rejects the whole request listing the unknown ids; nothing created (EC-gitmrr-012) |
-| 2       | Empty batch                      | System rejects with a validation error (EC-gitmrr-013)                                    |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Батч больше 500 | Система обязана отклонить запрос целиком с указанием лимита; ничего не создаётся (EC-gitmrr-011) |
+| 2 | Часть source-репозиториев неизвестна | Система обязана отклонить запрос целиком, перечислив неизвестные id; ничего не создаётся (EC-gitmrr-012) |
+| 2 | Пустой батч | Система обязана отклонить с ошибкой валидации (EC-gitmrr-013) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-003](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Bulk create mirrors"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Массовое создание зеркал»
 
 ---
 
-# UC-gitmrr-004: Run a mirror sync on demand
+# UC-gitmrr-004: Запустить sync зеркала вручную
 
 ## Header
 
-| Field            | Value                              |
-| ---------------- | ---------------------------------- |
-| ID               | UC-gitmrr-004                      |
-| Name             | Run a mirror sync on demand        |
-| Goal level       | user-goal                          |
-| Scope            | Git Mirroring module               |
-| Primary actor    | operator                           |
-| Secondary actors | GitLab API (target), GitLab Runner |
-| Traces to        | US-gitmrr-004                      |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-004 |
+| Название | Запустить sync зеркала вручную |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | GitLab API (цель), GitLab Runner |
+| Трассировка | US-gitmrr-004 |
 
 ## Preconditions
 
-- Operator holds `mirrors:sync`.
-- The mirror has a sync group; target project bound (per US-gitmrr-002 AC-2 the not-ready state is named explicitly otherwise).
+- Operator имеет `mirrors:sync`.
+- У зеркала есть sync-группа; целевой проект привязан (иначе — явное состояние «не готов к sync» по US-gitmrr-002 AC-2).
 
 ## Success Guarantee (Postconditions)
 
-- A sync-run record exists; the mirror is marked In Progress; the result will arrive as a completion event (UC-gitmrr-005).
-- Minimal guarantee: a failed trigger leaves the mirror in its previous state with the failure recorded.
+- Запись sync-ранa существует; зеркало помечено In Progress; результат придёт событием завершения (UC-gitmrr-005).
+- Минимальная гарантия: неудавшийся триггер оставляет зеркало в прежнем состоянии с записанной причиной.
 
 ## Trigger
 
-Operator presses "Sync" on a mirror (or a schedule fires — UC-gitmrr-006).
+Operator нажимает «Sync» на зеркале (или срабатывает расписание — UC-gitmrr-006).
 
 ## Main Success Scenario
 
-| Step | Actor                  | System                                                                                |
-| ---- | ---------------------- | ------------------------------------------------------------------------------------- |
-| 1    | Operator triggers sync |                                                                                       |
-| 2    |                        | System resolves the group's pipeline and validates prerequisites                      |
-| 3    |                        | System creates the pipeline run on the target GitLab with the mirror's variables      |
-| 4    |                        | System records the run, marks the mirror In Progress, reports success to the operator |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator триггерит sync | |
+| 2 | | Система разрешает пайплайн группы и проверяет предусловия |
+| 3 | | Система создаёт запуск пайплайна на целевом GitLab с переменными зеркала |
+| 4 | | Система записывает запуск, помечает зеркало In Progress, сообщает оператору успех |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                        | Handling                                                                                                     |
-| ------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 2       | Mirror has no sync group         | System refuses with a message naming the prerequisite (EC-gitmrr-014)                                        |
-| 2       | Group has no pipeline configured | System records a skipped run with reason "no pipeline configured"; no error is raised (EC-gitmrr-015)        |
-| 2       | Pipeline has no GitLab provider  | System refuses with a message naming the pipeline (EC-gitmrr-016)                                            |
-| 2       | Target project not bound         | System refuses with the not-ready explanation and a link to remediation (EC-gitmrr-008)                      |
-| 3       | GitLab API rejects or times out  | System records the failed run with the provider reason; mirror returns to its previous state (EC-gitmrr-017) |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | У зеркала нет sync-группы | Система обязана отказаться с сообщением, называющим предусловие (EC-gitmrr-014) |
+| 2 | У группы нет настроенного пайплайна | Система обязана записать skipped-ран с причиной «no pipeline configured»; без исключения (EC-gitmrr-015) |
+| 2 | У пайплайна нет GitLab-провайдера | Система обязана отказаться с сообщением, называющим пайплайн (EC-gitmrr-016) |
+| 2 | Целевой проект не привязан | Система обязана отказаться с объяснением «не готов к sync» и ссылкой на исправление (EC-gitmrr-008) |
+| 3 | GitLab API отклоняет или отвечает таймаутом | Система обязана записать failed-ран с причиной провайдера; зеркало возвращается в прежнее состояние (EC-gitmrr-017) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-004](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Sync mirror"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Sync зеркала»
 
 ---
 
-# UC-gitmrr-005: Record a sync completion event
+# UC-gitmrr-005: Зафиксировать событие завершения sync
 
 ## Header
 
-| Field            | Value                                 |
-| ---------------- | ------------------------------------- |
-| ID               | UC-gitmrr-005                         |
-| Name             | Record a sync completion event        |
-| Goal level       | user-goal                             |
-| Scope            | Git Mirroring module                  |
-| Primary actor    | GitLab (external system, via Webhook) |
-| Secondary actors | —                                     |
-| Traces to        | US-gitmrr-008                         |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-005 |
+| Название | Зафиксировать событие завершения sync |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | GitLab (внешняя система, через webhook) |
+| Вторичные акторы | — |
+| Трассировка | US-gitmrr-008 |
 
 ## Stakeholders and Interests
 
-| Stakeholder | Interest                                                   |
-| ----------- | ---------------------------------------------------------- |
-| operator    | Mirror status reflects reality after the pipeline finishes |
-| admin       | Fake completion events cannot corrupt the state            |
+| Стейкхолдер | Интерес |
+|-------------|----------|
+| operator | Статус зеркала отражает реальность после завершения пайплайна |
+| admin | Поддельные события завершения не могут испортить состояние |
 
 ## Preconditions
 
-- A sync run was triggered by the platform (a run record exists).
+- Sync-запуск был триггнут платформой (запись запуска существует).
 
 ## Success Guarantee (Postconditions)
 
-- The run record carries the final status; the mirror's status reflects the outcome and never remains In Progress after a terminal event.
-- Minimal guarantee: an unmatchable event is ignored without corrupting any record.
+- Запись запуска несёт финальный статус; статус зеркала отражает исход и никогда не остаётся In Progress после терминального события.
+- Минимальная гарантия: несопоставимое событие игнорируется без порчи записей.
 
 ## Trigger
 
-GitLab sends a pipeline event webhook.
+GitLab доставляет pipeline-событие webhook'ом.
 
 ## Main Success Scenario
 
-| Step | Actor                              | System                                                                                                   |
-| ---- | ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 1    | GitLab delivers the pipeline event |                                                                                                          |
-| 2    |                                    | System verifies the webhook authenticity                                                                 |
-| 3    |                                    | System matches the event to the run record                                                               |
-| 4    |                                    | System updates the run status, finalizes the mirror state (completed/failed), and writes the audit event |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | GitLab доставляет pipeline-событие | |
+| 2 | | Система проверяет подлинность webhook |
+| 3 | | Система сопоставляет событие с записью запуска |
+| 4 | | Система обновляет статус запуска, финализирует состояние зеркала (completed/failed) и пишет audit-событие |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                                   | Handling                                                                           |
-| ------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 2       | Webhook lacks valid authentication                          | System rejects the event without processing (EC-gitmrr-020)                        |
-| 3       | No run record matches the event                             | System ignores the event and reports it as ignored (EC-gitmrr-021)                 |
-| 4       | Event lost / GitLab unreachable (no terminal event arrives) | The run stays In Progress; expiry handling per grill #142 decision (EC-gitmrr-022) |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Webhook без валидной аутентификации | Система обязана отклонить событие без обработки (EC-gitmrr-020) |
+| 3 | Нет записи запуска, соответствующей событию | Система обязана игнорировать событие и сообщить «ignored» (EC-gitmrr-021) |
+| 4 | Событие потеряно / GitLab недоступен (терминальное событие не пришло) | Запуск остаётся In Progress; обработка истечения — по решению grill #142 (EC-gitmrr-022) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-008](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Sync result intake"
-- Open questions: finalization mechanism (webhook-direct vs task-queue) — grill #142
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Приём результатов sync»
+- Открытые вопросы: механизм финализации (webhook-напрямую vs task-очередь) — grill #142
 
 ---
 
-# UC-gitmrr-006: Schedule syncs for a sync group
+# UC-gitmrr-006: Настроить расписание sync-группы
 
 ## Header
 
-| Field            | Value                           |
-| ---------------- | ------------------------------- |
-| ID               | UC-gitmrr-006                   |
-| Name             | Schedule syncs for a sync group |
-| Goal level       | user-goal                       |
-| Scope            | Git Mirroring module            |
-| Primary actor    | operator                        |
-| Secondary actors | —                               |
-| Traces to        | US-gitmrr-005                   |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-006 |
+| Название | Настроить расписание sync-группы |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | — |
+| Трассировка | US-gitmrr-005 |
 
 ## Preconditions
 
-- Operator holds `sync_groups:write`.
-- The sync group exists (the default group exists always).
+- Operator имеет `sync_groups:write`.
+- Sync-группа существует (default-группа существует всегда).
 
 ## Success Guarantee (Postconditions)
 
-- The group's schedule is stored and drives automatic runs without an application restart.
-- Minimal guarantee: an invalid schedule change is rejected and the previous schedule keeps working.
+- Расписание группы сохранено и гоняет автоматические запуски без рестарта приложения.
+- Минимальная гарантия: невалидное изменение расписания отклоняется, прежнее расписание продолжает работать.
 
 ## Trigger
 
-Operator edits the group's cron/enabled/concurrency settings.
+Operator изменяет cron/флаг включённости/конкурентность группы.
 
 ## Main Success Scenario
 
-| Step | Actor                                  | System                                                           |
-| ---- | -------------------------------------- | ---------------------------------------------------------------- |
-| 1    | Operator submits new schedule settings |                                                                  |
-| 2    |                                        | System validates cron syntax and limits                          |
-| 3    |                                        | System stores the settings and applies them to the live schedule |
-| 4    |                                        | System reports the next run according to the new settings        |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator отправляет новые настройки расписания | |
+| 2 | | Система проверяет синтаксис cron и лимиты |
+| 3 | | Система сохраняет настройки и применяет их к живому расписанию |
+| 4 | | Система сообщает следующий запуск по новым настройкам |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                            | Handling                                                                         |
-| ------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-| 2       | Malformed cron or over-limit string  | System rejects with a field error; previous schedule unchanged (EC-gitmrr-023)   |
-| 2       | Name conflict on create              | System reports that a group with the name exists (EC-gitmrr-024)                 |
-| 3       | Group disabled                       | No runs start; schedule kept for later (EC-gitmrr-025)                           |
-| 3       | Operator deletes a non-default group | Mirrors migrate to the default group; deletion recorded in audit (EC-gitmrr-026) |
-| 3       | Operator deletes the default group   | System refuses: the default group cannot be deleted (EC-gitmrr-027)              |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Невалидный cron или строка сверх лимита | Система обязана отклонить с ошибкой по полю; прежнее расписание не меняется (EC-gitmrr-023) |
+| 2 | Конфликт имени при создании | Система обязана сообщить, что группа с таким именем существует (EC-gitmrr-024) |
+| 3 | Группа выключена | Запуски не стартуют; расписание сохранено на будущее (EC-gitmrr-025) |
+| 3 | Operator удаляет не-default группу | Система обязана мигрировать её зеркала в default-группу и записать удаление в audit (EC-gitmrr-026) |
+| 3 | Operator удаляет default-группу | Система обязана отказаться: default-группа не удалима (EC-gitmrr-027) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-005](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Configure sync group"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Настройка sync-группы»
 
 ---
 
-# UC-gitmrr-007: Check mirror freshness
+# UC-gitmrr-007: Проверить свежесть зеркала
 
 ## Header
 
-| Field            | Value                     |
-| ---------------- | ------------------------- |
-| ID               | UC-gitmrr-007             |
-| Name             | Check mirror freshness    |
-| Goal level       | user-goal                 |
-| Scope            | Git Mirroring module      |
-| Primary actor    | operator                  |
-| Secondary actors | Git provider API (source) |
-| Traces to        | US-gitmrr-006             |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-007 |
+| Название | Проверить свежесть зеркала |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | Git-провайдер API (источник) |
+| Трассировка | US-gitmrr-006 |
 
 ## Preconditions
 
-- Operator holds `mirrors:sync` (or the group's freshness schedule fires).
-- The mirror has a linked source repository with a provider.
+- Operator имеет `mirrors:sync` (или срабатывает freshness-расписание группы).
+- У зеркала есть связанный source-репозиторий с провайдером.
 
 ## Success Guarantee (Postconditions)
 
-- A freshness result (FRESH / STALE / ERROR) is recorded with a timestamp.
-- Minimal guarantee: an errored check does not overwrite the last known-good state.
+- Результат freshness (FRESH / STALE / ERROR) записан с временной меткой.
+- Минимальная гарантия: сбойная проверка не перезаписывает последнее валидное состояние.
 
 ## Trigger
 
-Operator triggers freshness, or the group's freshness cron fires.
+Operator триггерит freshness, или срабатывает freshness-cron группы.
 
 ## Main Success Scenario
 
-| Step | Actor                                 | System                                                                                                           |
-| ---- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1    | Operator triggers the freshness check |                                                                                                                  |
-| 2    |                                       | System reads the source's latest commit state via the provider                                                   |
-| 3    |                                       | System compares it with the recorded last-known state                                                            |
-| 4    |                                       | System records FRESH or STALE (updating the last-known state and divergence count) and reflects it on the mirror |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator триггерит freshness-проверку | |
+| 2 | | Система читает последнее состояние коммита источника через провайдера |
+| 3 | | Система сравнивает его с записанным последним известным состоянием |
+| 4 | | Система записывает FRESH или STALE (обновляя последнее известное состояние и счётчик расхождений) и отражает это на зеркале |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                | Handling                                                                                  |
-| ------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 2       | Source unreachable / credentials invalid | System records ERROR with the provider reason; last-known state unchanged (EC-gitmrr-028) |
-| 2       | Mirror has no linked source repository   | System refuses with a message naming the prerequisite (EC-gitmrr-029)                     |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Источник недоступен / credentials невалидны | Система обязана записать ERROR с причиной провайдера; последнее известное состояние не меняется (EC-gitmrr-028) |
+| 2 | У зеркала нет связанного source-репозитория | Система обязана отказаться с сообщением, называющим предусловие (EC-gitmrr-029) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-006](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Freshness check"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Freshness-проверка»
 
 ---
 
-# UC-gitmrr-008: Verify mirror integrity
+# UC-gitmrr-008: Проверить целостность зеркала
 
 ## Header
 
-| Field            | Value                                          |
-| ---------------- | ---------------------------------------------- |
-| ID               | UC-gitmrr-008                                  |
-| Name             | Verify mirror integrity                        |
-| Goal level       | user-goal                                      |
-| Scope            | Git Mirroring module                           |
-| Primary actor    | operator                                       |
-| Secondary actors | Git provider API (source), GitLab API (target) |
-| Traces to        | US-gitmrr-007                                  |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-008 |
+| Название | Проверить целостность зеркала |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | Git-провайдер API (источник), GitLab API (цель) |
+| Трассировка | US-gitmrr-007 |
 
 ## Preconditions
 
-- Operator holds the integrity-check permission.
-- The mirror has a bound target project.
+- Operator имеет право integrity-check.
+- У зеркала есть привязанный целевой проект.
 
 ## Success Guarantee (Postconditions)
 
-- An integrity verdict (MATCH / MISMATCH / ERROR) is recorded; the mirror state reflects it.
-- Minimal guarantee: an errored check does not fake a MATCH.
+- Вердикт (MATCH / MISMATCH / ERROR) записан; состояние зеркала его отражает.
+- Минимальная гарантия: сбойная проверка не подделывает MATCH.
 
 ## Trigger
 
-Operator triggers the integrity check.
+Operator триггерит integrity check.
 
 ## Main Success Scenario
 
-| Step | Actor                                 | System                                                                                                                  |
-| ---- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 1    | Operator triggers the integrity check |                                                                                                                         |
-| 2    |                                       | System reads the HEAD commit of the source default branch via the source provider                                       |
-| 3    |                                       | System reads the HEAD commit of the target project via the GitLab API                                                   |
-| 4    |                                       | System records MATCH or MISMATCH (incrementing the divergence count), updates the mirror state, and reports the verdict |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator триггерит integrity check | |
+| 2 | | Система читает HEAD-коммит default-ветки источника через source-провайдера |
+| 3 | | Система читает HEAD-коммит целевого проекта через GitLab API |
+| 4 | | Система записывает MATCH или MISMATCH (увеличивая счётчик расхождений), обновляет состояние зеркала и сообщает вердикт |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                             | Handling                                                                                   |
-| ------- | ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 2       | Source unreadable                     | System records ERROR with the provider reason (EC-gitmrr-030)                              |
-| 3       | Target project unreachable or unbound | System records ERROR / refuses with the not-ready explanation respectively (EC-gitmrr-031) |
-| 1       | User lacks the permission             | System denies with 403 (EC-gitmrr-018)                                                     |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | Источник нечитаем | Система обязана записать ERROR с причиной провайдера (EC-gitmrr-030) |
+| 3 | Цель недоступна или не привязана | Система обязана записать ERROR / отказаться с объяснением «не готов к sync» соответственно (EC-gitmrr-031) |
+| 1 | У пользователя нет права | Система обязана отклонить с 403 (EC-gitmrr-018) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-007](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Integrity check"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Integrity-проверка»
 
 ---
 
-# UC-gitmrr-009: Discover and remediate orphaned mirrors
-
-> **status: discovery-owned-here, remediation moved to #160.** Шаги 1–2 (discovery) —
-> норматив этого модуля; шаги 3–4 (reassign/move-target/delete) — отправная точка
-> для #160 (grill #140, отдельный ADR-кандидат), финальный контракт там.
+# UC-gitmrr-009: Обнаружить осиротевшие зеркала
 
 ## Header
 
-| Field            | Value                                   |
-| ---------------- | --------------------------------------- |
-| ID               | UC-gitmrr-009                           |
-| Name             | Discover and remediate orphaned mirrors |
-| Goal level       | user-goal                               |
-| Scope            | Git Mirroring module                    |
-| Primary actor    | admin                                   |
-| Secondary actors | GitLab API (target instances)           |
-| Traces to        | US-gitmrr-009, US-gitmrr-010            |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-009 |
+| Название | Обнаружить осиротевшие зеркала |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | admin |
+| Вторичные акторы | GitLab API (целевые инстансы) |
+| Трассировка | US-gitmrr-009 |
+
+> **Статус: discovery — норматив этого модуля; remediation (бывшие шаги 3–4)
+> перенесена в #160** (grill #140, отдельный ADR-кандидат) — см. US-gitmrr-010
+> (moved) и таблицу «Orphaned remediation» в каталоге edge cases.
 
 ## Preconditions
 
-- Admin holds the orphaned-management permission (discovery) and `mirrors:write`/`mirrors:delete` (remediation).
-- At least one active GitLab provider exists.
+- Admin имеет право управления orphaned (discovery).
+- Существует минимум один активный GitLab-провайдер.
 
 ## Success Guarantee (Postconditions)
 
-- Orphaned projects are listed; any remediation leaves an auditable, reversible record.
-- Minimal guarantee: discovery failures never modify anything; remediation never touches the GitLab project itself.
+- Осиротевшие проекты перечислены с деталями обнаружения.
+- Минимальная гарантия: сбои discovery никогда ничего не изменяют.
 
 ## Trigger
 
-Admin opens the orphaned page and runs discovery; then optionally remediates an entry.
+Admin открывает orphaned-страницу и запускает discovery.
 
 ## Main Success Scenario
 
-| Step | Actor                                                             | System                                                                                     |
-| ---- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1    | Admin starts discovery                                            |                                                                                            |
-| 2    |                                                                   | System scans each active GitLab provider and lists projects whose ids no mirror references |
-| 3    | Admin picks an orphan and chooses reassign / move-target / delete |                                                                                            |
-| 4    |                                                                   | System applies the remediation to the mirror record, records it in audit, and confirms     |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Admin запускает discovery | |
+| 2 | | Система сканирует каждого активного GitLab-провайдера и перечисляет проекты, чьи id не ссылается ни одно зеркало |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                       | Handling                                                                                                              |
-| ------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 1       | No GitLab providers configured                  | System shows an actionable empty state with a link to provider settings (EC-gitmrr-032)                               |
-| 2       | One provider unreachable                        | System returns results from reachable providers and reports the failed one separately (EC-gitmrr-033)                 |
-| 1       | User lacks the permission                       | System denies with 403 (EC-gitmrr-019)                                                                                |
-| 4       | Delete chosen                                   | System soft-deletes the mirror record (recoverable within retention); the GitLab project is untouched (EC-gitmrr-034) |
-| 4       | Remediation target invalid (e.g. unknown group) | System rejects with a validation error; nothing changed (EC-gitmrr-035)                                               |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 1 | Ни одного GitLab-провайдера не настроено | Система обязана показать действенный empty state со ссылкой в настройки провайдеров (EC-gitmrr-032) |
+| 2 | Один провайдер недоступен | Система обязана вернуть результаты доступных провайдеров и отдельно сообщить о сбойном (EC-gitmrr-033) |
+| 1 | У пользователя нет права | Система обязана отклонить с 403 (EC-gitmrr-019) |
 
 ## Related Artifacts
 
-- User stories: [US-gitmrr-009](../stories/git-mirroring.md), [US-gitmrr-010](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Orphaned discovery", "Orphaned remediation"
-- Open questions: remediation endpoint design / error semantics — grill #140
+- User stories: [US-gitmrr-009](../stories/git-mirroring.md); remediation — US-gitmrr-010 (moved to #160)
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Orphaned discovery»
+- Открытые вопросы: дизайн remediation-эндпоинтов / семантика ошибок — grill #140, владелец — #160
 
 ---
 
-# UC-gitmrr-010: Delete and restore a mirror
+# UC-gitmrr-010: Удалить и восстановить зеркало
 
 ## Header
 
-| Field            | Value                       |
-| ---------------- | --------------------------- |
-| ID               | UC-gitmrr-010               |
-| Name             | Delete and restore a mirror |
-| Goal level       | user-goal                   |
-| Scope            | Git Mirroring module        |
-| Primary actor    | operator                    |
-| Secondary actors | —                           |
-| Traces to        | US-gitmrr-011               |
+| Поле | Значение |
+|-------|-------|
+| ID | UC-gitmrr-010 |
+| Название | Удалить и восстановить зеркало |
+| Уровень цели | user-goal |
+| Область | Модуль Git Mirroring |
+| Первичный актор | operator |
+| Вторичные акторы | — |
+| Трассировка | US-gitmrr-011 |
 
 ## Preconditions
 
-- Operator holds `mirrors:delete`.
-- The mirror exists and is active.
+- Operator имеет `mirrors:delete`.
+- Зеркало существует и активно.
 
 ## Success Guarantee (Postconditions)
 
-- The mirror is soft-deleted (recoverable within the retention window) or restored; the target GitLab project is never touched by either.
-- Minimal guarantee: cleanup expiry removes only the record, never GitLab data.
+- Зеркало мягко удалено (восстановимо в retention-окно) или восстановлено; целевой GitLab-проект не затрагивается ни тем, ни другим.
+- Минимальная гарантия: истечение retention удаляет только запись, никогда — данные GitLab.
 
 ## Trigger
 
-Operator deletes a mirror (with confirmation); later, an operator/admin restores it — or the retention expires.
+Operator удаляет зеркало (с подтверждением); позже operator/admin восстанавливает — или retention истекает.
 
 ## Main Success Scenario
 
-| Step | Actor                                         | System                                                                                                           |
-| ---- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1    | Operator triggers delete with confirmation    |                                                                                                                  |
-| 2    |                                               | System soft-deletes the mirror (and cascade soft-deletes its source repository if no other mirror references it) |
-| 3    | Operator restores within the retention window |                                                                                                                  |
-| 4    |                                               | System restores the mirror and its cascade-deleted source repository                                             |
+| Шаг | Актор | Система |
+|------|-------|--------|
+| 1 | Operator триггерит удаление с подтверждением | |
+| 2 | | Система мягко удаляет зеркало (и каскадно — его source-репозиторий, если на него не ссылается другое зеркало) |
+| 3 | Operator восстанавливает в пределах retention-окна | |
+| 4 | | Система восстанавливает зеркало и его каскадно удалённый source-репозиторий |
 
 ## Extensions (Alternative Flows)
 
-| At step | Condition                                                               | Handling                                                                                                              |
-| ------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 2       | Mirrors still reference the source repository at repository-delete time | System refuses with 409 listing the referencing mirror ids (EC-gitmrr-036)                                            |
-| 3       | Mirror already deleted / not deleted                                    | System reports the state without changing it (EC-gitmrr-037)                                                          |
-| 4       | Retention window expired (configured `soft_delete_retention_days`)      | Daily cleanup physically removes the record in FK order with an audit event; GitLab project untouched (EC-gitmrr-038) |
+| На шаге | Условие | Обработка |
+|---------|-----------|----------|
+| 2 | На source-репозиторий в момент его удаления ссылаются активные зеркала | Система обязана отказаться с 409, перечислив ссылающиеся id зеркал (EC-gitmrr-043) |
+| 3 | Зеркало уже удалено / не удалено | Система обязана сообщить состояние, не изменяя его (EC-gitmrr-039) |
+| 4 | Retention-окно (настройка `soft_delete_retention_days`) истекло | Ежедневный cleanup обязан физически удалить запись в FK-порядке с audit-событием; GitLab-проект не тронут (EC-gitmrr-038) |
 
 ## Related Artifacts
 
 - User stories: [US-gitmrr-011](../stories/git-mirroring.md)
-- Edge-case rows: docs/analitics/edge-cases/git-mirroring.md "Delete/restore mirror"
+- Edge-case строки: docs/analitics/edge-cases/git-mirroring.md «Удаление/восстановление зеркала»

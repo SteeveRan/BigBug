@@ -59,6 +59,10 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
 
 ## Process in this repo: format, location, update procedure
 
+- **Language**: аналитика пишется **по-русски** (требование владельца). Технические
+  термины, ID строк (`EC-<module>-NNN`), permissions, статусы и идентификаторы
+  кода остаются в английском; формулировки деонтические по-русски
+  («система обязана показать X и предложить Retry»).
 - **Format**: the catalog tables from `references/TEMPLATE.md`, one row per
   condition: Condition / Expected behavior / User-visible recovery / Severity /
   Closing test. Use the module's glossary terms (`GLOSSARY.md`) and never

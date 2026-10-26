@@ -57,6 +57,10 @@ alternatives, guarantees). A story may be covered by zero or several use cases.
 
 ## Process in this repo: format, location, update procedure
 
+- **Language**: аналитика пишется **по-русски** (требование владельца). Технические
+  термины, ID (`UC-<module>-NNN`), permissions, статусы и идентификаторы кода
+  остаются в английском; шаги сценария формулируются деонтически по-русски
+  («система проверяет...», «система обязана сообщить...»).
 - **Format**: fully-dressed use case per `references/TEMPLATE.md` (Header,
   Stakeholders, Preconditions, Success Guarantee, Trigger, Main Success
   Scenario as actor/system table, Extensions, Sub-variations, Related

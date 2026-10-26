@@ -59,6 +59,11 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
 
 ## Process in this repo: format, location, update procedure
 
+- **Language**: аналитика пишется **по-русски** (требование владельца). Технические
+  термины, не имеющие устоявшегося русского эквивалента, ID артефактов
+  (`US-<module>-NNN`), permissions, статусы (FRESH/STALE/MATCH...) и идентификаторы
+  кода остаются в английском. Шаблонные метки Given/When/Then переводятся
+  как «Дано / Когда / Тогда».
 - **Format**: a user story is a REPO document, not an issue. One story = one
   section, exactly the shape in `references/TEMPLATE.md` (Story Header with ID;
   User Story Statement; Acceptance Criteria in Given/When/Then; Design Notes;
