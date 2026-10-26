@@ -233,7 +233,7 @@ export const RelinkModal = ({ mirror, open, onClose }: RelinkModalProps) => {
           </Descriptions.Item>
         </Descriptions>
 
-        <Divider style={{ margin: '4px 0' }} />
+        <Divider style={{ marginBlock: 4 }} />
 
         {/* Tabs */}
         <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} size="small" />

@@ -283,7 +283,7 @@ const SyncGroupsPage = () => {
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       {isLoading && (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin size="large" />
         </Flex>
       )}

@@ -516,7 +516,10 @@ export function DockerImageDetailPage() {
       {/* ── Info + Schedule + Tags Cards ────────────────────────────────────── */}
       <Flex gap={16} wrap="wrap">
         {/* Source Info Card */}
-        <Card title="Source Info" style={{ flex: '1 1 300px', minWidth: 280 }}>
+        <Card
+          title="Source Info"
+          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 280 }}
+        >
           <Flex vertical gap={12}>
             <Flex vertical>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -605,7 +608,7 @@ export function DockerImageDetailPage() {
         {/* Sync Schedule Card */}
         <Card
           title={`Sync Schedule (${schedules.length})`}
-          style={{ flex: '2 1 500px', minWidth: 350 }}
+          style={{ flexGrow: 2, flexShrink: 1, flexBasis: 500, minWidth: 350 }}
           extra={
             <Button
               size="small"
@@ -633,7 +636,7 @@ export function DockerImageDetailPage() {
         {/* Image Tags Card */}
         <Card
           title={`Image Tags (${(tags as DockerImageTag[]).length})`}
-          style={{ flex: '2 1 500px', minWidth: 350 }}
+          style={{ flexGrow: 2, flexShrink: 1, flexBasis: 500, minWidth: 350 }}
           extra={
             <Popconfirm
               title="Delete tags?"

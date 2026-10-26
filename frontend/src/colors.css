@@ -19,6 +19,15 @@
   --bigbug-brand: #7c3aed;
   --bigbug-brand-hover: #8b5cf6;
   --bigbug-brand-text: #a78bfa;
+  /* Text-gradient fills for logo titles (WebkitBackgroundClip: 'text'). */
+  --bigbug-brand-gradient: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%);
+  --bigbug-danger-gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+  /* Status colors (status_flag 0-4) for SVG/charts where AntD presets don't apply. */
+  --bigbug-status-success: #52c41a;
+  --bigbug-status-error: #ff4d4f;
+  --bigbug-status-warning: #faad14;
+  --bigbug-status-info: #1677ff;
+  --bigbug-status-pending: #d9d9d9;
 }
 
 [data-theme='light'] {
@@ -32,6 +41,13 @@
   --bigbug-brand: #7c3aed;
   --bigbug-brand-hover: #6d28d9;
   --bigbug-brand-text: #6d28d9;
+  --bigbug-brand-gradient: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%);
+  --bigbug-danger-gradient: linear-gradient(135deg, #dc2626 0%, #ef4444 50%, #f87171 100%);
+  --bigbug-status-success: #52c41a;
+  --bigbug-status-error: #ff4d4f;
+  --bigbug-status-warning: #faad14;
+  --bigbug-status-info: #1677ff;
+  --bigbug-status-pending: #d9d9d9;
 }
 
 /* Page background follows the theme (login page renders outside the

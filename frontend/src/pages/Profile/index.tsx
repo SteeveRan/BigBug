@@ -52,7 +52,7 @@ export function ProfilePage() {
       {/* ── Card 1: Profile ─────────────────────────────────── */}
       <Card title="Profile">
         {meLoading && !user ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 40 }}>
             <Spin size="large" />
           </div>
         ) : meError && !user ? (

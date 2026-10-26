@@ -225,7 +225,7 @@ export default function SyncRunsPage() {
 
       {/* Loading */}
       {isLoading && (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin />
         </Flex>
       )}
@@ -239,7 +239,7 @@ export default function SyncRunsPage() {
       {!isLoading && !isError && runs.length === 0 && (
         <Typography.Text
           type="secondary"
-          style={{ padding: '40px 0', textAlign: 'center', display: 'block' }}
+          style={{ paddingBlock: 40, textAlign: 'center', display: 'block' }}
         >
           No sync runs found
         </Typography.Text>

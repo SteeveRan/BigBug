@@ -1,5 +1,15 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
-import { Layout as AntLayout, Menu, Dropdown, Avatar, Tag, Typography, Button, Space } from 'antd';
+import {
+  Layout as AntLayout,
+  Menu,
+  Dropdown,
+  Avatar,
+  Tag,
+  Typography,
+  Button,
+  Space,
+  theme,
+} from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
@@ -72,6 +82,7 @@ export function Layout() {
   const user = useAppSelector((state) => state.auth.user);
   const { mode, toggleTheme } = useThemeMode();
   const { hasPermission } = usePermissions();
+  const { token } = theme.useToken();
 
   const isDark = mode === 'dark';
 
@@ -188,10 +199,10 @@ export function Layout() {
 
   const userRole = user?.roles[0] ?? 'viewer';
 
-  // Theme-aware colors matching theme.ts tokens
-  const headerBg = isDark ? '#1A1A2E' : '#FFFFFF';
-  const headerTextColor = isDark ? '#F1F0FB' : '#1A1A2E';
-  const headerSecondaryText = isDark ? '#A0A0B8' : '#5C5C78';
+  // Theme-aware colors via canonical tokens (theme.ts / colors.css)
+  const headerBg = token.colorBgContainer;
+  const headerTextColor = token.colorText;
+  const headerSecondaryText = token.colorTextSecondary;
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
@@ -209,7 +220,7 @@ export function Layout() {
             level={4}
             style={{
               margin: 0,
-              background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 50%, #C4B5FD 100%)',
+              background: 'var(--bigbug-brand-gradient)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
@@ -228,7 +239,7 @@ export function Layout() {
       <AntLayout>
         <Header
           style={{
-            padding: '0 24px',
+            paddingInline: token.paddingLG,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',

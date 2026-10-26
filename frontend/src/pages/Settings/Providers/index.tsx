@@ -572,7 +572,7 @@ export function ProvidersPage() {
       )}
 
       {isLoading || typesLoading ? (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin size="large" />
         </Flex>
       ) : isError ? (
@@ -629,7 +629,7 @@ function ProviderUsageModal({
   return (
     <Modal open={!!provider} onCancel={onClose} onOk={onClose} title="Provider usage" footer={null}>
       {isLoading ? (
-        <Flex justify="center" style={{ padding: '24px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 24 }}>
           <Spin />
         </Flex>
       ) : data ? (

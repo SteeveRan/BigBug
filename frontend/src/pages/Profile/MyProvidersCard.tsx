@@ -94,7 +94,7 @@ export function MyProvidersCard({ userId, myTeamIds }: MyProvidersCardProps) {
   if (isLoading) {
     return (
       <Card title="My providers">
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingBlock: 40 }}>
           <Spin size="large" />
         </div>
       </Card>

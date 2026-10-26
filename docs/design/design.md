@@ -59,8 +59,34 @@ shared BigBug Dev CA). Its role is NOT a second source of truth:
 - `execute_code` / `export_shape` require the **Penpot MCP plugin** running in
   the browser on the focused file. MCP operates on the currently focused page.
 
-## Verification (planned gates)
+## Verification
 
-- `design-tokens` CI gate: lint forbids raw hex/px in `frontend/src/{components,pages}` outside `theme.ts`/`colors.css`.
+### design-tokens gate (enforced)
+
+`make check-design-tokens` (script: `scripts/check-design-tokens.sh`, CI job
+`design-tokens` in `.github/workflows/lint.yml`) fails a PR when
+`frontend/src/components/**` or `frontend/src/pages/**` contain:
+
+- raw hex colors: `#RRGGBB` / `#RRGGBBAA` (3/4-digit shorthand is not scanned —
+  it false-positives on issue references like `#123`; use the full form);
+- raw `rgb()` / `rgba()` / `hsl()` / `hsla()` colors;
+- raw px literals in strings (`'40px 0'`, `'1 1 300px'`) — write numeric React
+  style properties (`paddingBlock: 40`, `flexBasis: 300`) instead.
+
+`frontend/src/theme.ts` and `frontend/src/colors.css` are the canon and are NOT
+scanned — new visual constants go there first. Reference tokens in components:
+`theme.useToken()` → `token.color*`, or `var(--bigbug-*)` in CSS/SVG/gradient
+contexts where AntD token objects don't reach.
+
+**Allowlist**: append the inline marker `/* design-tokens:allow: <reason> */`
+to the offending line. Every marker is reviewed in the PR; unjustified markers
+are rejected. Example:
+
+```tsx
+<div style={{ padding: '0 24px' /* design-tokens:allow: header layout parity */ }}>
+```
+
+### check-tokens drift gate (planned)
+
 - `make check-tokens`: drift diff between the code canon and the Penpot library token export.
 - `make check-adr-order`: design docs go in a docs-PR BEFORE implementation (existing gate).

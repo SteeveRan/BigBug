@@ -21,6 +21,7 @@ import {
   Tooltip,
   Button,
   App,
+  theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EyeOutlined, PlusOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -47,6 +48,7 @@ const DISCOVERY_STATUS_OPTIONS = [
 
 export function RepositoriesTab() {
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const navigate = useNavigate();
 
   // Provider → Group selection
@@ -167,7 +169,7 @@ export function RepositoriesTab() {
         <Space size={4}>
           <Tooltip title="View Details">
             <EyeOutlined
-              style={{ cursor: 'pointer', fontSize: 16, color: '#1677ff' }}
+              style={{ cursor: 'pointer', fontSize: 16, color: token.colorInfo }}
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(`/git-mirroring/repositories/${record.id}`);
@@ -278,7 +280,7 @@ export function RepositoriesTab() {
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       {isLoading && (
-        <Flex justify="center" style={{ padding: '40px 0' }}>
+        <Flex justify="center" style={{ paddingBlock: 40 }}>
           <Spin size="large" />
         </Flex>
       )}

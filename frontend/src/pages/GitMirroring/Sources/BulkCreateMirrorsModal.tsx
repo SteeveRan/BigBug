@@ -165,7 +165,7 @@ export function BulkCreateMirrorsModal({ open, onClose, groupId }: BulkCreateMir
         )}
 
         {reposLoading ? (
-          <Spin style={{ display: 'block', margin: '20px auto' }} />
+          <Spin style={{ display: 'block', marginBlock: 20, marginInline: 'auto' }} />
         ) : filteredRepos.length === 0 ? (
           <Empty description="No repositories found" />
         ) : (

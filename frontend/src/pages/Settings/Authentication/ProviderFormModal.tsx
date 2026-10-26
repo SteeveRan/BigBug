@@ -248,7 +248,7 @@ export function ProviderFormModal({
     >
       <Flex vertical gap={12}>
         <Flex wrap="wrap" gap={16}>
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 260 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Display Name</Typography.Text>
             </div>
@@ -266,7 +266,7 @@ export function ProviderFormModal({
               Shown on the login button ("Sign in with …")
             </Typography.Text>
           </div>
-          <div style={{ flex: '0 1 160px' }}>
+          <div style={{ flexGrow: 0, flexShrink: 1, flexBasis: 160 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Sort Order</Typography.Text>
             </div>
@@ -303,7 +303,7 @@ export function ProviderFormModal({
         </div>
 
         <Flex wrap="wrap" gap={16}>
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 260 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Public URL</Typography.Text>
             </div>
@@ -317,7 +317,7 @@ export function ProviderFormModal({
               Optional. Public-facing URL for the auth provider (if different from issuer)
             </Typography.Text>
           </div>
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 260 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Backend Client ID</Typography.Text>
             </div>
@@ -334,7 +334,7 @@ export function ProviderFormModal({
         </Flex>
 
         <Flex wrap="wrap" gap={16}>
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 260 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Frontend Client ID</Typography.Text>
             </div>
@@ -348,7 +348,7 @@ export function ProviderFormModal({
               OIDC client ID for frontend SPA (public client)
             </Typography.Text>
           </div>
-          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 260 }}>
             <div style={{ marginBottom: 4 }}>
               <Typography.Text style={{ fontSize: 12 }}>Client Secret</Typography.Text>
             </div>

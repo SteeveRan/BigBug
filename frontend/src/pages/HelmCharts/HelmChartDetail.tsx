@@ -324,7 +324,10 @@ export function HelmChartDetailPage() {
       {/* ── Info + Versions Cards ───────────────────────────────────────────── */}
       <Flex gap={16} wrap="wrap">
         {/* Source Info Card */}
-        <Card title="Source Info" style={{ flex: '1 1 300px', minWidth: 280 }}>
+        <Card
+          title="Source Info"
+          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 300, minWidth: 280 }}
+        >
           <Flex vertical gap={12}>
             <Flex vertical>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -399,7 +402,7 @@ export function HelmChartDetailPage() {
         {/* Chart Versions Card */}
         <Card
           title={`Chart Versions (${versionList.length})`}
-          style={{ flex: '2 1 500px', minWidth: 350 }}
+          style={{ flexGrow: 2, flexShrink: 1, flexBasis: 500, minWidth: 350 }}
         >
           <Table
             columns={versionColumns}

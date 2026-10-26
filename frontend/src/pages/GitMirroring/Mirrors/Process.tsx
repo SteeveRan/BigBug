@@ -23,6 +23,7 @@ import {
   Tooltip,
   Select,
   App,
+  theme,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -172,6 +173,7 @@ const MirrorProcessPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const mirrorId = Number(id);
 
   const [activeTab, setActiveTab] = useState<string>('process');
@@ -229,7 +231,7 @@ const MirrorProcessPage = () => {
   // Loading state
   if (mirrorLoading) {
     return (
-      <Flex justify="center" style={{ padding: '40px 0' }}>
+      <Flex justify="center" style={{ paddingBlock: 40 }}>
         <Spin size="large" />
       </Flex>
     );
@@ -549,7 +551,7 @@ const MirrorProcessPage = () => {
       {/* Logs table */}
       <Card>
         {logsLoading && (
-          <Flex justify="center" style={{ padding: '40px 0' }}>
+          <Flex justify="center" style={{ paddingBlock: 40 }}>
             <Spin size="large" />
           </Flex>
         )}
@@ -584,7 +586,7 @@ const MirrorProcessPage = () => {
                     overflow: 'auto',
                     fontSize: 12,
                     padding: 8,
-                    background: '#fafafa',
+                    background: token.colorBgLayout,
                     borderRadius: 4,
                   }}
                 >

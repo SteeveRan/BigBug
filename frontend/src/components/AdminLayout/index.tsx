@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
-import { Layout as AntLayout, Menu, Button, Typography, Space } from 'antd';
+import { Layout as AntLayout, Menu, Button, Typography, Space, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   TeamOutlined,
@@ -44,6 +44,7 @@ export function AdminLayout() {
   const location = useLocation();
   const { mode, toggleTheme } = useThemeMode();
   const { hasPermission } = usePermissions();
+  const { token } = theme.useToken();
 
   const isDark = mode === 'dark';
   const selectedKeys = computeSelectedKey(location.pathname);
@@ -74,10 +75,10 @@ export function AdminLayout() {
       : []),
   ];
 
-  // Theme-aware colors
-  const headerBg = isDark ? '#1A1A2E' : '#FFFFFF';
-  const headerTextColor = isDark ? '#F1F0FB' : '#1A1A2E';
-  const headerSecondaryText = isDark ? '#A0A0B8' : '#5C5C78';
+  // Theme-aware colors via canonical tokens (theme.ts / colors.css)
+  const headerBg = token.colorBgContainer;
+  const headerTextColor = token.colorText;
+  const headerSecondaryText = token.colorTextSecondary;
 
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
@@ -95,7 +96,7 @@ export function AdminLayout() {
             level={4}
             style={{
               margin: 0,
-              background: 'linear-gradient(135deg, #DC2626 0%, #EF4444 50%, #F87171 100%)',
+              background: 'var(--bigbug-danger-gradient)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
@@ -114,7 +115,7 @@ export function AdminLayout() {
       <AntLayout>
         <Header
           style={{
-            padding: '0 24px',
+            paddingInline: token.paddingLG,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',

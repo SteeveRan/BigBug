@@ -340,7 +340,7 @@ export function AppImagesPage() {
         <Card>
           <Typography.Text
             type="secondary"
-            style={{ display: 'block', textAlign: 'center', padding: '32px 0' }}
+            style={{ display: 'block', textAlign: 'center', paddingBlock: 32 }}
           >
             No app images yet. Create one to get started.
           </Typography.Text>
