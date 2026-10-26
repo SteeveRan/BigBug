@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-23
 decision-makers: SteeveRan
 consulted: SteeveRan
@@ -10,7 +10,7 @@ informed: SteeveRan
 
 ## Context and Problem Statement
 
-После переезда dev-стенда на kind ([ADR-0022](0022-dev-stand-on-kind.md)) и base/apps-разрезки OpenTofu ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)) GitLab остался единственным сервисом вне kind — compose-исключением. Его решения были размазаны по трём ADR ([ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md), ADR-0022, [ADR-0030](0030-dev-stand-https-self-signed-certs.md)), а код отставал:
+После переезда dev-стенда на kind ([ADR-0022](0022-dev-stand-on-kind.md)) и base/apps-разрезки OpenTofu ([ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md)) GitLab остался единственным сервисом вне kind — compose-исключением. Его решения были размазаны по трём ADR ([ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md), ADR-0022, [ADR-0030](0030-dev-stand-https-self-signed-certs.md)), а код отставал:
 
 - `infrastructure/gitlab/docker-compose.yml` всё ещё содержал `postgres-keycloak` + `keycloak` (чеклист ADR-0022 §7 требует только gitlab + gitlab-runner);
 - config root OpenTofu (`infrastructure/terraform/main.tf`) содержал модули `keycloak`/`harbor`, хотя их конфиг переехал в `terraform/apps` (ADR-0029, update #58) — при полном прогоне два root'а управляли одним Keycloak realm;
@@ -122,7 +122,7 @@ curl -s --cacert ~/.local/state/bigbug/certs/gitlab.local/tls.crt \
 * [ADR-0022](0022-dev-stand-on-kind.md) §4 — само compose-исключение и его обоснование
 * [ADR-0030](0030-dev-stand-https-self-signed-certs.md) §9 — GitLab HTTPS, серт из certs.sh
 * [ADR-0029](0029-dev-stand-k8s-entities-via-opentofu-base-apps-split.md) — base/infra-apps/apps-разрезка; update #58 — переезд Keycloak/Harbor-конфига; update #59 — apps split
-* [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — исторический IaC-ADR; инструментальное ядро поглощено update-блоком ADR-0029 (#80), архивация — #62
+* [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — исторический IaC-ADR; инструментальное ядро поглощено update-блоком ADR-0029 (#80), архивация — #62
 * [ADR-0024](../common/0024-k8s-secrets.md) — почему PAT не генерирует tofu
 * [ADR-0007](../common/0007-providers-v3-registry.md) / [ADR-0011](../backend/0011-gitlab-ci-pipelines-components.md) — интеграция приложения с GitLab API
 * Issues: #80 (этот ADR + актуализация кода), #61 (Makefile/init.sh под kind-поток), #62 (снос compose-app, архивация ADR-0013)

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-22
 decision-makers: SteeveRan
 ---
@@ -8,7 +8,7 @@ decision-makers: SteeveRan
 
 ## Context and Problem Statement
 
-Dev-стенд BigBug поднимался в Docker Compose (см. архивный [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — два compose-файла: infrastructure и application). Но целевая среда запуска приложения — Kubernetes: helm chart всё равно придётся разрабатывать для prod. Единственный компонент, уже живущий в k8s, — Harbor в отдельном kind-кластере `harbor` ([ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md)).
+Dev-стенд BigBug поднимался в Docker Compose (см. архивный [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — два compose-файла: infrastructure и application). Но целевая среда запуска приложения — Kubernetes: helm chart всё равно придётся разрабатывать для prod. Единственный компонент, уже живущий в k8s, — Harbor в отдельном kind-кластере `harbor` ([ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md)).
 
 > **Историческая фиксация** (2026-10-22). Актуальное состояние — после сноса (#62, 2026-10-24): compose — только GitLab-зона ([ADR-0033](0033-gitlab-dev-stand-compose-omnibus.md)); compose-приложение, keycloak/postgres-keycloak из compose и legacy-кластер `harbor` снесены.
 
@@ -120,7 +120,7 @@ Chosen option: **единый kind-кластер `bigbug-dev`** для всег
 - [ADR-0023](0023-bigbug-helm-chart.md) — собственный helm chart приложения (backend+frontend), external postgres/redis
 - [ADR-0030](0030-dev-stand-https-self-signed-certs.md) — HTTPS на стенде: per-service self-signed сертификаты (certs.sh), терминирование на ingress, доверие хоста/подов
 - [ADR-0024](../common/0024-k8s-secrets.md) — secrets в k8s: tofu через kubernetes provider
-- [ADR-0013](0013-opentofu-iac-keycloak-gitlab-harbor.md) — OpenTofu-слой остаётся; init flow адаптируется (kind вместо compose для Keycloak/Harbor)
+- [ADR-0013](../archive/infrastructure/0013-opentofu-iac-keycloak-gitlab-harbor.md) — OpenTofu-слой остаётся; init flow адаптируется (kind вместо compose для Keycloak/Harbor)
 - Supersedes: [ADR-0012](../archive/infrastructure/0012-docker-compose-split-dev-env.md) — compose-разделение dev-стенда (compose остаётся только для GitLab)
 - План миграции: [`/.agents/plans/dev-stand-on-kind.md`](../../../.agents/plans/dev-stand-on-kind.md)
 - Условие пересмотра: переезд GitLab в kind (официальный chart), переход на prod-кластер
