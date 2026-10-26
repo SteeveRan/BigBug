@@ -14,6 +14,16 @@ informed: SteeveRan
 
 Вопрос: как дать админу точечный контроль над источником доверия для исходящего TLS провайдеров, не отключая проверку целиком и не превращая платформу в менеджер сертификатов?
 
+### Traceability to Analytics
+
+Мотивирующие артефакты аналитики (нормативные требования, не описание кода):
+
+- **User stories**: [docs/analitics/stories/providers.md](../../analitics/stories/providers.md) — US-prov-005 (доверять self-signed endpoint без отключения проверки), US-prov-009 (админское управление store'ами: валидация PEM, fingerprints, usage-гейт удаления).
+- **Use cases**: [docs/analitics/use-cases/providers.md](../../analitics/use-cases/providers.md) — UC-prov-006 (привязка стора к провайдеру; unbind возвращает системное доверие, проверка остаётся), UC-prov-007 (управление стором: chains split, конфликт имён, 409 при живых провайдерах).
+- **Edge cases**: [docs/analitics/edge-cases/providers.md](../../analitics/edge-cases/providers.md) — EC-prov-026 (`verify_ssl=false` главнее стора; стор меняет источник доверия, не проверку), EC-prov-040..048 (валидация PEM, chains, duplicate names, RESTRICT+409, stale-bundle контракт), EC-prov-027 (known gaps: PyGithub/crane/cosign — поведение по контракту «Known gaps» этого ADR).
+
+Эти строки — требования к коду, а не признание текущего поведения; разрывы ведутся в issue [#165](https://github.com/SteeveRan/BigBug/issues/165).
+
 Issue: [#88](https://github.com/SteeveRan/BigBug/issues/88) (решение согласовано на grilling-сессии), реализация — [#89](https://github.com/SteeveRan/BigBug/issues/89)/[#90](https://github.com/SteeveRan/BigBug/issues/90) (backend), [#91](https://github.com/SteeveRan/BigBug/issues/91)/[#92](https://github.com/SteeveRan/BigBug/issues/92) (frontend).
 
 ## Decision Drivers

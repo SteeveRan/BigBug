@@ -18,6 +18,16 @@ decision-makers: SteeveRan
 
 Миграция фактически завершена (фазы 0–7 из `plans/features/providers-unified.md` — исходный план удалён этим ADR как реализованный, см. More Information; включая фазу 7 — DROP legacy-таблиц и удаление `api/integrations/*`); ADR фиксирует решение задним числом. Слоение «API → сервис → ORM» зафиксировано в [ADR-0005](../backend/0005-service-layer-no-repository.md), схема БД и конвенции — в [ADR-0006](../backend/0006-database-postgresql-alembic.md) (PostgreSQL/Alembic).
 
+### Traceability to Analytics
+
+Мотивирующие артефакты аналитики (нормативные требования, не описание кода):
+
+- **User stories**: [docs/analitics/stories/providers.md](../../analitics/stories/providers.md) — US-prov-001..011 (регистрация интеграций, connection test, credentials, sharing, trust stores, browsing/usage, удаление, domain actions, default per scope).
+- **Use cases**: [docs/analitics/use-cases/providers.md](../../analitics/use-cases/providers.md) — UC-prov-001..010 (register, test, attach credential, share, delete, bind trust store, manage trust store, domain actions, manage credentials, inspect usage).
+- **Edge cases**: [docs/analitics/edge-cases/providers.md](../../analitics/edge-cases/providers.md) — EC-prov-001..063; нормативные строки, фиксирующие требования на известных разрывах реализации: EC-prov-031 (credential test обязан реально проверять секрет — сейчас пишет OK без сетевого вызова), EC-prov-033 (hard-unique имя credential не переиспользуется после retire — расходится с partial-unique паттерном providers/trust stores), EC-prov-007/020 (deny-list секретов в config — трёхуровневая защита из §3), EC-prov-050 (capability-ограничения `trigger_pipeline` — §6).
+
+Эти строки — требования к коду, а не признание текущего поведения; разрывы ведутся в issue [#165](https://github.com/SteeveRan/BigBug/issues/165).
+
 ## Decision Drivers
 
 * Копипаста: 5 почти идентичных таблиц + 5 пар роутер/сервис + 5 фронтенд-табов; расхождение логики (test_connection, листинги) между копиями

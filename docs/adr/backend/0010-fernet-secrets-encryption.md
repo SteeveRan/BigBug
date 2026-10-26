@@ -12,6 +12,16 @@ BigBug хранит в PostgreSQL credentials внешних систем: то�
 
 Фактический вопрос: **принимать ли существующую схему как стандарт** — симметричное шифрование Fernet на уровне отдельных колонок, ключ в env-переменной `ENCRYPTION_KEY`, без внешнего хранилища секретов?
 
+### Traceability to Analytics
+
+Мотивирующие артефакты аналитики (нормативные требования, не описание кода):
+
+- **User stories**: [docs/analitics/stories/providers.md](../../analitics/stories/providers.md) — US-prov-003 (секрет вводится один раз, хранится зашифрованным, никогда не возвращается в ответах), US-prov-008 (центральное управление credentials с аудитом мутаций).
+- **Use cases**: [docs/analitics/use-cases/providers.md](../../analitics/use-cases/providers.md) — UC-prov-003 (привязка credential к провайдеру: шифрование при записи, secret write-only), UC-prov-009 (CRUD + retire + audit).
+- **Edge cases**: [docs/analitics/edge-cases/providers.md](../../analitics/edge-cases/providers.md) — EC-prov-030 (пустой секрет отклоняется), EC-prov-033 (уникальность имён credential — найденное расхождение с partial-unique паттерном), EC-prov-056 (secret/ciphertext отсутствуют в любом ответе API), EC-prov-007 (deny-list секретов в `config` провайдера —defense-in-depth поверх Fernet).
+
+Эти строки — требования к коду, а не признание текущего поведения; разрывы ведутся в issue [#165](https://github.com/SteeveRan/BigBug/issues/165).
+
 ## Decision Drivers
 
 - Секреты не должны храниться в БД в plaintext: dump/backup/read-доступ к БД не должен давать токены внешних систем
