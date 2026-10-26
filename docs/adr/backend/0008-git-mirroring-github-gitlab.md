@@ -14,16 +14,6 @@ Git Mirroring — самая функционально полная подси�
 
 Домен строится поверх системы Providers V3 (единый реестр `resource_providers`; см. [ADR-0007](../common/0007-providers-v3-registry.md)) и сервисного слоя без repository (см. [ADR-0005](0005-service-layer-no-repository.md)).
 
-### Traceability to Analytics
-
-Мотивирующие артефакты аналитики (нормативные требования, не описание кода):
-
-- **User stories**: [docs/analitics/stories/git-mirroring.md](../../analitics/stories/git-mirroring.md) — US-gitmrr-001..012 (источники, зеркала, sync, расписания, health, orphaned, жизненный цикл).
-- **Use cases**: [docs/analitics/use-cases/git-mirroring.md](../../analitics/use-cases/git-mirroring.md) — UC-gitmrr-001..010, включая UC-gitmrr-005 (запись результата sync через webhook) и UC-gitmrr-009 (обнаружение и remediation orphaned).
-- **Edge cases**: [docs/analitics/edge-cases/git-mirroring.md](../../analitics/edge-cases/git-mirroring.md) — EC-gitmrr-001..048; нормативные строки, фиксирующие требуемое поведение на известных разрывах реализации: EC-gitmrr-008 (target не привязан → осмысленный not-ready-контракт, не generic 400 — grill #142/H1), EC-gitmrr-020 (webhook без аутентификации отклоняется — ADR-0025, grill #139/C1), EC-gitmrr-034/035/036 (orphaned remediation end-to-end — grill #140/C4), EC-gitmrr-018/019 (permission на integrity-check/orphaned — grill #139/C3), EC-gitmrr-046/047 (финализация статуса зеркала; расписание без рестарта — grill #142/H4), EC-gitmrr-045 (контракт переменных sync-пайплайна против CI-пресета).
-
-Эти строки — требования к коду, а не признание текущего поведения; разрывы реализации ведутся в перечисленных гриллах (#139, #140, #142).
-
 ## Decision Drivers
 
 - BigBug — **оркестратор**, а не git-воркер: перенос кода не должен требовать git-бинарника, дискового пространства под клоны и обработки LFS в backend-контейнере
@@ -35,10 +25,10 @@ Git Mirroring — самая функционально полная подси�
 
 ## Considered Options
 
-- Механизм переноса: **GitLab CI/CD pipeline на целевом проекте** (chosen) / git-операции в backend (`git clone --mirror` + push через subprocess) / GitLab push mirror API (remote mirrors)
-- Обнаружение изменений: **pull-based по cron-расписанию Sync Groups** (chosen) / GitHub webhooks на backend / интервальный поллинг всех зеркал
-- Удаление: **soft delete с retention-периодом и cleanup-джобой** (chosen) / немедленное hard delete
-- Проверка целостности: **direct-сравнение HEAD-коммита через API source и target** (chosen, endpoint) / audit CI/CD pipeline (реализовано в сервисе, endpoint отсутствует)
+* Механизм переноса: **GitLab CI/CD pipeline на целевом проекте** (chosen) / git-операции в backend (`git clone --mirror` + push через subprocess) / GitLab push mirror API (remote mirrors)
+* Обнаружение изменений: **pull-based по cron-расписанию Sync Groups** (chosen) / GitHub webhooks на backend / интервальный поллинг всех зеркал
+* Удаление: **soft delete с retention-периодом и cleanup-джобой** (chosen) / немедленное hard delete
+* Проверка целостности: **direct-сравнение HEAD-коммита через API source и target** (chosen, endpoint) / audit CI/CD pipeline (реализовано в сервисе, endpoint отсутствует)
 
 ## Decision Outcome
 
@@ -77,17 +67,17 @@ flowchart LR
 
 ### Consequences
 
-- Good, because backend остаётся лёгким: ни git-бинарника, ни места под клоны, ни LFS-трафика — вся тяжёлая работа на раннерах целевого GitLab
-- Good, because расписание и rate limiting настраиваются пользователем на уровне групп (cron + Semaphore) без деплоя/рестарта кода
-- Good, because удаление обратимо 30 дней, а cleanup гарантированно не разрушает данные в GitLab
-- Good, because каждая sync/freshness/integrity-операция оставляет запись в `mirror_logs` + audit-событие — полная наблюдаемость
-- Bad, because механика переноса вынесена в `.gitlab-ci.yml` целевых проектов: BigBug не контролирует и не верифицирует её; шаблоны CI в репозитории отсутствуют
-- Bad, because **`Mirror.target_project_id` не проставляется автоматически** при создании зеркала (заполняется вне приложения), а sync/freshness/integrity без него возвращают 400 — известное ограничение текущей реализации
-- Bad, because изменения cron/конкурентности группы подхватываются планировщиком только при рестарте приложения: API не вызывает `schedule_all_jobs` после PATCH группы
-- Bad, because pipeline webhook обновляет `PipelineRun` и audit, но не `Mirror.status_flag` напрямую — статус зеркала актуализируется следующими операциями
-- Bad, because relink/move/delete для orphaned-зеркал вызываются frontend'ом (`orphaned.ts`: `POST /orphaned/{id}/reassign`, `/move-target`, `DELETE`), но **backend-endpoints отсутствуют** — UI-поток relink не работает end-to-end
-- Neutral, because GitHub webhooks не используются — обнаружение новых/удалённых репозиториев источника ограничено частотой refresh групп (осознанный отказ от push-модели)
-- Non-goals: push-модель через GitHub webhooks; выполнение git-операций в backend; автоматический relink orphaned-зеркал (требуется backend-реализация — отдельная задача); автоматическое проставление `target_project_id`; шаблоны CI в репозитории BigBug
+* Good, because backend остаётся лёгким: ни git-бинарника, ни места под клоны, ни LFS-трафика — вся тяжёлая работа на раннерах целевого GitLab
+* Good, because расписание и rate limiting настраиваются пользователем на уровне групп (cron + Semaphore) без деплоя/рестарта кода
+* Good, because удаление обратимо 30 дней, а cleanup гарантированно не разрушает данные в GitLab
+* Good, because каждая sync/freshness/integrity-операция оставляет запись в `mirror_logs` + audit-событие — полная наблюдаемость
+* Bad, because механика переноса вынесена в `.gitlab-ci.yml` целевых проектов: BigBug не контролирует и не верифицирует её; шаблоны CI в репозитории отсутствуют
+* Bad, because **`Mirror.target_project_id` не проставляется автоматически** при создании зеркала (заполняется вне приложения), а sync/freshness/integrity без него возвращают 400 — известное ограничение текущей реализации
+* Bad, because изменения cron/конкурентности группы подхватываются планировщиком только при рестарте приложения: API не вызывает `schedule_all_jobs` после PATCH группы
+* Bad, because pipeline webhook обновляет `PipelineRun` и audit, но не `Mirror.status_flag` напрямую — статус зеркала актуализируется следующими операциями
+* Bad, because relink/move/delete для orphaned-зеркал вызываются frontend'ом (`orphaned.ts`: `POST /orphaned/{id}/reassign`, `/move-target`, `DELETE`), но **backend-endpoints отсутствуют** — UI-поток relink не работает end-to-end
+* Neutral, because GitHub webhooks не используются — обнаружение новых/удалённых репозиториев источника ограничено частотой refresh групп (осознанный отказ от push-модели)
+* Non-goals: push-модель через GitHub webhooks; выполнение git-операций в backend; автоматический relink orphaned-зеркал (требуется backend-реализация — отдельная задача); автоматическое проставление `target_project_id`; шаблоны CI в репозитории BigBug
 
 ### Confirmation
 
@@ -116,46 +106,46 @@ make test-unit-backend TEST_ARGS="tests/unit/test_orphaned.py -v"
 
 BigBug триггерит pipeline через python-gitlab; перенос выполняет раннер целевого GitLab.
 
-- Good, because нулевые требования к backend-контейнеру (нет git, нет диска под клоны, нет LFS)
-- Good, because раннеры целевого GitLab гарантированно имеют сетевой доступ к target — не надо открывать доступ backend'у к GitLab-хранилищу
-- Good, because логи переноса видны нативно в GitLab UI; BigBug получает статус через webhook
-- Bad, because механика определяет `.gitlab-ci.yml` целевого проекта — вне контроля BigBug, шаблоны не версируются в репозитории
-- Bad, because нужен заполненный `target_project_id` и настроенный pipeline на группе (см. Consequences)
+* Good, because нулевые требования к backend-контейнеру (нет git, нет диска под клоны, нет LFS)
+* Good, because раннеры целевого GitLab гарантированно имеют сетевой доступ к target — не надо открывать доступ backend'у к GitLab-хранилищу
+* Good, because логи переноса видны нативно в GitLab UI; BigBug получает статус через webhook
+* Bad, because механика определяет `.gitlab-ci.yml` целевого проекта — вне контроля BigBug, шаблоны не версируются в репозитории
+* Bad, because нужен заполненный `target_project_id` и настроенный pipeline на группе (см. Consequences)
 
 ### Git-операции в backend (`git clone --mirror` + push)
 
 Backend выполняет git через subprocess, хранит временные клоны.
 
-- Good, because полный контроль механики и шаблоном в репозитории BigBug
-- Good, because не нужен CI/CD pipeline на группе
-- Bad, because git-бинарник + дисковая квота + LFS-трафик в backend-контейнере; очистка temp-клонов — новая категория проблем
-- Bad, because backend'у нужен прямой сетевой доступ к git-endpoint целевого GitLab
+* Good, because полный контроль механики и шаблоном в репозитории BigBug
+* Good, because не нужен CI/CD pipeline на группе
+* Bad, because git-бинарник + дисковая квота + LFS-трафик в backend-контейнере; очистка temp-клонов — новая категория проблем
+* Bad, because backend'у нужен прямой сетевой доступ к git-endpoint целевого GitLab
 
 ### GitLab push mirror API (remote mirrors)
 
 Настройка push-зеркала средствами самого GitLab через API.
 
-- Good, because нулевая нагрузка на BigBug после настройки
-- Bad, because источник не всегда доступен целевому GitLab (GitHub private-репо требуют секретов на стороне GitLab); Granular контроль расписания/статусов в BigBug теряется
-- Bad, because не покрывает freshness/integrity/отчёты — их всё равно пришлось бы строить поверх API; rejected на этапе V2-спеки
+* Good, because нулевая нагрузка на BigBug после настройки
+* Bad, because источник не всегда доступен целевому GitLab (GitHub private-репо требуют секретов на стороне GitLab); Granular контроль расписания/статусов в BigBug теряется
+* Bad, because не покрывает freshness/integrity/отчёты — их всё равно пришлось бы строить поверх API; rejected на этапе V2-спеки
 
 ### Pull-based cron (SyncScheduler) vs GitHub webhooks — chosen: cron
 
-- Good, because не требует публичной доступности backend и секретов webhook'ов; GitHub не должен достукиваться до BigBug
-- Good, because cron настраивается per-group вместе с конкурентностью — прямой контроль rate limits
-- Bad, because задержка обнаружения изменений источника = период cron (для актуального зеркала приемлемо)
+* Good, because не требует публичной доступности backend и секретов webhook'ов; GitHub не должен достукиваться до BigBug
+* Good, because cron настраивается per-group вместе с конкурентностью — прямой контроль rate limits
+* Bad, because задержка обнаружения изменений источника = период cron (для актуального зеркала приемлемо)
 
 ### Soft delete + retention — chosen vs hard delete
 
-- Good, because отказ «удалил не то» обратим 30 дней; cleanup каскадирует в правильном порядке и не трогает GitLab
-- Bad, because нужен cleanup-джоба и учёт `is_deleted` в каждом запросе списков (принято)
+* Good, because отказ «удалил не то» обратим 30 дней; cleanup каскадирует в правильном порядке и не трогает GitLab
+* Bad, because нужен cleanup-джоба и учёт `is_deleted` в каждом запросе списков (принято)
 
 ## More Information
 
 - Реализация: API `backend/app/api/mirroring.py` (`/api/mirroring`), сервисы `backend/app/services/{mirror,sync_group,sync_scheduler,orphaned,cleanup,reports,source_repository}.py`, модели `backend/app/models/{mirror,mirror_log,mirror_release_log,sync_group,source_group,source_repository}.py`; webhook `backend/app/api/webhooks.py` (`POST /api/webhooks/gitlab`)
 - Frontend: страницы `frontend/src/pages/GitMirroring/` (Dashboard, Mirrors, Sources, SyncGroups, Orphaned, Reports), RTK Query `frontend/src/store/api/git-mirroring/`
 - Замечания по расхождениям спеки и кода, учтённые здесь: retention — 30 дней (не 7); sync-механизм — CI/CD pipeline (спека US-7 предполагала API-сравнение как freshness — реализовано отдельно); integrity «deep comparison» из US-15 реализован как direct HEAD-сравнение
-- Аналитика домена (2026-10-26, issue #159): stories/use-cases/edge-cases в `docs/analitics/{stories,use-cases,edge-cases}/git-mirroring.md` — нормативный слой требований; трассировка в §Context. Известные разрывы реализации (target_project_id-контракт H1, orphaned remediation C4, webhook-финализация H4, permission-гапы C3, пресет/переменные sync) зафиксированы как строки каталога EC-gitmrr и ведутся в гриллах #139/#140/#142
+- Аналитика домена (2026-10-26, issue #159): stories/use-cases/edge-cases в `docs/analitics/{stories,use-cases,edge-cases}/git-mirroring.md` — нормативный слой требований. Известные разрывы реализации (target_project_id-контракт H1, orphaned remediation C4, webhook-финализация H4, permission-гапы C3, пресет/переменные sync) зафиксированы как строки каталога EC-gitmrr и ведутся в гриллах #139/#140/#142
 - Единые status flags (0 OK / 1 Failed / 2 Warning / 3 In Progress / 4 Pending) — `status_flag`/`status_text` на зеркалах и логах
 - Родственные ADR: [ADR-0005](0005-service-layer-no-repository.md) (сервисный слой), [ADR-0007](../common/0007-providers-v3-registry.md) (Providers V3 — реестр `resource_providers`, на котором строятся привязки source/target), [ADR-0006](0006-database-postgresql-alembic.md) (database layer)
 - Заменил feature-спеку `plans/features/git-mirroring-v2.md` (удалена); переоценивать решение при: потребности в push-модели (real-time зеркалирование), появлении второго source-хостинга вне provider-реестра, необходимости автоматического relink orphaned
