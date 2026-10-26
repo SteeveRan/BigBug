@@ -24,6 +24,7 @@ readonly HOSTS=(
   "app.local"
   "api.local"
   "gitlab.local"
+  "penpot.local"
 )
 
 GREEN='\033[0;32m'
