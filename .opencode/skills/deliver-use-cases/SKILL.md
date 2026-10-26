@@ -66,9 +66,14 @@ alternatives, guarantees). A story may be covered by zero or several use cases.
   `docs/analitics/use-cases/<module>/UC-<module>-NNN-<slug>.md` (one file per use case)
   and keep `docs/analitics/use-cases/<module>.md` as an index (ID, name, one-line goal,
   trace). Committed to the repo, versioned with the code.
+- **Direction of truth**: a use case is NORMATIVE - required interaction, not
+  a description of current behavior. Write steps deontically ("system
+  validates...", "system must report..."). A PR whose flow contradicts a use
+  case is INCORRECT and is returned.
 - **Update procedure**:
-  1. Same-PR rule: a PR that changes module behavior updates the affected use
-     case in the same PR.
+  1. A use case changes ONLY when requirements change (explicit, reviewed
+     decision). Implementation may add extensions for newly discovered failure
+     modes additively, with explicit reviewer acceptance in the same PR.
   2. IDs are stable: never renumber `UC-<module>-NNN` once stories, tickets, or
      tests reference them; retire with `status: retired` in the header.
   3. Extensions mirror edge-case rows: when a flow failure mode changes,

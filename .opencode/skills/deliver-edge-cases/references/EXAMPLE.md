@@ -17,23 +17,23 @@ version: "1.1"
 
 ## Create mirror
 
-| # | Condition | Expected behavior | User-visible recovery | Severity | Closing test |
+| # | Condition | Required behavior (system MUST...) | Required recovery (system MUST offer) | Severity | Closing test |
 |---|-----------|-------------------|-----------------------|----------|--------------|
-| 1 | Target GitLab project does not exist yet | Mirror record stored with `status: draft`; sync explicitly reports that the target project must be created first | Message explains the two-step flow with a link to the GitLab Projects page | P1 | `gap -> ADR-0041` |
-| 2 | Source and target identical | Rejected with validation error | Inline field error, nothing stored | P2 | test_mirroring.py::test_create_mirror_self_loop |
+| 1 | Target GitLab project does not exist yet | System MUST store the mirror with `status: draft`; sync MUST report that the target project must be created first | System MUST show a message explaining the two-step flow, with a link to the GitLab Projects page | P1 | `gap -> ADR-0041` |
+| 2 | Source and target identical | System MUST reject with a validation error | System MUST show an inline field error and MUST NOT store anything | P2 | test_mirroring.py::test_create_mirror_self_loop |
 
 ### Input validation
 
-| # | Condition | Expected behavior | Severity | Closing test |
+| # | Condition | Required behavior (system MUST...) | Severity | Closing test |
 |---|-----------|-------------------|----------|--------------|
-| 1 | Source URL not reachable by the provider | Mirror stored; first freshness check reports unreachable | P1 | gap -> #142 |
+| 1 | Source URL not reachable by the provider | System MUST store the mirror; the first freshness check MUST report it unreachable | P1 | gap -> #142 |
 
 ## Sync mirror
 
-| # | Condition | Expected behavior | User-visible recovery | Severity | Closing test |
+| # | Condition | Required behavior (system MUST...) | Required recovery (system MUST offer) | Severity | Closing test |
 |---|-----------|-------------------|-----------------------|----------|--------------|
-| 1 | GitLab pipeline trigger fails | Mirror stays in previous status; sync run recorded as failed with provider error | Error toast with the provider reason + Retry button | P1 | test_mirroring.py::test_sync_trigger_failure |
-| 2 | Pipeline hangs (no webhook finalization) | Mirror remains `in progress` beyond SLA | Sync-runs admin page offers Requeue | P1 | gap -> ADR-0042 |
+| 1 | GitLab pipeline trigger fails | System MUST keep the mirror in its previous status; the sync run MUST be recorded as failed with the provider error | System MUST show an error toast with the provider reason and a Retry button | P1 | test_mirroring.py::test_sync_trigger_failure |
+| 2 | Pipeline hangs (no webhook finalization) | System MUST keep the mirror `in progress` beyond SLA until requeued | Sync-runs admin page MUST offer a Requeue action | P1 | gap -> ADR-0042 |
 
 ## Error message copy
 

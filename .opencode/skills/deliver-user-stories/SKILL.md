@@ -69,10 +69,16 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
   stable IDs (`US-<module>-NNN`). Committed to the repo and versioned with the
   code. The issue tracker only ever receives TICKETS derived from stories
   (`/to-tickets`); the story text itself never lives in an issue.
-- **Update procedure**: same-PR rule - a PR that changes module behavior in a
-  way that invalidates a story updates that story in the same PR. Renaming or
-  renumbering story IDs is forbidden once tickets reference them; retire a
-  story with a `status: retired` header line instead of deleting it.
+- **Direction of truth**: a story is NORMATIVE - the user's request, the
+  requirement the code must satisfy. A PR that contradicts a story is an
+  INCORRECT PR and is returned; the story never bends to match written code.
+- **Update procedure**: a story changes ONLY when the user's request changes
+  (explicit, reviewed decision - not as a side effect of a code PR).
+  Implementation may add clarifying detail or new acceptance criteria for a
+  requirements gap additively, with explicit reviewer acceptance in the same
+  PR. Renaming or renumbering story IDs is forbidden once tickets reference
+  them; retire a story with a `status: retired` header line instead of
+  deleting it.
   Durable behavioral obligations that outlive the feature (module-level
   contracts, edge cases, recovery paths) do NOT live in the story - they go to
   `docs/analitics/edge-cases/<module>.md` (see the `deliver-edge-cases` skill).

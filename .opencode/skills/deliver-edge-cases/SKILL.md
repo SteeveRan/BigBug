@@ -72,14 +72,24 @@ Use the template in `references/TEMPLATE.md` to structure the output. A complete
   sync ...). Create the file lazily on first use; do not pre-create empty files.
   Edge cases are ANALYTICS: they are produced by the analytics process
   (`/edge-cases`), independently of ADRs.
+- **Direction of truth**: the catalog is NORMATIVE - it is the user's
+  requirement on how the system must fail and recover, not a description of
+  what the code currently does. Write every row deontically ("system must
+  show X and offer Retry"), never descriptively ("system shows"). The code
+  must comply with the catalog; a PR that contradicts a catalog row is an
+  INCORRECT PR and is returned.
 - **Update procedure**:
-  1. Adding or changing module behavior updates the same catalog row in the
-     SAME PR as the code change - the charter and the code may not diverge.
-  2. Every row whose expected behavior is implemented must name the test that
+  1. The catalog changes ONLY when requirements change: a new or revised
+     user request (explicit, reviewed decision). Code can never be the reason
+     to rewrite a row.
+  2. Implementation may ADD rows for failure modes discovered while building
+     (a requirements gap, not a code decision) - additively, marked as a gap,
+     and requiring explicit reviewer acceptance in the same PR.
+  3. Every row whose required behavior is implemented must name the test that
      pins it (integration test per ADR-0016/0017). A row without a test is
      marked "gap -> <ADR or issue>"; gaps are first-class state, not a shame.
-  3. When a row changes meaning (not just content), that is a decision: surface
-     it to an ADR (`/adr`) per the three-criteria rule of `domain-modeling`.
+   4. When a row changes meaning (not just content), that is a requirements
+      change: surface it to an ADR (`/adr`) per the three-criteria rule of `domain-modeling`.
 
 ## Quality Checklist
 

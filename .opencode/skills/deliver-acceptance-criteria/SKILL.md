@@ -73,9 +73,9 @@ Use `references/TEMPLATE.md` as the output format. A complete response should:
   2. A real test - backend pytest (`backend/tests/integration/`) or frontend
      Vitest (`frontend/src/tests/integrations/`), committed with the change.
      The test name should make the GWT scenario recognizable.
-- **Update procedure**: criteria and their tests change in the SAME PR - if a
-  review changes a criterion, the mirrored test changes with it, never in a
-  follow-up. Feature-wide failure scenarios that are NOT story-scoped do not
+- **Update procedure**: criteria are NORMATIVE requirements; they change only
+  when requirements change. When a review changes a criterion, the mirrored
+  test changes in the same PR - never in a follow-up, never silently. Feature-wide failure scenarios that are NOT story-scoped do not
   belong here; route them to `docs/analitics/edge-cases/<module>.md` via `deliver-edge-cases`.
 
 ## Quality Checklist

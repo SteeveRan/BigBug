@@ -576,7 +576,10 @@ Analytics (requirements) and architecture (decisions) are SEPARATE processes - d
 
 Rules:
 
+- **Analytics is NORMATIVE — it is the user's request, not documentation.** It specifies what the system MUST do (requirements for the code), never what the code currently does. Write analytics deontically ("system must show X"), verify with tests. Analytics changes ONLY when the user's request changes — never as a side effect of a code change.
 - Analytics describes WHAT the system must do for users; it never justifies itself with ADRs. Architecture describes WHY a technical choice was made; it MUST trace to analytics - the ADR's `## Context and Problem Statement` references the motivating `US-`/`UC-`/edge-case artifacts (see `docs/adr/README.md`).
-- Behavior-changing PRs update the affected analytics artifacts in the same PR. Architecture-relevant changes (hard to reverse + surprising + real trade-off) additionally require an ADR.
+- A PR must comply with analytics (and ADRs). A PR that contradicts a story, use case, or catalog row is INCORRECT and is returned - analytics does not bend to match written code.
+- Implementation may ADD analytics artifacts/rows for requirements gaps discovered while building (additively, explicit reviewer acceptance in the same PR). Changing existing requirements always requires an explicit, reviewed decision.
+- Architecture-relevant changes (hard to reverse + surprising + real trade-off) additionally require an ADR.
 - Analytics artifacts are living repo documents with stable IDs - never store them in issues, never renumber IDs; retire in place with `status: retired`.
 
