@@ -64,6 +64,7 @@ services:
       - gitlab_data:/var/opt/gitlab
     networks:
       - bigbug-network
+    restart: unless-stopped
     mem_limit: 4g
     memswap_limit: 4g
     shm_size: "256m"
@@ -77,6 +78,7 @@ services:
   gitlab-runner:
     image: gitlab/gitlab-runner:latest
     container_name: bigbug-gitlab-runner
+    restart: unless-stopped
     volumes:
       - gitlab_runner_config:/etc/gitlab-runner
       - /var/run/docker.sock:/var/run/docker.sock
