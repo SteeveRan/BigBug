@@ -243,6 +243,10 @@ lint-infra: lint-terraform lint-helm ## Линтинг инфраструкту�
 .PHONY: lint
 lint: lint-backend lint-frontend lint-infra ## Линтинг обоих стеков + инфраструктуры
 
+.PHONY: check-adr-order
+check-adr-order: ## ADR-order gate: новый ADR — вне PR с реализацией, status: proposed
+	./scripts/check-adr-order.sh origin/main HEAD
+
 .PHONY: format-backend
 format-backend: ## Форматирование backend (ruff format + fix)
 	./backend/scripts/format.sh
